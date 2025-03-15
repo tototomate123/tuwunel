@@ -1,0 +1,69 @@
+# syntax = docker/dockerfile:1.11-labs
+
+FROM input AS smoketest-version
+
+RUN <<EOF
+    set -eux
+    tuwunel -V
+    version=$(tuwunel -V)
+    /bin/test -n "$version"
+EOF
+
+
+FROM input AS smoketest-startup
+
+ENV TUWUNEL_LOG="info"
+ENV TUWUNEL_DATABASE_PATH="/tmp/smoketest.db"
+RUN <<EOF
+    set -eux
+    tuwunel \
+        -Otest='["smoke"]' \
+        -Oserver_name=\"localhost\" \
+        -Odatabase_path=\"${TUWUNEL_DATABASE_PATH}\"
+
+    rm -rf "${TUWUNEL_DATABASE_PATH}"
+EOF
+
+
+FROM input AS smoketest-valgrind
+
+WORKDIR /
+COPY --link --from=valgrind . .
+
+ENV TUWUNEL_LOG="info"
+ENV TUWUNEL_DATABASE_PATH="/tmp/smoketest.db"
+RUN <<EOF
+    set -eux
+    valgrind \
+        --leak-check=no \
+        --undef-value-errors=no \
+        --exit-on-first-error=yes \
+        --error-exitcode=1 \
+        tuwunel \
+            -Otest='["smoke"]' \
+            -Oserver_name=\"localhost\" \
+            -Odatabase_path=\"${TUWUNEL_DATABASE_PATH}\"
+
+    rm -rf "${TUWUNEL_DATABASE_PATH}"
+EOF
+
+
+FROM input AS smoketest-perf
+
+WORKDIR /
+COPY --link --from=perf . .
+
+ENV TUWUNEL_LOG="error"
+ENV TUWUNEL_DATABASE_PATH="/tmp/smoketest.db"
+RUN <<EOF
+    set -eux
+    perf stat \
+        -j \
+        -ddd \
+        tuwunel \
+            -Otest='["smoke"]' \
+            -Oserver_name=\"localhost\" \
+            -Odatabase_path=\"${TUWUNEL_DATABASE_PATH}\"
+
+    rm -rf "${TUWUNEL_DATABASE_PATH}"
+EOF
