@@ -90,7 +90,10 @@ pub(crate) async fn get_displayname_route(
 			.await
 		{
 			if !services.users.exists(&body.user_id).await {
-				services.users.create(&body.user_id, None, None).await?;
+				services
+					.users
+					.create(&body.user_id, None, None)
+					.await?;
 			}
 
 			services
@@ -193,7 +196,10 @@ pub(crate) async fn get_avatar_url_route(
 			.await
 		{
 			if !services.users.exists(&body.user_id).await {
-				services.users.create(&body.user_id, None, None).await?;
+				services
+					.users
+					.create(&body.user_id, None, None)
+					.await?;
 			}
 
 			services
@@ -255,7 +261,10 @@ pub(crate) async fn get_profile_route(
 			.await
 		{
 			if !services.users.exists(&body.user_id).await {
-				services.users.create(&body.user_id, None, None).await?;
+				services
+					.users
+					.create(&body.user_id, None, None)
+					.await?;
 			}
 
 			services

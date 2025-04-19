@@ -549,6 +549,11 @@ features = ["serde"]
 version = "2.0.1"
 default-features = false
 
+[workspace.dependencies.ldap3]
+version = "0.11"
+default-features = false
+features = ["sync", "tls-rustls"]
+
 #
 # Patches
 #

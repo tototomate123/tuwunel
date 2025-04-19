@@ -2,9 +2,9 @@ use std::time::Duration;
 
 use axum::extract::State;
 use axum_client_ip::InsecureClientIp;
-use futures::StreamExt;
+use futures::{StreamExt, TryFutureExt};
 use ruma::{
-	UserId,
+	OwnedUserId, UserId,
 	api::client::{
 		session::{
 			get_login_token,
@@ -22,10 +22,10 @@ use ruma::{
 	},
 };
 use tuwunel_core::{
-	Err, Error, Result, debug, err, info, utils,
-	utils::{ReadyExt, hash},
+	Err, Error, Result, debug, debug_error, err, info, utils,
+	utils::{hash, stream::ReadyExt},
 };
-use tuwunel_service::uiaa::SESSION_ID_LENGTH;
+use tuwunel_service::{Services, uiaa::SESSION_ID_LENGTH};
 
 use super::{DEVICE_ID_LENGTH, TOKEN_LENGTH};
 use crate::Ruma;
@@ -47,6 +47,82 @@ pub(crate) async fn get_login_types_route(
 			get_login_token: services.server.config.login_via_existing_session,
 		}),
 	]))
+}
+
+/// Authenticates the given user by its ID and its password.
+///
+/// Returns the user ID if successful, and an error otherwise.
+async fn password_login(
+	services: &Services,
+	user_id: &UserId,
+	lowercased_user_id: &UserId,
+	password: &str,
+) -> Result<OwnedUserId> {
+	let (hash, user_id) = services
+		.users
+		.password_hash(user_id)
+		.map_ok(|hash| (hash, user_id))
+		.or_else(|_| {
+			services
+				.users
+				.password_hash(lowercased_user_id)
+				.map_ok(|hash| (hash, lowercased_user_id))
+		})
+		.await?;
+
+	if hash.is_empty() {
+		return Err!(Request(UserDeactivated("The user has been deactivated")));
+	}
+
+	hash::verify_password(password, &hash)
+		.inspect_err(|e| debug_error!("{e}"))
+		.map_err(|_| err!(Request(Forbidden("Wrong username or password."))))?;
+
+	Ok(user_id.to_owned())
+}
+
+/// Authenticates the given user through the configured LDAP server.
+///
+/// Creates the user if the user is found in the LDAP and do not already have an
+/// account.
+async fn ldap_login(
+	services: &Services,
+	user_id: &UserId,
+	lowercased_user_id: &UserId,
+	password: &str,
+) -> Result<OwnedUserId> {
+	debug!("Searching user in LDAP");
+
+	let dns = services.users.search_ldap(user_id).await?;
+
+	if dns.len() >= 2 {
+		return Err!(Ldap("LDAP search returned two or more results"));
+	}
+
+	let Some(user_dn) = dns.first() else {
+		return password_login(services, user_id, lowercased_user_id, password).await;
+	};
+
+	// LDAP users are automatically created on first login attempt. This is a very
+	// common feature that can be seen on many services using a LDAP provider for
+	// their users (synapse, Nextcloud, Jellyfin, ...).
+	//
+	// LDAP users are crated with a dummy password but non empty because an empty
+	// password is reserved for deactivated accounts. The tuwunel password field
+	// will never be read to login a LDAP user so it's not an issue.
+	if !services.users.exists(lowercased_user_id).await {
+		debug!("Creating user {lowercased_user_id} from LDAP");
+		services
+			.users
+			.create(lowercased_user_id, Some("*"), Some("ldap"))
+			.await?;
+	}
+
+	services
+		.users
+		.auth_ldap(user_dn, password)
+		.await
+		.map(|()| lowercased_user_id.to_owned())
 }
 
 /// # `POST /_matrix/client/v3/login`
@@ -107,43 +183,10 @@ pub(crate) async fn login_route(
 				return Err!(Request(Unknown("User ID does not belong to this homeserver")));
 			}
 
-			// first try the username as-is
-			let hash = services
-				.users
-				.password_hash(&user_id)
-				.await
-				.inspect_err(|e| debug!("{e}"));
-
-			match hash {
-				| Ok(hash) => {
-					if hash.is_empty() {
-						return Err!(Request(UserDeactivated("The user has been deactivated")));
-					}
-
-					hash::verify_password(password, &hash)
-						.inspect_err(|e| debug!("{e}"))
-						.map_err(|_| err!(Request(Forbidden("Wrong username or password."))))?;
-
-					user_id
-				},
-				| Err(_e) => {
-					let hash_lowercased_user_id = services
-						.users
-						.password_hash(&lowercased_user_id)
-						.await
-						.inspect_err(|e| debug!("{e}"))
-						.map_err(|_| err!(Request(Forbidden("Wrong username or password."))))?;
-
-					if hash_lowercased_user_id.is_empty() {
-						return Err!(Request(UserDeactivated("The user has been deactivated")));
-					}
-
-					hash::verify_password(password, &hash_lowercased_user_id)
-						.inspect_err(|e| debug!("{e}"))
-						.map_err(|_| err!(Request(Forbidden("Wrong username or password."))))?;
-
-					lowercased_user_id
-				},
+			if services.config.ldap.enable {
+				ldap_login(&services, &user_id, &lowercased_user_id, password).await?
+			} else {
+				password_login(&services, &user_id, &lowercased_user_id, password).await?
 			}
 		},
 		| login::v3::LoginInfo::Token(login::v3::Token { token }) => {

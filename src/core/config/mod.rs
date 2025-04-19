@@ -52,7 +52,7 @@ use crate::{Result, err, error::Error, utils::sys};
 ### For more information, see:
 ### https://tuwunel.chat/configuration.html
 "#,
-	ignore = "catchall well_known tls blurhashing allow_invalid_tls_certificates"
+	ignore = "catchall well_known tls blurhashing allow_invalid_tls_certificates ldap"
 )]
 pub struct Config {
 	/// The server_name is the pretty name of this server. It is used as a
@@ -1804,6 +1804,17 @@ pub struct Config {
 	// external structure; separate section
 	#[serde(default)]
 	pub blurhashing: BlurhashConfig,
+
+	#[cfg(not(doctest))]
+	/// Examples:
+	///
+	/// - No LDAP login (default):
+	///
+	///       ldap = "none"
+	///
+	/// default: "none"
+	pub ldap: LdapConfig,
+
 	#[serde(flatten)]
 	#[allow(clippy::zero_sized_map_values)]
 	// this is a catchall, the map shouldn't be zero at runtime
@@ -1883,6 +1894,75 @@ pub struct BlurhashConfig {
 	/// default: 33554432
 	#[serde(default = "default_blurhash_max_raw_size")]
 	pub blurhash_max_raw_size: u64,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[config_example_generator(filename = "tuwunel-example.toml", section = "global.ldap")]
+pub struct LdapConfig {
+	/// Whether to enable LDAP login.
+	///
+	/// example: "true"
+	#[serde(default)]
+	pub enable: bool,
+
+	/// URI of the LDAP server.
+	///
+	/// example: "ldap://ldap.example.com:389"
+	#[serde(deserialize_with = "crate::utils::deserialize_from_str")]
+	pub uri: Url,
+
+	/// Whether to use StartTLS to bind to the LDAP server.
+	///
+	/// example: true
+	#[serde(default)]
+	pub start_tls: bool,
+
+	/// Root of the searches.
+	///
+	/// example: "ou=users,dc=example,dc=org"
+	#[serde(default)]
+	pub base_dn: String,
+
+	/// Bind DN if anonymous search is not enabled.
+	///
+	/// example: "cn=ldap-reader,dc=example,dc=org"
+	#[serde(default)]
+	pub bind_dn: Option<String>,
+
+	/// Path to a file on the system that contains the password for the
+	/// `bind_dn`.
+	///
+	/// The server must be able to access the file, and it must not be empty.
+	#[serde(default)]
+	pub bind_password_file: Option<PathBuf>,
+
+	/// Search filter to limit user searches.
+	///
+	/// example: "(&(objectClass=person)(memberOf=matrix))"
+	///
+	/// default: "(objectClass=*)"
+	#[serde(default = "default_ldap_search_filter")]
+	pub filter: String,
+
+	/// Attribute to use to uniquely identify the user.
+	///
+	/// example: "uid" or "cn"
+	///
+	/// default: "uid"
+	#[serde(default = "default_ldap_uid_attribute")]
+	pub uid_attribute: String,
+
+	/// Attribute containing the mail of the user.
+	///
+	/// example: "mail"
+	#[serde(default = "default_ldap_mail_attribute")]
+	pub mail_attribute: String,
+
+	/// Attribute containing the distinguished name of the user.
+	///
+	/// example: "givenName" or "sn"
+	#[serde(default = "default_ldap_name_attribute")]
+	pub name_attribute: String,
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -2267,10 +2347,16 @@ fn default_sender_shutdown_timeout() -> u64 { 5 }
 
 // blurhashing defaults recommended by https://blurha.sh/
 // 2^25
-pub(super) fn default_blurhash_max_raw_size() -> u64 { 33_554_432 }
+fn default_blurhash_max_raw_size() -> u64 { 33_554_432 }
 
-pub(super) fn default_blurhash_x_component() -> u32 { 4 }
+fn default_blurhash_x_component() -> u32 { 4 }
 
-pub(super) fn default_blurhash_y_component() -> u32 { 3 }
+fn default_blurhash_y_component() -> u32 { 3 }
 
-// end recommended & blurhashing defaults
+fn default_ldap_search_filter() -> String { "(objectClass=*)".to_owned() }
+
+fn default_ldap_uid_attribute() -> String { String::from("uid") }
+
+fn default_ldap_mail_attribute() -> String { String::from("mail") }
+
+fn default_ldap_name_attribute() -> String { String::from("name") }

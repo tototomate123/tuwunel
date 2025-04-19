@@ -87,6 +87,7 @@ image.workspace = true
 image.optional = true
 ipaddress.workspace = true
 itertools.workspace = true
+ldap3.workspace = true
 log.workspace = true
 loole.workspace = true
 lru-cache.workspace = true
