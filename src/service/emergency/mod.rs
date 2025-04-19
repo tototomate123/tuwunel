@@ -61,7 +61,8 @@ impl Service {
 
 		self.services
 			.users
-			.set_password(server_user, self.services.config.emergency_password.as_deref())?;
+			.set_password(server_user, self.services.config.emergency_password.as_deref())
+			.await?;
 
 		let (ruleset, pwd_set) = match self.services.config.emergency_password {
 			| Some(_) => (Ruleset::server_default(server_user), true),

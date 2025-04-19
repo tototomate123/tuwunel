@@ -52,6 +52,7 @@ struct Data {
 	userid_lastonetimekeyupdate: Arc<Map>,
 	userid_masterkeyid: Arc<Map>,
 	userid_password: Arc<Map>,
+	userid_origin: Arc<Map>,
 	userid_selfsigningkeyid: Arc<Map>,
 	userid_usersigningkeyid: Arc<Map>,
 	useridprofilekey_value: Arc<Map>,
@@ -87,6 +88,7 @@ impl crate::Service for Service {
 				userid_lastonetimekeyupdate: args.db["userid_lastonetimekeyupdate"].clone(),
 				userid_masterkeyid: args.db["userid_masterkeyid"].clone(),
 				userid_password: args.db["userid_password"].clone(),
+				userid_origin: args.db["userid_origin"].clone(),
 				userid_selfsigningkeyid: args.db["userid_selfsigningkeyid"].clone(),
 				userid_usersigningkeyid: args.db["userid_usersigningkeyid"].clone(),
 				useridprofilekey_value: args.db["useridprofilekey_value"].clone(),
@@ -122,8 +124,17 @@ impl Service {
 
 	/// Create a new user account on this homeserver.
 	#[inline]
-	pub fn create(&self, user_id: &UserId, password: Option<&str>) -> Result<()> {
-		self.set_password(user_id, password)
+	pub async fn create(
+		&self,
+		user_id: &UserId,
+		password: Option<&str>,
+		origin: Option<&str>,
+	) -> Result<()> {
+		origin.map_or_else(
+			|| self.db.userid_origin.insert(user_id, "password"),
+			|origin| self.db.userid_origin.insert(user_id, origin),
+		);
+		self.set_password(user_id, password).await
 	}
 
 	/// Deactivate account
@@ -137,7 +148,7 @@ impl Service {
 		// result in an empty string, so the user will not be able to log in again.
 		// Systems like changing the password without logging in should check if the
 		// account is deactivated.
-		self.set_password(user_id, None)?;
+		self.set_password(user_id, None).await?;
 
 		// TODO: Unhook 3PID
 		Ok(())
@@ -209,6 +220,11 @@ impl Service {
 			.ready_filter_map(|(u, p): (&UserId, &[u8])| (!p.is_empty()).then_some(u))
 	}
 
+	/// Returns the origin of the user (password/LDAP/...).
+	pub async fn origin(&self, user_id: &UserId) -> Result<String> {
+		self.db.userid_origin.get(user_id).await.deserialized()
+	}
+
 	/// Returns the password hash for the given user.
 	pub async fn password_hash(&self, user_id: &UserId) -> Result<String> {
 		self.db
@@ -219,19 +235,30 @@ impl Service {
 	}
 
 	/// Hash and set the user's password to the Argon2 hash
-	pub fn set_password(&self, user_id: &UserId, password: Option<&str>) -> Result<()> {
-		password
-			.map(utils::hash::password)
-			.transpose()
-			.map_err(|e| {
-				err!(Request(InvalidParam("Password does not meet the requirements: {e}")))
-			})?
-			.map_or_else(
-				|| self.db.userid_password.insert(user_id, b""),
-				|hash| self.db.userid_password.insert(user_id, hash),
-			);
+	pub async fn set_password(&self, user_id: &UserId, password: Option<&str>) -> Result<()> {
+		if self
+			.db
+			.userid_origin
+			.get(user_id)
+			.await
+			.deserialized::<String>()?
+			== "ldap"
+		{
+			Err!(Request(InvalidParam("Cannot change password of a LDAP user")))
+		} else {
+			password
+				.map(utils::hash::password)
+				.transpose()
+				.map_err(|e| {
+					err!(Request(InvalidParam("Password does not meet the requirements: {e}")))
+				})?
+				.map_or_else(
+					|| self.db.userid_password.insert(user_id, b""),
+					|hash| self.db.userid_password.insert(user_id, hash),
+				);
 
-		Ok(())
+			Ok(())
+		}
 	}
 
 	/// Returns the displayname of a user on this homeserver.
