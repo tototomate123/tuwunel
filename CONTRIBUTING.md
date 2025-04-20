@@ -4,7 +4,7 @@ This page is for about contributing to conduwuit. The
 [development](./development.md) page may be of interest for you as well.
 
 If you would like to work on an [issue][issues] that is not assigned, preferably
-ask in the Matrix room first at [#conduwuit:puppygock.gay][conduwuit-matrix],
+ask in the Matrix room first at [#tuwunel:tuwunel.chat][tuwunel-chat],
 and comment on it.
 
 ### Linting and Formatting
@@ -122,7 +122,7 @@ If you open a pull request on one of the mirrors, it is your responsibility to
 inform me about its existence. In the future I may try to solve this with more
 repo bots in the conduwuit Matrix room. There is no mailing list or email-patch
 support on the sr.ht mirror, but if you'd like to email me a git patch you can
-do so at `strawberry@puppygock.gay`.
+do so at `maintainer@tuwunel.chat`.
 
 Direct all PRs/MRs to the `main` branch.
 
@@ -134,10 +134,10 @@ Contribution by users who violate either of these code of conducts will not have
 their contributions accepted. This includes users who have been banned from
 conduwuit Matrix rooms for Code of Conduct violations.
 
-[issues]: https://github.com/girlbossceo/conduwuit/issues
-[conduwuit-matrix]: https://matrix.to/#/#conduwuit:puppygock.gay
+[issues]: https://github.com/matrix-construct/tuwunel/issues
+[conduwuit-matrix]: https://matrix.to/#/#tuwunel:tuwunel.chat
 [complement]: https://github.com/matrix-org/complement/
-[engage.toml]: https://github.com/girlbossceo/conduwuit/blob/main/engage.toml
+[engage.toml]: https://github.com/matrix-construct/tuwunel/blob/main/engage.toml
 [engage]: https://charles.page.computer.surgery/engage/
 [sytest]: https://github.com/matrix-org/sytest/
 [cargo-deb]: https://github.com/kornelski/cargo-deb
@@ -146,4 +146,4 @@ conduwuit Matrix rooms for Code of Conduct violations.
 [cargo-audit]: https://github.com/RustSec/rustsec/tree/main/cargo-audit
 [direnv]: https://direnv.net/
 [mdbook]: https://rust-lang.github.io/mdBook/
-[documentation.yml]: https://github.com/girlbossceo/conduwuit/blob/main/.github/workflows/documentation.yml
+[documentation.yml]: https://github.com/matrix-construct/tuwunel/blob/main/.github/workflows/documentation.yml

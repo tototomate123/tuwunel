@@ -1,27 +1,30 @@
 [book]
-title = "conduwuit 🏳️‍⚧️ 💜 🦴"
-description = "conduwuit, which is a well-maintained fork of Conduit, is a simple, fast and reliable chat server for the Matrix protocol"
+authors = [
+	"girlbossceo",
+	"jevolk"
+]
+description = "Tuwunel, a high performance successor to Conduit and Conduwuit"
 language = "en"
-authors = ["strawberry (June)"]
-text-direction = "ltr"
 multilingual = false
 src = "docs"
+title = "Tuwunel"
+text-direction = "ltr"
 
 [build]
 build-dir = "public"
 create-missing = true
-extra-watch-dirs = ["debian", "docs"]
+extra-watch-dirs = [
+	"debian",
+	"docs",
+]
 
 [rust]
 edition = "2024"
 
 [output.html]
-git-repository-url = "https://github.com/girlbossceo/conduwuit"
-edit-url-template = "https://github.com/girlbossceo/conduwuit/edit/main/{path}"
+git-repository-url = "https://github.com/matrix-construct/tuwunel"
+edit-url-template = "https://github.com/matrix-construct/tuwunel/edit/main/{path}"
 git-repository-icon = "fa-github-square"
-
-[output.html.redirect]
-"/differences.html" = "https://conduwuit.puppyirl.gay/#where-is-the-differences-page"
 
 [output.html.search]
 limit-results = 15
