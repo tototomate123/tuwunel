@@ -2,22 +2,6 @@ use std::{collections::BTreeMap, net::IpAddr, time::Instant};
 
 use axum::extract::State;
 use axum_client_ip::InsecureClientIp;
-use conduwuit::{
-	Err, Error, Result, debug,
-	debug::INFO_SPAN_LEVEL,
-	debug_warn, err, error,
-	result::LogErr,
-	trace,
-	utils::{
-		IterStream, ReadyExt, millis_since_unix_epoch,
-		stream::{BroadbandExt, TryBroadbandExt, automatic_width},
-	},
-	warn,
-};
-use conduwuit_service::{
-	Services,
-	sending::{EDU_LIMIT, PDU_LIMIT},
-};
 use futures::{FutureExt, Stream, StreamExt, TryFutureExt, TryStreamExt};
 use itertools::Itertools;
 use ruma::{
@@ -36,6 +20,22 @@ use ruma::{
 	events::receipt::{ReceiptEvent, ReceiptEventContent, ReceiptType},
 	serde::Raw,
 	to_device::DeviceIdOrAllDevices,
+};
+use tuwunel_core::{
+	Err, Error, Result, debug,
+	debug::INFO_SPAN_LEVEL,
+	debug_warn, err, error,
+	result::LogErr,
+	trace,
+	utils::{
+		IterStream, ReadyExt, millis_since_unix_epoch,
+		stream::{BroadbandExt, TryBroadbandExt, automatic_width},
+	},
+	warn,
+};
+use tuwunel_service::{
+	Services,
+	sending::{EDU_LIMIT, PDU_LIMIT},
 };
 
 use crate::Ruma;

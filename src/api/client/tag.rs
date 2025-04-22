@@ -1,7 +1,6 @@
 use std::collections::BTreeMap;
 
 use axum::extract::State;
-use conduwuit::Result;
 use ruma::{
 	api::client::tag::{create_tag, delete_tag, get_tags},
 	events::{
@@ -9,6 +8,7 @@ use ruma::{
 		tag::{TagEvent, TagEventContent},
 	},
 };
+use tuwunel_core::Result;
 
 use crate::Ruma;
 

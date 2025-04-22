@@ -5,12 +5,12 @@ use std::{
 	sync::{Arc, Mutex},
 };
 
-use conduwuit::{Server, debug, defer, error, log, log::is_systemd_mode};
 use futures::future::{AbortHandle, Abortable};
 use ruma::events::room::message::RoomMessageEventContent;
 use rustyline_async::{Readline, ReadlineError, ReadlineEvent};
 use termimad::MadSkin;
 use tokio::task::JoinHandle;
+use tuwunel_core::{Server, debug, defer, error, log, log::is_systemd_mode};
 
 use crate::{Dep, admin};
 
@@ -96,7 +96,7 @@ impl Console {
 		debug!("session starting");
 
 		self.output
-			.print_inline(&format!("**conduwuit {}** admin console\n", conduwuit::version()));
+			.print_inline(&format!("**conduwuit {}** admin console\n", tuwunel_core::version()));
 		self.output
 			.print_text("\"help\" for help, ^D to exit the console, ^\\ to stop the server\n");
 

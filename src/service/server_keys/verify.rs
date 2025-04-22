@@ -1,8 +1,8 @@
-use conduwuit::{Err, Result, implement, pdu::gen_event_id_canonical_json};
 use ruma::{
 	CanonicalJsonObject, CanonicalJsonValue, OwnedEventId, RoomVersionId, signatures::Verified,
 };
 use serde_json::value::RawValue as RawJsonValue;
+use tuwunel_core::{Err, Result, implement, pdu::gen_event_id_canonical_json};
 
 #[implement(super::Service)]
 pub async fn validate_and_add_event_id(

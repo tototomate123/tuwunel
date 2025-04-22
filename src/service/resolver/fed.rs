@@ -4,8 +4,8 @@ use std::{
 	net::{IpAddr, SocketAddr},
 };
 
-use conduwuit::{arrayvec::ArrayString, utils::math::Expected};
 use serde::{Deserialize, Serialize};
+use tuwunel_core::{arrayvec::ArrayString, utils::math::Expected};
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 pub enum FedDest {

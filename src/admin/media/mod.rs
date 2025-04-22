@@ -2,8 +2,8 @@
 mod commands;
 
 use clap::Subcommand;
-use conduwuit::Result;
 use ruma::{OwnedEventId, OwnedMxcUri, OwnedServerName};
+use tuwunel_core::Result;
 
 use crate::admin_command_dispatch;
 

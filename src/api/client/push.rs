@@ -1,6 +1,4 @@
 use axum::extract::State;
-use conduwuit::{Err, Error, Result, err};
-use conduwuit_service::Services;
 use ruma::{
 	CanonicalJsonObject, CanonicalJsonValue,
 	api::client::{
@@ -20,6 +18,8 @@ use ruma::{
 		RemovePushRuleError, Ruleset,
 	},
 };
+use tuwunel_core::{Err, Error, Result, err};
+use tuwunel_service::Services;
 
 use crate::Ruma;
 

@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
-use conduwuit::{Result, implement, utils::stream::TryIgnore};
-use database::Map;
 use futures::{Stream, StreamExt};
 use ruma::RoomId;
+use tuwunel_core::{Result, implement, utils::stream::TryIgnore};
+use tuwunel_database::Map;
 
 use crate::{Dep, rooms};
 

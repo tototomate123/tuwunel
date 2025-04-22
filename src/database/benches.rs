@@ -1,10 +1,10 @@
-#[cfg(conduwuit_bench)]
+#[cfg(tuwunel_bench)]
 extern crate test;
 
-#[cfg(conduwuit_bench)]
-#[cfg_attr(conduwuit_bench, bench)]
+#[cfg(tuwunel_bench)]
+#[cfg_attr(tuwunel_bench, bench)]
 fn ser_str(b: &mut test::Bencher) {
-	use conduwuit::ruma::{RoomId, UserId};
+	use tuwunel::ruma::{RoomId, UserId};
 
 	use crate::ser::serialize_to_vec;
 

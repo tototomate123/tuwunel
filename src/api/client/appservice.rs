@@ -1,6 +1,6 @@
 use axum::extract::State;
-use conduwuit::{Err, Result, err};
 use ruma::api::{appservice::ping, client::appservice::request_ping};
+use tuwunel_core::{Err, Result, err};
 
 use crate::Ruma;
 

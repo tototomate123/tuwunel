@@ -11,9 +11,6 @@ use axum::{
 	Router,
 	extract::{Request, connect_info::IntoMakeServiceWithConnectInfo},
 };
-use conduwuit::{
-	Err, Result, Server, debug, debug_error, info, result::UnwrapInfallible, trace, warn,
-};
 use hyper::{body::Incoming, service::service_fn};
 use hyper_util::{
 	rt::{TokioExecutor, TokioIo},
@@ -27,6 +24,9 @@ use tokio::{
 	time::{Duration, sleep},
 };
 use tower::{Service, ServiceExt};
+use tuwunel_core::{
+	Err, Result, Server, debug, debug_error, info, result::UnwrapInfallible, trace, warn,
+};
 
 type MakeService = IntoMakeServiceWithConnectInfo<Router, net::SocketAddr>;
 

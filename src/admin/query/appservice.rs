@@ -1,6 +1,6 @@
 use clap::Subcommand;
-use conduwuit::Result;
 use futures::TryStreamExt;
+use tuwunel_core::Result;
 
 use crate::Context;
 

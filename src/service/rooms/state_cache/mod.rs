@@ -3,13 +3,6 @@ use std::{
 	sync::{Arc, RwLock},
 };
 
-use conduwuit::{
-	Result, is_not_empty,
-	result::LogErr,
-	utils::{ReadyExt, StreamTools, stream::TryIgnore},
-	warn,
-};
-use database::{Deserialized, Ignore, Interfix, Json, Map, serialize_key};
 use futures::{Stream, StreamExt, future::join5, pin_mut, stream::iter};
 use itertools::Itertools;
 use ruma::{
@@ -27,6 +20,13 @@ use ruma::{
 	int,
 	serde::Raw,
 };
+use tuwunel_core::{
+	Result, is_not_empty,
+	result::LogErr,
+	utils::{ReadyExt, StreamTools, stream::TryIgnore},
+	warn,
+};
+use tuwunel_database::{Deserialized, Ignore, Interfix, Json, Map, serialize_key};
 
 use crate::{Dep, account_data, appservice::RegistrationInfo, config, globals, rooms, users};
 
@@ -499,7 +499,7 @@ impl Service {
 		user_a: &'a UserId,
 		user_b: &'a UserId,
 	) -> impl Stream<Item = &RoomId> + Send + 'a {
-		use conduwuit::utils::set;
+		use tuwunel_core::utils::set;
 
 		let a = self.rooms_joined(user_a);
 		let b = self.rooms_joined(user_b);

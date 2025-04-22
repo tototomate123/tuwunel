@@ -1,6 +1,6 @@
-use conduwuit::{Result, implement, trace};
 use futures::{FutureExt, StreamExt, pin_mut, stream::FuturesUnordered};
 use ruma::{DeviceId, UserId};
+use tuwunel_core::{Result, implement, trace};
 
 #[implement(super::Service)]
 #[tracing::instrument(skip(self), level = "debug")]

@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
-use conduwuit::{Result, implement, matrix::pdu::PduEvent};
-use conduwuit_database::{Deserialized, Json, Map};
 use ruma::{CanonicalJsonObject, EventId};
+use tuwunel_core::{Result, implement, matrix::pdu::PduEvent};
+use tuwunel_database::{Deserialized, Json, Map};
 
 pub struct Service {
 	db: Data,

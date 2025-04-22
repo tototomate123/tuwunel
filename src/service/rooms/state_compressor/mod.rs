@@ -6,16 +6,16 @@ use std::{
 };
 
 use async_trait::async_trait;
-use conduwuit::{
+use futures::{Stream, StreamExt};
+use lru_cache::LruCache;
+use ruma::{EventId, RoomId};
+use tuwunel_core::{
 	Result,
 	arrayvec::ArrayVec,
 	at, checked, err, expected, utils,
 	utils::{bytes, math::usize_from_f64, stream::IterStream},
 };
-use database::Map;
-use futures::{Stream, StreamExt};
-use lru_cache::LruCache;
-use ruma::{EventId, RoomId};
+use tuwunel_database::Map;
 
 use crate::{
 	Dep, rooms,

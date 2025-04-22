@@ -1,6 +1,6 @@
 use std::{ops::Deref, sync::Arc};
 
-use conduwuit_service::Services;
+use tuwunel_service::Services;
 
 #[derive(Clone, Copy)]
 pub struct State {

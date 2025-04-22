@@ -6,7 +6,7 @@
 use std::sync::OnceLock;
 
 use cargo_toml::{DepsSet, Manifest};
-use conduwuit_macros::cargo_manifest;
+use tuwunel_macros::cargo_manifest;
 
 use crate::Result;
 

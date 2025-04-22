@@ -1,6 +1,6 @@
 use axum::extract::State;
-use conduwuit::{Result, debug, debug_error, utils::to_canonical_object};
 use ruma::api::federation::event::get_missing_events;
+use tuwunel_core::{Result, debug, debug_error, utils::to_canonical_object};
 
 use super::AccessCheck;
 use crate::Ruma;

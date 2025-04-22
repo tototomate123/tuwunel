@@ -8,10 +8,10 @@ use std::{
 };
 
 use async_trait::async_trait;
-use conduwuit::{Result, Server, error, utils::bytes::pretty};
 use data::Data;
 use regex::RegexSet;
 use ruma::{OwnedEventId, OwnedRoomAliasId, OwnedServerName, OwnedUserId, ServerName, UserId};
+use tuwunel_core::{Result, Server, error, utils::bytes::pretty};
 
 use crate::service;
 

@@ -2,14 +2,6 @@ use std::fmt::Write;
 
 use axum::extract::State;
 use axum_client_ip::InsecureClientIp;
-use conduwuit::{
-	Err, Error, Result, debug_info, err, error, info, is_equal_to,
-	matrix::pdu::PduBuilder,
-	utils,
-	utils::{ReadyExt, stream::BroadbandExt},
-	warn,
-};
-use conduwuit_service::Services;
 use futures::{FutureExt, StreamExt};
 use register::RegistrationKind;
 use ruma::{
@@ -33,6 +25,14 @@ use ruma::{
 	},
 	push,
 };
+use tuwunel_core::{
+	Err, Error, Result, debug_info, err, error, info, is_equal_to,
+	matrix::pdu::PduBuilder,
+	utils,
+	utils::{ReadyExt, stream::BroadbandExt},
+	warn,
+};
+use tuwunel_service::Services;
 
 use super::{DEVICE_ID_LENGTH, SESSION_ID_LENGTH, TOKEN_LENGTH, join_room_by_id_helper};
 use crate::Ruma;

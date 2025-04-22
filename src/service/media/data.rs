@@ -1,12 +1,12 @@
 use std::{sync::Arc, time::Duration};
 
-use conduwuit::{
+use futures::StreamExt;
+use ruma::{Mxc, OwnedMxcUri, UserId, http_headers::ContentDisposition};
+use tuwunel_core::{
 	Err, Result, debug, debug_info, err,
 	utils::{ReadyExt, str_from_bytes, stream::TryIgnore, string_from_bytes},
 };
-use database::{Database, Interfix, Map};
-use futures::StreamExt;
-use ruma::{Mxc, OwnedMxcUri, UserId, http_headers::ContentDisposition};
+use tuwunel_database::{Database, Interfix, Map, serialize_key};
 
 use super::{preview::UrlPreviewData, thumbnail::Dim};
 
@@ -42,7 +42,7 @@ impl Data {
 	) -> Result<Vec<u8>> {
 		let dim: &[u32] = &[dim.width, dim.height];
 		let key = (mxc, dim, content_disposition, content_type);
-		let key = database::serialize_key(key)?;
+		let key = serialize_key(key)?;
 		self.mediaid_file.insert(&key, []);
 		if let Some(user) = user {
 			let key = (mxc, user);

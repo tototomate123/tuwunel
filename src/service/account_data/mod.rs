@@ -1,10 +1,5 @@
 use std::sync::Arc;
 
-use conduwuit::{
-	Err, Result, err, implement,
-	utils::{ReadyExt, result::LogErr, stream::TryIgnore},
-};
-use database::{Deserialized, Handle, Ignore, Json, Map};
 use futures::{Stream, StreamExt, TryFutureExt};
 use ruma::{
 	RoomId, UserId,
@@ -15,6 +10,11 @@ use ruma::{
 	serde::Raw,
 };
 use serde::Deserialize;
+use tuwunel_core::{
+	Err, Result, err, implement,
+	utils::{ReadyExt, result::LogErr, stream::TryIgnore},
+};
+use tuwunel_database::{Deserialized, Handle, Ignore, Json, Map};
 
 use crate::{Dep, globals};
 

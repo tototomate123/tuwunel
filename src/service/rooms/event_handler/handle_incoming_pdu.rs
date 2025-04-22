@@ -3,15 +3,15 @@ use std::{
 	time::Instant,
 };
 
-use conduwuit::{
-	Err, Result, debug, debug::INFO_SPAN_LEVEL, defer, err, implement, utils::stream::IterStream,
-	warn,
-};
 use futures::{
 	FutureExt, TryFutureExt, TryStreamExt,
 	future::{OptionFuture, try_join5},
 };
 use ruma::{CanonicalJsonValue, EventId, RoomId, ServerName, UserId, events::StateEventType};
+use tuwunel_core::{
+	Err, Result, debug, debug::INFO_SPAN_LEVEL, defer, err, implement, utils::stream::IterStream,
+	warn,
+};
 
 use crate::rooms::timeline::RawPduId;
 

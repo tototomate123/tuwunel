@@ -2,9 +2,9 @@ mod commands;
 pub(crate) mod tester;
 
 use clap::Subcommand;
-use conduwuit::Result;
 use ruma::{OwnedEventId, OwnedRoomId, OwnedRoomOrAliasId, OwnedServerName};
-use service::rooms::short::{ShortEventId, ShortRoomId};
+use tuwunel_core::Result;
+use tuwunel_service::rooms::short::{ShortEventId, ShortRoomId};
 
 use self::tester::TesterCommand;
 use crate::admin_command_dispatch;
@@ -32,13 +32,13 @@ pub(super) enum DebugCommand {
 	/// the command.
 	ParsePdu,
 
-	/// - Retrieve and print a PDU by EventID from the conduwuit database
+	/// - Retrieve and print a PDU by EventID from the tuwunel database
 	GetPdu {
 		/// An event ID (a $ followed by the base64 reference hash)
 		event_id: OwnedEventId,
 	},
 
-	/// - Retrieve and print a PDU by PduId from the conduwuit database
+	/// - Retrieve and print a PDU by PduId from the tuwunel database
 	GetShortPdu {
 		/// Shortroomid integer
 		shortroomid: ShortRoomId,
@@ -179,7 +179,7 @@ pub(super) enum DebugCommand {
 		server_name: OwnedServerName,
 	},
 
-	/// - Runs a server name through conduwuit's true destination resolution
+	/// - Runs a server name through tuwunel's true destination resolution
 	///   process
 	///
 	/// Useful for debugging well-known issues

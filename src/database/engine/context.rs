@@ -3,8 +3,8 @@ use std::{
 	sync::{Arc, Mutex},
 };
 
-use conduwuit::{Result, Server, debug, utils::math::usize_from_f64};
 use rocksdb::{Cache, Env, LruCacheOptions};
+use tuwunel_core::{Result, Server, debug, utils::math::usize_from_f64};
 
 use crate::{or_else, pool::Pool};
 

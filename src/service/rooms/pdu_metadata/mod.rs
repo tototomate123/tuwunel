@@ -1,9 +1,9 @@
 mod data;
 use std::sync::Arc;
 
-use conduwuit::{PduCount, Result};
 use futures::{StreamExt, future::try_join};
 use ruma::{EventId, RoomId, UserId, api::Direction};
+use tuwunel_core::{PduCount, Result};
 
 use self::data::{Data, PdusIterItem};
 use crate::{Dep, rooms};

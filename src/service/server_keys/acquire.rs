@@ -4,9 +4,6 @@ use std::{
 	time::Duration,
 };
 
-use conduwuit::{
-	debug, debug_error, debug_warn, error, implement, info, result::FlatOk, trace, warn,
-};
 use futures::{StreamExt, stream::FuturesUnordered};
 use ruma::{
 	CanonicalJsonObject, OwnedServerName, OwnedServerSigningKeyId, ServerName,
@@ -14,6 +11,9 @@ use ruma::{
 };
 use serde_json::value::RawValue as RawJsonValue;
 use tokio::time::{Instant, timeout_at};
+use tuwunel_core::{
+	debug, debug_error, debug_warn, error, implement, info, result::FlatOk, trace, warn,
+};
 
 use super::key_exists;
 

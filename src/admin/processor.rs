@@ -7,7 +7,17 @@ use std::{
 };
 
 use clap::{CommandFactory, Parser};
-use conduwuit::{
+use futures::{AsyncWriteExt, future::FutureExt, io::BufWriter};
+use ruma::{
+	EventId,
+	events::{
+		relation::InReplyTo,
+		room::message::{Relation::Reply, RoomMessageEventContent},
+	},
+};
+use tracing::Level;
+use tracing_subscriber::{EnvFilter, filter::LevelFilter};
+use tuwunel_core::{
 	Error, Result, debug, error,
 	log::{
 		capture,
@@ -18,20 +28,10 @@ use conduwuit::{
 	utils::string::{collect_stream, common_prefix},
 	warn,
 };
-use futures::{AsyncWriteExt, future::FutureExt, io::BufWriter};
-use ruma::{
-	EventId,
-	events::{
-		relation::InReplyTo,
-		room::message::{Relation::Reply, RoomMessageEventContent},
-	},
-};
-use service::{
+use tuwunel_service::{
 	Services,
 	admin::{CommandInput, CommandOutput, ProcessorFuture, ProcessorResult},
 };
-use tracing::Level;
-use tracing_subscriber::{EnvFilter, filter::LevelFilter};
 
 use crate::{admin, admin::AdminCommand, context::Context};
 
@@ -94,7 +94,8 @@ async fn process_command(services: Arc<Services>, input: &CommandInput) -> Proce
 #[allow(clippy::result_large_err)]
 fn handle_panic(error: &Error, command: &CommandInput) -> ProcessorResult {
 	let link =
-		"Please submit a [bug report](https://github.com/girlbossceo/conduwuit/issues/new). 🥺";
+		"Please submit a [bug report](https://github.com/matrix-construct/tuwunel/issues/new). \
+		 🥺";
 	let msg = format!("Panic occurred while processing command:\n```\n{error:#?}\n```\n{link}");
 	let content = RoomMessageEventContent::notice_markdown(msg);
 	error!("Panic while processing command: {error:?}");

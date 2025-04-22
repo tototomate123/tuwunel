@@ -7,12 +7,12 @@
 
 use std::{cmp, num::Saturating as Sat};
 
-use conduwuit::{Result, checked, err, implement};
 use ruma::{Mxc, UInt, UserId, http_headers::ContentDisposition, media::Method};
 use tokio::{
 	fs,
 	io::{AsyncReadExt, AsyncWriteExt},
 };
+use tuwunel_core::{Result, checked, err, implement};
 
 use super::{FileMeta, data::Metadata};
 

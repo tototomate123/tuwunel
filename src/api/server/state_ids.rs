@@ -1,9 +1,9 @@
 use std::{borrow::Borrow, iter::once};
 
 use axum::extract::State;
-use conduwuit::{Result, at, err};
 use futures::{StreamExt, TryStreamExt};
 use ruma::{OwnedEventId, api::federation::event::get_room_state_ids};
+use tuwunel_core::{Result, at, err};
 
 use super::AccessCheck;
 use crate::Ruma;

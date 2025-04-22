@@ -33,8 +33,8 @@ use std::{
 	sync::Arc,
 };
 
-use conduwuit::Result;
 use rocksdb::{AsColumnFamilyRef, ColumnFamily, ReadOptions, WriteOptions};
+use tuwunel_core::Result;
 
 pub(crate) use self::options::{
 	cache_iter_options_default, cache_read_options_default, iter_options_default,

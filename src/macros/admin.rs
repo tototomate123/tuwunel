@@ -8,7 +8,7 @@ use crate::{Result, utils::camel_to_snake_string};
 
 pub(super) fn command(mut item: ItemFn, _args: &[Meta]) -> Result<TokenStream> {
 	let attr: Attribute = parse_quote! {
-		#[conduwuit_macros::implement(crate::Context, params = "<'_>")]
+		#[tuwunel_macros::implement(crate::Context, params = "<'_>")]
 	};
 
 	item.attrs.push(attr);

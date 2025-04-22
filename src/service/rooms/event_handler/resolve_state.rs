@@ -4,14 +4,14 @@ use std::{
 	sync::Arc,
 };
 
-use conduwuit::{
+use futures::{FutureExt, StreamExt, TryFutureExt, TryStreamExt, future::try_join};
+use ruma::{OwnedEventId, RoomId, RoomVersionId};
+use tuwunel_core::{
 	Error, Result, err, implement,
 	state_res::{self, StateMap},
 	trace,
 	utils::stream::{IterStream, ReadyExt, TryWidebandExt, WidebandExt, automatic_width},
 };
-use futures::{FutureExt, StreamExt, TryFutureExt, TryStreamExt, future::try_join};
-use ruma::{OwnedEventId, RoomId, RoomVersionId};
 
 use crate::rooms::state_compressor::CompressedState;
 

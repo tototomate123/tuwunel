@@ -1,11 +1,11 @@
 use std::time::Duration;
 
 use axum::extract::State;
-use conduwuit::{Error, Result, utils};
 use ruma::{
 	api::client::{account, error::ErrorKind},
 	authentication::TokenType,
 };
+use tuwunel_core::{Error, Result, utils};
 
 use super::TOKEN_LENGTH;
 use crate::Ruma;

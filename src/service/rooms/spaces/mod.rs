@@ -5,15 +5,6 @@ mod tests;
 use std::{fmt::Write, sync::Arc};
 
 use async_trait::async_trait;
-use conduwuit::{
-	Err, Error, PduEvent, Result, implement,
-	utils::{
-		IterStream,
-		future::{BoolExt, TryExtExt},
-		math::usize_from_f64,
-		stream::{BroadbandExt, ReadyExt},
-	},
-};
 use futures::{FutureExt, Stream, StreamExt, TryFutureExt, pin_mut, stream::FuturesUnordered};
 use lru_cache::LruCache;
 use ruma::{
@@ -33,6 +24,15 @@ use ruma::{
 	space::SpaceRoomJoinRule,
 };
 use tokio::sync::{Mutex, MutexGuard};
+use tuwunel_core::{
+	Err, Error, PduEvent, Result, implement,
+	utils::{
+		IterStream,
+		future::{BoolExt, TryExtExt},
+		math::usize_from_f64,
+		stream::{BroadbandExt, ReadyExt},
+	},
+};
 
 pub use self::pagination_token::PaginationToken;
 use crate::{Dep, rooms, sending};

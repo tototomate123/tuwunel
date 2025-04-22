@@ -5,8 +5,6 @@ use std::{
 	sync::{Arc, Mutex, Mutex as StdMutex},
 };
 
-use conduwuit::{Result, Server};
-use database::Map;
 use ruma::{
 	OwnedDeviceId, OwnedRoomId, OwnedUserId,
 	api::client::sync::sync_events::{
@@ -15,6 +13,8 @@ use ruma::{
 		v5,
 	},
 };
+use tuwunel_core::{Result, Server};
+use tuwunel_database::Map;
 
 use crate::{Dep, rooms};
 

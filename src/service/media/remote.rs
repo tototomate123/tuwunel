@@ -1,9 +1,5 @@
 use std::{fmt::Debug, time::Duration};
 
-use conduwuit::{
-	Err, Error, Result, debug_warn, err, implement,
-	utils::content_disposition::make_content_disposition,
-};
 use http::header::{CONTENT_DISPOSITION, CONTENT_TYPE, HeaderValue};
 use ruma::{
 	Mxc, ServerName, UserId,
@@ -16,6 +12,10 @@ use ruma::{
 		federation,
 		federation::authenticated_media::{Content, FileOrLocation},
 	},
+};
+use tuwunel_core::{
+	Err, Error, Result, debug_warn, err, implement,
+	utils::content_disposition::make_content_disposition,
 };
 
 use super::{Dim, FileMeta};

@@ -6,9 +6,8 @@ use axum_server_dual_protocol::{
 	ServerExt,
 	axum_server::{bind_rustls, tls_rustls::RustlsConfig},
 };
-use conduwuit::{Result, Server, err};
 use tokio::task::JoinSet;
-use tracing::{debug, info, warn};
+use tuwunel_core::{Result, Server, debug, err, info, warn};
 
 pub(super) async fn serve(
 	server: &Arc<Server>,
@@ -33,7 +32,7 @@ pub(super) async fn serve(
 
 	info!(
 		"Note: It is strongly recommended that you use a reverse proxy instead of running \
-		 conduwuit directly with TLS."
+		 tuwunel directly with TLS."
 	);
 	debug!("Using direct TLS. Certificate path {certs} and certificate private key path {key}",);
 	let conf = RustlsConfig::from_pem_file(certs, key)

@@ -2,10 +2,10 @@ use std::str;
 
 use axum::{RequestExt, RequestPartsExt, extract::Path};
 use bytes::Bytes;
-use conduwuit::{Result, err};
 use http::request::Parts;
 use serde::Deserialize;
-use service::Services;
+use tuwunel_core::{Result, err};
+use tuwunel_service::Services;
 
 #[derive(Deserialize)]
 pub(super) struct QueryParams {

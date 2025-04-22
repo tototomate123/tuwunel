@@ -1,7 +1,7 @@
 use axum::extract::State;
-use conduwuit::{Err, Event, Result, err};
 use futures::{FutureExt, TryFutureExt, future::try_join};
 use ruma::api::client::room::get_room_event;
+use tuwunel_core::{Err, Event, Result, err};
 
 use crate::{Ruma, client::is_ignored_pdu};
 

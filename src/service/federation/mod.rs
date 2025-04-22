@@ -2,7 +2,7 @@ mod execute;
 
 use std::sync::Arc;
 
-use conduwuit::{Result, Server};
+use tuwunel_core::{Result, Server};
 
 use crate::{Dep, client, resolver, server_keys};
 

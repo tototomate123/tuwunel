@@ -4,7 +4,6 @@ use axum_extra::{
 	headers::{Authorization, authorization::Bearer},
 	typed_header::TypedHeaderRejectionReason,
 };
-use conduwuit::{Err, Error, Result, debug_error, err, warn};
 use ruma::{
 	CanonicalJsonObject, CanonicalJsonValue, OwnedDeviceId, OwnedServerName, OwnedUserId, UserId,
 	api::{
@@ -20,13 +19,14 @@ use ruma::{
 		federation::{authentication::XMatrix, openid::get_openid_userinfo},
 	},
 };
-use service::{
+use tuwunel_core::{Err, Error, Result, debug_error, err, warn};
+use tuwunel_service::{
 	Services,
+	appservice::RegistrationInfo,
 	server_keys::{PubKeyMap, PubKeys},
 };
 
 use super::request::Request;
-use crate::service::appservice::RegistrationInfo;
 
 enum Token {
 	Appservice(Box<RegistrationInfo>),

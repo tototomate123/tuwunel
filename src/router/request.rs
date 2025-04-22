@@ -8,12 +8,12 @@ use axum::{
 	extract::State,
 	response::{IntoResponse, Response},
 };
-use conduwuit::{Result, debug, debug_error, debug_warn, err, error, trace};
-use conduwuit_service::Services;
 use futures::FutureExt;
 use http::{Method, StatusCode, Uri};
 use tokio::time::sleep;
 use tracing::Span;
+use tuwunel_core::{Result, debug, debug_error, debug_warn, err, error, trace};
+use tuwunel_service::Services;
 
 #[tracing::instrument(name = "request", level = "debug", skip_all)]
 pub(crate) async fn handle(
@@ -82,7 +82,7 @@ async fn execute(
 	parent: &Span,
 ) -> Response {
 	#[cfg(debug_assertions)]
-	conduwuit::defer! {{
+	tuwunel_core::defer! {{
 		_ = services.server
 			.metrics
 			.requests_handle_finished

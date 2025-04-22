@@ -1,9 +1,5 @@
 use std::{collections::BTreeMap, sync::Arc};
 
-use conduwuit::{
-	Result, Server, debug_info, trace,
-	utils::{self, IterStream},
-};
 use futures::StreamExt;
 use ruma::{
 	OwnedRoomId, OwnedUserId, RoomId, UserId,
@@ -11,6 +7,10 @@ use ruma::{
 	events::SyncEphemeralRoomEvent,
 };
 use tokio::sync::{RwLock, broadcast};
+use tuwunel_core::{
+	Result, Server, debug_info, trace,
+	utils::{self, IterStream},
+};
 
 use crate::{Dep, globals, sending, sending::EduBuf, users};
 

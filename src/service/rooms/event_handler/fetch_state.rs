@@ -1,11 +1,11 @@
 use std::collections::{HashMap, hash_map};
 
-use conduwuit::{Err, Error, PduEvent, Result, debug, debug_warn, implement};
 use futures::FutureExt;
 use ruma::{
 	EventId, OwnedEventId, RoomId, ServerName, api::federation::event::get_room_state_ids,
 	events::StateEventType,
 };
+use tuwunel_core::{Err, Error, PduEvent, Result, debug, debug_warn, implement};
 
 use crate::rooms::short::ShortStateKey;
 

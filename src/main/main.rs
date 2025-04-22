@@ -11,8 +11,9 @@ mod signal;
 
 use std::sync::{Arc, atomic::Ordering};
 
-use conduwuit_core::{Error, Result, debug_info, error, rustc_flags_capture};
-use server::Server;
+use tuwunel_core::{Error, Result, debug_info, error, rustc_flags_capture};
+
+use crate::server::Server;
 
 rustc_flags_capture! {}
 
@@ -36,14 +37,14 @@ fn main() -> Result {
 
 /// Operate the server normally in release-mode static builds. This will start,
 /// run and stop the server within the asynchronous runtime.
-#[cfg(any(not(conduwuit_mods), not(feature = "conduwuit_mods")))]
+#[cfg(any(not(tuwunel_mods), not(feature = "tuwunel_mods")))]
 #[tracing::instrument(
 	name = "main",
 	parent = None,
 	skip_all
 )]
 async fn async_main(server: &Arc<Server>) -> Result<(), Error> {
-	extern crate conduwuit_router as router;
+	extern crate tuwunel_router as router;
 
 	match router::start(&server.server).await {
 		| Ok(services) => server.services.lock().await.insert(services),
@@ -88,7 +89,7 @@ async fn async_main(server: &Arc<Server>) -> Result<(), Error> {
 /// Operate the server in developer-mode dynamic builds. This will start, run,
 /// and hot-reload portions of the server as-needed before returning for an
 /// actual shutdown. This is not available in release-mode or static builds.
-#[cfg(all(conduwuit_mods, feature = "conduwuit_mods"))]
+#[cfg(all(tuwunel_mods, feature = "tuwunel_mods"))]
 async fn async_main(server: &Arc<Server>) -> Result<(), Error> {
 	let mut starts = true;
 	let mut reloads = true;

@@ -3,11 +3,11 @@ use std::{
 	net::{IpAddr, SocketAddr},
 };
 
-use conduwuit::{Err, Result, debug, debug_info, err, error, trace};
 use futures::{FutureExt, TryFutureExt};
 use hickory_resolver::ResolveError;
 use ipaddress::IPAddress;
 use ruma::ServerName;
+use tuwunel_core::{Err, Result, debug, debug_info, err, error, trace};
 
 use super::{
 	cache::{CachedDest, CachedOverride, MAX_IPS},

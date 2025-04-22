@@ -4,8 +4,8 @@ use std::{
 	sync::{Arc, atomic::AtomicU32},
 };
 
-use conduwuit::{Result, debug, implement, info, warn};
 use rocksdb::{ColumnFamilyDescriptor, Options};
+use tuwunel_core::{Result, debug, implement, info, warn};
 
 use super::{
 	Db, Engine,

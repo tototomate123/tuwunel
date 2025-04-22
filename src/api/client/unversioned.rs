@@ -1,9 +1,9 @@
 use std::collections::BTreeMap;
 
 use axum::{Json, extract::State, response::IntoResponse};
-use conduwuit::Result;
 use futures::StreamExt;
 use ruma::api::client::discovery::get_supported_versions;
+use tuwunel_core::Result;
 
 use crate::Ruma;
 
@@ -60,23 +60,23 @@ pub(crate) async fn get_supported_versions_route(
 	Ok(resp)
 }
 
-/// # `GET /_conduwuit/server_version`
+/// # `GET /_tuwunel/server_version`
 ///
-/// Conduwuit-specific API to get the server version, results akin to
+/// Tuwunel-specific API to get the server version, results akin to
 /// `/_matrix/federation/v1/version`
-pub(crate) async fn conduwuit_server_version() -> Result<impl IntoResponse> {
+pub(crate) async fn tuwunel_server_version() -> Result<impl IntoResponse> {
 	Ok(Json(serde_json::json!({
-		"name": conduwuit::version::name(),
-		"version": conduwuit::version::version(),
+		"name": tuwunel_core::version::name(),
+		"version": tuwunel_core::version::version(),
 	})))
 }
 
-/// # `GET /_conduwuit/local_user_count`
+/// # `GET /_tuwunel/local_user_count`
 ///
-/// conduwuit-specific API to return the amount of users registered on this
+/// Tuwunel-specific API to return the amount of users registered on this
 /// homeserver. Endpoint is disabled if federation is disabled for privacy. This
 /// only includes active users (not deactivated, no guests, etc)
-pub(crate) async fn conduwuit_local_user_count(
+pub(crate) async fn tuwunel_local_user_count(
 	State(services): State<crate::State>,
 ) -> Result<impl IntoResponse> {
 	let user_count = services.users.list_local_users().count().await;

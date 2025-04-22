@@ -1,4 +1,3 @@
-use conduwuit::{Err, Result, implement, pdu::PduBuilder};
 use ruma::{
 	EventId, RoomId, UserId,
 	events::{
@@ -10,6 +9,7 @@ use ruma::{
 		},
 	},
 };
+use tuwunel_core::{Err, Result, implement, pdu::PduBuilder};
 
 use crate::rooms::state::RoomMutexGuard;
 

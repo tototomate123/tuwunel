@@ -9,17 +9,6 @@ use std::{
 };
 
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
-use conduwuit::{
-	Error, Result, debug, err, error,
-	result::LogErr,
-	trace,
-	utils::{
-		ReadyExt, calculate_hash, continue_exponential_backoff_secs,
-		future::TryExtExt,
-		stream::{BroadbandExt, IterStream, WidebandExt},
-	},
-	warn,
-};
 use futures::{
 	FutureExt, StreamExt,
 	future::{BoxFuture, OptionFuture},
@@ -49,6 +38,17 @@ use ruma::{
 	uint,
 };
 use serde_json::value::{RawValue as RawJsonValue, to_raw_value};
+use tuwunel_core::{
+	Error, Result, debug, err, error,
+	result::LogErr,
+	trace,
+	utils::{
+		ReadyExt, calculate_hash, continue_exponential_backoff_secs,
+		future::TryExtExt,
+		stream::{BroadbandExt, IterStream, WidebandExt},
+	},
+	warn,
+};
 
 use super::{
 	Destination, EduBuf, EduVec, Msg, SendingEvent, Service, appservice, data::QueueItem,

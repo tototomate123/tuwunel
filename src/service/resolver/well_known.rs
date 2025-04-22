@@ -1,4 +1,4 @@
-use conduwuit::{Result, debug, debug_error, debug_info, debug_warn, implement, trace};
+use tuwunel_core::{Result, debug, debug_error, debug_info, debug_warn, implement, trace};
 
 #[implement(super::Service)]
 #[tracing::instrument(name = "well-known", level = "debug", skip(self, dest))]

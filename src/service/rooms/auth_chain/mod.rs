@@ -7,7 +7,9 @@ use std::{
 	time::Instant,
 };
 
-use conduwuit::{
+use futures::{FutureExt, Stream, StreamExt, TryFutureExt, TryStreamExt};
+use ruma::{EventId, OwnedEventId, RoomId};
+use tuwunel_core::{
 	Err, Result, at, debug, debug_error, implement, trace,
 	utils::{
 		IterStream,
@@ -15,8 +17,6 @@ use conduwuit::{
 	},
 	validated, warn,
 };
-use futures::{FutureExt, Stream, StreamExt, TryFutureExt, TryStreamExt};
-use ruma::{EventId, OwnedEventId, RoomId};
 
 use self::data::Data;
 use crate::{Dep, rooms, rooms::short::ShortEventId};

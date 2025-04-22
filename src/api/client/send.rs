@@ -1,9 +1,9 @@
 use std::collections::BTreeMap;
 
 use axum::extract::State;
-use conduwuit::{Err, Result, err, matrix::pdu::PduBuilder, utils};
 use ruma::{api::client::message::send_message_event, events::MessageLikeEventType};
 use serde_json::from_str;
+use tuwunel_core::{Err, Result, err, matrix::pdu::PduBuilder, utils};
 
 use crate::Ruma;
 

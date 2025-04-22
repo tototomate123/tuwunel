@@ -724,244 +724,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "conduwuit"
-version = "1.0.0"
-dependencies = [
- "clap",
- "conduwuit_admin",
- "conduwuit_api",
- "conduwuit_core",
- "conduwuit_database",
- "conduwuit_router",
- "conduwuit_service",
- "console-subscriber",
- "const-str",
- "hardened_malloc-rs",
- "log",
- "opentelemetry",
- "opentelemetry-jaeger",
- "opentelemetry_sdk",
- "sentry",
- "sentry-tower",
- "sentry-tracing",
- "tokio",
- "tokio-metrics",
- "tracing",
- "tracing-flame",
- "tracing-opentelemetry",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "conduwuit_admin"
-version = "1.0.0"
-dependencies = [
- "clap",
- "conduwuit_api",
- "conduwuit_core",
- "conduwuit_database",
- "conduwuit_macros",
- "conduwuit_service",
- "const-str",
- "futures",
- "log",
- "ruma",
- "serde_json",
- "serde_yaml",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "conduwuit_api"
-version = "1.0.0"
-dependencies = [
- "async-trait",
- "axum",
- "axum-client-ip",
- "axum-extra",
- "base64 0.22.1",
- "bytes",
- "conduwuit_core",
- "conduwuit_service",
- "const-str",
- "futures",
- "hmac",
- "http",
- "http-body-util",
- "hyper",
- "ipaddress",
- "itertools 0.14.0",
- "log",
- "rand 0.8.5",
- "reqwest",
- "ruma",
- "serde",
- "serde_html_form",
- "serde_json",
- "sha1",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "conduwuit_core"
-version = "1.0.0"
-dependencies = [
- "argon2",
- "arrayvec",
- "axum",
- "axum-extra",
- "bytes",
- "bytesize",
- "cargo_toml",
- "checked_ops",
- "chrono",
- "clap",
- "conduwuit_macros",
- "const-str",
- "core_affinity",
- "ctor",
- "cyborgtime",
- "either",
- "figment",
- "futures",
- "hardened_malloc-rs",
- "http",
- "http-body-util",
- "ipaddress",
- "itertools 0.14.0",
- "libc",
- "libloading",
- "log",
- "maplit",
- "nix",
- "num-traits",
- "rand 0.8.5",
- "regex",
- "reqwest",
- "ring",
- "ruma",
- "sanitize-filename",
- "serde",
- "serde_json",
- "serde_regex",
- "serde_yaml",
- "smallstr",
- "smallvec",
- "thiserror 2.0.12",
- "tikv-jemalloc-ctl",
- "tikv-jemalloc-sys",
- "tikv-jemallocator",
- "tokio",
- "tokio-metrics",
- "toml",
- "tracing",
- "tracing-core",
- "tracing-subscriber",
- "url",
-]
-
-[[package]]
-name = "conduwuit_database"
-version = "1.0.0"
-dependencies = [
- "async-channel",
- "conduwuit_core",
- "const-str",
- "futures",
- "log",
- "minicbor",
- "minicbor-serde",
- "rust-rocksdb",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "conduwuit_macros"
-version = "1.0.0"
-dependencies = [
- "itertools 0.14.0",
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
-name = "conduwuit_router"
-version = "1.0.0"
-dependencies = [
- "axum",
- "axum-client-ip",
- "axum-server",
- "axum-server-dual-protocol",
- "bytes",
- "conduwuit_admin",
- "conduwuit_api",
- "conduwuit_core",
- "conduwuit_service",
- "const-str",
- "futures",
- "http",
- "http-body-util",
- "hyper",
- "hyper-util",
- "log",
- "ruma",
- "rustls",
- "sd-notify",
- "sentry",
- "sentry-tower",
- "sentry-tracing",
- "serde_json",
- "tokio",
- "tower 0.5.2",
- "tower-http",
- "tracing",
-]
-
-[[package]]
-name = "conduwuit_service"
-version = "1.0.0"
-dependencies = [
- "async-trait",
- "base64 0.22.1",
- "blurhash",
- "bytes",
- "conduwuit_core",
- "conduwuit_database",
- "const-str",
- "either",
- "futures",
- "hickory-resolver 0.25.1",
- "http",
- "image",
- "ipaddress",
- "itertools 0.14.0",
- "log",
- "loole",
- "lru-cache",
- "rand 0.8.5",
- "regex",
- "reqwest",
- "ruma",
- "rustyline-async",
- "serde",
- "serde_json",
- "serde_yaml",
- "sha2",
- "termimad",
- "tokio",
- "tracing",
- "url",
- "webpage",
-]
-
-[[package]]
 name = "console-api"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5065,6 +4827,245 @@ name = "try-lock"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
+
+[[package]]
+name = "tuwunel"
+version = "1.0.0"
+dependencies = [
+ "clap",
+ "console-subscriber",
+ "const-str",
+ "hardened_malloc-rs",
+ "log",
+ "opentelemetry",
+ "opentelemetry-jaeger",
+ "opentelemetry_sdk",
+ "sentry",
+ "sentry-tower",
+ "sentry-tracing",
+ "tokio",
+ "tokio-metrics",
+ "tracing",
+ "tracing-flame",
+ "tracing-opentelemetry",
+ "tracing-subscriber",
+ "tuwunel_admin",
+ "tuwunel_api",
+ "tuwunel_core",
+ "tuwunel_database",
+ "tuwunel_macros",
+ "tuwunel_router",
+ "tuwunel_service",
+]
+
+[[package]]
+name = "tuwunel_admin"
+version = "1.0.0"
+dependencies = [
+ "clap",
+ "const-str",
+ "futures",
+ "log",
+ "ruma",
+ "serde_json",
+ "serde_yaml",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "tuwunel_api",
+ "tuwunel_core",
+ "tuwunel_database",
+ "tuwunel_macros",
+ "tuwunel_service",
+]
+
+[[package]]
+name = "tuwunel_api"
+version = "1.0.0"
+dependencies = [
+ "async-trait",
+ "axum",
+ "axum-client-ip",
+ "axum-extra",
+ "base64 0.22.1",
+ "bytes",
+ "const-str",
+ "futures",
+ "hmac",
+ "http",
+ "http-body-util",
+ "hyper",
+ "ipaddress",
+ "itertools 0.14.0",
+ "log",
+ "rand 0.8.5",
+ "reqwest",
+ "ruma",
+ "serde",
+ "serde_html_form",
+ "serde_json",
+ "sha1",
+ "tokio",
+ "tracing",
+ "tuwunel_core",
+ "tuwunel_service",
+]
+
+[[package]]
+name = "tuwunel_core"
+version = "1.0.0"
+dependencies = [
+ "argon2",
+ "arrayvec",
+ "axum",
+ "axum-extra",
+ "bytes",
+ "bytesize",
+ "cargo_toml",
+ "checked_ops",
+ "chrono",
+ "clap",
+ "const-str",
+ "core_affinity",
+ "ctor",
+ "cyborgtime",
+ "either",
+ "figment",
+ "futures",
+ "hardened_malloc-rs",
+ "http",
+ "http-body-util",
+ "ipaddress",
+ "itertools 0.14.0",
+ "libc",
+ "libloading",
+ "log",
+ "maplit",
+ "nix",
+ "num-traits",
+ "rand 0.8.5",
+ "regex",
+ "reqwest",
+ "ring",
+ "ruma",
+ "sanitize-filename",
+ "serde",
+ "serde_json",
+ "serde_regex",
+ "serde_yaml",
+ "smallstr",
+ "smallvec",
+ "thiserror 2.0.12",
+ "tikv-jemalloc-ctl",
+ "tikv-jemalloc-sys",
+ "tikv-jemallocator",
+ "tokio",
+ "tokio-metrics",
+ "toml",
+ "tracing",
+ "tracing-core",
+ "tracing-subscriber",
+ "tuwunel_macros",
+ "url",
+]
+
+[[package]]
+name = "tuwunel_database"
+version = "1.0.0"
+dependencies = [
+ "async-channel",
+ "const-str",
+ "futures",
+ "log",
+ "minicbor",
+ "minicbor-serde",
+ "rust-rocksdb",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tuwunel_core",
+]
+
+[[package]]
+name = "tuwunel_macros"
+version = "1.0.0"
+dependencies = [
+ "itertools 0.14.0",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "tuwunel_router"
+version = "1.0.0"
+dependencies = [
+ "axum",
+ "axum-client-ip",
+ "axum-server",
+ "axum-server-dual-protocol",
+ "bytes",
+ "const-str",
+ "futures",
+ "http",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "log",
+ "ruma",
+ "rustls",
+ "sd-notify",
+ "sentry",
+ "sentry-tower",
+ "sentry-tracing",
+ "serde_json",
+ "tokio",
+ "tower 0.5.2",
+ "tower-http",
+ "tracing",
+ "tuwunel_admin",
+ "tuwunel_api",
+ "tuwunel_core",
+ "tuwunel_service",
+]
+
+[[package]]
+name = "tuwunel_service"
+version = "1.0.0"
+dependencies = [
+ "async-trait",
+ "base64 0.22.1",
+ "blurhash",
+ "bytes",
+ "const-str",
+ "either",
+ "futures",
+ "hickory-resolver 0.25.1",
+ "http",
+ "image",
+ "ipaddress",
+ "itertools 0.14.0",
+ "log",
+ "loole",
+ "lru-cache",
+ "rand 0.8.5",
+ "regex",
+ "reqwest",
+ "ruma",
+ "rustyline-async",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "sha2",
+ "termimad",
+ "tokio",
+ "tracing",
+ "tuwunel_core",
+ "tuwunel_database",
+ "url",
+ "webpage",
+]
 
 [[package]]
 name = "typenum"

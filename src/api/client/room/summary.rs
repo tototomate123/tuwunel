@@ -1,9 +1,5 @@
 use axum::extract::State;
 use axum_client_ip::InsecureClientIp;
-use conduwuit::{
-	Err, Result, debug_warn, trace,
-	utils::{IterStream, future::TryExtExt},
-};
 use futures::{
 	FutureExt, StreamExt,
 	future::{OptionFuture, join3},
@@ -18,7 +14,11 @@ use ruma::{
 	events::room::member::MembershipState,
 	space::SpaceRoomJoinRule::{self, *},
 };
-use service::Services;
+use tuwunel_core::{
+	Err, Result, debug_warn, trace,
+	utils::{IterStream, future::TryExtExt},
+};
+use tuwunel_service::Services;
 
 use crate::{Ruma, RumaResponse};
 

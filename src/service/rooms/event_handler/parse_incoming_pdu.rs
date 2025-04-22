@@ -1,6 +1,6 @@
-use conduwuit::{Result, err, implement, pdu::gen_event_id_canonical_json, result::FlatOk};
 use ruma::{CanonicalJsonObject, CanonicalJsonValue, OwnedEventId, OwnedRoomId};
 use serde_json::value::RawValue as RawJsonValue;
+use tuwunel_core::{Result, err, implement, pdu::gen_event_id_canonical_json, result::FlatOk};
 
 type Parsed = (OwnedRoomId, OwnedEventId, CanonicalJsonObject);
 

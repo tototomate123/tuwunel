@@ -1,4 +1,4 @@
-use conduwuit::{Err, Result};
+use tuwunel_core::{Err, Result};
 
 use crate::{admin_command, admin_command_dispatch};
 

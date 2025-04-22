@@ -1,9 +1,9 @@
 use std::fmt::Write;
 
 use clap::Subcommand;
-use conduwuit::{Err, Result};
 use futures::StreamExt;
 use ruma::{OwnedRoomAliasId, OwnedRoomId};
+use tuwunel_core::{Err, Result};
 
 use crate::Context;
 

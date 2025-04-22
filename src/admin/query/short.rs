@@ -1,6 +1,6 @@
 use clap::Subcommand;
-use conduwuit::Result;
 use ruma::{OwnedEventId, OwnedRoomOrAliasId};
+use tuwunel_core::Result;
 
 use crate::{admin_command, admin_command_dispatch};
 

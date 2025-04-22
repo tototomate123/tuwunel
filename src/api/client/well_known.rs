@@ -1,5 +1,4 @@
 use axum::{Json, extract::State, response::IntoResponse};
-use conduwuit::{Error, Result};
 use ruma::api::client::{
 	discovery::{
 		discover_homeserver::{self, HomeserverInfo, SlidingSyncProxyInfo},
@@ -7,6 +6,7 @@ use ruma::api::client::{
 	},
 	error::ErrorKind,
 };
+use tuwunel_core::{Error, Result};
 
 use crate::Ruma;
 
@@ -94,6 +94,6 @@ pub(crate) async fn syncv3_client_server_json(
 
 	Ok(Json(serde_json::json!({
 		"server": server_url,
-		"version": conduwuit::version(),
+		"version": tuwunel_core::version(),
 	})))
 }

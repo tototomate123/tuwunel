@@ -1,6 +1,6 @@
 use clap::Subcommand;
-use conduwuit::Result;
 use ruma::OwnedServerName;
+use tuwunel_core::Result;
 
 use crate::Context;
 

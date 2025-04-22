@@ -1,9 +1,4 @@
 use axum::extract::State;
-use conduwuit::{
-	Err, Result, err,
-	matrix::pdu::{PduEvent, gen_event_id_canonical_json},
-	warn,
-};
 use futures::FutureExt;
 use ruma::{
 	OwnedServerName, OwnedUserId,
@@ -14,6 +9,11 @@ use ruma::{
 		room::member::{MembershipState, RoomMemberEventContent},
 	},
 	serde::JsonObject,
+};
+use tuwunel_core::{
+	Err, Result, err,
+	matrix::pdu::{PduEvent, gen_event_id_canonical_json},
+	warn,
 };
 
 use crate::Ruma;

@@ -1,7 +1,7 @@
 use clap::Subcommand;
-use conduwuit::Result;
 use futures::StreamExt;
 use ruma::{OwnedRoomAliasId, OwnedRoomId};
+use tuwunel_core::Result;
 
 use crate::Context;
 

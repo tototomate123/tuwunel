@@ -1,17 +1,17 @@
 use std::{borrow::Cow, collections::BTreeMap, ops::Deref, sync::Arc};
 
 use clap::Subcommand;
-use conduwuit::{
+use futures::{FutureExt, Stream, StreamExt, TryStreamExt};
+use tokio::time::Instant;
+use tuwunel_core::{
 	Err, Result, apply, at, is_zero,
 	utils::{
 		stream::{IterStream, ReadyExt, TryIgnore, TryParallelExt},
 		string::EMPTY,
 	},
 };
-use conduwuit_database::Map;
-use conduwuit_service::Services;
-use futures::{FutureExt, Stream, StreamExt, TryStreamExt};
-use tokio::time::Instant;
+use tuwunel_database::Map;
+use tuwunel_service::Services;
 
 use crate::{admin_command, admin_command_dispatch};
 
@@ -170,7 +170,7 @@ pub(super) async fn compact(
 	parallelism: Option<usize>,
 	exhaustive: bool,
 ) -> Result {
-	use conduwuit_database::compact::Options;
+	use tuwunel_database::compact::Options;
 
 	let default_all_maps: Option<_> = map.is_none().then(|| {
 		self.services

@@ -435,6 +435,9 @@ default-features = false
 features = [
 	"extra-traits",
 	"full",
+	"parsing",
+	"proc-macro",
+	"printing",
 ]
 
 [workspace.dependencies.termimad]
@@ -604,38 +607,38 @@ rev = "200e958941d522a70c5877e3d846f55b5586c68d"
 # Our crates
 #
 
-[workspace.dependencies.conduwuit-router]
-package = "conduwuit_router"
+[workspace.dependencies.tuwunel-router]
+package = "tuwunel_router"
 path = "src/router"
 default-features = false
 
-[workspace.dependencies.conduwuit-admin]
-package = "conduwuit_admin"
+[workspace.dependencies.tuwunel-admin]
+package = "tuwunel_admin"
 path = "src/admin"
 default-features = false
 
-[workspace.dependencies.conduwuit-api]
-package = "conduwuit_api"
+[workspace.dependencies.tuwunel-api]
+package = "tuwunel_api"
 path = "src/api"
 default-features = false
 
-[workspace.dependencies.conduwuit-service]
-package = "conduwuit_service"
+[workspace.dependencies.tuwunel-service]
+package = "tuwunel_service"
 path = "src/service"
 default-features = false
 
-[workspace.dependencies.conduwuit-database]
-package = "conduwuit_database"
+[workspace.dependencies.tuwunel-database]
+package = "tuwunel_database"
 path = "src/database"
 default-features = false
 
-[workspace.dependencies.conduwuit-core]
-package = "conduwuit_core"
+[workspace.dependencies.tuwunel-core]
+package = "tuwunel_core"
 path = "src/core"
 default-features = false
 
-[workspace.dependencies.conduwuit-macros]
-package = "conduwuit_macros"
+[workspace.dependencies.tuwunel-macros]
+package = "tuwunel_macros"
 path = "src/macros"
 default-features = false
 
@@ -694,7 +697,7 @@ codegen-units = 32
 #	'-Clink-arg=-Wl,--no-gc-sections',
 #]
 
-[profile.release-max-perf.package.conduwuit_macros]
+[profile.release-max-perf.package.tuwunel_macros]
 inherits = "release-max-perf.build-override"
 #rustflags = [
 #	'-Crelocation-model=pic',
@@ -728,7 +731,7 @@ panic = "unwind"
 debug-assertions = true
 incremental = true
 #rustflags = [
-#	'--cfg', 'conduwuit_mods',
+#	'--cfg', 'tuwunel_mods',
 #	'-Ztime-passes',
 #	'-Zmir-opt-level=0',
 #	'-Zvalidate-mir=false',
@@ -745,11 +748,11 @@ incremental = true
 #	'-Clink-arg=-Wl,-z,lazy',
 #]
 
-[profile.dev.package.conduwuit_core]
+[profile.dev.package.tuwunel_core]
 inherits = "dev"
 incremental = false
 #rustflags = [
-#	'--cfg', 'conduwuit_mods',
+#	'--cfg', 'tuwunel_mods',
 #	'-Ztime-passes',
 #	'-Zmir-opt-level=0',
 #	'-Ztls-model=initial-exec',
@@ -766,10 +769,10 @@ incremental = false
 #	'-Clink-arg=-Wl,-z,nodelete',
 #]
 
-[profile.dev.package.conduwuit]
+[profile.dev.package.tuwunel]
 inherits = "dev"
 #rustflags = [
-#	'--cfg', 'conduwuit_mods',
+#	'--cfg', 'tuwunel_mods',
 #	'-Ztime-passes',
 #	'-Zmir-opt-level=0',
 #	'-Zvalidate-mir=false',
@@ -791,7 +794,7 @@ incremental = false
 codegen-units = 1
 opt-level = 'z'
 #rustflags = [
-#	'--cfg', 'conduwuit_mods',
+#	'--cfg', 'tuwunel_mods',
 #	'-Ztls-model=global-dynamic',
 #	'-Cprefer-dynamic=true',
 #	'-Zstaticlib-prefer-dynamic=true',
@@ -992,5 +995,5 @@ suspicious = { level = "warn", priority = -1 }
 ## some sadness
 let_underscore_future = { level = "allow", priority = 1 }
 
-# rust doesnt understand conduwuit's custom log macros
+# rust doesnt understand tuwunel's custom log macros
 literal_string_with_formatting_args = { level = "allow", priority = 1 }

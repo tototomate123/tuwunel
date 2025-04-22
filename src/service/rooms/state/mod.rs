@@ -1,17 +1,6 @@
 use std::{collections::HashMap, fmt::Write, iter::once, sync::Arc};
 
 use async_trait::async_trait;
-use conduwuit::{
-	PduEvent, Result, err,
-	result::FlatOk,
-	state_res::{self, StateMap},
-	utils::{
-		IterStream, MutexMap, MutexMapGuard, ReadyExt, calculate_hash,
-		stream::{BroadbandExt, TryIgnore},
-	},
-	warn,
-};
-use database::{Deserialized, Ignore, Interfix, Map};
 use futures::{
 	FutureExt, Stream, StreamExt, TryFutureExt, TryStreamExt, future::join_all, pin_mut,
 };
@@ -23,6 +12,17 @@ use ruma::{
 	},
 	serde::Raw,
 };
+use tuwunel_core::{
+	PduEvent, Result, err,
+	result::FlatOk,
+	state_res::{self, StateMap},
+	utils::{
+		IterStream, MutexMap, MutexMapGuard, ReadyExt, calculate_hash,
+		stream::{BroadbandExt, TryIgnore},
+	},
+	warn,
+};
+use tuwunel_database::{Deserialized, Ignore, Interfix, Map};
 
 use crate::{
 	Dep, globals, rooms,

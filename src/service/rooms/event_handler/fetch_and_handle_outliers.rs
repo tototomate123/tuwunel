@@ -3,12 +3,12 @@ use std::{
 	time::Instant,
 };
 
-use conduwuit::{
-	PduEvent, debug, debug_error, debug_warn, implement, pdu, trace,
-	utils::continue_exponential_backoff_secs, warn,
-};
 use ruma::{
 	CanonicalJsonValue, OwnedEventId, RoomId, ServerName, api::federation::event::get_event,
+};
+use tuwunel_core::{
+	PduEvent, debug, debug_error, debug_warn, implement, pdu, trace,
+	utils::continue_exponential_backoff_secs, warn,
 };
 
 use super::get_room_version_id;

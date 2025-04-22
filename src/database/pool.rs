@@ -11,16 +11,16 @@ use std::{
 };
 
 use async_channel::{QueueStrategy, Receiver, RecvError, Sender};
-use conduwuit::{
+use futures::{TryFutureExt, channel::oneshot};
+use oneshot::Sender as ResultSender;
+use rocksdb::Direction;
+use tuwunel_core::{
 	Error, Result, Server, debug, err, error, implement,
 	result::DebugInspect,
 	smallvec::SmallVec,
 	trace,
 	utils::sys::compute::{get_affinity, nth_core_available, set_affinity},
 };
-use futures::{TryFutureExt, channel::oneshot};
-use oneshot::Sender as ResultSender;
-use rocksdb::Direction;
 
 use self::configure::configure;
 use crate::{Handle, Map, keyval::KeyBuf, stream};
@@ -70,7 +70,7 @@ const QUEUE_LIMIT: (usize, usize) = (1, 4096);
 const BATCH_INLINE: usize = 1;
 
 const WORKER_STACK_SIZE: usize = 1_048_576;
-const WORKER_NAME: &str = "conduwuit:db";
+const WORKER_NAME: &str = "tuwunel:db";
 
 #[implement(Pool)]
 pub(crate) fn new(server: &Arc<Server>) -> Result<Arc<Self>> {
@@ -281,8 +281,8 @@ fn worker_init(&self, id: usize) {
 	set_affinity(affinity.clone());
 
 	#[cfg(all(not(target_env = "msvc"), feature = "jemalloc"))]
-	if affinity.clone().count() == 1 && conduwuit::alloc::je::is_affine_arena() {
-		use conduwuit::{
+	if affinity.clone().count() == 1 && tuwunel_core::alloc::je::is_affine_arena() {
+		use tuwunel_core::{
 			alloc::je::this_thread::{arena_id, set_arena},
 			result::LogDebugErr,
 		};

@@ -1,6 +1,12 @@
 use std::{collections::BTreeMap, sync::Arc};
 
-use conduwuit::{
+use futures::{Stream, StreamExt};
+use ruma::{
+	CanonicalJsonValue, EventId, OwnedUserId, RoomId, UserId,
+	api::client::threads::get_threads::v1::IncludeThreads, events::relation::BundledThread, uint,
+};
+use serde_json::json;
+use tuwunel_core::{
 	Result, err,
 	matrix::pdu::{PduCount, PduEvent, PduId, RawPduId},
 	utils::{
@@ -8,13 +14,7 @@ use conduwuit::{
 		stream::{TryIgnore, WidebandExt},
 	},
 };
-use conduwuit_database::{Deserialized, Map};
-use futures::{Stream, StreamExt};
-use ruma::{
-	CanonicalJsonValue, EventId, OwnedUserId, RoomId, UserId,
-	api::client::threads::get_threads::v1::IncludeThreads, events::relation::BundledThread, uint,
-};
-use serde_json::json;
+use tuwunel_database::{Deserialized, Map};
 
 use crate::{Dep, rooms, rooms::short::ShortRoomId};
 

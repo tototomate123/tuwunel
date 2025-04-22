@@ -1,10 +1,10 @@
 use std::{collections::BTreeMap, time::Instant};
 
-use conduwuit::{
+use ruma::{CanonicalJsonValue, EventId, RoomId, ServerName, UInt};
+use tuwunel_core::{
 	Err, PduEvent, Result, debug, debug::INFO_SPAN_LEVEL, defer, implement,
 	utils::continue_exponential_backoff_secs,
 };
-use ruma::{CanonicalJsonValue, EventId, RoomId, ServerName, UInt};
 
 #[implement(super::Service)]
 #[allow(clippy::type_complexity)]

@@ -2,11 +2,6 @@ use std::time::Duration;
 
 use axum::extract::State;
 use axum_client_ip::InsecureClientIp;
-use conduwuit::{
-	Err, Error, Result, debug, err, info, utils,
-	utils::{ReadyExt, hash},
-};
-use conduwuit_service::uiaa::SESSION_ID_LENGTH;
 use futures::StreamExt;
 use ruma::{
 	UserId,
@@ -26,6 +21,11 @@ use ruma::{
 		uiaa,
 	},
 };
+use tuwunel_core::{
+	Err, Error, Result, debug, err, info, utils,
+	utils::{ReadyExt, hash},
+};
+use tuwunel_service::uiaa::SESSION_ID_LENGTH;
 
 use super::{DEVICE_ID_LENGTH, TOKEN_LENGTH};
 use crate::Ruma;

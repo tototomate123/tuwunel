@@ -6,8 +6,6 @@ mod user_can;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use conduwuit::{Result, err};
-use database::Map;
 use ruma::{
 	EventEncryptionAlgorithm, JsOption, OwnedRoomAliasId, RoomId, UserId,
 	events::{
@@ -27,6 +25,8 @@ use ruma::{
 	},
 	room::RoomType,
 };
+use tuwunel_core::{Result, err};
+use tuwunel_database::Map;
 
 use crate::{Dep, rooms};
 

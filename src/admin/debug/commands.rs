@@ -5,7 +5,14 @@ use std::{
 	time::{Instant, SystemTime},
 };
 
-use conduwuit::{
+use futures::{FutureExt, StreamExt, TryStreamExt};
+use ruma::{
+	CanonicalJsonObject, CanonicalJsonValue, EventId, OwnedEventId, OwnedRoomId,
+	OwnedRoomOrAliasId, OwnedServerName, RoomId, RoomVersionId,
+	api::federation::event::get_room_state,
+};
+use tracing_subscriber::EnvFilter;
+use tuwunel_core::{
 	Err, Result, debug_error, err, info,
 	matrix::pdu::{PduEvent, PduId, RawPduId},
 	trace, utils,
@@ -15,17 +22,10 @@ use conduwuit::{
 	},
 	warn,
 };
-use futures::{FutureExt, StreamExt, TryStreamExt};
-use ruma::{
-	CanonicalJsonObject, CanonicalJsonValue, EventId, OwnedEventId, OwnedRoomId,
-	OwnedRoomOrAliasId, OwnedServerName, RoomId, RoomVersionId,
-	api::federation::event::get_room_state,
-};
-use service::rooms::{
+use tuwunel_service::rooms::{
 	short::{ShortEventId, ShortRoomId},
 	state_compressor::HashSetCompressStateEvent,
 };
-use tracing_subscriber::EnvFilter;
 
 use crate::admin_command;
 
@@ -764,7 +764,7 @@ pub(super) async fn memory_stats(&self, opts: Option<String>) -> Result {
 		})
 		.collect();
 
-	let stats = conduwuit::alloc::memory_stats(&opts).unwrap_or_default();
+	let stats = tuwunel_core::alloc::memory_stats(&opts).unwrap_or_default();
 
 	self.write_str("```\n").await?;
 	self.write_str(&stats).await?;
@@ -902,7 +902,7 @@ pub(super) async fn database_files(&self, map: Option<String>, level: Option<i32
 
 #[admin_command]
 pub(super) async fn trim_memory(&self) -> Result {
-	conduwuit::alloc::trim(None)?;
+	tuwunel_core::alloc::trim(None)?;
 
 	writeln!(self, "done").await
 }

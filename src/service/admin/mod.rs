@@ -10,9 +10,6 @@ use std::{
 };
 
 use async_trait::async_trait;
-use conduwuit::{
-	Error, PduEvent, Result, Server, debug, err, error, error::default_log, pdu::PduBuilder,
-};
 pub use create::create_admin_room;
 use futures::{FutureExt, TryFutureExt};
 use loole::{Receiver, Sender};
@@ -21,6 +18,9 @@ use ruma::{
 	events::room::message::{Relation, RoomMessageEventContent},
 };
 use tokio::sync::RwLock;
+use tuwunel_core::{
+	Error, PduEvent, Result, Server, debug, err, error, error::default_log, pdu::PduBuilder,
+};
 
 use crate::{Dep, account_data, globals, rooms, rooms::state::RoomMutexGuard};
 

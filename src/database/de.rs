@@ -1,9 +1,9 @@
-use conduwuit::{
-	Error, Result, arrayvec::ArrayVec, checked, debug::DebugInspect, err, utils::string,
-};
 use serde::{
 	Deserialize, de,
 	de::{DeserializeSeed, Visitor},
+};
+use tuwunel_core::{
+	Error, Result, arrayvec::ArrayVec, checked, debug::DebugInspect, err, utils::string,
 };
 
 use crate::util::unhandled;
@@ -416,7 +416,7 @@ impl<'a, 'de: 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 	)]
 	fn deserialize_any<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
 		debug_assert_eq!(
-			conduwuit::debug::type_name::<V>(),
+			tuwunel_core::debug::type_name::<V>(),
 			"serde_json::value::de::<impl serde::de::Deserialize for \
 			 serde_json::value::Value>::deserialize::ValueVisitor",
 			"deserialize_any: type not expected"

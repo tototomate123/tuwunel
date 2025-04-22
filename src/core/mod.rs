@@ -26,11 +26,11 @@ pub use matrix::{Event, EventTypeExt, PduCount, PduEvent, PduId, RoomVersion, pd
 pub use server::Server;
 pub use utils::{ctor, dtor, implement, result, result::Result};
 
-pub use crate as conduwuit_core;
+pub use crate as tuwunel_core;
 
 rustc_flags_capture! {}
 
-#[cfg(any(not(conduwuit_mods), not(feature = "conduwuit_mods")))]
+#[cfg(any(not(tuwunel_mods), not(feature = "tuwunel_mods")))]
 pub mod mods {
 	#[macro_export]
 	macro_rules! mod_ctor {

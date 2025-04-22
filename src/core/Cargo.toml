@@ -1,5 +1,5 @@
 [package]
-name = "conduwuit_core"
+name = "tuwunel_core"
 categories.workspace = true
 description.workspace = true
 edition.workspace = true
@@ -20,7 +20,7 @@ crate-type = [
 brotli_compression = [
 	"reqwest/brotli",
 ]
-conduwuit_mods = [
+tuwunel_mods = [
     "dep:libloading"
 ]
 gzip_compression = [
@@ -66,7 +66,7 @@ cargo_toml.workspace = true
 checked_ops.workspace = true
 chrono.workspace = true
 clap.workspace = true
-conduwuit-macros.workspace = true
+tuwunel-macros.workspace = true
 const-str.workspace = true
 core_affinity.workspace = true
 ctor.workspace = true

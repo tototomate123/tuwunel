@@ -20,8 +20,8 @@ pub mod sys;
 mod tests;
 pub mod time;
 
-pub use ::conduwuit_macros::implement;
 pub use ::ctor::{ctor, dtor};
+pub use ::tuwunel_macros::implement;
 
 pub use self::{
 	arrayvec::ArrayVecExt,

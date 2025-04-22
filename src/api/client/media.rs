@@ -2,14 +2,6 @@ use std::time::Duration;
 
 use axum::extract::State;
 use axum_client_ip::InsecureClientIp;
-use conduwuit::{
-	Err, Result, err,
-	utils::{self, content_disposition::make_content_disposition, math::ruma_from_usize},
-};
-use conduwuit_service::{
-	Services,
-	media::{CACHE_CONTROL_IMMUTABLE, CORP_CROSS_ORIGIN, Dim, FileMeta, MXC_LENGTH},
-};
 use reqwest::Url;
 use ruma::{
 	Mxc, UserId,
@@ -20,6 +12,14 @@ use ruma::{
 		},
 		media::create_content,
 	},
+};
+use tuwunel_core::{
+	Err, Result, err,
+	utils::{self, content_disposition::make_content_disposition, math::ruma_from_usize},
+};
+use tuwunel_service::{
+	Services,
+	media::{CACHE_CONTROL_IMMUTABLE, CORP_CROSS_ORIGIN, Dim, FileMeta, MXC_LENGTH},
 };
 
 use crate::Ruma;

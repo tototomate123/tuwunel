@@ -1,11 +1,13 @@
 use std::{panic::AssertUnwindSafe, sync::Arc, time::Duration};
 
-use conduwuit::{Err, Error, Result, Server, debug, debug_warn, error, trace, utils::time, warn};
 use futures::{FutureExt, TryFutureExt};
 use tokio::{
 	sync::{Mutex, MutexGuard},
 	task::{JoinHandle, JoinSet},
 	time::sleep,
+};
+use tuwunel_core::{
+	Err, Error, Result, Server, debug, debug_warn, error, trace, utils::time, warn,
 };
 
 use crate::{Services, service, service::Service};

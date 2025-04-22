@@ -1,5 +1,5 @@
-use conduwuit::{Err, Result, implement};
 use rocksdb::{BottommostLevelCompaction, CompactOptions};
+use tuwunel_core::{Err, Result, implement};
 
 use crate::keyval::KeyBuf;
 

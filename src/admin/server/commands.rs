@@ -1,11 +1,11 @@
 use std::{fmt::Write, path::PathBuf, sync::Arc};
 
-use conduwuit::{
+use futures::TryStreamExt;
+use tuwunel_core::{
 	Err, Result, info,
 	utils::{stream::IterStream, time},
 	warn,
 };
-use futures::TryStreamExt;
 
 use crate::admin_command;
 
@@ -68,8 +68,8 @@ pub(super) async fn list_features(&self, available: bool, enabled: bool, comma: 
 pub(super) async fn memory_usage(&self) -> Result {
 	let services_usage = self.services.memory_usage().await?;
 	let database_usage = self.services.db.db.memory_usage()?;
-	let allocator_usage =
-		conduwuit::alloc::memory_usage().map_or(String::new(), |s| format!("\nAllocator:\n{s}"));
+	let allocator_usage = tuwunel_core::alloc::memory_usage()
+		.map_or(String::new(), |s| format!("\nAllocator:\n{s}"));
 
 	self.write_str(&format!(
 		"Services:\n{services_usage}\nDatabase:\n{database_usage}{allocator_usage}",
@@ -131,7 +131,7 @@ pub(super) async fn reload_mods(&self) -> Result {
 #[admin_command]
 #[cfg(unix)]
 pub(super) async fn restart(&self, force: bool) -> Result {
-	use conduwuit::utils::sys::current_exe_deleted;
+	use tuwunel_core::utils::sys::current_exe_deleted;
 
 	if !force && current_exe_deleted() {
 		return Err!(

@@ -1,6 +1,5 @@
 use std::{collections::BTreeMap, fmt::Debug};
 
-use conduwuit::{Err, Result, debug, implement};
 use ruma::{
 	OwnedServerName, OwnedServerSigningKeyId, ServerName, ServerSigningKeyId,
 	api::federation::discovery::{
@@ -9,6 +8,7 @@ use ruma::{
 		get_server_keys,
 	},
 };
+use tuwunel_core::{Err, Result, debug, implement};
 
 #[implement(super::Service)]
 pub(super) async fn batch_notary_request<'a, S, K>(

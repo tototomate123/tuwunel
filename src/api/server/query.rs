@@ -1,7 +1,6 @@
 use std::collections::BTreeMap;
 
 use axum::extract::State;
-use conduwuit::{Error, Result, err};
 use futures::StreamExt;
 use get_profile_information::v1::ProfileField;
 use rand::seq::SliceRandom;
@@ -12,6 +11,7 @@ use ruma::{
 		federation::query::{get_profile_information, get_room_information},
 	},
 };
+use tuwunel_core::{Error, Result, err};
 
 use crate::Ruma;
 

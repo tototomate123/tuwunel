@@ -1,13 +1,13 @@
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 
-use conduwuit::{
-	PduEvent, Result, debug_warn, err, implement,
-	state_res::{self},
-};
 use futures::{FutureExt, future};
 use ruma::{
 	CanonicalJsonValue, MilliSecondsSinceUnixEpoch, OwnedEventId, RoomId, ServerName, UInt, int,
 	uint,
+};
+use tuwunel_core::{
+	PduEvent, Result, debug_warn, err, implement,
+	state_res::{self},
 };
 
 use super::check_room_id;

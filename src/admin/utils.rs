@@ -1,8 +1,8 @@
 #![allow(dead_code)]
 
-use conduwuit_core::{Err, Result, err};
 use ruma::{OwnedRoomId, OwnedUserId, RoomId, UserId};
-use service::Services;
+use tuwunel_core::{Err, Result, err};
+use tuwunel_service::Services;
 
 pub(crate) fn escape_html(s: &str) -> String {
 	s.replace('&', "&amp;")

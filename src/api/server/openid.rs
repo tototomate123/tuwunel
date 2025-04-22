@@ -1,6 +1,6 @@
 use axum::extract::State;
-use conduwuit::Result;
 use ruma::api::federation::openid::get_openid_userinfo;
+use tuwunel_core::Result;
 
 use crate::Ruma;
 

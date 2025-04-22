@@ -1,6 +1,5 @@
 use std::collections::BTreeMap;
 
-use conduwuit::{Err, Result, debug_info, debug_warn, error, implement, matrix::pdu::PduBuilder};
 use ruma::{
 	RoomId, UserId,
 	events::{
@@ -12,6 +11,9 @@ use ruma::{
 		},
 		tag::{TagEvent, TagEventContent, TagInfo},
 	},
+};
+use tuwunel_core::{
+	Err, Result, debug_info, debug_warn, error, implement, matrix::pdu::PduBuilder,
 };
 
 /// Invite the user to the conduwuit admin room.

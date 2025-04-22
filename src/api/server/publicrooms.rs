@@ -1,6 +1,5 @@
 use axum::extract::State;
 use axum_client_ip::InsecureClientIp;
-use conduwuit::{Error, Result};
 use ruma::{
 	api::{
 		client::error::ErrorKind,
@@ -8,6 +7,7 @@ use ruma::{
 	},
 	directory::Filter,
 };
+use tuwunel_core::{Error, Result};
 
 use crate::Ruma;
 

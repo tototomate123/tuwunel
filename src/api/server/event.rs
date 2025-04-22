@@ -1,6 +1,6 @@
 use axum::extract::State;
-use conduwuit::{Result, err};
 use ruma::{MilliSecondsSinceUnixEpoch, RoomId, api::federation::event::get_event};
+use tuwunel_core::{Result, err};
 
 use super::AccessCheck;
 use crate::Ruma;

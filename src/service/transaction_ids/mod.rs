@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
-use conduwuit::{Result, implement};
-use database::{Handle, Map};
 use ruma::{DeviceId, TransactionId, UserId};
+use tuwunel_core::{Result, implement};
+use tuwunel_database::{Handle, Map};
 
 pub struct Service {
 	db: Data,

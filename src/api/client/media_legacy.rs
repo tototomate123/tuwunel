@@ -2,11 +2,6 @@
 
 use axum::extract::State;
 use axum_client_ip::InsecureClientIp;
-use conduwuit::{
-	Err, Result, err,
-	utils::{content_disposition::make_content_disposition, math::ruma_from_usize},
-};
-use conduwuit_service::media::{CACHE_CONTROL_IMMUTABLE, CORP_CROSS_ORIGIN, Dim, FileMeta};
 use reqwest::Url;
 use ruma::{
 	Mxc,
@@ -15,6 +10,11 @@ use ruma::{
 		get_media_config, get_media_preview,
 	},
 };
+use tuwunel_core::{
+	Err, Result, err,
+	utils::{content_disposition::make_content_disposition, math::ruma_from_usize},
+};
+use tuwunel_service::media::{CACHE_CONTROL_IMMUTABLE, CORP_CROSS_ORIGIN, Dim, FileMeta};
 
 use crate::{Ruma, RumaResponse, client::create_content_route};
 

@@ -1,10 +1,6 @@
 use std::{fmt::Debug, mem};
 
 use bytes::Bytes;
-use conduwuit::{
-	Err, Error, Result, debug, debug::INFO_SPAN_LEVEL, debug_error, debug_warn, err,
-	error::inspect_debug_log, implement, trace, utils::string::EMPTY,
-};
 use http::{HeaderValue, header::AUTHORIZATION};
 use ipaddress::IPAddress;
 use reqwest::{Client, Method, Request, Response, Url};
@@ -15,6 +11,10 @@ use ruma::{
 		client::error::Error as RumaError, federation::authentication::XMatrix,
 	},
 	serde::Base64,
+};
+use tuwunel_core::{
+	Err, Error, Result, debug, debug::INFO_SPAN_LEVEL, debug_error, debug_warn, err,
+	error::inspect_debug_log, implement, trace, utils::string::EMPTY,
 };
 
 use crate::resolver::actual::ActualDest;

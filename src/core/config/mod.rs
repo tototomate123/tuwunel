@@ -8,7 +8,6 @@ use std::{
 	path::{Path, PathBuf},
 };
 
-use conduwuit_macros::config_example_generator;
 use either::{
 	Either,
 	Either::{Left, Right},
@@ -21,21 +20,22 @@ use ruma::{
 	api::client::discovery::discover_support::ContactRole,
 };
 use serde::{Deserialize, de::IgnoredAny};
+use tuwunel_macros::config_example_generator;
 use url::Url;
 
 use self::proxy::ProxyConfig;
 pub use self::{check::check, manager::Manager};
 use crate::{Result, err, error::Error, utils::sys};
 
-/// All the config options for conduwuit.
+/// All the config options for tuwunel.
 #[allow(clippy::struct_excessive_bools)]
 #[allow(rustdoc::broken_intra_doc_links, rustdoc::bare_urls)]
 #[derive(Clone, Debug, Deserialize)]
 #[config_example_generator(
-	filename = "conduwuit-example.toml",
+	filename = "tuwunel-example.toml",
 	section = "global",
 	undocumented = "# This item is undocumented. Please contribute documentation for it.",
-	header = r#"### conduwuit Configuration
+	header = r#"### Tuwunel Configuration
 ###
 ### THIS FILE IS GENERATED. CHANGES/CONTRIBUTIONS IN THE REPO WILL BE
 ### OVERWRITTEN!
@@ -50,30 +50,30 @@ use crate::{Result, err, error::Error, utils::sys};
 ### that say "YOU NEED TO EDIT THIS".
 ###
 ### For more information, see:
-### https://conduwuit.puppyirl.gay/configuration.html
+### https://tuwunel.chat/configuration.html
 "#,
-	ignore = "catchall well_known tls blurhashing allow_invalid_tls_certificates_yes_i_know_what_the_fuck_i_am_doing_with_this_and_i_know_this_is_insecure"
+	ignore = "catchall well_known tls blurhashing allow_invalid_tls_certificates"
 )]
 pub struct Config {
 	/// The server_name is the pretty name of this server. It is used as a
 	/// suffix for user and room IDs/aliases.
 	///
 	/// See the docs for reverse proxying and delegation:
-	/// https://conduwuit.puppyirl.gay/deploying/generic.html#setting-up-the-reverse-proxy
+	/// https://tuwunel.chat/deploying/generic.html#setting-up-the-reverse-proxy
 	///
 	/// Also see the `[global.well_known]` config section at the very bottom.
 	///
 	/// Examples of delegation:
-	/// - https://puppygock.gay/.well-known/matrix/server
-	/// - https://puppygock.gay/.well-known/matrix/client
+	/// - https://matrix.org/.well-known/matrix/server
+	/// - https://matrix.org/.well-known/matrix/client
 	///
 	/// YOU NEED TO EDIT THIS. THIS CANNOT BE CHANGED AFTER WITHOUT A DATABASE
 	/// WIPE.
 	///
-	/// example: "conduwuit.woof"
+	/// example: "girlboss.ceo"
 	pub server_name: OwnedServerName,
 
-	/// The default address (IPv4 or IPv6) conduwuit will listen on.
+	/// The default address (IPv4 or IPv6) tuwunel will listen on.
 	///
 	/// If you are using Docker or a container NAT networking setup, this must
 	/// be "0.0.0.0".
@@ -85,10 +85,10 @@ pub struct Config {
 	#[serde(default = "default_address")]
 	address: ListeningAddr,
 
-	/// The port(s) conduwuit will listen on.
+	/// The port(s) tuwunel will listen on.
 	///
 	/// For reverse proxying, see:
-	/// https://conduwuit.puppyirl.gay/deploying/generic.html#setting-up-the-reverse-proxy
+	/// https://tuwunel.chat/deploying/generic.html#setting-up-the-reverse-proxy
 	///
 	/// If you are using Docker, don't change this, you'll need to map an
 	/// external port to this.
@@ -103,16 +103,16 @@ pub struct Config {
 	#[serde(default)]
 	pub tls: TlsConfig,
 
-	/// The UNIX socket conduwuit will listen on.
+	/// The UNIX socket tuwunel will listen on.
 	///
-	/// conduwuit cannot listen on both an IP address and a UNIX socket. If
+	/// tuwunel cannot listen on both an IP address and a UNIX socket. If
 	/// listening on a UNIX socket, you MUST remove/comment the `address` key.
 	///
 	/// Remember to make sure that your reverse proxy has access to this socket
-	/// file, either by adding your reverse proxy to the 'conduwuit' group or
+	/// file, either by adding your reverse proxy to the 'tuwunel' group or
 	/// granting world R/W permissions with `unix_socket_perms` (666 minimum).
 	///
-	/// example: "/run/conduwuit/conduwuit.sock"
+	/// example: "/run/tuwunel/tuwunel.sock"
 	pub unix_socket_path: Option<PathBuf>,
 
 	/// The default permissions (in octal) to create the UNIX socket with.
@@ -121,22 +121,22 @@ pub struct Config {
 	#[serde(default = "default_unix_socket_perms")]
 	pub unix_socket_perms: u32,
 
-	/// This is the only directory where conduwuit will save its data, including
+	/// This is the only directory where tuwunel will save its data, including
 	/// media. Note: this was previously "/var/lib/matrix-conduit".
 	///
 	/// YOU NEED TO EDIT THIS.
 	///
-	/// example: "/var/lib/conduwuit"
+	/// example: "/var/lib/tuwunel"
 	pub database_path: PathBuf,
 
-	/// conduwuit supports online database backups using RocksDB's Backup engine
-	/// API. To use this, set a database backup path that conduwuit can write
+	/// tuwunel supports online database backups using RocksDB's Backup engine
+	/// API. To use this, set a database backup path that tuwunel can write
 	/// to.
 	///
 	/// For more information, see:
-	/// https://conduwuit.puppyirl.gay/maintenance.html#backups
+	/// https://tuwunel.chat/maintenance.html#backups
 	///
-	/// example: "/opt/conduwuit-db-backups"
+	/// example: "/opt/tuwunel-db-backups"
 	pub database_backup_path: Option<PathBuf>,
 
 	/// The amount of online RocksDB database backups to keep/retain, if using
@@ -152,15 +152,11 @@ pub struct Config {
 	///
 	/// To disable, set this to "" (an empty string).
 	///
-	/// The default is the trans pride flag.
-	///
-	/// example: "🏳️‍⚧️"
-	///
-	/// default: "🏳️‍⚧️"
+	/// default: "🎔"
 	#[serde(default = "default_new_user_displayname_suffix")]
 	pub new_user_displayname_suffix: String,
 
-	/// Set this to any float value to multiply conduwuit's in-memory LRU caches
+	/// Set this to any float value to multiply tuwunel's in-memory LRU caches
 	/// with such as "auth_chain_cache_capacity".
 	///
 	/// May be useful if you have significant memory to spare to increase
@@ -178,7 +174,7 @@ pub struct Config {
 	)]
 	pub cache_capacity_modifier: f64,
 
-	/// Set this to any float value in megabytes for conduwuit to tell the
+	/// Set this to any float value in megabytes for tuwunel to tell the
 	/// database engine that this much memory is available for database read
 	/// caches.
 	///
@@ -194,7 +190,7 @@ pub struct Config {
 	#[serde(default = "default_db_cache_capacity_mb")]
 	pub db_cache_capacity_mb: f64,
 
-	/// Set this to any float value in megabytes for conduwuit to tell the
+	/// Set this to any float value in megabytes for tuwunel to tell the
 	/// database engine that this much memory is available for database write
 	/// caches.
 	///
@@ -311,9 +307,9 @@ pub struct Config {
 	/// Enable using *only* TCP for querying your specified nameservers instead
 	/// of UDP.
 	///
-	/// If you are running conduwuit in a container environment, this config
+	/// If you are running tuwunel in a container environment, this config
 	/// option may need to be enabled. For more details, see:
-	/// https://conduwuit.puppyirl.gay/troubleshooting.html#potential-dns-issues-when-using-docker
+	/// https://tuwunel.chat/troubleshooting.html#potential-dns-issues-when-using-docker
 	#[serde(default)]
 	pub query_over_tcp_only: bool,
 
@@ -526,9 +522,9 @@ pub struct Config {
 	/// tokens. Multiple tokens can be added if you separate them with
 	/// whitespace
 	///
-	/// conduwuit must be able to access the file, and it must not be empty
+	/// tuwunel must be able to access the file, and it must not be empty
 	///
-	/// example: "/etc/conduwuit/.reg_token"
+	/// example: "/etc/tuwunel/.reg_token"
 	pub registration_token_file: Option<PathBuf>,
 
 	/// Controls whether encrypted rooms and events are allowed.
@@ -619,16 +615,16 @@ pub struct Config {
 	pub allow_room_creation: bool,
 
 	/// Set to false to disable users from joining or creating room versions
-	/// that aren't officially supported by conduwuit.
+	/// that aren't officially supported by tuwunel.
 	///
-	/// conduwuit officially supports room versions 6 - 11.
+	/// tuwunel officially supports room versions 6 - 11.
 	///
-	/// conduwuit has slightly experimental (though works fine in practice)
+	/// tuwunel has slightly experimental (though works fine in practice)
 	/// support for versions 3 - 5.
 	#[serde(default = "true_fn")]
 	pub allow_unstable_room_versions: bool,
 
-	/// Default room version conduwuit will create rooms with.
+	/// Default room version tuwunel will create rooms with.
 	///
 	/// Per spec, room version 11 is the default.
 	///
@@ -702,7 +698,7 @@ pub struct Config {
 	/// Servers listed here will be used to gather public keys of other servers
 	/// (notary trusted key servers).
 	///
-	/// Currently, conduwuit doesn't support inbound batched key requests, so
+	/// Currently, tuwunel doesn't support inbound batched key requests, so
 	/// this list should only contain other Synapse servers.
 	///
 	/// example: ["matrix.org", "tchncs.de"]
@@ -747,7 +743,7 @@ pub struct Config {
 	#[serde(default = "default_trusted_server_batch_size")]
 	pub trusted_server_batch_size: usize,
 
-	/// Max log level for conduwuit. Allows debug, info, warn, or error.
+	/// Max log level for tuwunel. Allows debug, info, warn, or error.
 	///
 	/// See also:
 	/// https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html#directives
@@ -772,7 +768,7 @@ pub struct Config {
 	#[serde(default = "default_log_span_events")]
 	pub log_span_events: String,
 
-	/// Configures whether CONDUWUIT_LOG EnvFilter matches values using regular
+	/// Configures whether TUWUNEL_LOG EnvFilter matches values using regular
 	/// expressions. See the tracing_subscriber documentation on Directives.
 	///
 	/// default: true
@@ -855,7 +851,7 @@ pub struct Config {
 	/// This takes priority over "turn_secret" first, and falls back to
 	/// "turn_secret" if invalid or failed to open.
 	///
-	/// example: "/etc/conduwuit/.turn_secret"
+	/// example: "/etc/tuwunel/.turn_secret"
 	pub turn_secret_file: Option<PathBuf>,
 
 	/// TURN TTL, in seconds.
@@ -864,12 +860,12 @@ pub struct Config {
 	#[serde(default = "default_turn_ttl")]
 	pub turn_ttl: u64,
 
-	/// List/vector of room IDs or room aliases that conduwuit will make newly
+	/// List/vector of room IDs or room aliases that tuwunel will make newly
 	/// registered users join. The rooms specified must be rooms that you have
 	/// joined at least once on the server, and must be public.
 	///
-	/// example: ["#conduwuit:puppygock.gay",
-	/// "!eoIzvAvVwY23LPDay8:puppygock.gay"]
+	/// example: ["#tuwunel:tuwunel.chat",
+	/// "!eoIzvAvVwY23LPDay8:tuwunel.chat"]
 	///
 	/// default: []
 	#[serde(default = "Vec::new")]
@@ -894,9 +890,9 @@ pub struct Config {
 	#[serde(default)]
 	pub auto_deactivate_banned_room_attempts: bool,
 
-	/// RocksDB log level. This is not the same as conduwuit's log level. This
+	/// RocksDB log level. This is not the same as tuwunel's log level. This
 	/// is the log level for the RocksDB engine/library which show up in your
-	/// database folder/path as `LOG` files. conduwuit will log RocksDB errors
+	/// database folder/path as `LOG` files. tuwunel will log RocksDB errors
 	/// as normal through tracing or panics if severe for safety.
 	///
 	/// default: "error"
@@ -922,7 +918,7 @@ pub struct Config {
 	/// Set this to true to use RocksDB config options that are tailored to HDDs
 	/// (slower device storage).
 	///
-	/// It is worth noting that by default, conduwuit will use RocksDB with
+	/// It is worth noting that by default, tuwunel will use RocksDB with
 	/// Direct IO enabled. *Generally* speaking this improves performance as it
 	/// bypasses buffered I/O (system page cache). However there is a potential
 	/// chance that Direct IO may cause issues with database operations if your
@@ -930,7 +926,7 @@ pub struct Config {
 	/// possibly ZFS filesystem. RocksDB generally deals/corrects these issues
 	/// but it cannot account for all setups. If you experience any weird
 	/// RocksDB issues, try enabling this option as it turns off Direct IO and
-	/// feel free to report in the conduwuit Matrix room if this option fixes
+	/// feel free to report in the tuwunel Matrix room if this option fixes
 	/// your DB issues.
 	///
 	/// For more information, see:
@@ -991,7 +987,7 @@ pub struct Config {
 	/// as they all differ. See their `kDefaultCompressionLevel`.
 	///
 	/// Note when using the default value we may override it with a setting
-	/// tailored specifically conduwuit.
+	/// tailored specifically tuwunel.
 	///
 	/// default: 32767
 	#[serde(default = "default_rocksdb_compression_level")]
@@ -1009,7 +1005,7 @@ pub struct Config {
 	/// algorithm.
 	///
 	/// Note when using the default value we may override it with a setting
-	/// tailored specifically conduwuit.
+	/// tailored specifically tuwunel.
 	///
 	/// default: 32767
 	#[serde(default = "default_rocksdb_bottommost_compression_level")]
@@ -1051,13 +1047,13 @@ pub struct Config {
 	/// 0 = AbsoluteConsistency
 	/// 1 = TolerateCorruptedTailRecords (default)
 	/// 2 = PointInTime (use me if trying to recover)
-	/// 3 = SkipAnyCorruptedRecord (you now voided your Conduwuit warranty)
+	/// 3 = SkipAnyCorruptedRecord (you now voided your tuwunel warranty)
 	///
 	/// For more information on these modes, see:
 	/// https://github.com/facebook/rocksdb/wiki/WAL-Recovery-Modes
 	///
 	/// For more details on recovering a corrupt database, see:
-	/// https://conduwuit.puppyirl.gay/troubleshooting.html#database-corruption
+	/// https://tuwunel.chat/troubleshooting.html#database-corruption
 	///
 	/// default: 1
 	#[serde(default = "default_rocksdb_recovery_mode")]
@@ -1101,7 +1097,7 @@ pub struct Config {
 	/// - Disabling repair mode and restarting the server is recommended after
 	///   running the repair.
 	///
-	/// See https://conduwuit.puppyirl.gay/troubleshooting.html#database-corruption for more details on recovering a corrupt database.
+	/// See https://tuwunel.chat/troubleshooting.html#database-corruption for more details on recovering a corrupt database.
 	#[serde(default)]
 	pub rocksdb_repair: bool,
 
@@ -1126,7 +1122,7 @@ pub struct Config {
 	/// Enables RocksDB compaction. You should never ever have to set this
 	/// option to false. If you for some reason find yourself needing to use
 	/// this option as part of troubleshooting or a bug, please reach out to us
-	/// in the conduwuit Matrix room with information and details.
+	/// in the tuwunel Matrix room with information and details.
 	///
 	/// Disabling compaction will lead to a significantly bloated and
 	/// explosively large database, gradually poor performance, unnecessarily
@@ -1154,7 +1150,7 @@ pub struct Config {
 	/// purposes such as recovering/recreating your admin room, or inviting
 	/// yourself back.
 	///
-	/// See https://conduwuit.puppyirl.gay/troubleshooting.html#lost-access-to-admin-room for other ways to get back into your admin room.
+	/// See https://tuwunel.chat/troubleshooting.html#lost-access-to-admin-room for other ways to get back into your admin room.
 	///
 	/// Once this password is unset, all sessions will be logged out for
 	/// security purposes.
@@ -1170,7 +1166,7 @@ pub struct Config {
 
 	/// Allow local (your server only) presence updates/requests.
 	///
-	/// Note that presence on conduwuit is very fast unlike Synapse's. If using
+	/// Note that presence on tuwunel is very fast unlike Synapse's. If using
 	/// outgoing presence, this MUST be enabled.
 	#[serde(default = "true_fn")]
 	pub allow_local_presence: bool,
@@ -1179,7 +1175,7 @@ pub struct Config {
 	///
 	/// This option receives presence updates from other servers, but does not
 	/// send any unless `allow_outgoing_presence` is true. Note that presence on
-	/// conduwuit is very fast unlike Synapse's.
+	/// tuwunel is very fast unlike Synapse's.
 	#[serde(default = "true_fn")]
 	pub allow_incoming_presence: bool,
 
@@ -1187,7 +1183,7 @@ pub struct Config {
 	///
 	/// This option sends presence updates to other servers, but does not
 	/// receive any unless `allow_incoming_presence` is true. Note that presence
-	/// on conduwuit is very fast unlike Synapse's. If using outgoing presence,
+	/// on tuwunel is very fast unlike Synapse's. If using outgoing presence,
 	/// you MUST enable `allow_local_presence` as well.
 	#[serde(default = "true_fn")]
 	pub allow_outgoing_presence: bool,
@@ -1251,8 +1247,8 @@ pub struct Config {
 	#[serde(default = "default_typing_client_timeout_max_s")]
 	pub typing_client_timeout_max_s: u64,
 
-	/// Set this to true for conduwuit to compress HTTP response bodies using
-	/// zstd. This option does nothing if conduwuit was not built with
+	/// Set this to true for tuwunel to compress HTTP response bodies using
+	/// zstd. This option does nothing if tuwunel was not built with
 	/// `zstd_compression` feature. Please be aware that enabling HTTP
 	/// compression may weaken TLS. Most users should not need to enable this.
 	/// See https://breachattack.com/ and https://wikipedia.org/wiki/BREACH
@@ -1260,8 +1256,8 @@ pub struct Config {
 	#[serde(default)]
 	pub zstd_compression: bool,
 
-	/// Set this to true for conduwuit to compress HTTP response bodies using
-	/// gzip. This option does nothing if conduwuit was not built with
+	/// Set this to true for tuwunel to compress HTTP response bodies using
+	/// gzip. This option does nothing if tuwunel was not built with
 	/// `gzip_compression` feature. Please be aware that enabling HTTP
 	/// compression may weaken TLS. Most users should not need to enable this.
 	/// See https://breachattack.com/ and https://wikipedia.org/wiki/BREACH before
@@ -1272,8 +1268,8 @@ pub struct Config {
 	#[serde(default)]
 	pub gzip_compression: bool,
 
-	/// Set this to true for conduwuit to compress HTTP response bodies using
-	/// brotli. This option does nothing if conduwuit was not built with
+	/// Set this to true for tuwunel to compress HTTP response bodies using
+	/// brotli. This option does nothing if tuwunel was not built with
 	/// `brotli_compression` feature. Please be aware that enabling HTTP
 	/// compression may weaken TLS. Most users should not need to enable this.
 	/// See https://breachattack.com/ and https://wikipedia.org/wiki/BREACH
@@ -1316,8 +1312,8 @@ pub struct Config {
 
 	/// Check consistency of the media directory at startup:
 	/// 1. When `media_compat_file_link` is enabled, this check will upgrade
-	///    media when switching back and forth between Conduit and conduwuit.
-	///    Both options must be enabled to handle this.
+	///    media when switching back and forth between Conduit and tuwunel. Both
+	///    options must be enabled to handle this.
 	/// 2. When media is deleted from the directory, this check will also delete
 	///    its database entry.
 	///
@@ -1334,7 +1330,7 @@ pub struct Config {
 	/// Otherwise setting this to false reduces filesystem clutter and overhead
 	/// for managing these symlinks in the directory. This is now disabled by
 	/// default. You may still return to upstream Conduit but you have to run
-	/// conduwuit at least once with this set to true and allow the
+	/// tuwunel at least once with this set to true and allow the
 	/// media_startup_check to take place before shutting down to return to
 	/// Conduit.
 	#[serde(default)]
@@ -1351,7 +1347,7 @@ pub struct Config {
 	#[serde(default)]
 	pub prune_missing_media: bool,
 
-	/// Vector list of regex patterns of server names that conduwuit will refuse
+	/// Vector list of regex patterns of server names that tuwunel will refuse
 	/// to download remote media from.
 	///
 	/// example: ["badserver\.tld$", "badphrase", "19dollarfortnitecards"]
@@ -1387,7 +1383,7 @@ pub struct Config {
 	pub forbidden_remote_room_directory_server_names: RegexSet,
 
 	/// Vector list of IPv4 and IPv6 CIDR ranges / subnets *in quotes* that you
-	/// do not want conduwuit to send outbound requests to. Defaults to
+	/// do not want tuwunel to send outbound requests to. Defaults to
 	/// RFC1918, unroutable, loopback, multicast, and testnet addresses for
 	/// security.
 	///
@@ -1555,25 +1551,25 @@ pub struct Config {
 
 	/// Allow admins to enter commands in rooms other than "#admins" (admin
 	/// room) by prefixing your message with "\!admin" or "\\!admin" followed up
-	/// a normal conduwuit admin command. The reply will be publicly visible to
+	/// a normal tuwunel admin command. The reply will be publicly visible to
 	/// the room, originating from the sender.
 	///
 	/// example: \\!admin debug ping puppygock.gay
 	#[serde(default = "true_fn")]
 	pub admin_escape_commands: bool,
 
-	/// Automatically activate the conduwuit admin room console / CLI on
-	/// startup. This option can also be enabled with `--console` conduwuit
+	/// Automatically activate the tuwunel admin room console / CLI on
+	/// startup. This option can also be enabled with `--console` tuwunel
 	/// argument.
 	#[serde(default)]
 	pub admin_console_automatic: bool,
 
 	/// List of admin commands to execute on startup.
 	///
-	/// This option can also be configured with the `--execute` conduwuit
+	/// This option can also be configured with the `--execute` tuwunel
 	/// argument and can take standard shell commands and environment variables
 	///
-	/// For example: `./conduwuit --execute "server admin-notice conduwuit has
+	/// For example: `./tuwunel --execute "server admin-notice tuwunel has
 	/// started up at $(date)"`
 	///
 	/// example: admin_execute = ["debug ping puppygock.gay", "debug echo hi"]`
@@ -1584,7 +1580,7 @@ pub struct Config {
 
 	/// Ignore errors in startup commands.
 	///
-	/// If false, conduwuit will error and fail to start if an admin execute
+	/// If false, tuwunel will error and fail to start if an admin execute
 	/// command (`--execute` / `admin_execute`) fails.
 	#[serde(default)]
 	pub admin_execute_errors_ignore: bool,
@@ -1609,7 +1605,7 @@ pub struct Config {
 	/// The default room tag to apply on the admin room.
 	///
 	/// On some clients like Element, the room tag "m.server_notice" is a
-	/// special pinned room at the very bottom of your room list. The conduwuit
+	/// special pinned room at the very bottom of your room list. The tuwunel
 	/// admin room can be pinned here so you always have an easy-to-access
 	/// shortcut dedicated to your admin room.
 	///
@@ -1618,7 +1614,7 @@ pub struct Config {
 	pub admin_room_tag: String,
 
 	/// Sentry.io crash/panic reporting, performance monitoring/metrics, etc.
-	/// This is NOT enabled by default. conduwuit's default Sentry reporting
+	/// This is NOT enabled by default. tuwunel's default Sentry reporting
 	/// endpoint domain is `o4506996327251968.ingest.us.sentry.io`.
 	#[serde(default)]
 	pub sentry: bool,
@@ -1630,7 +1626,7 @@ pub struct Config {
 	#[serde(default = "default_sentry_endpoint")]
 	pub sentry_endpoint: Option<Url>,
 
-	/// Report your conduwuit server_name in Sentry.io crash reports and
+	/// Report your tuwunel server_name in Sentry.io crash reports and
 	/// metrics.
 	#[serde(default)]
 	pub sentry_send_server_name: bool,
@@ -1671,7 +1667,7 @@ pub struct Config {
 	/// Enable the tokio-console. This option is only relevant to developers.
 	///
 	///	For more information, see:
-	/// https://conduwuit.puppyirl.gay/development.html#debugging-with-tokio-console
+	/// https://tuwunel.chat/development.html#debugging-with-tokio-console
 	#[serde(default)]
 	pub tokio_console: bool,
 
@@ -1800,8 +1796,7 @@ pub struct Config {
 	/// it is highly insecure and I will personally yell at you if I catch you
 	/// using this.
 	#[serde(default)]
-	pub allow_invalid_tls_certificates_yes_i_know_what_the_fuck_i_am_doing_with_this_and_i_know_this_is_insecure:
-		bool,
+	pub allow_invalid_tls_certificates: bool,
 
 	// external structure; separate section
 	#[serde(default)]
@@ -1813,7 +1808,7 @@ pub struct Config {
 }
 
 #[derive(Clone, Debug, Deserialize, Default)]
-#[config_example_generator(filename = "conduwuit-example.toml", section = "global.tls")]
+#[config_example_generator(filename = "tuwunel-example.toml", section = "global.tls")]
 pub struct TlsConfig {
 	/// Path to a valid TLS certificate file.
 	///
@@ -1832,7 +1827,7 @@ pub struct TlsConfig {
 
 #[allow(rustdoc::broken_intra_doc_links, rustdoc::bare_urls)]
 #[derive(Clone, Debug, Deserialize, Default)]
-#[config_example_generator(filename = "conduwuit-example.toml", section = "global.well_known")]
+#[config_example_generator(filename = "tuwunel-example.toml", section = "global.well_known")]
 pub struct WellKnownConfig {
 	/// The server URL that the client well-known file will serve. This should
 	/// not contain a port, and should just be a valid HTTPS URL.
@@ -1858,7 +1853,7 @@ pub struct WellKnownConfig {
 
 #[derive(Clone, Copy, Debug, Deserialize, Default)]
 #[allow(rustdoc::broken_intra_doc_links, rustdoc::bare_urls)]
-#[config_example_generator(filename = "conduwuit-example.toml", section = "global.blurhashing")]
+#[config_example_generator(filename = "tuwunel-example.toml", section = "global.blurhashing")]
 pub struct BlurhashConfig {
 	/// blurhashing x component, 4 is recommended by https://blurha.sh/
 	///
@@ -1913,7 +1908,11 @@ impl Config {
 	where
 		I: Iterator<Item = &'a Path>,
 	{
-		let envs = [Env::var("CONDUIT_CONFIG"), Env::var("CONDUWUIT_CONFIG")];
+		let envs = [
+			Env::var("CONDUIT_CONFIG"),
+			Env::var("CONDUWUIT_CONFIG"),
+			Env::var("TUWUNEL_CONFIG"),
+		];
 
 		let config = envs
 			.into_iter()
@@ -1922,7 +1921,8 @@ impl Config {
 			.chain(paths.map(Toml::file))
 			.fold(Figment::new(), |config, file| config.merge(file.nested()))
 			.merge(Env::prefixed("CONDUIT_").global().split("__"))
-			.merge(Env::prefixed("CONDUWUIT_").global().split("__"));
+			.merge(Env::prefixed("CONDUWUIT_").global().split("__"))
+			.merge(Env::prefixed("TUWUNEL_").global().split("__"));
 
 		Ok(config)
 	}
@@ -2195,7 +2195,7 @@ fn default_url_preview_max_spider_size() -> usize {
 	256_000 // 256KB
 }
 
-fn default_new_user_displayname_suffix() -> String { "🏳️‍⚧️".to_owned() }
+fn default_new_user_displayname_suffix() -> String { "🎔".to_owned() }
 
 fn default_sentry_endpoint() -> Option<Url> { None }
 

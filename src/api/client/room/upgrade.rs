@@ -1,10 +1,6 @@
 use std::cmp::max;
 
 use axum::extract::State;
-use conduwuit::{
-	Error, Result, err, info,
-	matrix::{StateKey, pdu::PduBuilder},
-};
 use futures::StreamExt;
 use ruma::{
 	CanonicalJsonObject, RoomId, RoomVersionId,
@@ -20,6 +16,10 @@ use ruma::{
 	int,
 };
 use serde_json::{json, value::to_raw_value};
+use tuwunel_core::{
+	Error, Result, err, info,
+	matrix::{StateKey, pdu::PduBuilder},
+};
 
 use crate::Ruma;
 

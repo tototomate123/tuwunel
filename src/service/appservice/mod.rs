@@ -4,11 +4,11 @@ mod registration_info;
 use std::{collections::BTreeMap, iter::IntoIterator, sync::Arc};
 
 use async_trait::async_trait;
-use conduwuit::{Result, err, utils::stream::IterStream};
-use database::Map;
 use futures::{Future, FutureExt, Stream, TryStreamExt};
 use ruma::{RoomAliasId, RoomId, UserId, api::appservice::Registration};
 use tokio::sync::{RwLock, RwLockReadGuard};
+use tuwunel_core::{Result, err, utils::stream::IterStream};
+use tuwunel_database::Map;
 
 pub use self::{namespace_regex::NamespaceRegex, registration_info::RegistrationInfo};
 use crate::{Dep, sending};

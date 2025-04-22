@@ -1,7 +1,7 @@
 use std::convert::identity;
 
-use conduwuit::Result;
 use serde::Deserialize;
+use tuwunel_core::Result;
 
 pub trait Deserialized {
 	fn map_de<T, U, F>(self, f: F) -> Result<U>

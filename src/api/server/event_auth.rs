@@ -1,12 +1,12 @@
 use std::{borrow::Borrow, iter::once};
 
 use axum::extract::State;
-use conduwuit::{Error, Result, utils::stream::ReadyExt};
 use futures::StreamExt;
 use ruma::{
 	RoomId,
 	api::{client::error::ErrorKind, federation::authorization::get_event_authorization},
 };
+use tuwunel_core::{Error, Result, utils::stream::ReadyExt};
 
 use super::AccessCheck;
 use crate::Ruma;

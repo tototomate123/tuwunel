@@ -1,20 +1,16 @@
-extern crate conduwuit_admin as admin;
-extern crate conduwuit_core as conduwuit;
-extern crate conduwuit_service as service;
-
 use std::{
 	sync::{Arc, Weak, atomic::Ordering},
 	time::Duration,
 };
 
 use axum_server::Handle as ServerHandle;
-use conduwuit::{Error, Result, Server, debug, debug_error, debug_info, error, info};
 use futures::FutureExt;
-use service::Services;
 use tokio::{
 	sync::broadcast::{self, Sender},
 	task::JoinHandle,
 };
+use tuwunel_core::{Error, Result, Server, debug, debug_error, debug_info, error, info};
+use tuwunel_service::Services;
 
 use crate::serve;
 
@@ -25,7 +21,7 @@ pub(crate) async fn run(services: Arc<Services>) -> Result<()> {
 	debug!("Start");
 
 	// Install the admin room callback here for now
-	admin::init(&services.admin).await;
+	tuwunel_admin::init(&services.admin).await;
 
 	// Setup shutdown/signal handling
 	let handle = ServerHandle::new();
@@ -51,7 +47,7 @@ pub(crate) async fn run(services: Arc<Services>) -> Result<()> {
 	_ = sigs.await;
 
 	// Remove the admin room callback
-	admin::fini(&services.admin).await;
+	tuwunel_admin::fini(&services.admin).await;
 
 	debug_info!("Finish");
 	res

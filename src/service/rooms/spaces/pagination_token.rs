@@ -3,8 +3,8 @@ use std::{
 	str::FromStr,
 };
 
-use conduwuit::{Error, Result};
 use ruma::{UInt, api::client::error::ErrorKind};
+use tuwunel_core::{Error, Result};
 
 use crate::rooms::short::ShortRoomId;
 

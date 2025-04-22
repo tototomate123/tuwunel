@@ -1,8 +1,8 @@
 use std::fmt::Write;
 
-use conduwuit::{Err, Result};
 use futures::StreamExt;
 use ruma::{OwnedRoomId, OwnedServerName, OwnedUserId};
+use tuwunel_core::{Err, Result};
 
 use crate::{admin_command, get_room_info};
 

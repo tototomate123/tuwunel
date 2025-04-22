@@ -1,12 +1,12 @@
 use std::collections::{BTreeMap, HashMap, hash_map};
 
-use conduwuit::{
-	Err, Error, PduEvent, Result, debug, debug_info, err, implement, state_res, trace, warn,
-};
 use futures::future::ready;
 use ruma::{
 	CanonicalJsonObject, CanonicalJsonValue, EventId, RoomId, ServerName,
 	api::client::error::ErrorKind, events::StateEventType,
+};
+use tuwunel_core::{
+	Err, Error, PduEvent, Result, debug, debug_info, err, implement, state_res, trace, warn,
 };
 
 use super::{check_room_id, get_room_version_id, to_room_version};

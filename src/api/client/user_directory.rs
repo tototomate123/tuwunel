@@ -1,15 +1,15 @@
 use axum::extract::State;
-use conduwuit::{
+use futures::{FutureExt, StreamExt, pin_mut};
+use ruma::{
+	api::client::user_directory::search_users::{self},
+	events::room::join_rules::JoinRule,
+};
+use tuwunel_core::{
 	Result,
 	utils::{
 		future::BoolExt,
 		stream::{BroadbandExt, ReadyExt},
 	},
-};
-use futures::{FutureExt, StreamExt, pin_mut};
-use ruma::{
-	api::client::user_directory::search_users::{self},
-	events::room::join_rules::JoinRule,
 };
 
 use crate::Ruma;

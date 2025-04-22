@@ -1,6 +1,6 @@
-use conduwuit::{Err, Result};
 use futures::StreamExt;
 use ruma::OwnedRoomId;
+use tuwunel_core::{Err, Result};
 
 use crate::{PAGE_SIZE, admin_command, get_room_info};
 

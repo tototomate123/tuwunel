@@ -1,8 +1,8 @@
 use std::time::Duration;
 
 use axum::extract::State;
-use conduwuit::{Err, Result};
 use ruma::api::client::presence::{get_presence, set_presence};
+use tuwunel_core::{Err, Result};
 
 use crate::Ruma;
 

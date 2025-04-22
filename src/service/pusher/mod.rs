@@ -1,12 +1,6 @@
 use std::{fmt::Debug, mem, sync::Arc};
 
 use bytes::BytesMut;
-use conduwuit::{
-	Err, PduEvent, Result, debug_warn, err, trace,
-	utils::{stream::TryIgnore, string_from_bytes},
-	warn,
-};
-use database::{Deserialized, Ignore, Interfix, Json, Map};
 use futures::{Stream, StreamExt};
 use ipaddress::IPAddress;
 use ruma::{
@@ -29,6 +23,12 @@ use ruma::{
 	serde::Raw,
 	uint,
 };
+use tuwunel_core::{
+	Err, PduEvent, Result, debug_warn, err, trace,
+	utils::{stream::TryIgnore, string_from_bytes},
+	warn,
+};
+use tuwunel_database::{Deserialized, Ignore, Interfix, Json, Map};
 
 use crate::{Dep, client, globals, rooms, sending, users};
 

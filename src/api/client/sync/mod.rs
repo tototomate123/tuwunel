@@ -2,12 +2,6 @@ mod v3;
 mod v4;
 mod v5;
 
-use conduwuit::{
-	Error, PduCount, Result,
-	matrix::pdu::PduEvent,
-	utils::stream::{BroadbandExt, ReadyExt, TryIgnore},
-};
-use conduwuit_service::Services;
 use futures::{StreamExt, pin_mut};
 use ruma::{
 	RoomId, UserId,
@@ -15,6 +9,12 @@ use ruma::{
 		self, Beacon, CallInvite, PollStart, RoomEncrypted, RoomMessage, Sticker,
 	},
 };
+use tuwunel_core::{
+	Error, PduCount, Result,
+	matrix::pdu::PduEvent,
+	utils::stream::{BroadbandExt, ReadyExt, TryIgnore},
+};
+use tuwunel_service::Services;
 
 pub(crate) use self::{
 	v3::sync_events_route, v4::sync_events_v4_route, v5::sync_events_v5_route,

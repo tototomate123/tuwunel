@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 
 use clap::{ArgAction, Parser};
-use conduwuit_core::{
+use tuwunel_core::{
 	Err, Result,
 	config::{Figment, FigmentValue},
 	err, toml,
@@ -15,8 +15,8 @@ use conduwuit_core::{
 #[clap(
 	about,
 	long_about = None,
-	name = "conduwuit",
-	version = conduwuit_core::version(),
+	name = "tuwunel",
+	version = tuwunel_core::version(),
 )]
 pub(crate) struct Args {
 	#[arg(short, long)]
@@ -74,18 +74,18 @@ pub(crate) struct Args {
 	/// with the exception of the last bucket, try increasing this value to e.g.
 	/// 50 or 100. Inversely, decrease to 10 etc if the histogram lacks
 	/// resolution.
-	#[arg(long, hide(true), env = "CONDUWUIT_RUNTIME_HISTOGRAM_INTERVAL", default_value = "25")]
+	#[arg(long, hide(true), env = "TUWUNEL_RUNTIME_HISTOGRAM_INTERVAL", default_value = "25")]
 	pub(crate) worker_histogram_interval: u64,
 
 	/// Set the histogram bucket count (tokio_unstable). Default is 20.
-	#[arg(long, hide(true), env = "CONDUWUIT_RUNTIME_HISTOGRAM_BUCKETS", default_value = "20")]
+	#[arg(long, hide(true), env = "TUWUNEL_RUNTIME_HISTOGRAM_BUCKETS", default_value = "20")]
 	pub(crate) worker_histogram_buckets: usize,
 
 	/// Toggles worker affinity feature.
 	#[arg(
 		long,
 		hide(true),
-		env = "CONDUWUIT_RUNTIME_WORKER_AFFINITY",
+		env = "TUWUNEL_RUNTIME_WORKER_AFFINITY",
 		action = ArgAction::Set,
 		num_args = 0..=1,
 		require_equals(false),
@@ -99,7 +99,7 @@ pub(crate) struct Args {
 	#[arg(
 		long,
 		hide(true),
-		env = "CONDUWUIT_RUNTIME_GC_ON_PARK",
+		env = "TUWUNEL_RUNTIME_GC_ON_PARK",
 		action = ArgAction::Set,
 		num_args = 0..=1,
 		require_equals(false),
@@ -115,7 +115,7 @@ pub(crate) struct Args {
 	#[arg(
 		long,
 		hide(true),
-		env = "CONDUWUIT_RUNTIME_GC_MUZZY",
+		env = "TUWUNEL_RUNTIME_GC_MUZZY",
 		action = ArgAction::Set,
 		num_args = 0..=1,
 		require_equals(false),

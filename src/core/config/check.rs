@@ -25,12 +25,15 @@ pub fn reload(old: &Config, new: &Config) -> Result {
 #[allow(clippy::cognitive_complexity)]
 pub fn check(config: &Config) -> Result {
 	if cfg!(debug_assertions) {
-		warn!("Note: conduwuit was built without optimisations (i.e. debug build)");
+		warn!("Note: tuwunel was built without optimisations (i.e. debug build)");
 	}
 
-	if config.allow_invalid_tls_certificates_yes_i_know_what_the_fuck_i_am_doing_with_this_and_i_know_this_is_insecure {
-        warn!("\n\nWARNING: \n\nTLS CERTIFICATE VALIDATION IS DISABLED, THIS IS HIGHLY INSECURE AND SHOULD NOT BE USED IN PRODUCTION.\n\n");
-    }
+	if config.allow_invalid_tls_certificates {
+		warn!(
+			"\n\nWARNING: \n\nTLS CERTIFICATE VALIDATION IS DISABLED, THIS IS HIGHLY INSECURE \
+			 AND SHOULD NOT BE USED IN PRODUCTION.\n\n"
+		);
+	}
 
 	warn_deprecated(config);
 	warn_unknown_key(config);
@@ -89,17 +92,17 @@ pub fn check(config: &Config) -> Result {
 					error!(
 						"You are detected using Docker with a loopback/localhost listening \
 						 address of {addr}. If you are using a reverse proxy on the host and \
-						 require communication to conduwuit in the Docker container via \
-						 NAT-based networking, this will NOT work. Please change this to \
-						 \"0.0.0.0\". If this is expected, you can ignore.",
+						 require communication to tuwunel in the Docker container via NAT-based \
+						 networking, this will NOT work. Please change this to \"0.0.0.0\". If \
+						 this is expected, you can ignore.",
 					);
 				} else if Path::new("/run/.containerenv").exists() {
 					error!(
 						"You are detected using Podman with a loopback/localhost listening \
 						 address of {addr}. If you are using a reverse proxy on the host and \
-						 require communication to conduwuit in the Podman container via \
-						 NAT-based networking, this will NOT work. Please change this to \
-						 \"0.0.0.0\". If this is expected, you can ignore.",
+						 require communication to tuwunel in the Podman container via NAT-based \
+						 networking, this will NOT work. Please change this to \"0.0.0.0\". If \
+						 this is expected, you can ignore.",
 					);
 				}
 			}
@@ -118,7 +121,7 @@ pub fn check(config: &Config) -> Result {
 	if cfg!(not(debug_assertions)) && config.server_name == "your.server.name" {
 		return Err!(Config(
 			"server_name",
-			"You must specify a valid server name for production usage of conduwuit."
+			"You must specify a valid server name for production usage of tuwunel."
 		));
 	}
 
@@ -188,9 +191,9 @@ pub fn check(config: &Config) -> Result {
 		return Err!(Config(
 			"registration_token",
 			"!! You have `allow_registration` enabled without a token configured in your config \
-			 which means you are allowing ANYONE to register on your conduwuit instance without \
+			 which means you are allowing ANYONE to register on your tuwunel instance without \
 			 any 2nd-step (e.g. registration token). If this is not the intended behaviour, \
-			 please set a registration token. For security and safety reasons, conduwuit will \
+			 please set a registration token. For security and safety reasons, tuwunel will \
 			 shut down. If you are extra sure this is the desired behaviour you want, please \
 			 set the following config option to true:
 `yes_i_am_very_very_sure_i_want_an_open_registration_server_prone_to_abuse`"
@@ -290,8 +293,8 @@ fn warn_deprecated(config: &Config) {
 
 	if was_deprecated {
 		warn!(
-			"Read conduwuit config documentation at https://conduwuit.puppyirl.gay/configuration.html and check your \
-			 configuration if any new configuration parameters should be adjusted"
+			"Read tuwunel config documentation at https://tuwunel.chat/configuration.html and \
+			 check your configuration if any new configuration parameters should be adjusted"
 		);
 	}
 }
@@ -305,7 +308,7 @@ fn warn_unknown_key(config: &Config) {
 		.keys()
 		.filter(|key| "config".to_owned().ne(key.to_owned()) /* "config" is expected */)
 	{
-		warn!("Config parameter \"{}\" is unknown to conduwuit, ignoring.", key);
+		warn!("Config parameter \"{}\" is unknown to tuwunel, ignoring.", key);
 	}
 }
 

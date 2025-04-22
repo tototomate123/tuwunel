@@ -5,8 +5,8 @@ mod info;
 mod moderation;
 
 use clap::Subcommand;
-use conduwuit::Result;
 use ruma::OwnedRoomId;
+use tuwunel_core::Result;
 
 use self::{
 	alias::RoomAliasCommand, directory::RoomDirectoryCommand, info::RoomInfoCommand,

@@ -5,9 +5,9 @@
 
 use std::{convert::AsRef, fmt::Debug, io::Write};
 
-use conduwuit::{arrayvec::ArrayVec, implement};
 use rocksdb::WriteBatchWithTransaction;
 use serde::Serialize;
+use tuwunel_core::{arrayvec::ArrayVec, implement};
 
 use crate::{
 	keyval::{KeyBuf, ValBuf},

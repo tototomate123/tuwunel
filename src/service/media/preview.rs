@@ -7,10 +7,9 @@
 
 use std::time::SystemTime;
 
-use conduwuit::{Err, Result, debug, err};
-use conduwuit_core::implement;
 use ipaddress::IPAddress;
 use serde::Serialize;
+use tuwunel_core::{Err, Result, debug, err, implement};
 use url::Url;
 
 use super::Service;
@@ -105,9 +104,9 @@ async fn request_url_preview(&self, url: &Url) -> Result<UrlPreviewData> {
 #[cfg(feature = "url_preview")]
 #[implement(Service)]
 pub async fn download_image(&self, url: &str) -> Result<UrlPreviewData> {
-	use conduwuit::utils::random_string;
 	use image::ImageReader;
 	use ruma::Mxc;
+	use tuwunel_core::utils::random_string;
 
 	let image = self.services.client.url_preview.get(url).send().await?;
 	let image = image.bytes().await?;

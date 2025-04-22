@@ -1,6 +1,6 @@
 #[cfg(feature = "blurhashing")]
-use conduwuit::config::BlurhashConfig as CoreBlurhashConfig;
-use conduwuit::{Result, implement};
+use tuwunel_core::config::BlurhashConfig as CoreBlurhashConfig;
+use tuwunel_core::{Result, implement};
 
 use super::Service;
 
@@ -12,7 +12,7 @@ pub fn create_blurhash(
 	_content_type: Option<&str>,
 	_file_name: Option<&str>,
 ) -> Result<Option<String>> {
-	conduwuit::debug_warn!("blurhashing on upload support was not compiled");
+	tuwunel_core::debug_warn!("blurhashing on upload support was not compiled");
 
 	Ok(None)
 }
@@ -33,7 +33,7 @@ pub fn create_blurhash(
 	}
 
 	get_blurhash_from_request(file, content_type, file_name, config)
-		.map_err(|e| conduwuit::err!(debug_error!("blurhashing error: {e}")))
+		.map_err(|e| tuwunel_core::err!(debug_error!("blurhashing error: {e}")))
 		.map(Some)
 }
 

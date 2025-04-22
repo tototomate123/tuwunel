@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use conduwuit::{Result, error, warn};
 use ruma::{
 	events::{
 		GlobalAccountDataEvent, GlobalAccountDataEventType, push_rules::PushRulesEventContent,
 	},
 	push::Ruleset,
 };
+use tuwunel_core::{Result, error, warn};
 
 use crate::{Dep, account_data, config, globals, users};
 

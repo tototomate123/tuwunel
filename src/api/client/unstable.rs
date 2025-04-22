@@ -2,7 +2,6 @@ use std::collections::BTreeMap;
 
 use axum::extract::State;
 use axum_client_ip::InsecureClientIp;
-use conduwuit::{Err, Error, Result};
 use futures::StreamExt;
 use ruma::{
 	OwnedRoomId,
@@ -19,6 +18,7 @@ use ruma::{
 	},
 	presence::PresenceState,
 };
+use tuwunel_core::{Err, Error, Result};
 
 use super::{update_avatar_url, update_displayname};
 use crate::Ruma;

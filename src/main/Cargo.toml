@@ -1,6 +1,6 @@
 [package]
-name = "conduwuit"
-default-run = "conduwuit"
+name = "tuwunel"
+default-run = "tuwunel"
 authors.workspace = true
 categories.workspace = true
 description.workspace = true
@@ -15,23 +15,23 @@ version.workspace = true
 metadata.crane.workspace = true
 
 [package.metadata.deb]
-name = "conduwuit"
-maintainer = "strawberry <strawberry@puppygock.gay>"
-copyright = "2024, strawberry <strawberry@puppygock.gay>"
+name = "tuwunel"
+maintainer = "Jason Volk <jason@zemos.net>"
+copyright = "2025, Tuwunel Contributors"
 license-file = ["../../LICENSE", "3"]
 depends = "$auto, ca-certificates"
 extended-description = """\
-a cool hard fork of Conduit, a Matrix homeserver written in Rust"""
+High performance Matrix homeserver written in Rust"""
 section = "net"
 priority = "optional"
-conf-files = ["/etc/conduwuit/conduwuit.toml"]
+conf-files = ["/etc/tuwunel/tuwunel.toml"]
 maintainer-scripts = "../../debian/"
-systemd-units = { unit-name = "conduwuit", start = false }
+systemd-units = { unit-name = "tuwunel", start = false }
 assets = [
-	["../../debian/README.md", "usr/share/doc/conduwuit/README.Debian", "644"],
-	["../../README.md", "usr/share/doc/conduwuit/", "644"],
-	["../../target/release/conduwuit", "usr/sbin/conduwuit", "755"],
-	["../../conduwuit-example.toml", "etc/conduwuit/conduwuit.toml", "640"],
+	["../../debian/README.md", "usr/share/doc/tuwunel/README.Debian", "644"],
+	["../../README.md", "usr/share/doc/tuwunel/", "644"],
+	["../../target/release/tuwunel", "usr/sbin/tuwunel", "755"],
+	["../../tuwunel-example.toml", "etc/tuwunel/tuwunel.toml", "640"],
 ]
 
 [features]
@@ -50,51 +50,51 @@ default = [
 ]
 
 blurhashing = [
-	"conduwuit-service/blurhashing",
+	"tuwunel-service/blurhashing",
 ]
 brotli_compression = [
-	"conduwuit-api/brotli_compression",
-	"conduwuit-core/brotli_compression",
-	"conduwuit-router/brotli_compression",
-	"conduwuit-service/brotli_compression",
+	"tuwunel-api/brotli_compression",
+	"tuwunel-core/brotli_compression",
+	"tuwunel-router/brotli_compression",
+	"tuwunel-service/brotli_compression",
 ]
 console = [
-	"conduwuit-service/console",
+	"tuwunel-service/console",
 ]
 direct_tls = [
-    "conduwuit-router/direct_tls"
+    "tuwunel-router/direct_tls"
 ]
 element_hacks = [
-	"conduwuit-api/element_hacks",
-	"conduwuit-service/element_hacks",
+	"tuwunel-api/element_hacks",
+	"tuwunel-service/element_hacks",
 ]
 gzip_compression = [
-	"conduwuit-api/gzip_compression",
-	"conduwuit-core/gzip_compression",
-	"conduwuit-router/gzip_compression",
-	"conduwuit-service/gzip_compression",
+	"tuwunel-api/gzip_compression",
+	"tuwunel-core/gzip_compression",
+	"tuwunel-router/gzip_compression",
+	"tuwunel-service/gzip_compression",
 ]
 hardened_malloc = [
-	"conduwuit-core/hardened_malloc",
+	"tuwunel-core/hardened_malloc",
 ]
 io_uring = [
-	"conduwuit-database/io_uring",
+	"tuwunel-database/io_uring",
 ]
 jemalloc = [
-	"conduwuit-core/jemalloc",
-	"conduwuit-database/jemalloc",
+	"tuwunel-core/jemalloc",
+	"tuwunel-database/jemalloc",
 ]
 jemalloc_prof = [
-	"conduwuit-core/jemalloc_prof",
+	"tuwunel-core/jemalloc_prof",
 ]
 jemalloc_stats = [
-	"conduwuit-core/jemalloc_stats",
+	"tuwunel-core/jemalloc_stats",
 ]
 jemalloc_conf = [
-	"conduwuit-core/jemalloc_conf",
+	"tuwunel-core/jemalloc_conf",
 ]
 media_thumbnail = [
-	"conduwuit-service/media_thumbnail",
+	"tuwunel-service/media_thumbnail",
 ]
 perf_measurements = [
 	"dep:opentelemetry",
@@ -102,8 +102,8 @@ perf_measurements = [
 	"dep:tracing-opentelemetry",
 	"dep:opentelemetry_sdk",
 	"dep:opentelemetry-jaeger",
-	"conduwuit-core/perf_measurements",
-	"conduwuit-core/sentry_telemetry",
+	"tuwunel-core/perf_measurements",
+	"tuwunel-core/sentry_telemetry",
 ]
 # increases performance, reduces build times, and reduces binary size by not compiling or
 # genreating code for log level filters that users will generally not use (debug and trace)
@@ -112,22 +112,22 @@ release_max_log_level = [
 	"tracing/release_max_level_info",
 	"log/max_level_trace",
 	"log/release_max_level_info",
-	"conduwuit-admin/release_max_log_level",
-	"conduwuit-api/release_max_log_level",
-	"conduwuit-core/release_max_log_level",
-	"conduwuit-database/release_max_log_level",
-	"conduwuit-router/release_max_log_level",
-	"conduwuit-service/release_max_log_level",
+	"tuwunel-admin/release_max_log_level",
+	"tuwunel-api/release_max_log_level",
+	"tuwunel-core/release_max_log_level",
+	"tuwunel-database/release_max_log_level",
+	"tuwunel-router/release_max_log_level",
+	"tuwunel-service/release_max_log_level",
 ]
 sentry_telemetry = [
 	"dep:sentry",
 	"dep:sentry-tracing",
 	"dep:sentry-tower",
-	"conduwuit-core/sentry_telemetry",
-	"conduwuit-router/sentry_telemetry",
+	"tuwunel-core/sentry_telemetry",
+	"tuwunel-router/sentry_telemetry",
 ]
 systemd = [
-	"conduwuit-router/systemd",
+	"tuwunel-router/systemd",
 ]
 # enable the tokio_console server ncompatible with release_max_log_level
 tokio_console = [
@@ -135,26 +135,27 @@ tokio_console = [
 	"tokio/tracing",
 ]
 url_preview = [
-	"conduwuit-service/url_preview",
+	"tuwunel-service/url_preview",
 ]
 zstd_compression = [
-    "conduwuit-api/zstd_compression",
-	"conduwuit-core/zstd_compression",
-	"conduwuit-database/zstd_compression",
-	"conduwuit-router/zstd_compression",
-	"conduwuit-service/zstd_compression",
+	"tuwunel-api/zstd_compression",
+	"tuwunel-core/zstd_compression",
+	"tuwunel-database/zstd_compression",
+	"tuwunel-router/zstd_compression",
+	"tuwunel-service/zstd_compression",
 ]
-conduwuit_mods = [
-    "conduwuit-core/conduwuit_mods",
+tuwunel_mods = [
+	"tuwunel-core/tuwunel_mods",
 ]
 
 [dependencies]
-conduwuit-admin.workspace = true
-conduwuit-api.workspace = true
-conduwuit-core.workspace = true
-conduwuit-database.workspace = true
-conduwuit-router.workspace = true
-conduwuit-service.workspace = true
+tuwunel-admin.workspace = true
+tuwunel-api.workspace = true
+tuwunel-core.workspace = true
+tuwunel-database.workspace = true
+tuwunel-macros.workspace = true
+tuwunel-router.workspace = true
+tuwunel-service.workspace = true
 
 clap.workspace = true
 console-subscriber.optional = true
@@ -191,5 +192,5 @@ hardened_malloc-rs.optional = true
 workspace = true
 
 [[bin]]
-name = "conduwuit"
+name = "tuwunel"
 path = "main.rs"

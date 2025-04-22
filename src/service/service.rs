@@ -7,8 +7,10 @@ use std::{
 };
 
 use async_trait::async_trait;
-use conduwuit::{Err, Result, Server, err, error::inspect_log, utils::string::SplitInfallible};
-use database::Database;
+use tuwunel_core::{
+	Err, Result, Server, err, error::inspect_log, utils::string::SplitInfallible,
+};
+use tuwunel_database::Database;
 
 /// Abstract interface for a Service
 #[async_trait]

@@ -3,9 +3,9 @@ use std::{
 	sync::{Arc, Mutex},
 };
 
-use conduwuit::{Err, Result, err, utils, utils::math::usize_from_f64};
-use database::Map;
 use lru_cache::LruCache;
+use tuwunel_core::{Err, Result, err, utils, utils::math::usize_from_f64};
+use tuwunel_database::Map;
 
 use crate::rooms::short::ShortEventId;
 

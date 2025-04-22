@@ -5,20 +5,6 @@ use std::{
 };
 
 use axum::extract::State;
-use conduwuit::{
-	Err, Error, PduCount, PduEvent, Result, debug, error, extract_variant,
-	matrix::TypeStateKey,
-	utils::{
-		BoolExt, IterStream, ReadyExt, TryFutureExtExt,
-		math::{ruma_from_usize, usize_from_ruma, usize_from_u64_truncated},
-	},
-	warn,
-};
-use conduwuit_service::{
-	Services,
-	rooms::read_receipt::pack_receipts,
-	sync::{into_db_key, into_snake_key},
-};
 use futures::{FutureExt, StreamExt, TryFutureExt};
 use ruma::{
 	MilliSecondsSinceUnixEpoch, OwnedEventId, OwnedRoomId, RoomId, UInt, UserId,
@@ -34,6 +20,20 @@ use ruma::{
 	},
 	serde::Raw,
 	uint,
+};
+use tuwunel_core::{
+	Err, Error, PduCount, PduEvent, Result, debug, error, extract_variant,
+	matrix::TypeStateKey,
+	utils::{
+		BoolExt, IterStream, ReadyExt, TryFutureExtExt,
+		math::{ruma_from_usize, usize_from_ruma, usize_from_u64_truncated},
+	},
+	warn,
+};
+use tuwunel_service::{
+	Services,
+	rooms::read_receipt::pack_receipts,
+	sync::{into_db_key, into_snake_key},
 };
 
 use super::{load_timeline, share_encrypted_room};

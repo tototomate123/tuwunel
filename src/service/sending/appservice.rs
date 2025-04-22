@@ -1,11 +1,11 @@
 use std::{fmt::Debug, mem};
 
 use bytes::BytesMut;
-use conduwuit::{Err, Result, debug_error, err, trace, utils, warn};
 use reqwest::Client;
 use ruma::api::{
 	IncomingResponse, MatrixVersion, OutgoingRequest, SendAccessToken, appservice::Registration,
 };
+use tuwunel_core::{Err, Result, debug_error, err, trace, utils, warn};
 
 /// Sends a request to an appservice
 ///

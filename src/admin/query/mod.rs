@@ -13,7 +13,7 @@ mod short;
 mod users;
 
 use clap::Subcommand;
-use conduwuit::Result;
+use tuwunel_core::Result;
 
 use self::{
 	account_data::AccountDataCommand, appservice::AppserviceCommand, globals::GlobalsCommand,

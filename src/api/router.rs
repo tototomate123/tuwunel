@@ -12,8 +12,8 @@ use axum::{
 	response::{IntoResponse, Redirect},
 	routing::{any, get, post},
 };
-use conduwuit::{Server, err};
 use http::{Uri, uri};
+use tuwunel_core::{Server, err};
 
 use self::handler::RouterExt;
 pub(super) use self::{args::Args as Ruma, response::RumaResponse, state::State};
@@ -185,7 +185,7 @@ pub fn build(router: Router<State>, server: &Server) -> Router<State> {
 		)
 		.ruma_route(&client::well_known_support)
 		.ruma_route(&client::well_known_client)
-		.route("/_conduwuit/server_version", get(client::conduwuit_server_version))
+		.route("/_tuwunel/server_version", get(client::tuwunel_server_version))
 		.ruma_route(&client::room_initial_sync_route)
 		.route("/client/server.json", get(client::syncv3_client_server_json));
 
@@ -225,13 +225,13 @@ pub fn build(router: Router<State>, server: &Server) -> Router<State> {
 			.ruma_route(&server::well_known_server)
 			.ruma_route(&server::get_content_route)
 			.ruma_route(&server::get_content_thumbnail_route)
-			.route("/_conduwuit/local_user_count", get(client::conduwuit_local_user_count));
+			.route("/_tuwunel/local_user_count", get(client::tuwunel_local_user_count));
 	} else {
 		router = router
 			.route("/_matrix/federation/*path", any(federation_disabled))
 			.route("/.well-known/matrix/server", any(federation_disabled))
 			.route("/_matrix/key/*path", any(federation_disabled))
-			.route("/_conduwuit/local_user_count", any(federation_disabled));
+			.route("/_tuwunel/local_user_count", any(federation_disabled));
 	}
 
 	if config.allow_legacy_media {

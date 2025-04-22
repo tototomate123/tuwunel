@@ -8,17 +8,17 @@ use std::{
 	time::Duration,
 };
 
+use tokio::runtime::Builder;
 #[cfg(all(not(target_env = "msvc"), feature = "jemalloc"))]
-use conduwuit_core::result::LogDebugErr;
-use conduwuit_core::{
+use tuwunel_core::result::LogDebugErr;
+use tuwunel_core::{
 	Result, debug, is_true,
 	utils::sys::compute::{nth_core_available, set_affinity},
 };
-use tokio::runtime::Builder;
 
 use crate::{clap::Args, server::Server};
 
-const WORKER_NAME: &str = "conduwuit:worker";
+const WORKER_NAME: &str = "tuwunel:worker";
 const WORKER_MIN: usize = 2;
 const WORKER_KEEPALIVE: u64 = 36;
 const MAX_BLOCKING_THREADS: usize = 1024;
@@ -87,8 +87,8 @@ fn enable_histogram(builder: &mut Builder, args: &Args) {
 #[cfg(tokio_unstable)]
 #[tracing::instrument(name = "stop", level = "info", skip_all)]
 pub(super) fn shutdown(server: &Arc<Server>, runtime: tokio::runtime::Runtime) {
-	use conduwuit_core::event;
 	use tracing::Level;
+	use tuwunel_core::event;
 
 	// The final metrics output is promoted to INFO when tokio_unstable is active in
 	// a release/bench mode and DEBUG is likely optimized out
@@ -161,7 +161,7 @@ fn set_worker_affinity() {
 
 #[cfg(all(not(target_env = "msvc"), feature = "jemalloc"))]
 fn set_worker_mallctl(id: usize) {
-	use conduwuit_core::alloc::je::{
+	use tuwunel_core::alloc::je::{
 		is_affine_arena,
 		this_thread::{set_arena, set_muzzy_decay},
 	};
@@ -175,7 +175,7 @@ fn set_worker_mallctl(id: usize) {
 		.expect("GC_MUZZY initialized by runtime::new()");
 
 	let muzzy_auto_disable =
-		conduwuit_core::utils::available_parallelism() >= DISABLE_MUZZY_THRESHOLD;
+		tuwunel_core::utils::available_parallelism() >= DISABLE_MUZZY_THRESHOLD;
 	if matches!(muzzy_option, Some(false) | None if muzzy_auto_disable) {
 		set_muzzy_decay(-1).log_debug_err().ok();
 	}
@@ -228,7 +228,7 @@ fn thread_park() {
 
 fn gc_on_park() {
 	#[cfg(all(not(target_env = "msvc"), feature = "jemalloc"))]
-	conduwuit_core::alloc::je::this_thread::decay()
+	tuwunel_core::alloc::je::this_thread::decay()
 		.log_debug_err()
 		.ok();
 }

@@ -1,9 +1,9 @@
 use std::{convert::AsRef, fmt::Debug, sync::Arc};
 
-use conduwuit::{Result, implement};
 use futures::{FutureExt, Stream, StreamExt, TryFutureExt, TryStreamExt};
 use rocksdb::Direction;
 use serde::{Deserialize, Serialize};
+use tuwunel_core::{Result, implement};
 
 use super::stream_from::is_cached;
 use crate::{

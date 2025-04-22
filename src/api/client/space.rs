@@ -4,19 +4,19 @@ use std::{
 };
 
 use axum::extract::State;
-use conduwuit::{
+use futures::{StreamExt, TryFutureExt, future::OptionFuture};
+use ruma::{
+	OwnedRoomId, OwnedServerName, RoomId, UInt, UserId, api::client::space::get_hierarchy,
+};
+use tuwunel_core::{
 	Err, Result,
 	utils::{future::TryExtExt, stream::IterStream},
 };
-use conduwuit_service::{
+use tuwunel_service::{
 	Services,
 	rooms::spaces::{
 		PaginationToken, SummaryAccessibility, get_parent_children_via, summary_to_chunk,
 	},
-};
-use futures::{StreamExt, TryFutureExt, future::OptionFuture};
-use ruma::{
-	OwnedRoomId, OwnedServerName, RoomId, UInt, UserId, api::client::space::get_hierarchy,
 };
 
 use crate::Ruma;

@@ -1,8 +1,8 @@
 use std::{convert::AsRef, fmt::Debug, io::Write, sync::Arc};
 
-use conduwuit::{Result, arrayvec::ArrayVec, implement};
 use futures::Future;
 use serde::Serialize;
+use tuwunel_core::{Result, arrayvec::ArrayVec, implement};
 
 use crate::{Handle, keyval::KeyBuf, ser};
 

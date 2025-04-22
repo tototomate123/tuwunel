@@ -5,10 +5,7 @@ pub mod client;
 pub mod router;
 pub mod server;
 
-extern crate conduwuit_core as conduwuit;
-extern crate conduwuit_service as service;
-
 pub(crate) use self::router::{Ruma, RumaResponse, State};
 
-conduwuit::mod_ctor! {}
-conduwuit::mod_dtor! {}
+tuwunel_core::mod_ctor! {}
+tuwunel_core::mod_dtor! {}

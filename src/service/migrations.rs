@@ -1,14 +1,5 @@
 use std::cmp;
 
-use conduwuit::{
-	Err, Result, debug, debug_info, debug_warn, error, info,
-	result::NotFound,
-	utils::{
-		IterStream, ReadyExt,
-		stream::{TryExpect, TryIgnore},
-	},
-	warn,
-};
 use futures::{FutureExt, StreamExt};
 use itertools::Itertools;
 use ruma::{
@@ -17,6 +8,15 @@ use ruma::{
 		GlobalAccountDataEventType, push_rules::PushRulesEvent, room::member::MembershipState,
 	},
 	push::Ruleset,
+};
+use tuwunel_core::{
+	Err, Result, debug, debug_info, debug_warn, error, info,
+	result::NotFound,
+	utils::{
+		IterStream, ReadyExt,
+		stream::{TryExpect, TryIgnore},
+	},
+	warn,
 };
 
 use crate::{Services, media};
@@ -480,7 +480,7 @@ async fn fix_referencedevents_missing_sep(services: &Services) -> Result {
 		.ready_fold(totals, |mut a, (i, (key, val))| {
 			debug_assert!(val.is_empty(), "expected no value");
 
-			let has_sep = key.contains(&database::SEP);
+			let has_sep = key.contains(&tuwunel_database::SEP);
 
 			if !has_sep {
 				let key_str = std::str::from_utf8(key).expect("key not utf-8");
@@ -507,8 +507,8 @@ async fn fix_referencedevents_missing_sep(services: &Services) -> Result {
 }
 
 async fn fix_readreceiptid_readreceipt_duplicates(services: &Services) -> Result {
-	use conduwuit::arrayvec::ArrayString;
 	use ruma::identifiers_validation::MAX_BYTES;
+	use tuwunel_core::arrayvec::ArrayString;
 
 	type ArrayId = ArrayString<MAX_BYTES>;
 	type Key<'a> = (&'a RoomId, u64, &'a UserId);

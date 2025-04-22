@@ -1,12 +1,12 @@
 use std::borrow::Borrow;
 
-use conduwuit::{
-	Result, err, implement,
-	matrix::{PduEvent, StateKey},
-};
 use futures::{Stream, StreamExt, TryFutureExt};
 use ruma::{EventId, RoomId, events::StateEventType};
 use serde::Deserialize;
+use tuwunel_core::{
+	Result, err, implement,
+	matrix::{PduEvent, StateKey},
+};
 
 /// Returns a single PDU from `room_id` with key (`event_type`,`state_key`).
 #[implement(super::Service)]

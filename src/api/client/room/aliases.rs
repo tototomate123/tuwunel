@@ -1,7 +1,7 @@
 use axum::extract::State;
-use conduwuit::{Error, Result};
 use futures::StreamExt;
 use ruma::api::client::{error::ErrorKind, room::aliases};
+use tuwunel_core::{Error, Result};
 
 use crate::Ruma;
 

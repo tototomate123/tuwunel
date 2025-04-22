@@ -1,15 +1,5 @@
 use axum::extract::State;
 use axum_client_ip::InsecureClientIp;
-use conduwuit::{
-	Err, Result, err, info,
-	utils::{
-		TryFutureExtExt,
-		math::Expected,
-		result::FlatOk,
-		stream::{ReadyExt, WidebandExt},
-	},
-};
-use conduwuit_service::Services;
 use futures::{
 	FutureExt, StreamExt, TryFutureExt,
 	future::{join, join4, join5},
@@ -36,6 +26,16 @@ use ruma::{
 	},
 	uint,
 };
+use tuwunel_core::{
+	Err, Result, err, info,
+	utils::{
+		TryFutureExtExt,
+		math::Expected,
+		result::FlatOk,
+		stream::{ReadyExt, WidebandExt},
+	},
+};
+use tuwunel_service::Services;
 
 use crate::Ruma;
 

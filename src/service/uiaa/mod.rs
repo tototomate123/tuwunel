@@ -3,11 +3,6 @@ use std::{
 	sync::{Arc, RwLock},
 };
 
-use conduwuit::{
-	Err, Error, Result, err, error, implement, utils,
-	utils::{hash, string::EMPTY},
-};
-use database::{Deserialized, Json, Map};
 use ruma::{
 	CanonicalJsonValue, DeviceId, OwnedDeviceId, OwnedUserId, UserId,
 	api::client::{
@@ -15,6 +10,11 @@ use ruma::{
 		uiaa::{AuthData, AuthType, Password, UiaaInfo, UserIdentifier},
 	},
 };
+use tuwunel_core::{
+	Err, Error, Result, err, error, implement, utils,
+	utils::{hash, string::EMPTY},
+};
+use tuwunel_database::{Deserialized, Json, Map};
 
 use crate::{Dep, config, globals, users};
 

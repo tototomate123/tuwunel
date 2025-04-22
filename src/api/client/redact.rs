@@ -1,8 +1,8 @@
 use axum::extract::State;
-use conduwuit::{Result, matrix::pdu::PduBuilder};
 use ruma::{
 	api::client::redact::redact_event, events::room::redaction::RoomRedactionEventContent,
 };
+use tuwunel_core::{Result, matrix::pdu::PduBuilder};
 
 use crate::Ruma;
 

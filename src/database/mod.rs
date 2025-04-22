@@ -1,11 +1,10 @@
 #![type_length_limit = "3072"]
 
-extern crate conduwuit_core as conduwuit;
 extern crate rust_rocksdb as rocksdb;
 
-conduwuit::mod_ctor! {}
-conduwuit::mod_dtor! {}
-conduwuit::rustc_flags_capture! {}
+tuwunel_core::mod_ctor! {}
+tuwunel_core::mod_dtor! {}
+tuwunel_core::rustc_flags_capture! {}
 
 #[cfg(test)]
 mod benches;
@@ -27,7 +26,7 @@ mod watchers;
 
 use std::{ops::Index, sync::Arc};
 
-use conduwuit::{Result, Server, err};
+use tuwunel_core::{Result, Server, err};
 
 pub use self::{
 	de::{Ignore, IgnoreAll},

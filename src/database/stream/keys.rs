@@ -1,11 +1,11 @@
 use std::pin::Pin;
 
-use conduwuit::Result;
 use futures::{
 	Stream,
 	stream::FusedStream,
 	task::{Context, Poll},
 };
+use tuwunel_core::Result;
 
 use super::{Cursor, State, slice_longevity};
 use crate::keyval::Key;

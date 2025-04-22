@@ -1,5 +1,4 @@
 use axum::extract::State;
-use conduwuit::{Error, Result};
 use futures::{FutureExt, StreamExt, TryFutureExt};
 use ruma::api::{
 	client::error::ErrorKind,
@@ -8,6 +7,7 @@ use ruma::api::{
 		keys::{claim_keys, get_keys},
 	},
 };
+use tuwunel_core::{Error, Result};
 
 use crate::{
 	Ruma,

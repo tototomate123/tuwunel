@@ -1,6 +1,5 @@
 use std::collections::BTreeMap;
 
-use conduwuit::{Result, pdu::PduBuilder};
 use futures::FutureExt;
 use ruma::{
 	RoomId, RoomVersionId,
@@ -17,6 +16,7 @@ use ruma::{
 		topic::RoomTopicEventContent,
 	},
 };
+use tuwunel_core::{Result, pdu::PduBuilder};
 
 use crate::Services;
 

@@ -6,9 +6,9 @@ mod unix;
 use std::sync::Arc;
 
 use axum_server::Handle as ServerHandle;
-use conduwuit::{Result, err};
-use conduwuit_service::Services;
 use tokio::sync::broadcast;
+use tuwunel_core::{Result, err};
+use tuwunel_service::Services;
 
 use super::layers;
 
@@ -36,9 +36,9 @@ pub(super) async fn serve(
 		return tls::serve(server, app, handle, addrs).await;
 
 		#[cfg(not(feature = "direct_tls"))]
-		return conduwuit::Err!(Config(
+		return tuwunel_core::Err!(Config(
 			"tls",
-			"conduwuit was not built with direct TLS support (\"direct_tls\")"
+			"tuwunel was not built with direct TLS support (\"direct_tls\")"
 		));
 	} else {
 		plain::serve(server, app, handle, addrs).await

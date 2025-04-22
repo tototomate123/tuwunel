@@ -11,18 +11,18 @@ use std::{
 };
 
 use async_trait::async_trait;
-use conduwuit::{
-	Result, Server, debug, debug_warn, err, error,
-	smallvec::SmallVec,
-	utils::{ReadyExt, TryReadyExt, available_parallelism, math::usize_from_u64_truncated},
-	warn,
-};
 use futures::{FutureExt, Stream, StreamExt};
 use ruma::{
 	RoomId, ServerName, UserId,
 	api::{OutgoingRequest, appservice::Registration},
 };
 use tokio::{task, task::JoinSet};
+use tuwunel_core::{
+	Result, Server, debug, debug_warn, err, error,
+	smallvec::SmallVec,
+	utils::{ReadyExt, TryReadyExt, available_parallelism, math::usize_from_u64_truncated},
+	warn,
+};
 
 use self::data::Data;
 pub use self::{

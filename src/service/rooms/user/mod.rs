@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
-use conduwuit::{Result, implement};
-use database::{Database, Deserialized, Map};
 use ruma::{RoomId, UserId};
+use tuwunel_core::{Result, implement};
+use tuwunel_database::{Database, Deserialized, Map};
 
 use crate::{Dep, globals, rooms, rooms::short::ShortStateHash};
 

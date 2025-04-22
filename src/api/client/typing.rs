@@ -1,6 +1,6 @@
 use axum::extract::State;
-use conduwuit::{Err, Result, utils, utils::math::Tried};
 use ruma::api::client::typing::create_typing_event;
+use tuwunel_core::{Err, Result, utils, utils::math::Tried};
 
 use crate::Ruma;
 

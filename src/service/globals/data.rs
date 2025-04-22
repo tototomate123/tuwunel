@@ -1,7 +1,7 @@
 use std::sync::{Arc, RwLock};
 
-use conduwuit::{Result, utils};
-use database::{Database, Deserialized, Map};
+use tuwunel_core::{Result, utils};
+use tuwunel_database::{Database, Deserialized, Map};
 
 pub struct Data {
 	global: Arc<Map>,

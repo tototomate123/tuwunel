@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
-use conduwuit::{
+use futures::{Stream, StreamExt};
+use ruma::{RoomId, UserId, api::client::search::search_events::v3::Criteria};
+use tuwunel_core::{
 	PduCount, PduEvent, Result,
 	arrayvec::ArrayVec,
 	implement,
@@ -9,9 +11,7 @@ use conduwuit::{
 		stream::{TryIgnore, WidebandExt},
 	},
 };
-use database::{Map, keyval::Val};
-use futures::{Stream, StreamExt};
-use ruma::{RoomId, UserId, api::client::search::search_events::v3::Criteria};
+use tuwunel_database::{Map, keyval::Val};
 
 use crate::{
 	Dep, rooms,
@@ -224,7 +224,7 @@ fn make_prefix(shortroomid: ShortRoomId, word: &str) -> TokenId {
 	let mut key = TokenId::new();
 	key.extend_from_slice(&shortroomid.to_be_bytes());
 	key.extend_from_slice(word.as_bytes());
-	key.push(database::SEP);
+	key.push(tuwunel_database::SEP);
 	key
 }
 

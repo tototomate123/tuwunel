@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
-use conduwuit_core::{
+use tracing_subscriber::{EnvFilter, Layer, Registry, fmt, layer::SubscriberExt, reload};
+use tuwunel_core::{
 	Result,
 	config::Config,
 	debug_warn, err,
 	log::{ConsoleFormat, ConsoleWriter, LogLevelReloadHandles, capture, fmt_span},
 	result::UnwrapOrErr,
 };
-use tracing_subscriber::{EnvFilter, Layer, Registry, fmt, layer::SubscriberExt, reload};
 
 #[cfg(feature = "perf_measurements")]
 pub(crate) type TracingFlameGuard =
@@ -77,7 +77,7 @@ pub(crate) fn init(
 			);
 			let tracer = opentelemetry_jaeger::new_agent_pipeline()
 				.with_auto_split_batch(true)
-				.with_service_name("conduwuit")
+				.with_service_name("tuwunel")
 				.install_batch(opentelemetry_sdk::runtime::Tokio)
 				.expect("jaeger agent pipeline");
 			let telemetry = tracing_opentelemetry::layer().with_tracer(tracer);

@@ -5,8 +5,8 @@ mod keys_rev;
 
 use std::sync::Arc;
 
-use conduwuit::{Result, utils::exchange};
 use rocksdb::{DBRawIteratorWithThreadMode, ReadOptions};
+use tuwunel_core::{Result, utils::exchange};
 
 pub(crate) use self::{items::Items, items_rev::ItemsRev, keys::Keys, keys_rev::KeysRev};
 use crate::{

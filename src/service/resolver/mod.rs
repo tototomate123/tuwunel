@@ -9,7 +9,7 @@ mod well_known;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use conduwuit::{Result, Server, arrayvec::ArrayString, utils::MutexMap};
+use tuwunel_core::{Result, Server, arrayvec::ArrayString, utils::MutexMap};
 
 use self::{cache::Cache, dns::Resolver};
 use crate::{Dep, client};

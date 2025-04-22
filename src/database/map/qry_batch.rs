@@ -1,14 +1,14 @@
 use std::{fmt::Debug, sync::Arc};
 
-use conduwuit::{
+use futures::{Stream, StreamExt, TryStreamExt};
+use serde::Serialize;
+use tuwunel_core::{
 	Result, implement,
 	utils::{
 		IterStream,
 		stream::{WidebandExt, automatic_amplification, automatic_width},
 	},
 };
-use futures::{Stream, StreamExt, TryStreamExt};
-use serde::Serialize;
 
 use crate::{Handle, keyval::KeyBuf, ser};
 

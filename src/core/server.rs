@@ -65,7 +65,7 @@ impl Server {
 	}
 
 	pub fn reload(&self) -> Result<()> {
-		if cfg!(any(not(conduwuit_mods), not(feature = "conduwuit_mods"))) {
+		if cfg!(any(not(tuwunel_mods), not(feature = "tuwunel_mods"))) {
 			return Err!("Reloading not enabled");
 		}
 

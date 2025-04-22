@@ -1,5 +1,5 @@
 use clap::Parser;
-use conduwuit::Result;
+use tuwunel_core::Result;
 
 use crate::{
 	appservice, appservice::AppserviceCommand, check, check::CheckCommand, context::Context,
@@ -9,7 +9,7 @@ use crate::{
 };
 
 #[derive(Debug, Parser)]
-#[command(name = "conduwuit", version = conduwuit::version())]
+#[command(name = "tuwunel", version = tuwunel_core::version())]
 pub(super) enum AdminCommand {
 	#[command(subcommand)]
 	/// - Commands for managing appservices

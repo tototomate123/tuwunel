@@ -17,11 +17,11 @@ use std::{
 	},
 };
 
-use conduwuit::{Err, Result, debug, info, warn};
 use rocksdb::{
 	AsColumnFamilyRef, BoundColumnFamily, DBCommon, DBWithThreadMode, MultiThreaded,
 	WaitForCompactOptions,
 };
+use tuwunel_core::{Err, Result, debug, info, warn};
 
 use crate::{
 	Context,

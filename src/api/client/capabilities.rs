@@ -1,7 +1,6 @@
 use std::collections::BTreeMap;
 
 use axum::extract::State;
-use conduwuit::{Result, Server};
 use ruma::{
 	RoomVersionId,
 	api::client::discovery::get_capabilities::{
@@ -10,6 +9,7 @@ use ruma::{
 	},
 };
 use serde_json::json;
+use tuwunel_core::{Result, Server};
 
 use crate::Ruma;
 

@@ -3,15 +3,15 @@ use std::{mem, ops::Deref};
 use async_trait::async_trait;
 use axum::{body::Body, extract::FromRequest};
 use bytes::{BufMut, Bytes, BytesMut};
-use conduwuit::{Error, Result, debug, debug_warn, err, trace, utils::string::EMPTY};
 use ruma::{
 	CanonicalJsonObject, CanonicalJsonValue, DeviceId, OwnedDeviceId, OwnedServerName,
 	OwnedUserId, ServerName, UserId, api::IncomingRequest,
 };
-use service::Services;
+use tuwunel_core::{Error, Result, debug, debug_warn, err, trace, utils::string::EMPTY};
+use tuwunel_service::{Services, appservice::RegistrationInfo};
 
 use super::{auth, auth::Auth, request, request::Request};
-use crate::{State, service::appservice::RegistrationInfo};
+use crate::State;
 
 /// Extractor for Ruma request structs
 pub(crate) struct Args<T> {

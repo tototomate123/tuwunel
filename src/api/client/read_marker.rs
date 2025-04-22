@@ -1,7 +1,6 @@
 use std::collections::BTreeMap;
 
 use axum::extract::State;
-use conduwuit::{Err, PduCount, Result, err};
 use ruma::{
 	MilliSecondsSinceUnixEpoch,
 	api::client::{read_marker::set_read_marker, receipt::create_receipt},
@@ -10,6 +9,7 @@ use ruma::{
 		receipt::{ReceiptThread, ReceiptType},
 	},
 };
+use tuwunel_core::{Err, PduCount, Result, err};
 
 use crate::Ruma;
 

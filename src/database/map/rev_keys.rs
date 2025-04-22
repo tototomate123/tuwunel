@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
-use conduwuit::{Result, implement};
 use futures::{FutureExt, Stream, StreamExt, TryFutureExt, TryStreamExt};
 use rocksdb::Direction;
 use serde::Deserialize;
 use tokio::task;
+use tuwunel_core::{Result, implement};
 
 use super::rev_stream::is_cached;
 use crate::{keyval, keyval::Key, stream};

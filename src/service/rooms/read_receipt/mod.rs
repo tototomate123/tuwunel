@@ -2,11 +2,6 @@ mod data;
 
 use std::{collections::BTreeMap, sync::Arc};
 
-use conduwuit::{
-	Result, debug, err,
-	matrix::pdu::{PduCount, PduId, RawPduId},
-	warn,
-};
 use futures::{Stream, TryFutureExt, try_join};
 use ruma::{
 	OwnedEventId, OwnedUserId, RoomId, UserId,
@@ -15,6 +10,11 @@ use ruma::{
 		receipt::{ReceiptEvent, ReceiptEventContent, Receipts},
 	},
 	serde::Raw,
+};
+use tuwunel_core::{
+	Result, debug, err,
+	matrix::pdu::{PduCount, PduId, RawPduId},
+	warn,
 };
 
 use self::data::{Data, ReceiptItem};
@@ -161,7 +161,7 @@ where
 	}
 	let content = ReceiptEventContent::from_iter(json);
 
-	conduwuit::trace!(?content);
+	tuwunel_core::trace!(?content);
 	Raw::from_json(
 		serde_json::value::to_raw_value(&SyncEphemeralRoomEvent { content })
 			.expect("received valid json"),

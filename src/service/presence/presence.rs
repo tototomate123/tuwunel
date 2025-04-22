@@ -1,10 +1,10 @@
-use conduwuit::{Error, Result, utils};
 use ruma::{
 	UInt, UserId,
 	events::presence::{PresenceEvent, PresenceEventContent},
 	presence::PresenceState,
 };
 use serde::{Deserialize, Serialize};
+use tuwunel_core::{Error, Result, utils};
 
 use crate::users;
 

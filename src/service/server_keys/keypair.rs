@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
-use conduwuit::{Result, debug, debug_info, err, error, utils, utils::string_from_bytes};
-use database::Database;
 use ruma::{api::federation::discovery::VerifyKey, serde::Base64, signatures::Ed25519KeyPair};
+use tuwunel_core::{Result, debug, debug_info, err, error, utils, utils::string_from_bytes};
+use tuwunel_database::Database;
 
 use super::VerifyKeys;
 

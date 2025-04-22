@@ -1,6 +1,6 @@
 use axum::extract::State;
-use conduwuit::{Error, Result};
 use ruma::api::{client::error::ErrorKind, federation::discovery::discover_homeserver};
+use tuwunel_core::{Error, Result};
 
 use crate::Ruma;
 

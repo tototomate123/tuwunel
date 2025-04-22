@@ -1,11 +1,11 @@
 use std::time::Duration;
 
-use conduwuit::{
+use ruma::{Mxc, OwnedEventId, OwnedMxcUri, OwnedServerName};
+use tuwunel_core::{
 	Err, Result, debug, debug_info, debug_warn, error, info, trace,
 	utils::time::parse_timepoint_ago, warn,
 };
-use conduwuit_service::media::Dim;
-use ruma::{Mxc, OwnedEventId, OwnedMxcUri, OwnedServerName};
+use tuwunel_service::media::Dim;
 
 use crate::{admin_command, utils::parse_local_user_id};
 

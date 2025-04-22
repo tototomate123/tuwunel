@@ -1,10 +1,10 @@
 use std::borrow::Borrow;
 
-use conduwuit::{Err, Result, implement};
 use ruma::{
 	CanonicalJsonObject, RoomVersionId, ServerName, ServerSigningKeyId,
 	api::federation::discovery::VerifyKey,
 };
+use tuwunel_core::{Err, Result, implement};
 
 use super::{PubKeyMap, PubKeys, extract_key};
 

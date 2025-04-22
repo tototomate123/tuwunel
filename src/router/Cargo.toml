@@ -1,5 +1,5 @@
 [package]
-name = "conduwuit_router"
+name = "tuwunel_router"
 categories.workspace = true
 description.workspace = true
 edition.workspace = true
@@ -18,10 +18,10 @@ crate-type = [
 
 [features]
 brotli_compression = [
-	"conduwuit-admin/brotli_compression",
-	"conduwuit-api/brotli_compression",
-	"conduwuit-core/brotli_compression",
-	"conduwuit-service/brotli_compression",
+	"tuwunel-admin/brotli_compression",
+	"tuwunel-api/brotli_compression",
+	"tuwunel-core/brotli_compression",
+	"tuwunel-service/brotli_compression",
 	"tower-http/compression-br",
 ]
 direct_tls = [
@@ -30,54 +30,54 @@ direct_tls = [
 	"dep:axum-server-dual-protocol",
 ]
 gzip_compression = [
-	"conduwuit-admin/gzip_compression",
-	"conduwuit-api/gzip_compression",
-	"conduwuit-core/gzip_compression",
-	"conduwuit-service/gzip_compression",
+	"tuwunel-admin/gzip_compression",
+	"tuwunel-api/gzip_compression",
+	"tuwunel-core/gzip_compression",
+	"tuwunel-service/gzip_compression",
 	"tower-http/compression-gzip",
 ]
 io_uring = [
-	"conduwuit-admin/io_uring",
-	"conduwuit-api/io_uring",
-	"conduwuit-service/io_uring",
-	"conduwuit-api/io_uring",
+	"tuwunel-admin/io_uring",
+	"tuwunel-api/io_uring",
+	"tuwunel-service/io_uring",
+	"tuwunel-api/io_uring",
 ]
 jemalloc = [
-	"conduwuit-admin/jemalloc",
-	"conduwuit-api/jemalloc",
-	"conduwuit-core/jemalloc",
-	"conduwuit-service/jemalloc",
+	"tuwunel-admin/jemalloc",
+	"tuwunel-api/jemalloc",
+	"tuwunel-core/jemalloc",
+	"tuwunel-service/jemalloc",
 ]
 jemalloc_conf = [
-	"conduwuit-admin/jemalloc_conf",
-	"conduwuit-api/jemalloc_conf",
-	"conduwuit-core/jemalloc_conf",
-	"conduwuit-service/jemalloc_conf",
+	"tuwunel-admin/jemalloc_conf",
+	"tuwunel-api/jemalloc_conf",
+	"tuwunel-core/jemalloc_conf",
+	"tuwunel-service/jemalloc_conf",
 ]
 jemalloc_prof = [
-	"conduwuit-admin/jemalloc_prof",
-	"conduwuit-api/jemalloc_prof",
-	"conduwuit-core/jemalloc_prof",
-	"conduwuit-service/jemalloc_prof",
+	"tuwunel-admin/jemalloc_prof",
+	"tuwunel-api/jemalloc_prof",
+	"tuwunel-core/jemalloc_prof",
+	"tuwunel-service/jemalloc_prof",
 ]
 jemalloc_stats = [
-	"conduwuit-admin/jemalloc_stats",
-	"conduwuit-api/jemalloc_stats",
-	"conduwuit-core/jemalloc_stats",
-	"conduwuit-service/jemalloc_stats",
+	"tuwunel-admin/jemalloc_stats",
+	"tuwunel-api/jemalloc_stats",
+	"tuwunel-core/jemalloc_stats",
+	"tuwunel-service/jemalloc_stats",
 ]
 release_max_log_level = [
-	"conduwuit-admin/release_max_log_level",
-	"conduwuit-api/release_max_log_level",
-	"conduwuit-core/release_max_log_level",
-	"conduwuit-service/release_max_log_level",
+	"tuwunel-admin/release_max_log_level",
+	"tuwunel-api/release_max_log_level",
+	"tuwunel-core/release_max_log_level",
+	"tuwunel-service/release_max_log_level",
 	"tracing/max_level_trace",
 	"tracing/release_max_level_info",
 	"log/max_level_trace",
 	"log/release_max_level_info",
 ]
 sentry_telemetry = [
-	"conduwuit-core/sentry_telemetry",
+	"tuwunel-core/sentry_telemetry",
 	"dep:sentry",
 	"dep:sentry-tracing",
 	"dep:sentry-tower",
@@ -86,9 +86,9 @@ systemd = [
 	"dep:sd-notify",
 ]
 zstd_compression = [
-	"conduwuit-api/zstd_compression",
-	"conduwuit-core/zstd_compression",
-	"conduwuit-service/zstd_compression",
+	"tuwunel-api/zstd_compression",
+	"tuwunel-core/zstd_compression",
+	"tuwunel-service/zstd_compression",
 	"tower-http/compression-zstd",
 ]
 
@@ -99,10 +99,6 @@ axum-server-dual-protocol.optional = true
 axum-server.workspace = true
 axum.workspace = true
 bytes.workspace = true
-conduwuit-admin.workspace = true
-conduwuit-api.workspace = true
-conduwuit-core.workspace = true
-conduwuit-service.workspace = true
 const-str.workspace = true
 futures.workspace = true
 http.workspace = true
@@ -124,6 +120,10 @@ tokio.workspace = true
 tower.workspace = true
 tower-http.workspace = true
 tracing.workspace = true
+tuwunel-admin.workspace = true
+tuwunel-api.workspace = true
+tuwunel-core.workspace = true
+tuwunel-service.workspace = true
 
 [target.'cfg(all(unix, target_os = "linux"))'.dependencies]
 sd-notify.workspace = true

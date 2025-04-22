@@ -4,7 +4,6 @@ use std::{
 };
 
 use axum::{Json, extract::State, response::IntoResponse};
-use conduwuit::{Result, utils::timepoint_from_now};
 use ruma::{
 	MilliSecondsSinceUnixEpoch, Signatures,
 	api::{
@@ -13,6 +12,7 @@ use ruma::{
 	},
 	serde::Raw,
 };
+use tuwunel_core::{Result, utils::timepoint_from_now};
 
 /// # `GET /_matrix/key/v2/server`
 ///

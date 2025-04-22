@@ -1,12 +1,12 @@
-use api::client::leave_room;
 use clap::Subcommand;
-use conduwuit::{
+use futures::StreamExt;
+use ruma::{OwnedRoomId, OwnedRoomOrAliasId, RoomAliasId, RoomId, RoomOrAliasId};
+use tuwunel_api::client::leave_room;
+use tuwunel_core::{
 	Err, Result, debug,
 	utils::{IterStream, ReadyExt},
 	warn,
 };
-use futures::StreamExt;
-use ruma::{OwnedRoomId, OwnedRoomOrAliasId, RoomAliasId, RoomId, RoomOrAliasId};
 
 use crate::{admin_command, admin_command_dispatch, get_room_info};
 

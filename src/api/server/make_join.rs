@@ -1,8 +1,4 @@
 use axum::extract::State;
-use conduwuit::{
-	Err, Error, Result, debug_info, matrix::pdu::PduBuilder, utils::IterStream, warn,
-};
-use conduwuit_service::Services;
 use futures::StreamExt;
 use ruma::{
 	CanonicalJsonObject, OwnedUserId, RoomId, RoomVersionId, UserId,
@@ -16,6 +12,10 @@ use ruma::{
 	},
 };
 use serde_json::value::to_raw_value;
+use tuwunel_core::{
+	Err, Error, Result, debug_info, matrix::pdu::PduBuilder, utils::IterStream, warn,
+};
+use tuwunel_service::Services;
 
 use crate::Ruma;
 

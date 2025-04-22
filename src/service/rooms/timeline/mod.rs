@@ -10,19 +10,6 @@ use std::{
 };
 
 use async_trait::async_trait;
-pub use conduwuit::matrix::pdu::{PduId, RawPduId};
-use conduwuit::{
-	Err, Error, Result, Server, at, debug, debug_warn, err, error, implement, info,
-	matrix::{
-		Event,
-		pdu::{EventHash, PduBuilder, PduCount, PduEvent, gen_event_id},
-		state_res::{self, RoomVersion},
-	},
-	utils::{
-		self, IterStream, MutexMap, MutexMapGuard, ReadyExt, future::TryExtExt, stream::TryIgnore,
-	},
-	validated, warn,
-};
 use futures::{
 	Future, FutureExt, Stream, StreamExt, TryStreamExt, future, future::ready, pin_mut,
 };
@@ -47,6 +34,19 @@ use ruma::{
 };
 use serde::Deserialize;
 use serde_json::value::{RawValue as RawJsonValue, to_raw_value};
+pub use tuwunel_core::matrix::pdu::{PduId, RawPduId};
+use tuwunel_core::{
+	Err, Error, Result, Server, at, debug, debug_warn, err, error, implement, info,
+	matrix::{
+		Event,
+		pdu::{EventHash, PduBuilder, PduCount, PduEvent, gen_event_id},
+		state_res::{self, RoomVersion},
+	},
+	utils::{
+		self, IterStream, MutexMap, MutexMapGuard, ReadyExt, future::TryExtExt, stream::TryIgnore,
+	},
+	validated, warn,
+};
 
 use self::data::Data;
 pub use self::data::PdusIterItem;

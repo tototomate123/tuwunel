@@ -7,7 +7,7 @@ use std::{
 	time::Instant,
 };
 
-use conduwuit::{
+use tuwunel_core::{
 	Config, Result, debug, debug_info, debug_warn, error, info,
 	utils::{ReadyExt, stream::TryIgnore},
 	warn,
@@ -95,7 +95,7 @@ pub(crate) async fn checkup_sha256_media(services: &Services) -> Result<()> {
 }
 
 async fn handle_media_check(
-	dbs: &(&Arc<database::Map>, &Arc<database::Map>),
+	dbs: &(&Arc<tuwunel_database::Map>, &Arc<tuwunel_database::Map>),
 	config: &Config,
 	files: &HashSet<OsString>,
 	key: &[u8],

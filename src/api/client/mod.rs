@@ -90,4 +90,4 @@ const DEVICE_ID_LENGTH: usize = 10;
 const TOKEN_LENGTH: usize = 32;
 
 /// generated user session ID length
-const SESSION_ID_LENGTH: usize = service::uiaa::SESSION_ID_LENGTH;
+const SESSION_ID_LENGTH: usize = tuwunel_service::uiaa::SESSION_ID_LENGTH;

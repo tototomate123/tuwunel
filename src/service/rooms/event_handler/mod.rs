@@ -18,11 +18,11 @@ use std::{
 };
 
 use async_trait::async_trait;
-use conduwuit::{Err, PduEvent, Result, RoomVersion, Server, utils::MutexMap};
 use ruma::{
 	OwnedEventId, OwnedRoomId, RoomId, RoomVersionId,
 	events::room::create::RoomCreateEventContent,
 };
+use tuwunel_core::{Err, PduEvent, Result, RoomVersion, Server, utils::MutexMap};
 
 use crate::{Dep, globals, rooms, sending, server_keys};
 

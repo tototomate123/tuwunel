@@ -4,14 +4,14 @@ mod presence;
 use std::{sync::Arc, time::Duration};
 
 use async_trait::async_trait;
-use conduwuit::{
-	Error, Result, Server, checked, debug, debug_warn, error, result::LogErr, trace,
-};
-use database::Database;
 use futures::{Stream, StreamExt, TryFutureExt, stream::FuturesUnordered};
 use loole::{Receiver, Sender};
 use ruma::{OwnedUserId, UInt, UserId, events::presence::PresenceEvent, presence::PresenceState};
 use tokio::time::sleep;
+use tuwunel_core::{
+	Error, Result, Server, checked, debug, debug_warn, error, result::LogErr, trace,
+};
+use tuwunel_database::Database;
 
 use self::{data::Data, presence::Presence};
 use crate::{Dep, globals, users};

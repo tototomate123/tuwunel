@@ -2,9 +2,9 @@
 
 use std::{any::Any, env, panic, sync::LazyLock};
 
-// Export debug proc_macros
-pub use conduwuit_macros::recursion_depth;
 use tracing::Level;
+// Export debug proc_macros
+pub use tuwunel_macros::recursion_depth;
 
 // Export all of the ancillary tools from here as well.
 pub use crate::{result::DebugInspect, utils::debug::*};
