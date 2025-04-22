@@ -155,7 +155,11 @@ async fn get_room_backups(
 #[admin_command]
 async fn get_all_backups(&self, user_id: OwnedUserId, version: String) -> Result {
 	let timer = tokio::time::Instant::now();
-	let result = self.services.key_backups.get_all(&user_id, &version).await;
+	let result = self
+		.services
+		.key_backups
+		.get_all(&user_id, &version)
+		.await;
 	let query_time = timer.elapsed();
 
 	self.write_str(&format!("Query completed in {query_time:?}:\n\n```rs\n{result:#?}\n```"))
@@ -193,7 +197,11 @@ async fn get_latest_backup_version(&self, user_id: OwnedUserId) -> Result {
 #[admin_command]
 async fn get_latest_backup(&self, user_id: OwnedUserId) -> Result {
 	let timer = tokio::time::Instant::now();
-	let result = self.services.key_backups.get_latest_backup(&user_id).await;
+	let result = self
+		.services
+		.key_backups
+		.get_latest_backup(&user_id)
+		.await;
 	let query_time = timer.elapsed();
 
 	self.write_str(&format!("Query completed in {query_time:?}:\n\n```rs\n{result:#?}\n```"))
@@ -203,7 +211,13 @@ async fn get_latest_backup(&self, user_id: OwnedUserId) -> Result {
 #[admin_command]
 async fn iter_users(&self) -> Result {
 	let timer = tokio::time::Instant::now();
-	let result: Vec<OwnedUserId> = self.services.users.stream().map(Into::into).collect().await;
+	let result: Vec<OwnedUserId> = self
+		.services
+		.users
+		.stream()
+		.map(Into::into)
+		.collect()
+		.await;
 
 	let query_time = timer.elapsed();
 
@@ -296,7 +310,11 @@ async fn get_device_metadata(&self, user_id: OwnedUserId, device_id: OwnedDevice
 #[admin_command]
 async fn get_devices_version(&self, user_id: OwnedUserId) -> Result {
 	let timer = tokio::time::Instant::now();
-	let device = self.services.users.get_devicelist_version(&user_id).await;
+	let device = self
+		.services
+		.users
+		.get_devicelist_version(&user_id)
+		.await;
 	let query_time = timer.elapsed();
 
 	self.write_str(&format!("Query completed in {query_time:?}:\n\n```rs\n{device:#?}\n```"))
@@ -334,7 +352,11 @@ async fn get_device_keys(&self, user_id: OwnedUserId, device_id: OwnedDeviceId) 
 #[admin_command]
 async fn get_user_signing_key(&self, user_id: OwnedUserId) -> Result {
 	let timer = tokio::time::Instant::now();
-	let result = self.services.users.get_user_signing_key(&user_id).await;
+	let result = self
+		.services
+		.users
+		.get_user_signing_key(&user_id)
+		.await;
 	let query_time = timer.elapsed();
 
 	self.write_str(&format!("Query completed in {query_time:?}:\n\n```rs\n{result:#?}\n```"))

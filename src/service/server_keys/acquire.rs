@@ -35,7 +35,10 @@ where
 		.filter_map(FlatOk::flat_ok)
 		.flat_map(IntoIterator::into_iter)
 		.for_each(|(server, sigs)| {
-			batch.entry(server).or_default().extend(sigs.into_keys());
+			batch
+				.entry(server)
+				.or_default()
+				.extend(sigs.into_keys());
 		});
 
 	let batch = batch
@@ -51,8 +54,16 @@ where
 	S: Iterator<Item = (&'a ServerName, K)> + Send + Clone,
 	K: Iterator<Item = &'a ServerSigningKeyId> + Send + Clone,
 {
-	let notary_only = self.services.server.config.only_query_trusted_key_servers;
-	let notary_first_always = self.services.server.config.query_trusted_key_servers_first;
+	let notary_only = self
+		.services
+		.server
+		.config
+		.only_query_trusted_key_servers;
+	let notary_first_always = self
+		.services
+		.server
+		.config
+		.query_trusted_key_servers_first;
 	let notary_first_on_join = self
 		.services
 		.server
@@ -60,7 +71,10 @@ where
 		.query_trusted_key_servers_first_on_join;
 
 	let requested_servers = batch.clone().count();
-	let requested_keys = batch.clone().flat_map(|(_, key_ids)| key_ids).count();
+	let requested_keys = batch
+		.clone()
+		.flat_map(|(_, key_ids)| key_ids)
+		.count();
 
 	debug!("acquire {requested_keys} keys from {requested_servers}");
 
@@ -214,7 +228,8 @@ where
 			| Err(e) => error!("Failed to contact notary {notary:?}: {e}"),
 			| Ok(results) =>
 				for server_keys in results {
-					self.acquire_notary_result(&mut missing, server_keys).await;
+					self.acquire_notary_result(&mut missing, server_keys)
+						.await;
 				},
 		}
 	}
@@ -236,5 +251,8 @@ async fn acquire_notary_result(&self, missing: &mut Batch, server_keys: ServerSi
 }
 
 fn keys_count(batch: &Batch) -> usize {
-	batch.iter().flat_map(|(_, key_ids)| key_ids.iter()).count()
+	batch
+		.iter()
+		.flat_map(|(_, key_ids)| key_ids.iter())
+		.count()
 }

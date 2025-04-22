@@ -53,8 +53,14 @@ pub(crate) async fn sync_events_v4_route(
 	body: Ruma<sync_events::v4::Request>,
 ) -> Result<sync_events::v4::Response> {
 	debug_assert!(DEFAULT_BUMP_TYPES.is_sorted(), "DEFAULT_BUMP_TYPES is not sorted");
-	let sender_user = body.sender_user.as_ref().expect("user is authenticated");
-	let sender_device = body.sender_device.as_ref().expect("user is authenticated");
+	let sender_user = body
+		.sender_user
+		.as_ref()
+		.expect("user is authenticated");
+	let sender_device = body
+		.sender_device
+		.as_ref()
+		.expect("user is authenticated");
 	let mut body = body.body;
 
 	// Setup watchers, so if there's no response, we can wait for them
@@ -80,7 +86,9 @@ pub(crate) async fn sync_events_v4_route(
 	}
 
 	if globalsince == 0 {
-		services.sync.forget_sync_request_connection(&db_key);
+		services
+			.sync
+			.forget_sync_request_connection(&db_key);
 	}
 
 	// Get sticky parameters from cache
@@ -113,8 +121,14 @@ pub(crate) async fn sync_events_v4_route(
 		.collect()
 		.await;
 
-	let all_invited_rooms: Vec<&RoomId> = all_invited_rooms.iter().map(AsRef::as_ref).collect();
-	let all_knocked_rooms: Vec<&RoomId> = all_knocked_rooms.iter().map(AsRef::as_ref).collect();
+	let all_invited_rooms: Vec<&RoomId> = all_invited_rooms
+		.iter()
+		.map(AsRef::as_ref)
+		.collect();
+	let all_knocked_rooms: Vec<&RoomId> = all_knocked_rooms
+		.iter()
+		.map(AsRef::as_ref)
+		.collect();
 
 	let all_rooms: Vec<&RoomId> = all_joined_rooms
 		.iter()
@@ -123,8 +137,14 @@ pub(crate) async fn sync_events_v4_route(
 		.chain(all_knocked_rooms.iter().map(AsRef::as_ref))
 		.collect();
 
-	let all_joined_rooms = all_joined_rooms.iter().map(AsRef::as_ref).collect();
-	let all_invited_rooms = all_invited_rooms.iter().map(AsRef::as_ref).collect();
+	let all_joined_rooms = all_joined_rooms
+		.iter()
+		.map(AsRef::as_ref)
+		.collect();
+	let all_invited_rooms = all_invited_rooms
+		.iter()
+		.map(AsRef::as_ref)
+		.collect();
 
 	if body.extensions.to_device.enabled.unwrap_or(false) {
 		services
@@ -143,7 +163,12 @@ pub(crate) async fn sync_events_v4_route(
 		global: Vec::new(),
 		rooms: BTreeMap::new(),
 	};
-	if body.extensions.account_data.enabled.unwrap_or(false) {
+	if body
+		.extensions
+		.account_data
+		.enabled
+		.unwrap_or(false)
+	{
 		account_data.global = services
 			.account_data
 			.changes_since(None, sender_user, globalsince, Some(next_batch))
@@ -179,8 +204,11 @@ pub(crate) async fn sync_events_v4_route(
 
 		for room_id in &all_joined_rooms {
 			let room_id: &&RoomId = room_id;
-			let Ok(current_shortstatehash) =
-				services.rooms.state.get_room_shortstatehash(room_id).await
+			let Ok(current_shortstatehash) = services
+				.rooms
+				.state
+				.get_room_shortstatehash(room_id)
+				.await
 			else {
 				error!("Room {room_id} has no state");
 				continue;
@@ -373,13 +401,16 @@ pub(crate) async fn sync_events_v4_route(
 						Vec::new()
 					};
 
-					new_known_rooms.extend(room_ids.clone().into_iter().map(ToOwned::to_owned));
+					new_known_rooms.extend(
+						room_ids
+							.clone()
+							.into_iter()
+							.map(ToOwned::to_owned),
+					);
 					for room_id in &room_ids {
-						let todo_room = todo_rooms.entry((*room_id).to_owned()).or_insert((
-							BTreeSet::new(),
-							0_usize,
-							u64::MAX,
-						));
+						let todo_room = todo_rooms
+							.entry((*room_id).to_owned())
+							.or_insert((BTreeSet::new(), 0_usize, u64::MAX));
 
 						let limit: usize = list
 							.room_details
@@ -409,7 +440,10 @@ pub(crate) async fn sync_events_v4_route(
 						op: SlidingOp::Sync,
 						range: Some(r),
 						index: None,
-						room_ids: room_ids.into_iter().map(ToOwned::to_owned).collect(),
+						room_ids: room_ids
+							.into_iter()
+							.map(ToOwned::to_owned)
+							.collect(),
 						room_id: None,
 					}
 				})
@@ -575,7 +609,10 @@ pub(crate) async fn sync_events_v4_route(
 
 		if roomsince != &0
 			&& timeline_pdus.is_empty()
-			&& account_data.rooms.get(room_id).is_some_and(Vec::is_empty)
+			&& account_data
+				.rooms
+				.get(room_id)
+				.is_some_and(Vec::is_empty)
 			&& receipt_size == 0
 		{
 			continue;
@@ -610,8 +647,9 @@ pub(crate) async fn sync_events_v4_route(
 
 		for (_, pdu) in timeline_pdus {
 			let ts = MilliSecondsSinceUnixEpoch(pdu.origin_server_ts);
-			if DEFAULT_BUMP_TYPES.binary_search(&pdu.kind).is_ok()
-				&& timestamp.is_none_or(|time| time <= ts)
+			if DEFAULT_BUMP_TYPES
+				.binary_search(&pdu.kind)
+				.is_ok() && timestamp.is_none_or(|time| time <= ts)
 			{
 				timestamp = Some(ts);
 			}
@@ -658,7 +696,11 @@ pub(crate) async fn sync_events_v4_route(
 			| Ordering::Greater => {
 				let firsts = heroes[1..]
 					.iter()
-					.map(|h| h.name.clone().unwrap_or_else(|| h.user_id.to_string()))
+					.map(|h| {
+						h.name
+							.clone()
+							.unwrap_or_else(|| h.user_id.to_string())
+					})
 					.collect::<Vec<_>>()
 					.join(", ");
 
@@ -694,7 +736,12 @@ pub(crate) async fn sync_events_v4_route(
 				.or(name),
 			avatar: match heroes_avatar {
 				| Some(heroes_avatar) => ruma::JsOption::Some(heroes_avatar),
-				| _ => match services.rooms.state_accessor.get_avatar(room_id).await {
+				| _ => match services
+					.rooms
+					.state_accessor
+					.get_avatar(room_id)
+					.await
+				{
 					| ruma::JsOption::Some(avatar) => ruma::JsOption::from_option(avatar.url),
 					| ruma::JsOption::Null => ruma::JsOption::Null,
 					| ruma::JsOption::Undefined => ruma::JsOption::Undefined,
@@ -817,9 +864,16 @@ async fn filter_rooms<'a>(
 		.iter()
 		.stream()
 		.filter_map(|r| async move {
-			let room_type = services.rooms.state_accessor.get_room_type(r).await;
+			let room_type = services
+				.rooms
+				.state_accessor
+				.get_room_type(r)
+				.await;
 
-			if room_type.as_ref().is_err_and(|e| !e.is_not_found()) {
+			if room_type
+				.as_ref()
+				.is_err_and(|e| !e.is_not_found())
+			{
 				return None;
 			}
 

@@ -60,7 +60,14 @@ pub(super) async fn process(command: RoomAliasCommand, context: &Context<'_>) ->
 			};
 			match command {
 				| RoomAliasCommand::Set { force, room_id, .. } => {
-					match (force, services.rooms.alias.resolve_local_alias(&room_alias).await) {
+					match (
+						force,
+						services
+							.rooms
+							.alias
+							.resolve_local_alias(&room_alias)
+							.await,
+					) {
 						| (true, Ok(id)) => {
 							match services.rooms.alias.set_alias(
 								&room_alias,
@@ -93,7 +100,12 @@ pub(super) async fn process(command: RoomAliasCommand, context: &Context<'_>) ->
 					}
 				},
 				| RoomAliasCommand::Remove { .. } => {
-					match services.rooms.alias.resolve_local_alias(&room_alias).await {
+					match services
+						.rooms
+						.alias
+						.resolve_local_alias(&room_alias)
+						.await
+					{
 						| Err(_) => Err!("Alias isn't in use."),
 						| Ok(id) => match services
 							.rooms
@@ -103,14 +115,24 @@ pub(super) async fn process(command: RoomAliasCommand, context: &Context<'_>) ->
 						{
 							| Err(err) => Err!("Failed to remove alias: {err}"),
 							| Ok(()) =>
-								context.write_str(&format!("Removed alias from {id}")).await,
+								context
+									.write_str(&format!("Removed alias from {id}"))
+									.await,
 						},
 					}
 				},
 				| RoomAliasCommand::Which { .. } => {
-					match services.rooms.alias.resolve_local_alias(&room_alias).await {
+					match services
+						.rooms
+						.alias
+						.resolve_local_alias(&room_alias)
+						.await
+					{
 						| Err(_) => Err!("Alias isn't in use."),
-						| Ok(id) => context.write_str(&format!("Alias resolves to {id}")).await,
+						| Ok(id) =>
+							context
+								.write_str(&format!("Alias resolves to {id}"))
+								.await,
 					}
 				},
 				| RoomAliasCommand::List { .. } => unreachable!(),
@@ -126,11 +148,13 @@ pub(super) async fn process(command: RoomAliasCommand, context: &Context<'_>) ->
 					.collect()
 					.await;
 
-				let plain_list = aliases.iter().fold(String::new(), |mut output, alias| {
-					writeln!(output, "- {alias}")
-						.expect("should be able to write to string buffer");
-					output
-				});
+				let plain_list = aliases
+					.iter()
+					.fold(String::new(), |mut output, alias| {
+						writeln!(output, "- {alias}")
+							.expect("should be able to write to string buffer");
+						output
+					});
 
 				let plain = format!("Aliases for {room_id}:\n{plain_list}");
 				context.write_str(&plain).await

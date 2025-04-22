@@ -26,7 +26,12 @@ pub(crate) async fn create_join_event_template_route(
 	State(services): State<crate::State>,
 	body: Ruma<prepare_join_event::v1::Request>,
 ) -> Result<prepare_join_event::v1::Response> {
-	if !services.rooms.metadata.exists(&body.room_id).await {
+	if !services
+		.rooms
+		.metadata
+		.exists(&body.room_id)
+		.await
+	{
 		return Err!(Request(NotFound("Room is unknown to this server.")));
 	}
 
@@ -68,7 +73,11 @@ pub(crate) async fn create_join_event_template_route(
 		}
 	}
 
-	let room_version_id = services.rooms.state.get_room_version(&body.room_id).await?;
+	let room_version_id = services
+		.rooms
+		.state
+		.get_room_version(&body.room_id)
+		.await?;
 	if !body.ver.contains(&room_version_id) {
 		return Err(Error::BadRequest(
 			ErrorKind::IncompatibleRoomVersion { room_version: room_version_id },
@@ -76,7 +85,12 @@ pub(crate) async fn create_join_event_template_route(
 		));
 	}
 
-	let state_lock = services.rooms.state.mutex.lock(&body.room_id).await;
+	let state_lock = services
+		.rooms
+		.state
+		.mutex
+		.lock(&body.room_id)
+		.await;
 
 	let join_authorized_via_users_server: Option<OwnedUserId> = {
 		use RoomVersionId::*;
@@ -157,7 +171,12 @@ pub(crate) async fn user_can_perform_restricted_join(
 		return Ok(false);
 	}
 
-	if services.rooms.state_cache.is_joined(user_id, room_id).await {
+	if services
+		.rooms
+		.state_cache
+		.is_joined(user_id, room_id)
+		.await
+	{
 		// joining user is already joined, there is nothing we need to do
 		return Ok(false);
 	}
@@ -196,7 +215,12 @@ pub(crate) async fn user_can_perform_restricted_join(
 			}
 		})
 		.stream()
-		.any(|m| services.rooms.state_cache.is_joined(user_id, &m.room_id))
+		.any(|m| {
+			services
+				.rooms
+				.state_cache
+				.is_joined(user_id, &m.room_id)
+		})
 		.await
 	{
 		Ok(true)

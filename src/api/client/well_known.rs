@@ -45,15 +45,30 @@ pub(crate) async fn well_known_support(
 		.as_ref()
 		.map(ToString::to_string);
 
-	let role = services.server.config.well_known.support_role.clone();
+	let role = services
+		.server
+		.config
+		.well_known
+		.support_role
+		.clone();
 
 	// support page or role must be either defined for this to be valid
 	if support_page.is_none() && role.is_none() {
 		return Err(Error::BadRequest(ErrorKind::NotFound, "Not found."));
 	}
 
-	let email_address = services.server.config.well_known.support_email.clone();
-	let matrix_id = services.server.config.well_known.support_mxid.clone();
+	let email_address = services
+		.server
+		.config
+		.well_known
+		.support_email
+		.clone();
+	let matrix_id = services
+		.server
+		.config
+		.well_known
+		.support_mxid
+		.clone();
 
 	// if a role is specified, an email address or matrix id is required
 	if role.is_some() && (email_address.is_none() && matrix_id.is_none()) {

@@ -150,15 +150,18 @@ pub fn check(config: &Config) -> Result {
 	}
 
 	// check if we can read the token file path, and check if the file is empty
-	if config.registration_token_file.as_ref().is_some_and(|path| {
-		let Ok(token) = std::fs::read_to_string(path).inspect_err(|e| {
-			error!("Failed to read the registration token file: {e}");
-		}) else {
-			return true;
-		};
+	if config
+		.registration_token_file
+		.as_ref()
+		.is_some_and(|path| {
+			let Ok(token) = std::fs::read_to_string(path).inspect_err(|e| {
+				error!("Failed to read the registration token file: {e}");
+			}) else {
+				return true;
+			};
 
-		token == String::new()
-	}) {
+			token == String::new()
+		}) {
 		return Err!(Config(
 			"registration_token_file",
 			"Registration token file was specified but is empty or failed to be read"

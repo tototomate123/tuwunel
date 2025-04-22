@@ -16,7 +16,12 @@ pub(crate) async fn create_leave_event_template_route(
 	State(services): State<crate::State>,
 	body: Ruma<prepare_leave_event::v1::Request>,
 ) -> Result<prepare_leave_event::v1::Response> {
-	if !services.rooms.metadata.exists(&body.room_id).await {
+	if !services
+		.rooms
+		.metadata
+		.exists(&body.room_id)
+		.await
+	{
 		return Err!(Request(NotFound("Room is unknown to this server.")));
 	}
 
@@ -33,8 +38,17 @@ pub(crate) async fn create_leave_event_template_route(
 		.acl_check(body.origin(), &body.room_id)
 		.await?;
 
-	let room_version_id = services.rooms.state.get_room_version(&body.room_id).await?;
-	let state_lock = services.rooms.state.mutex.lock(&body.room_id).await;
+	let room_version_id = services
+		.rooms
+		.state
+		.get_room_version(&body.room_id)
+		.await?;
+	let state_lock = services
+		.rooms
+		.state
+		.mutex
+		.lock(&body.room_id)
+		.await;
 
 	let (_pdu, mut pdu_json) = services
 		.rooms

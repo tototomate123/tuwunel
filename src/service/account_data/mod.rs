@@ -70,8 +70,14 @@ pub async fn update(
 		.put(roomuserdataid, Json(data));
 
 	let key = (room_id, user_id, &event_type);
-	let prev = self.db.roomusertype_roomuserdataid.qry(&key).await;
-	self.db.roomusertype_roomuserdataid.put(key, roomuserdataid);
+	let prev = self
+		.db
+		.roomusertype_roomuserdataid
+		.qry(&key)
+		.await;
+	self.db
+		.roomusertype_roomuserdataid
+		.put(key, roomuserdataid);
 
 	// Remove old entry
 	if let Ok(prev) = prev {
@@ -119,7 +125,11 @@ pub async fn get_raw(
 	self.db
 		.roomusertype_roomuserdataid
 		.qry(&key)
-		.and_then(|roomuserdataid| self.db.roomuserdataid_accountdata.get(&roomuserdataid))
+		.and_then(|roomuserdataid| {
+			self.db
+				.roomuserdataid_accountdata
+				.get(&roomuserdataid)
+		})
 		.await
 }
 

@@ -102,7 +102,9 @@ async fn room_summary_response(
 		room_version: room.room_version,
 		encryption: room.encryption,
 		allowed_room_ids: room.allowed_room_ids,
-		membership: sender_user.is_some().then_some(MembershipState::Leave),
+		membership: sender_user
+			.is_some()
+			.then_some(MembershipState::Leave),
 	})
 }
 
@@ -112,9 +114,18 @@ async fn local_room_summary_response(
 	sender_user: Option<&UserId>,
 ) -> Result<get_summary::msc3266::Response> {
 	trace!(?sender_user, "Sending local room summary response for {room_id:?}");
-	let join_rule = services.rooms.state_accessor.get_join_rules(room_id);
-	let world_readable = services.rooms.state_accessor.is_world_readable(room_id);
-	let guest_can_join = services.rooms.state_accessor.guest_can_join(room_id);
+	let join_rule = services
+		.rooms
+		.state_accessor
+		.get_join_rules(room_id);
+	let world_readable = services
+		.rooms
+		.state_accessor
+		.is_world_readable(room_id);
+	let guest_can_join = services
+		.rooms
+		.state_accessor
+		.guest_can_join(room_id);
 
 	let (join_rule, world_readable, guest_can_join) =
 		join3(join_rule, world_readable, guest_can_join).await;
@@ -137,11 +148,23 @@ async fn local_room_summary_response(
 		.get_canonical_alias(room_id)
 		.ok();
 
-	let name = services.rooms.state_accessor.get_name(room_id).ok();
+	let name = services
+		.rooms
+		.state_accessor
+		.get_name(room_id)
+		.ok();
 
-	let topic = services.rooms.state_accessor.get_room_topic(room_id).ok();
+	let topic = services
+		.rooms
+		.state_accessor
+		.get_room_topic(room_id)
+		.ok();
 
-	let room_type = services.rooms.state_accessor.get_room_type(room_id).ok();
+	let room_type = services
+		.rooms
+		.state_accessor
+		.get_room_type(room_id)
+		.ok();
 
 	let avatar_url = services
 		.rooms
@@ -149,7 +172,11 @@ async fn local_room_summary_response(
 		.get_avatar(room_id)
 		.map(|res| res.into_option().unwrap_or_default().url);
 
-	let room_version = services.rooms.state.get_room_version(room_id).ok();
+	let room_version = services
+		.rooms
+		.state
+		.get_room_version(room_id)
+		.ok();
 
 	let encryption = services
 		.rooms
@@ -208,7 +235,10 @@ async fn local_room_summary_response(
 		room_version,
 		encryption,
 		membership,
-		allowed_room_ids: join_rule.allowed_rooms().map(Into::into).collect(),
+		allowed_room_ids: join_rule
+			.allowed_rooms()
+			.map(Into::into)
+			.collect(),
 		join_rule: join_rule.into(),
 	})
 }
@@ -292,10 +322,16 @@ where
 				.rooms
 				.state_accessor
 				.user_can_see_state_events(sender_user, room_id);
-			let is_guest = services.users.is_deactivated(sender_user).unwrap_or(false);
-			let user_in_allowed_restricted_room = allowed_room_ids
-				.stream()
-				.any(|room| services.rooms.state_cache.is_joined(sender_user, room));
+			let is_guest = services
+				.users
+				.is_deactivated(sender_user)
+				.unwrap_or(false);
+			let user_in_allowed_restricted_room = allowed_room_ids.stream().any(|room| {
+				services
+					.rooms
+					.state_cache
+					.is_joined(sender_user, room)
+			});
 
 			let (user_can_see_state_events, is_guest, user_in_allowed_restricted_room) =
 				join3(user_can_see_state_events, is_guest, user_in_allowed_restricted_room)

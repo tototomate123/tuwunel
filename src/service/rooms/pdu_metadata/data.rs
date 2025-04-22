@@ -52,7 +52,8 @@ impl Data {
 		const BUFSIZE: usize = size_of::<u64>() * 2;
 
 		let key: &[u64] = &[to, from];
-		self.tofrom_relation.aput_raw::<BUFSIZE, _, _>(key, []);
+		self.tofrom_relation
+			.aput_raw::<BUFSIZE, _, _>(key, []);
 	}
 
 	pub(super) fn get_relations<'a>(
@@ -65,11 +66,21 @@ impl Data {
 	) -> impl Stream<Item = PdusIterItem> + Send + '_ {
 		let mut current = ArrayVec::<u8, 16>::new();
 		current.extend(target.to_be_bytes());
-		current.extend(from.saturating_inc(dir).into_unsigned().to_be_bytes());
+		current.extend(
+			from.saturating_inc(dir)
+				.into_unsigned()
+				.to_be_bytes(),
+		);
 		let current = current.as_slice();
 		match dir {
-			| Direction::Forward => self.tofrom_relation.raw_keys_from(current).boxed(),
-			| Direction::Backward => self.tofrom_relation.rev_raw_keys_from(current).boxed(),
+			| Direction::Forward => self
+				.tofrom_relation
+				.raw_keys_from(current)
+				.boxed(),
+			| Direction::Backward => self
+				.tofrom_relation
+				.rev_raw_keys_from(current)
+				.boxed(),
 		}
 		.ignore_err()
 		.ready_take_while(move |key| key.starts_with(&target.to_be_bytes()))
@@ -78,7 +89,12 @@ impl Data {
 		.wide_filter_map(move |shorteventid| async move {
 			let pdu_id: RawPduId = PduId { shortroomid, shorteventid }.into();
 
-			let mut pdu = self.services.timeline.get_pdu_from_id(&pdu_id).await.ok()?;
+			let mut pdu = self
+				.services
+				.timeline
+				.get_pdu_from_id(&pdu_id)
+				.await
+				.ok()?;
 
 			if pdu.sender != user_id {
 				pdu.remove_transaction_id().log_err().ok();
@@ -109,6 +125,9 @@ impl Data {
 	}
 
 	pub(super) async fn is_event_soft_failed(&self, event_id: &EventId) -> bool {
-		self.softfailedeventids.get(event_id).await.is_ok()
+		self.softfailedeventids
+			.get(event_id)
+			.await
+			.is_ok()
 	}
 }

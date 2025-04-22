@@ -77,7 +77,11 @@ impl Engine {
 			sequence = ?self.current_sequence(),
 		),
 	)]
-	pub fn update(&self) -> Result { self.db.try_catch_up_with_primary().map_err(map_err) }
+	pub fn update(&self) -> Result {
+		self.db
+			.try_catch_up_with_primary()
+			.map_err(map_err)
+	}
 
 	#[tracing::instrument(level = "info", skip_all)]
 	pub fn sync(&self) -> Result { result(DBCommon::flush_wal(&self.db, true)) }

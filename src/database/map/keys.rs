@@ -14,7 +14,8 @@ pub fn keys<'a, K>(self: &'a Arc<Self>) -> impl Stream<Item = Result<Key<'_, K>>
 where
 	K: Deserialize<'a> + Send,
 {
-	self.raw_keys().map(keyval::result_deserialize_key::<K>)
+	self.raw_keys()
+		.map(keyval::result_deserialize_key::<K>)
 }
 
 #[implement(super::Map)]

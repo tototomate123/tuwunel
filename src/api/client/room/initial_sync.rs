@@ -43,7 +43,11 @@ pub(crate) async fn room_initial_sync_route(
 		.await?;
 
 	let messages = PaginationChunk {
-		start: events.last().map(at!(0)).as_ref().map(ToString::to_string),
+		start: events
+			.last()
+			.map(at!(0))
+			.as_ref()
+			.map(ToString::to_string),
 
 		end: events
 			.first()
@@ -64,7 +68,12 @@ pub(crate) async fn room_initial_sync_route(
 		account_data: None,
 		state: state.into(),
 		messages: messages.chunk.is_empty().or_some(messages),
-		visibility: services.rooms.directory.visibility(room_id).await.into(),
+		visibility: services
+			.rooms
+			.directory
+			.visibility(room_id)
+			.await
+			.into(),
 		membership: services
 			.rooms
 			.state_cache

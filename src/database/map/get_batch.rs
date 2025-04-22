@@ -50,7 +50,11 @@ where
 		.widen_then(automatic_width(), |chunk| {
 			self.db.pool.execute_get(Get {
 				map: self.clone(),
-				key: chunk.iter().map(AsRef::as_ref).map(Into::into).collect(),
+				key: chunk
+					.iter()
+					.map(AsRef::as_ref)
+					.map(Into::into)
+					.collect(),
 				res: None,
 			})
 		})

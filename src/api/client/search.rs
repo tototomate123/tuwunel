@@ -110,7 +110,12 @@ async fn category_room_events(
 				limit,
 			};
 
-			let (count, results) = services.rooms.search.search_pdus(&query).await.ok()?;
+			let (count, results) = services
+				.rooms
+				.search
+				.search_pdus(&query)
+				.await
+				.ok()?;
 
 			results
 				.collect::<Vec<_>>()
@@ -201,8 +206,12 @@ async fn check_room_visible(
 	let check_visible = search.filter.rooms.is_some();
 	let check_state = check_visible && search.include_state.is_some_and(is_true!());
 
-	let is_joined =
-		!check_visible || services.rooms.state_cache.is_joined(user_id, room_id).await;
+	let is_joined = !check_visible
+		|| services
+			.rooms
+			.state_cache
+			.is_joined(user_id, room_id)
+			.await;
 
 	let state_visible = !check_state
 		|| services

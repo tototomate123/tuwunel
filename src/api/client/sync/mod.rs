@@ -51,7 +51,11 @@ async fn load_timeline(
 
 	// Take the last events for the timeline
 	pin_mut!(non_timeline_pdus);
-	let timeline_pdus: Vec<_> = non_timeline_pdus.by_ref().take(limit).collect().await;
+	let timeline_pdus: Vec<_> = non_timeline_pdus
+		.by_ref()
+		.take(limit)
+		.collect()
+		.await;
 
 	let timeline_pdus: Vec<_> = timeline_pdus.into_iter().rev().collect();
 

@@ -29,7 +29,10 @@ pub(crate) async fn create_invite_route(
 		.acl_check(body.origin(), &body.room_id)
 		.await?;
 
-	if !services.server.supported_room_version(&body.room_version) {
+	if !services
+		.server
+		.supported_room_version(&body.room_version)
+	{
 		return Err(Error::BadRequest(
 			ErrorKind::IncompatibleRoomVersion { room_version: body.room_version.clone() },
 			"Server does not support this room version.",
@@ -69,7 +72,10 @@ pub(crate) async fn create_invite_route(
 		.map(UserId::to_owned)
 		.map_err(|e| err!(Request(InvalidParam("Invalid state_key property: {e}"))))?;
 
-	if !services.globals.server_is_ours(invited_user.server_name()) {
+	if !services
+		.globals
+		.server_is_ours(invited_user.server_name())
+	{
 		return Err!(Request(InvalidParam("User does not belong to this homeserver.")));
 	}
 
@@ -96,8 +102,11 @@ pub(crate) async fn create_invite_route(
 		.try_into()
 		.map_err(|e| err!(Request(InvalidParam("Invalid sender property: {e}"))))?;
 
-	if services.rooms.metadata.is_banned(&body.room_id).await
-		&& !services.users.is_admin(&invited_user).await
+	if services
+		.rooms
+		.metadata
+		.is_banned(&body.room_id)
+		.await && !services.users.is_admin(&invited_user).await
 	{
 		return Err!(Request(Forbidden("This room is banned on this homeserver.")));
 	}

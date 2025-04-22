@@ -54,14 +54,22 @@ where
 			.parse()
 			.unwrap(),
 	);
-	*http_request.uri_mut() = parts.try_into().expect("our manipulation is always valid");
+	*http_request.uri_mut() = parts
+		.try_into()
+		.expect("our manipulation is always valid");
 
 	let reqwest_request = reqwest::Request::try_from(http_request)?;
 
-	let mut response = client.execute(reqwest_request).await.map_err(|e| {
-		warn!("Could not send request to appservice \"{}\" at {dest}: {e:?}", registration.id);
-		e
-	})?;
+	let mut response = client
+		.execute(reqwest_request)
+		.await
+		.map_err(|e| {
+			warn!(
+				"Could not send request to appservice \"{}\" at {dest}: {e:?}",
+				registration.id
+			);
+			e
+		})?;
 
 	// reqwest::Response -> http::Response conversion
 	let status = response.status();

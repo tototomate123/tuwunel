@@ -223,7 +223,11 @@ pub(super) async fn process(subcommand: SendingCommand, context: &Context<'_>) -
 		},
 		| SendingCommand::GetLatestEduCount { server_name } => {
 			let timer = tokio::time::Instant::now();
-			let results = services.sending.db.get_latest_educount(&server_name).await;
+			let results = services
+				.sending
+				.db
+				.get_latest_educount(&server_name)
+				.await;
 			let query_time = timer.elapsed();
 
 			context

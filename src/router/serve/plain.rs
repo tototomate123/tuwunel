@@ -17,8 +17,12 @@ pub(super) async fn serve(
 	let app = app.into_make_service_with_connect_info::<SocketAddr>();
 	let mut join_set = JoinSet::new();
 	for addr in &addrs {
-		join_set
-			.spawn_on(bind(*addr).handle(handle.clone()).serve(app.clone()), server.runtime());
+		join_set.spawn_on(
+			bind(*addr)
+				.handle(handle.clone())
+				.serve(app.clone()),
+			server.runtime(),
+		);
 	}
 
 	info!("Listening on {addrs:?}");
@@ -33,7 +37,10 @@ pub(super) async fn serve(
 			.metrics
 			.requests_handle_finished
 			.load(Ordering::Relaxed),
-		panics = server.metrics.requests_panic.load(Ordering::Relaxed),
+		panics = server
+			.metrics
+			.requests_panic
+			.load(Ordering::Relaxed),
 		handle_active,
 		"Stopped listening on {addrs:?}",
 	);

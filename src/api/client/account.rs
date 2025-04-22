@@ -57,11 +57,20 @@ pub(crate) async fn get_register_available_route(
 	body: Ruma<get_username_availability::v3::Request>,
 ) -> Result<get_username_availability::v3::Response> {
 	// workaround for https://github.com/matrix-org/matrix-appservice-irc/issues/1780 due to inactivity of fixing the issue
-	let is_matrix_appservice_irc = body.appservice_info.as_ref().is_some_and(|appservice| {
-		appservice.registration.id == "irc"
-			|| appservice.registration.id.contains("matrix-appservice-irc")
-			|| appservice.registration.id.contains("matrix_appservice_irc")
-	});
+	let is_matrix_appservice_irc = body
+		.appservice_info
+		.as_ref()
+		.is_some_and(|appservice| {
+			appservice.registration.id == "irc"
+				|| appservice
+					.registration
+					.id
+					.contains("matrix-appservice-irc")
+				|| appservice
+					.registration
+					.id
+					.contains("matrix_appservice_irc")
+		});
 
 	if services
 		.globals
@@ -114,7 +123,11 @@ pub(crate) async fn get_register_available_route(
 		}
 	}
 
-	if services.appservice.is_exclusive_user_id(&user_id).await {
+	if services
+		.appservice
+		.is_exclusive_user_id(&user_id)
+		.await
+	{
 		return Err!(Request(Exclusive("Username is reserved by an appservice.")));
 	}
 
@@ -175,7 +188,9 @@ pub(crate) async fn register_route(
 		info!(
 			"Guest registration disabled / registration enabled with token configured, \
 			 rejecting guest registration attempt, initial device name: \"{}\"",
-			body.initial_device_display_name.as_deref().unwrap_or("")
+			body.initial_device_display_name
+				.as_deref()
+				.unwrap_or("")
 		);
 		return Err!(Request(GuestAccessForbidden("Guest registration is disabled.")));
 	}
@@ -186,7 +201,9 @@ pub(crate) async fn register_route(
 		warn!(
 			"Guest account attempted to register before a real admin user has been registered, \
 			 rejecting registration. Guest's initial device name: \"{}\"",
-			body.initial_device_display_name.as_deref().unwrap_or("")
+			body.initial_device_display_name
+				.as_deref()
+				.unwrap_or("")
 		);
 		return Err!(Request(Forbidden("Registration is temporarily disabled.")));
 	}
@@ -195,13 +212,24 @@ pub(crate) async fn register_route(
 		| (Some(username), false) => {
 			// workaround for https://github.com/matrix-org/matrix-appservice-irc/issues/1780 due to inactivity of fixing the issue
 			let is_matrix_appservice_irc =
-				body.appservice_info.as_ref().is_some_and(|appservice| {
-					appservice.registration.id == "irc"
-						|| appservice.registration.id.contains("matrix-appservice-irc")
-						|| appservice.registration.id.contains("matrix_appservice_irc")
-				});
+				body.appservice_info
+					.as_ref()
+					.is_some_and(|appservice| {
+						appservice.registration.id == "irc"
+							|| appservice
+								.registration
+								.id
+								.contains("matrix-appservice-irc")
+							|| appservice
+								.registration
+								.id
+								.contains("matrix_appservice_irc")
+					});
 
-			if services.globals.forbidden_usernames().is_match(username)
+			if services
+				.globals
+				.forbidden_usernames()
+				.is_match(username)
 				&& !emergency_mode_enabled
 			{
 				return Err!(Request(Forbidden("Username is forbidden")));
@@ -270,7 +298,10 @@ pub(crate) async fn register_route(
 				return Err!(Request(MissingToken("Missing appservice token.")));
 			},
 		}
-	} else if services.appservice.is_exclusive_user_id(&user_id).await && !emergency_mode_enabled
+	} else if services
+		.appservice
+		.is_exclusive_user_id(&user_id)
+		.await && !emergency_mode_enabled
 	{
 		return Err!(Request(Exclusive("Username is reserved by an appservice.")));
 	}
@@ -348,7 +379,10 @@ pub(crate) async fn register_route(
 
 	// If `new_user_displayname_suffix` is set, registration will push whatever
 	// content is set to the user's display name with a space before it
-	if !services.globals.new_user_displayname_suffix().is_empty()
+	if !services
+		.globals
+		.new_user_displayname_suffix()
+		.is_empty()
 		&& body.appservice_info.is_none()
 	{
 		write!(displayname, " {}", services.server.config.new_user_displayname_suffix)
@@ -365,7 +399,9 @@ pub(crate) async fn register_route(
 		.update(
 			None,
 			&user_id,
-			GlobalAccountDataEventType::PushRules.to_string().into(),
+			GlobalAccountDataEventType::PushRules
+				.to_string()
+				.into(),
 			&serde_json::to_value(ruma::events::push_rules::PushRulesEvent {
 				content: ruma::events::push_rules::PushRulesEventContent {
 					global: push::Ruleset::server_default(&user_id),
@@ -411,7 +447,10 @@ pub(crate) async fn register_route(
 
 	debug_info!(%user_id, %device_id, "User account was created");
 
-	let device_display_name = body.initial_device_display_name.as_deref().unwrap_or("");
+	let device_display_name = body
+		.initial_device_display_name
+		.as_deref()
+		.unwrap_or("");
 
 	// log in conduit admin channel if a non-guest user registered
 	if body.appservice_info.is_none() && !is_guest {
@@ -651,7 +690,10 @@ pub(crate) async fn change_password_route(
 					.then_some(pushkey)
 			})
 			.for_each(|pushkey| async move {
-				services.pusher.delete_pusher(sender_user, &pushkey).await;
+				services
+					.pusher
+					.delete_pusher(sender_user, &pushkey)
+					.await;
 			})
 			.await;
 	}
@@ -680,7 +722,10 @@ pub(crate) async fn whoami_route(
 	State(services): State<crate::State>,
 	body: Ruma<whoami::v3::Request>,
 ) -> Result<whoami::v3::Response> {
-	let sender_user = body.sender_user.as_ref().expect("user is authenticated");
+	let sender_user = body
+		.sender_user
+		.as_ref()
+		.expect("user is authenticated");
 	let device_id = body.sender_device.clone();
 
 	Ok(whoami::v3::Response {
@@ -790,7 +835,10 @@ pub(crate) async fn deactivate_route(
 pub(crate) async fn third_party_route(
 	body: Ruma<get_3pids::v3::Request>,
 ) -> Result<get_3pids::v3::Response> {
-	let _sender_user = body.sender_user.as_ref().expect("user is authenticated");
+	let _sender_user = body
+		.sender_user
+		.as_ref()
+		.expect("user is authenticated");
 
 	Ok(get_3pids::v3::Response::new(Vec::new()))
 }
@@ -850,7 +898,11 @@ pub async fn full_user_deactivate(
 	user_id: &UserId,
 	all_joined_rooms: &[OwnedRoomId],
 ) -> Result<()> {
-	services.users.deactivate_account(user_id).await.ok();
+	services
+		.users
+		.deactivate_account(user_id)
+		.await
+		.ok();
 	super::update_displayname(services, user_id, None, all_joined_rooms).await;
 	super::update_avatar_url(services, user_id, None, None, all_joined_rooms).await;
 
@@ -858,7 +910,9 @@ pub async fn full_user_deactivate(
 		.users
 		.all_profile_keys(user_id)
 		.ready_for_each(|(profile_key, _)| {
-			services.users.set_profile_key(user_id, &profile_key, None);
+			services
+				.users
+				.set_profile_key(user_id, &profile_key, None);
 		})
 		.await;
 

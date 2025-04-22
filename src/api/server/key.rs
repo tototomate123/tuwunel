@@ -27,7 +27,10 @@ pub(crate) async fn get_server_keys_route(
 ) -> Result<impl IntoResponse> {
 	let server_name = services.globals.server_name();
 	let active_key_id = services.server_keys.active_key_id();
-	let mut all_keys = services.server_keys.verify_keys_for(server_name).await;
+	let mut all_keys = services
+		.server_keys
+		.verify_keys_for(server_name)
+		.await;
 
 	let verify_keys = all_keys
 		.remove_entry(active_key_id)

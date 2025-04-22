@@ -119,7 +119,9 @@ impl Service {
 	#[inline]
 	#[tracing::instrument(skip(self), level = "debug")]
 	pub async fn is_event_referenced(&self, room_id: &RoomId, event_id: &EventId) -> bool {
-		self.db.is_event_referenced(room_id, event_id).await
+		self.db
+			.is_event_referenced(room_id, event_id)
+			.await
 	}
 
 	#[inline]

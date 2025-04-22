@@ -94,7 +94,9 @@ impl Service {
 			.ok_or_else(|| err!("Appservice not found"))?;
 
 		// remove the appservice from the database
-		self.db.id_appserviceregistrations.del(appservice_id);
+		self.db
+			.id_appserviceregistrations
+			.del(appservice_id);
 
 		// deletes all active requests for the appservice if there are any so we stop
 		// sending to the URL

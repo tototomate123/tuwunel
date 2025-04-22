@@ -24,7 +24,10 @@ pub(super) fn get_prefix(&self) -> Vec<u8> {
 		},
 		| Self::Appservice(server) => {
 			let sigil = b"+";
-			let len = sigil.len().saturating_add(server.len()).saturating_add(1);
+			let len = sigil
+				.len()
+				.saturating_add(server.len())
+				.saturating_add(1);
 
 			let mut p = Vec::with_capacity(len);
 			p.extend_from_slice(sigil);

@@ -31,7 +31,9 @@ impl Metrics {
 		let runtime_monitor = runtime.as_ref().map(RuntimeMonitor::new);
 
 		#[cfg(tokio_unstable)]
-		let runtime_intervals = runtime_monitor.as_ref().map(RuntimeMonitor::intervals);
+		let runtime_intervals = runtime_monitor
+			.as_ref()
+			.map(RuntimeMonitor::intervals);
 
 		Self {
 			_runtime: runtime.clone(),

@@ -100,7 +100,11 @@ impl Service {
 	}
 
 	async fn event_fetch(&self, event_id: OwnedEventId) -> Option<PduEvent> {
-		self.services.timeline.get_pdu(&event_id).await.ok()
+		self.services
+			.timeline
+			.get_pdu(&event_id)
+			.await
+			.ok()
 	}
 }
 

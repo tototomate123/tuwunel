@@ -82,7 +82,14 @@ pub(super) async fn create_user(&self, username: String, password: Option<String
 		.new_user_displayname_suffix
 		.is_empty()
 	{
-		write!(displayname, " {}", self.services.server.config.new_user_displayname_suffix)?;
+		write!(
+			displayname,
+			" {}",
+			self.services
+				.server
+				.config
+				.new_user_displayname_suffix
+		)?;
 	}
 
 	self.services
@@ -106,7 +113,13 @@ pub(super) async fn create_user(&self, username: String, password: Option<String
 		)
 		.await?;
 
-	if !self.services.server.config.auto_join_rooms.is_empty() {
+	if !self
+		.services
+		.server
+		.config
+		.auto_join_rooms
+		.is_empty()
+	{
 		for room in &self.services.server.config.auto_join_rooms {
 			let Ok(room_id) = self.services.rooms.alias.resolve(room).await else {
 				error!(
@@ -178,7 +191,10 @@ pub(super) async fn create_user(&self, username: String, password: Option<String
 			.await
 			.is_ok_and(is_equal_to!(1))
 		{
-			self.services.admin.make_user_admin(&user_id).await?;
+			self.services
+				.admin
+				.make_user_admin(&user_id)
+				.await?;
 			warn!("Granting {user_id} admin privileges as the first user");
 		}
 	} else {
@@ -199,7 +215,10 @@ pub(super) async fn deactivate(&self, no_leave_rooms: bool, user_id: String) -> 
 		return Err!("Not allowed to deactivate the server service account.",);
 	}
 
-	self.services.users.deactivate_account(&user_id).await?;
+	self.services
+		.users
+		.deactivate_account(&user_id)
+		.await?;
 
 	if !no_leave_rooms {
 		self.services
@@ -312,7 +331,12 @@ pub(super) async fn deactivate_all(&self, no_leave_rooms: bool, force: bool) -> 
 	let mut deactivation_count: usize = 0;
 
 	for user_id in user_ids {
-		match self.services.users.deactivate_account(&user_id).await {
+		match self
+			.services
+			.users
+			.deactivate_account(&user_id)
+			.await
+		{
 			| Err(e) => {
 				self.services
 					.admin
@@ -640,7 +664,12 @@ pub(super) async fn force_leave_room(
 	room_id: OwnedRoomOrAliasId,
 ) -> Result {
 	let user_id = parse_local_user_id(self.services, &user_id)?;
-	let room_id = self.services.rooms.alias.resolve(&room_id).await?;
+	let room_id = self
+		.services
+		.rooms
+		.alias
+		.resolve(&room_id)
+		.await?;
 
 	assert!(
 		self.services.globals.user_is_local(&user_id),
@@ -666,14 +695,25 @@ pub(super) async fn force_leave_room(
 #[admin_command]
 pub(super) async fn force_demote(&self, user_id: String, room_id: OwnedRoomOrAliasId) -> Result {
 	let user_id = parse_local_user_id(self.services, &user_id)?;
-	let room_id = self.services.rooms.alias.resolve(&room_id).await?;
+	let room_id = self
+		.services
+		.rooms
+		.alias
+		.resolve(&room_id)
+		.await?;
 
 	assert!(
 		self.services.globals.user_is_local(&user_id),
 		"Parsed user_id must be a local user"
 	);
 
-	let state_lock = self.services.rooms.state.mutex.lock(&room_id).await;
+	let state_lock = self
+		.services
+		.rooms
+		.state
+		.mutex
+		.lock(&room_id)
+		.await;
 
 	let room_power_levels: Option<RoomPowerLevelsEventContent> = self
 		.services
@@ -730,7 +770,10 @@ pub(super) async fn make_user_admin(&self, user_id: String) -> Result {
 		"Parsed user_id must be a local user"
 	);
 
-	self.services.admin.make_user_admin(&user_id).await?;
+	self.services
+		.admin
+		.make_user_admin(&user_id)
+		.await?;
 
 	self.write_str(&format!("{user_id} has been granted admin privileges.",))
 		.await
@@ -793,7 +836,10 @@ pub(super) async fn delete_room_tag(
 			content: TagEventContent { tags: BTreeMap::new() },
 		});
 
-	tags_event.content.tags.remove(&tag.clone().into());
+	tags_event
+		.content
+		.tags
+		.remove(&tag.clone().into());
 
 	self.services
 		.account_data
@@ -858,7 +904,13 @@ pub(super) async fn redact_event(&self, event_id: OwnedEventId) -> Result {
 	);
 
 	let redaction_event_id = {
-		let state_lock = self.services.rooms.state.mutex.lock(&room_id).await;
+		let state_lock = self
+			.services
+			.rooms
+			.state
+			.mutex
+			.lock(&room_id)
+			.await;
 
 		self.services
 			.rooms

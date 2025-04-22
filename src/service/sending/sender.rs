@@ -85,7 +85,8 @@ impl Service {
 			.boxed()
 			.await;
 
-		self.work_loop(id, &mut futures, &mut statuses).await;
+		self.work_loop(id, &mut futures, &mut statuses)
+			.await;
 
 		if !futures.is_empty() {
 			self.finish_responses(&mut futures).boxed().await;
@@ -136,7 +137,9 @@ impl Service {
 		statuses: &mut CurTransactionStatus,
 	) {
 		match response {
-			| Ok(dest) => self.handle_response_ok(&dest, futures, statuses).await,
+			| Ok(dest) =>
+				self.handle_response_ok(&dest, futures, statuses)
+					.await,
 			| Err((dest, e)) => Self::handle_response_err(dest, statuses, &e),
 		}
 	}
@@ -177,7 +180,10 @@ impl Service {
 		if !new_events.is_empty() {
 			self.db.mark_as_active(new_events.iter());
 
-			let new_events_vec = new_events.into_iter().map(|(_, event)| event).collect();
+			let new_events_vec = new_events
+				.into_iter()
+				.map(|(_, event)| event)
+				.collect();
 			futures.push(self.send_events(dest.clone(), new_events_vec));
 		} else {
 			statuses.remove(dest);
@@ -322,7 +328,8 @@ impl Service {
 				let select_edus = select_edus.into_iter().map(SendingEvent::Edu);
 
 				events.extend(select_edus);
-				self.db.set_latest_educount(server_name, last_count);
+				self.db
+					.set_latest_educount(server_name, last_count);
 			}
 		}
 
@@ -415,7 +422,10 @@ impl Service {
 		events_len: &AtomicUsize,
 	) -> EduVec {
 		let mut events = EduVec::new();
-		let server_rooms = self.services.state_cache.server_rooms(server_name);
+		let server_rooms = self
+			.services
+			.state_cache
+			.server_rooms(server_name);
 
 		pin_mut!(server_rooms);
 		let mut device_list_changes = HashSet::<OwnedUserId>::new();
@@ -562,7 +572,10 @@ impl Service {
 				event_ids: vec![event_id.clone()],
 			};
 
-			if read.insert(user_id.to_owned(), receipt_data).is_none() {
+			if read
+				.insert(user_id.to_owned(), receipt_data)
+				.is_none()
+			{
 				*num = num.saturating_add(1);
 				if *num >= SELECT_RECEIPT_LIMIT {
 					break;
@@ -621,7 +634,10 @@ impl Service {
 			let update = PresenceUpdate {
 				user_id: user_id.into(),
 				presence: presence_event.content.presence,
-				currently_active: presence_event.content.currently_active.unwrap_or(false),
+				currently_active: presence_event
+					.content
+					.currently_active
+					.unwrap_or(false),
 				status_msg: presence_event.content.status_msg,
 				last_active_ago: presence_event
 					.content
@@ -653,11 +669,15 @@ impl Service {
 	fn send_events(&self, dest: Destination, events: Vec<SendingEvent>) -> SendingFuture<'_> {
 		debug_assert!(!events.is_empty(), "sending empty transaction");
 		match dest {
-			| Destination::Federation(server) =>
-				self.send_events_dest_federation(server, events).boxed(),
-			| Destination::Appservice(id) => self.send_events_dest_appservice(id, events).boxed(),
-			| Destination::Push(user_id, pushkey) =>
-				self.send_events_dest_push(user_id, pushkey, events).boxed(),
+			| Destination::Federation(server) => self
+				.send_events_dest_federation(server, events)
+				.boxed(),
+			| Destination::Appservice(id) => self
+				.send_events_dest_appservice(id, events)
+				.boxed(),
+			| Destination::Push(user_id, pushkey) => self
+				.send_events_dest_push(user_id, pushkey, events)
+				.boxed(),
 		}
 	}
 
@@ -674,7 +694,12 @@ impl Service {
 		id: String,
 		events: Vec<SendingEvent>,
 	) -> SendingResult {
-		let Some(appservice) = self.services.appservice.get_registration(&id).await else {
+		let Some(appservice) = self
+			.services
+			.appservice
+			.get_registration(&id)
+			.await
+		else {
 			return Err((
 				Destination::Appservice(id.clone()),
 				err!(Database(warn!(?id, "Missing appservice registration"))),
@@ -696,7 +721,12 @@ impl Service {
 		for event in &events {
 			match event {
 				| SendingEvent::Pdu(pdu_id) => {
-					if let Ok(pdu) = self.services.timeline.get_pdu_from_id(pdu_id).await {
+					if let Ok(pdu) = self
+						.services
+						.timeline
+						.get_pdu_from_id(pdu_id)
+						.await
+					{
 						pdu_jsons.push(pdu.into_room_event());
 					}
 				},
@@ -752,7 +782,12 @@ impl Service {
 		pushkey: String,
 		events: Vec<SendingEvent>,
 	) -> SendingResult {
-		let Ok(pusher) = self.services.pusher.get_pusher(&user_id, &pushkey).await else {
+		let Ok(pusher) = self
+			.services
+			.pusher
+			.get_pusher(&user_id, &pushkey)
+			.await
+		else {
 			return Err((
 				Destination::Push(user_id.clone(), pushkey.clone()),
 				err!(Database(error!(?user_id, ?pushkey, "Missing pusher"))),
@@ -768,7 +803,12 @@ impl Service {
 		for event in &events {
 			match event {
 				| SendingEvent::Pdu(pdu_id) => {
-					if let Ok(pdu) = self.services.timeline.get_pdu_from_id(pdu_id).await {
+					if let Ok(pdu) = self
+						.services
+						.timeline
+						.get_pdu_from_id(pdu_id)
+						.await
+					{
 						pdus.push(pdu);
 					}
 				},
@@ -826,7 +866,12 @@ impl Service {
 				| _ => None,
 			})
 			.stream()
-			.wide_filter_map(|pdu_id| self.services.timeline.get_pdu_json_from_id(pdu_id).ok())
+			.wide_filter_map(|pdu_id| {
+				self.services
+					.timeline
+					.get_pdu_json_from_id(pdu_id)
+					.ok()
+			})
 			.wide_then(|pdu| self.convert_to_outgoing_federation_event(pdu))
 			.collect()
 			.await;
@@ -898,7 +943,12 @@ impl Service {
 			.get("room_id")
 			.and_then(|val| RoomId::parse(val.as_str()?).ok())
 		{
-			match self.services.state.get_room_version(room_id).await {
+			match self
+				.services
+				.state
+				.get_room_version(room_id)
+				.await
+			{
 				| Ok(room_version_id) => match room_version_id {
 					| RoomVersionId::V1 | RoomVersionId::V2 => {},
 					| _ => _ = pdu_json.remove("event_id"),

@@ -30,7 +30,10 @@ pub(crate) async fn create_typing_event_route(
 	match body.state {
 		| Typing::Yes(duration) => {
 			let duration = utils::clamp(
-				duration.as_millis().try_into().unwrap_or(u64::MAX),
+				duration
+					.as_millis()
+					.try_into()
+					.unwrap_or(u64::MAX),
 				services
 					.server
 					.config

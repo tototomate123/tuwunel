@@ -58,7 +58,10 @@ pub(crate) async fn create_room_route(
 ) -> Result<create_room::v3::Response> {
 	use create_room::v3::RoomPreset;
 
-	let sender_user = body.sender_user.as_ref().expect("user is authenticated");
+	let sender_user = body
+		.sender_user
+		.as_ref()
+		.expect("user is authenticated");
 
 	if !services.globals.allow_room_creation()
 		&& body.appservice_info.is_none()
@@ -76,7 +79,13 @@ pub(crate) async fn create_room_route(
 	};
 
 	// check if room ID doesn't already exist instead of erroring on auth check
-	if services.rooms.short.get_shortroomid(&room_id).await.is_ok() {
+	if services
+		.rooms
+		.short
+		.get_shortroomid(&room_id)
+		.await
+		.is_ok()
+	{
 		return Err(Error::BadRequest(
 			ErrorKind::RoomInUse,
 			"Room with that custom room ID already exists",
@@ -84,7 +93,10 @@ pub(crate) async fn create_room_route(
 	}
 
 	if body.visibility == room::Visibility::Public
-		&& services.server.config.lockdown_public_room_directory
+		&& services
+			.server
+			.config
+			.lockdown_public_room_directory
 		&& !services.users.is_admin(sender_user).await
 		&& body.appservice_info.is_none()
 	{
@@ -123,7 +135,10 @@ pub(crate) async fn create_room_route(
 
 	let room_version = match body.room_version.clone() {
 		| Some(room_version) =>
-			if services.server.supported_room_version(&room_version) {
+			if services
+				.server
+				.supported_room_version(&room_version)
+			{
 				room_version
 			} else {
 				return Err(Error::BadRequest(
@@ -131,7 +146,11 @@ pub(crate) async fn create_room_route(
 					"This server does not support that room version.",
 				));
 			},
-		| None => services.server.config.default_room_version.clone(),
+		| None => services
+			.server
+			.config
+			.default_room_version
+			.clone(),
 	};
 
 	let create_content = match &body.creation_content {
@@ -160,9 +179,11 @@ pub(crate) async fn create_room_route(
 			}
 			content.insert(
 				"room_version".into(),
-				json!(room_version.as_str()).try_into().map_err(|_| {
-					Error::BadRequest(ErrorKind::BadJson, "Invalid creation content")
-				})?,
+				json!(room_version.as_str())
+					.try_into()
+					.map_err(|_| {
+						Error::BadRequest(ErrorKind::BadJson, "Invalid creation content")
+					})?,
 			);
 			content
 		},
@@ -231,18 +252,29 @@ pub(crate) async fn create_room_route(
 	// 3. Power levels
 
 	// Figure out preset. We need it for preset specific events
-	let preset = body.preset.clone().unwrap_or(match &body.visibility {
-		| room::Visibility::Public => RoomPreset::PublicChat,
-		| _ => RoomPreset::PrivateChat, // Room visibility should not be custom
-	});
+	let preset = body
+		.preset
+		.clone()
+		.unwrap_or(match &body.visibility {
+			| room::Visibility::Public => RoomPreset::PublicChat,
+			| _ => RoomPreset::PrivateChat, // Room visibility should not be custom
+		});
 
 	let mut users = BTreeMap::from_iter([(sender_user.clone(), int!(100))]);
 
 	if preset == RoomPreset::TrustedPrivateChat {
 		for invite in &body.invite {
-			if services.users.user_is_ignored(sender_user, invite).await {
+			if services
+				.users
+				.user_is_ignored(sender_user, invite)
+				.await
+			{
 				continue;
-			} else if services.users.user_is_ignored(invite, sender_user).await {
+			} else if services
+				.users
+				.user_is_ignored(invite, sender_user)
+				.await
+			{
 				// silently drop the invite to the recipient if they've been ignored by the
 				// sender, pretend it worked
 				continue;
@@ -353,10 +385,12 @@ pub(crate) async fn create_room_route(
 
 	// 6. Events listed in initial_state
 	for event in &body.initial_state {
-		let mut pdu_builder = event.deserialize_as::<PduBuilder>().map_err(|e| {
-			warn!("Invalid initial state event: {:?}", e);
-			Error::BadRequest(ErrorKind::InvalidParam, "Invalid initial state event.")
-		})?;
+		let mut pdu_builder = event
+			.deserialize_as::<PduBuilder>()
+			.map_err(|e| {
+				warn!("Invalid initial state event: {:?}", e);
+				Error::BadRequest(ErrorKind::InvalidParam, "Invalid initial state event.")
+			})?;
 
 		debug_info!("Room creation initial state event: {event:?}");
 
@@ -370,7 +404,9 @@ pub(crate) async fn create_room_route(
 		}
 
 		// Implicit state key defaults to ""
-		pdu_builder.state_key.get_or_insert_with(StateKey::new);
+		pdu_builder
+			.state_key
+			.get_or_insert_with(StateKey::new);
 
 		// Silently skip encryption events if they are not allowed
 		if pdu_builder.event_type == TimelineEventType::RoomEncryption
@@ -419,9 +455,17 @@ pub(crate) async fn create_room_route(
 	// 8. Events implied by invite (and TODO: invite_3pid)
 	drop(state_lock);
 	for user_id in &body.invite {
-		if services.users.user_is_ignored(sender_user, user_id).await {
+		if services
+			.users
+			.user_is_ignored(sender_user, user_id)
+			.await
+		{
 			continue;
-		} else if services.users.user_is_ignored(user_id, sender_user).await {
+		} else if services
+			.users
+			.user_is_ignored(user_id, sender_user)
+			.await
+		{
 			// silently drop the invite to the recipient if they've been ignored by the
 			// sender, pretend it worked
 			continue;

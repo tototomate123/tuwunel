@@ -55,7 +55,12 @@ pub(crate) async fn create_knock_event_v1_route(
 		}
 	}
 
-	if !services.rooms.metadata.exists(&body.room_id).await {
+	if !services
+		.rooms
+		.metadata
+		.exists(&body.room_id)
+		.await
+	{
 		return Err!(Request(NotFound("Room is unknown to this server.")));
 	}
 
@@ -66,7 +71,11 @@ pub(crate) async fn create_knock_event_v1_route(
 		.acl_check(body.origin(), &body.room_id)
 		.await?;
 
-	let room_version_id = services.rooms.state.get_room_version(&body.room_id).await?;
+	let room_version_id = services
+		.rooms
+		.state
+		.get_room_version(&body.room_id)
+		.await?;
 
 	if matches!(room_version_id, V1 | V2 | V3 | V4 | V5 | V6) {
 		return Err!(Request(Forbidden("Room version does not support knocking.")));

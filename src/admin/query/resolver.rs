@@ -27,7 +27,12 @@ async fn destinations_cache(&self, server_name: Option<OwnedServerName>) -> Resu
 	writeln!(self, "| Server Name | Destination | Hostname | Expires |").await?;
 	writeln!(self, "| ----------- | ----------- | -------- | ------- |").await?;
 
-	let mut destinations = self.services.resolver.cache.destinations().boxed();
+	let mut destinations = self
+		.services
+		.resolver
+		.cache
+		.destinations()
+		.boxed();
 
 	while let Some((name, CachedDest { dest, host, expire })) = destinations.next().await {
 		if let Some(server_name) = server_name.as_ref() {

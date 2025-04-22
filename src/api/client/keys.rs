@@ -126,7 +126,10 @@ pub(crate) async fn get_keys_route(
 	State(services): State<crate::State>,
 	body: Ruma<get_keys::v3::Request>,
 ) -> Result<get_keys::v3::Response> {
-	let sender_user = body.sender_user.as_ref().expect("user is authenticated");
+	let sender_user = body
+		.sender_user
+		.as_ref()
+		.expect("user is authenticated");
 
 	get_keys_helper(
 		&services,
@@ -157,8 +160,14 @@ pub(crate) async fn upload_signing_keys_route(
 	State(services): State<crate::State>,
 	body: Ruma<upload_signing_keys::v3::Request>,
 ) -> Result<upload_signing_keys::v3::Response> {
-	let sender_user = body.sender_user.as_ref().expect("user is authenticated");
-	let sender_device = body.sender_device.as_ref().expect("user is authenticated");
+	let sender_user = body
+		.sender_user
+		.as_ref()
+		.expect("user is authenticated");
+	let sender_device = body
+		.sender_device
+		.as_ref()
+		.expect("user is authenticated");
 
 	// UIAA
 	let mut uiaainfo = UiaaInfo {
@@ -373,7 +382,10 @@ pub(crate) async fn get_key_changes_route(
 	State(services): State<crate::State>,
 	body: Ruma<get_key_changes::v3::Request>,
 ) -> Result<get_key_changes::v3::Response> {
-	let sender_user = body.sender_user.as_ref().expect("user is authenticated");
+	let sender_user = body
+		.sender_user
+		.as_ref()
+		.expect("user is authenticated");
 
 	let mut device_list_updates = HashSet::new();
 
@@ -396,7 +408,11 @@ pub(crate) async fn get_key_changes_route(
 			.await,
 	);
 
-	let mut rooms_joined = services.rooms.state_cache.rooms_joined(sender_user).boxed();
+	let mut rooms_joined = services
+		.rooms
+		.state_cache
+		.rooms_joined(sender_user)
+		.boxed();
 
 	while let Some(room_id) = rooms_joined.next().await {
 		device_list_updates.extend(
@@ -449,7 +465,11 @@ where
 			let mut devices = services.users.all_device_ids(user_id).boxed();
 
 			while let Some(device_id) = devices.next().await {
-				if let Ok(mut keys) = services.users.get_device_keys(user_id, device_id).await {
+				if let Ok(mut keys) = services
+					.users
+					.get_device_keys(user_id, device_id)
+					.await
+				{
 					let metadata = services
 						.users
 						.get_device_metadata(user_id, device_id)
@@ -469,7 +489,11 @@ where
 		} else {
 			for device_id in device_ids {
 				let mut container = BTreeMap::new();
-				if let Ok(mut keys) = services.users.get_device_keys(user_id, device_id).await {
+				if let Ok(mut keys) = services
+					.users
+					.get_device_keys(user_id, device_id)
+					.await
+				{
 					let metadata = services
 						.users
 						.get_device_metadata(user_id, device_id)
@@ -545,7 +569,9 @@ where
 						.await
 					{
 						let (_, mut our_master_key) = parse_master_key(&user, &our_master_key)?;
-						master_key.signatures.append(&mut our_master_key.signatures);
+						master_key
+							.signatures
+							.append(&mut our_master_key.signatures);
 					}
 					let json = serde_json::to_value(master_key).expect("to_value always works");
 					let raw = serde_json::from_value(json).expect("Raw::from_value always works");
@@ -588,7 +614,9 @@ fn add_unsigned_device_display_name(
 	if let Some(display_name) = metadata.display_name {
 		let mut object = keys.deserialize_as::<serde_json::Map<String, serde_json::Value>>()?;
 
-		let unsigned = object.entry("unsigned").or_insert_with(|| json!({}));
+		let unsigned = object
+			.entry("unsigned")
+			.or_insert_with(|| json!({}));
 		if let serde_json::Value::Object(unsigned_object) = unsigned {
 			if include_display_names {
 				unsigned_object.insert("device_display_name".to_owned(), display_name.into());

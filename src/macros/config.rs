@@ -251,7 +251,12 @@ fn get_doc_comment_full(field: &Field) -> Option<String> {
 			continue;
 		};
 
-		if path.segments.iter().next().is_none_or(|s| s.ident != "doc") {
+		if path
+			.segments
+			.iter()
+			.next()
+			.is_none_or(|s| s.ident != "doc")
+		{
 			continue;
 		}
 

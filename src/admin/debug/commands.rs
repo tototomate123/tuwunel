@@ -37,7 +37,13 @@ pub(super) async fn echo(&self, message: Vec<String>) -> Result {
 
 #[admin_command]
 pub(super) async fn get_auth_chain(&self, event_id: OwnedEventId) -> Result {
-	let Ok(event) = self.services.rooms.timeline.get_pdu_json(&event_id).await else {
+	let Ok(event) = self
+		.services
+		.rooms
+		.timeline
+		.get_pdu_json(&event_id)
+		.await
+	else {
 		return Err!("Event not found.");
 	};
 
@@ -103,7 +109,12 @@ pub(super) async fn get_pdu(&self, event_id: OwnedEventId) -> Result {
 
 	if pdu_json.is_err() {
 		outlier = true;
-		pdu_json = self.services.rooms.timeline.get_pdu_json(&event_id).await;
+		pdu_json = self
+			.services
+			.rooms
+			.timeline
+			.get_pdu_json(&event_id)
+			.await;
 	}
 
 	match pdu_json {
@@ -361,7 +372,11 @@ pub(super) async fn force_device_list_updates(&self) -> Result {
 	self.services
 		.users
 		.stream()
-		.for_each(|user_id| self.services.users.mark_device_key_update(user_id))
+		.for_each(|user_id| {
+			self.services
+				.users
+				.mark_device_key_update(user_id)
+		})
 		.await;
 
 	write!(self, "Marked all devices for all users as having new keys to update").await
@@ -407,7 +422,10 @@ pub(super) async fn change_log_level(&self, filter: Option<String>, reset: bool)
 			.reload
 			.reload(&new_filter_layer, Some(handles))
 		{
-			| Ok(()) => return self.write_str("Successfully changed log level").await,
+			| Ok(()) =>
+				return self
+					.write_str("Successfully changed log level")
+					.await,
 			| Err(e) =>
 				return Err!("Failed to modify and reload the global tracing log level: {e}"),
 		}
@@ -449,7 +467,12 @@ pub(super) async fn verify_json(&self) -> Result {
 	let string = self.body[1..self.body.len().checked_sub(1).unwrap()].join("\n");
 	match serde_json::from_str::<CanonicalJsonObject>(&string) {
 		| Err(e) => return Err!("Invalid json: {e}"),
-		| Ok(value) => match self.services.server_keys.verify_json(&value, None).await {
+		| Ok(value) => match self
+			.services
+			.server_keys
+			.verify_json(&value, None)
+			.await
+		{
 			| Err(e) => return Err!("Signature verification failed: {e}"),
 			| Ok(()) => write!(self, "Signature correct"),
 		},
@@ -461,10 +484,20 @@ pub(super) async fn verify_json(&self) -> Result {
 pub(super) async fn verify_pdu(&self, event_id: OwnedEventId) -> Result {
 	use ruma::signatures::Verified;
 
-	let mut event = self.services.rooms.timeline.get_pdu_json(&event_id).await?;
+	let mut event = self
+		.services
+		.rooms
+		.timeline
+		.get_pdu_json(&event_id)
+		.await?;
 
 	event.remove("event_id");
-	let msg = match self.services.server_keys.verify_event(&event, None).await {
+	let msg = match self
+		.services
+		.server_keys
+		.verify_event(&event, None)
+		.await
+	{
 		| Err(e) => return Err(e),
 		| Ok(Verified::Signatures) => "signatures OK, but content hash failed (redaction).",
 		| Ok(Verified::All) => "signatures and hashes OK.",
@@ -548,7 +581,12 @@ pub(super) async fn force_set_room_state_from_server(
 		.await
 		.map_err(|_| err!(Database("Failed to find the latest PDU in database")))?;
 
-	let room_version = self.services.rooms.state.get_room_version(&room_id).await?;
+	let room_version = self
+		.services
+		.rooms
+		.state
+		.get_room_version(&room_id)
+		.await?;
 
 	let mut state: HashMap<u64, OwnedEventId> = HashMap::new();
 
@@ -610,11 +648,14 @@ pub(super) async fn force_set_room_state_from_server(
 	}
 
 	info!("Going through auth_chain response");
-	for result in remote_state_response.auth_chain.iter().map(|pdu| {
-		self.services
-			.server_keys
-			.validate_and_add_event_id(pdu, &room_version)
-	}) {
+	for result in remote_state_response
+		.auth_chain
+		.iter()
+		.map(|pdu| {
+			self.services
+				.server_keys
+				.validate_and_add_event_id(pdu, &room_version)
+		}) {
 		let Ok((event_id, value)) = result.await else {
 			continue;
 		};
@@ -644,7 +685,13 @@ pub(super) async fn force_set_room_state_from_server(
 		.save_state(room_id.clone().as_ref(), new_room_state)
 		.await?;
 
-	let state_lock = self.services.rooms.state.mutex.lock(&*room_id).await;
+	let state_lock = self
+		.services
+		.rooms
+		.state
+		.mutex
+		.lock(&*room_id)
+		.await;
 
 	self.services
 		.rooms
@@ -775,17 +822,22 @@ pub(super) async fn memory_stats(&self, opts: Option<String>) -> Result {
 #[cfg(tokio_unstable)]
 #[admin_command]
 pub(super) async fn runtime_metrics(&self) -> Result {
-	let out = self.services.server.metrics.runtime_metrics().map_or_else(
-		|| "Runtime metrics are not available.".to_owned(),
-		|metrics| {
-			format!(
-				"```rs\nnum_workers: {}\nnum_alive_tasks: {}\nglobal_queue_depth: {}\n```",
-				metrics.num_workers(),
-				metrics.num_alive_tasks(),
-				metrics.global_queue_depth()
-			)
-		},
-	);
+	let out = self
+		.services
+		.server
+		.metrics
+		.runtime_metrics()
+		.map_or_else(
+			|| "Runtime metrics are not available.".to_owned(),
+			|metrics| {
+				format!(
+					"```rs\nnum_workers: {}\nnum_alive_tasks: {}\nglobal_queue_depth: {}\n```",
+					metrics.num_workers(),
+					metrics.num_alive_tasks(),
+					metrics.global_queue_depth()
+				)
+			},
+		);
 
 	self.write_str(&out).await
 }
@@ -800,10 +852,15 @@ pub(super) async fn runtime_metrics(&self) -> Result {
 #[cfg(tokio_unstable)]
 #[admin_command]
 pub(super) async fn runtime_interval(&self) -> Result {
-	let out = self.services.server.metrics.runtime_interval().map_or_else(
-		|| "Runtime metrics are not available.".to_owned(),
-		|metrics| format!("```rs\n{metrics:#?}\n```"),
-	);
+	let out = self
+		.services
+		.server
+		.metrics
+		.runtime_interval()
+		.map_or_else(
+			|| "Runtime metrics are not available.".to_owned(),
+			|metrics| format!("```rs\n{metrics:#?}\n```"),
+		);
 
 	self.write_str(&out).await
 }
@@ -871,7 +928,12 @@ pub(super) async fn database_stats(
 
 #[admin_command]
 pub(super) async fn database_files(&self, map: Option<String>, level: Option<i32>) -> Result {
-	let mut files: Vec<_> = self.services.db.db.file_list().collect::<Result<_>>()?;
+	let mut files: Vec<_> = self
+		.services
+		.db
+		.db
+		.file_list()
+		.collect::<Result<_>>()?;
 
 	files.sort_by_key(|f| f.name.clone());
 
@@ -883,7 +945,11 @@ pub(super) async fn database_files(&self, map: Option<String>, level: Option<i32
 			map.as_deref()
 				.is_none_or(|map| map == file.column_family_name)
 		})
-		.filter(|file| level.as_ref().is_none_or(|&level| level == file.level))
+		.filter(|file| {
+			level
+				.as_ref()
+				.is_none_or(|&level| level == file.level)
+		})
 		.try_stream()
 		.try_for_each(|file| {
 			writeln!(

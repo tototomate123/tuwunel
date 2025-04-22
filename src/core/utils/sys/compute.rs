@@ -70,7 +70,9 @@ pub fn get_affinity() -> impl Iterator<Item = Id> { from_mask(CORE_AFFINITY.get(
 /// List the cores sharing SMT-tier resources
 pub fn smt_siblings() -> impl Iterator<Item = Id> {
 	from_mask(get_affinity().fold(0_u128, |mask, id| {
-		mask | SMT_TOPOLOGY.get(id).expect("ID must not exceed max cpus")
+		mask | SMT_TOPOLOGY
+			.get(id)
+			.expect("ID must not exceed max cpus")
 	}))
 }
 
@@ -78,20 +80,30 @@ pub fn smt_siblings() -> impl Iterator<Item = Id> {
 /// affinity.
 pub fn node_siblings() -> impl Iterator<Item = Id> {
 	from_mask(get_affinity().fold(0_u128, |mask, id| {
-		mask | NODE_TOPOLOGY.get(id).expect("Id must not exceed max cpus")
+		mask | NODE_TOPOLOGY
+			.get(id)
+			.expect("Id must not exceed max cpus")
 	}))
 }
 
 /// Get the cores sharing SMT resources relative to id.
 #[inline]
 pub fn smt_affinity(id: Id) -> impl Iterator<Item = Id> {
-	from_mask(*SMT_TOPOLOGY.get(id).expect("ID must not exceed max cpus"))
+	from_mask(
+		*SMT_TOPOLOGY
+			.get(id)
+			.expect("ID must not exceed max cpus"),
+	)
 }
 
 /// Get the cores sharing Node resources relative to id.
 #[inline]
 pub fn node_affinity(id: Id) -> impl Iterator<Item = Id> {
-	from_mask(*NODE_TOPOLOGY.get(id).expect("ID must not exceed max cpus"))
+	from_mask(
+		*NODE_TOPOLOGY
+			.get(id)
+			.expect("ID must not exceed max cpus"),
+	)
 }
 
 /// Get the number of threads which could execute in parallel based on hardware

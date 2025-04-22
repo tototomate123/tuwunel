@@ -110,8 +110,11 @@ impl Service {
 
 		let last_last_active_ago = match last_presence {
 			| Err(_) => 0_u64,
-			| Ok((_, ref presence)) =>
-				presence.content.last_active_ago.unwrap_or_default().into(),
+			| Ok((_, ref presence)) => presence
+				.content
+				.last_active_ago
+				.unwrap_or_default()
+				.into(),
 		};
 
 		if !state_changed && last_last_active_ago < REFRESH_TIMEOUT {
@@ -151,8 +154,16 @@ impl Service {
 			&& user_id != self.services.globals.server_user
 		{
 			let timeout = match presence_state {
-				| PresenceState::Online => self.services.server.config.presence_idle_timeout_s,
-				| _ => self.services.server.config.presence_offline_timeout_s,
+				| PresenceState::Online =>
+					self.services
+						.server
+						.config
+						.presence_idle_timeout_s,
+				| _ =>
+					self.services
+						.server
+						.config
+						.presence_offline_timeout_s,
 			};
 
 			self.timer_channel

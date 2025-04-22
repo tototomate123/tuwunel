@@ -29,7 +29,8 @@ use crate::rooms::{
 #[implement(super::Service)]
 #[inline]
 pub async fn user_was_joined(&self, shortstatehash: ShortStateHash, user_id: &UserId) -> bool {
-	self.user_membership(shortstatehash, user_id).await == MembershipState::Join
+	self.user_membership(shortstatehash, user_id)
+		.await == MembershipState::Join
 }
 
 /// The user was an invited or joined room member at this state (potentially
@@ -37,7 +38,9 @@ pub async fn user_was_joined(&self, shortstatehash: ShortStateHash, user_id: &Us
 #[implement(super::Service)]
 #[inline]
 pub async fn user_was_invited(&self, shortstatehash: ShortStateHash, user_id: &UserId) -> bool {
-	let s = self.user_membership(shortstatehash, user_id).await;
+	let s = self
+		.user_membership(shortstatehash, user_id)
+		.await;
 	s == MembershipState::Join || s == MembershipState::Invite
 }
 
@@ -259,7 +262,9 @@ pub fn state_keys_with_shortids<'a>(
 		.zip(shorteventids)
 		.ready_filter_map(|(res, id)| res.map(|res| (res, id)).ok())
 		.ready_filter_map(move |((event_type_, state_key), event_id)| {
-			event_type_.eq(event_type).then_some((state_key, event_id))
+			event_type_
+				.eq(event_type)
+				.then_some((state_key, event_id))
 		})
 }
 
@@ -338,7 +343,11 @@ pub fn state_full_pdus(
 		.multi_get_eventid_from_short(short_ids)
 		.ready_filter_map(Result::ok)
 		.broad_filter_map(move |event_id: OwnedEventId| async move {
-			self.services.timeline.get_pdu(&event_id).await.ok()
+			self.services
+				.timeline
+				.get_pdu(&event_id)
+				.await
+				.ok()
 		})
 }
 
@@ -406,7 +415,12 @@ async fn load_full_state(&self, shortstatehash: ShortStateHash) -> Result<Arc<Co
 		.state_compressor
 		.load_shortstatehash_info(shortstatehash)
 		.map_err(|e| err!(Database("Missing state IDs: {e}")))
-		.map_ok(|vec| vec.last().expect("at least one layer").full_state.clone())
+		.map_ok(|vec| {
+			vec.last()
+				.expect("at least one layer")
+				.full_state
+				.clone()
+		})
 		.await
 }
 

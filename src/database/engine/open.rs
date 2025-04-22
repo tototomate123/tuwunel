@@ -78,7 +78,9 @@ fn configure_cfds(
 	let path = &config.database_path;
 	let existing = Self::discover_cfs(path, db_opts);
 
-	let creating = desc.iter().filter(|desc| !existing.contains(desc.name));
+	let creating = desc
+		.iter()
+		.filter(|desc| !existing.contains(desc.name));
 
 	let missing = existing
 		.iter()

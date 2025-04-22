@@ -58,7 +58,11 @@ fn matches_sender(&self, filter: &RoomEventFilter) -> bool {
 #[implement(super::Pdu)]
 fn matches_type(&self, filter: &RoomEventFilter) -> bool {
 	let event_type = &self.kind.to_cow_str();
-	if filter.not_types.iter().any(is_equal_to!(event_type)) {
+	if filter
+		.not_types
+		.iter()
+		.any(is_equal_to!(event_type))
+	{
 		return false;
 	}
 

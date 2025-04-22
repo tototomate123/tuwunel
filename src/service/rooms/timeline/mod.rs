@@ -184,7 +184,9 @@ impl Service {
 		sender_user: Option<&UserId>,
 		room_id: &RoomId,
 	) -> Result<PduCount> {
-		self.db.last_timeline_count(sender_user, room_id).await
+		self.db
+			.last_timeline_count(sender_user, room_id)
+			.await
 	}
 
 	/// Returns the `count` of this pdu's id.
@@ -363,7 +365,9 @@ impl Service {
 		let pdu_id: RawPduId = PduId { shortroomid, shorteventid: count2 }.into();
 
 		// Insert pdu
-		self.db.append_pdu(&pdu_id, pdu, &pdu_json, count2).await;
+		self.db
+			.append_pdu(&pdu_id, pdu, &pdu_json, count2)
+			.await;
 
 		drop(insert_lock);
 
@@ -395,7 +399,12 @@ impl Service {
 			if let Some(state_key) = &pdu.state_key {
 				let target_user_id = UserId::parse(state_key)?;
 
-				if self.services.users.is_active_local(target_user_id).await {
+				if self
+					.services
+					.users
+					.is_active_local(target_user_id)
+					.await
+				{
 					push_target.insert(target_user_id.to_owned());
 				}
 			}
@@ -462,7 +471,11 @@ impl Service {
 			| TimelineEventType::RoomRedaction => {
 				use RoomVersionId::*;
 
-				let room_version_id = self.services.state.get_room_version(&pdu.room_id).await?;
+				let room_version_id = self
+					.services
+					.state
+					.get_room_version(&pdu.room_id)
+					.await?;
 				match room_version_id {
 					| V1 | V2 | V3 | V4 | V5 | V6 | V7 | V8 | V9 | V10 => {
 						if let Some(redact_id) = &pdu.redacts {
@@ -472,7 +485,8 @@ impl Service {
 								.user_can_redact(redact_id, &pdu.sender, &pdu.room_id, false)
 								.await?
 							{
-								self.redact_pdu(redact_id, pdu, shortroomid).await?;
+								self.redact_pdu(redact_id, pdu, shortroomid)
+									.await?;
 							}
 						}
 					},
@@ -485,7 +499,8 @@ impl Service {
 								.user_can_redact(redact_id, &pdu.sender, &pdu.room_id, false)
 								.await?
 							{
-								self.redact_pdu(redact_id, pdu, shortroomid).await?;
+								self.redact_pdu(redact_id, pdu, shortroomid)
+									.await?;
 							}
 						}
 					},
@@ -508,8 +523,12 @@ impl Service {
 
 					let content: RoomMemberEventContent = pdu.get_content()?;
 					let stripped_state = match content.membership {
-						| MembershipState::Invite | MembershipState::Knock =>
-							self.services.state.summary_stripped(pdu).await.into(),
+						| MembershipState::Invite | MembershipState::Knock => self
+							.services
+							.state
+							.summary_stripped(pdu)
+							.await
+							.into(),
 						| _ => None,
 					};
 
@@ -533,9 +552,16 @@ impl Service {
 			| TimelineEventType::RoomMessage => {
 				let content: ExtractBody = pdu.get_content()?;
 				if let Some(body) = content.body {
-					self.services.search.index_pdu(shortroomid, &pdu_id, &body);
+					self.services
+						.search
+						.index_pdu(shortroomid, &pdu_id, &body);
 
-					if self.services.admin.is_admin_command(pdu, &body).await {
+					if self
+						.services
+						.admin
+						.is_admin_command(pdu, &body)
+						.await
+					{
 						self.services
 							.admin
 							.command(body, Some((*pdu.event_id).into()))?;
@@ -546,7 +572,10 @@ impl Service {
 		}
 
 		if let Ok(content) = pdu.get_content::<ExtractRelatesToEventId>() {
-			if let Ok(related_pducount) = self.get_pdu_count(&content.relates_to.event_id).await {
+			if let Ok(related_pducount) = self
+				.get_pdu_count(&content.relates_to.event_id)
+				.await
+			{
 				self.services
 					.pdu_metadata
 					.add_relation(count2, related_pducount);
@@ -834,14 +863,26 @@ impl Service {
 			.create_hash_and_sign_event(pdu_builder, sender, room_id, state_lock)
 			.await?;
 
-		if self.services.admin.is_admin_room(&pdu.room_id).await {
-			self.check_pdu_for_admin_room(&pdu, sender).boxed().await?;
+		if self
+			.services
+			.admin
+			.is_admin_room(&pdu.room_id)
+			.await
+		{
+			self.check_pdu_for_admin_room(&pdu, sender)
+				.boxed()
+				.await?;
 		}
 
 		// If redaction event is not authorized, do not append it to the timeline
 		if pdu.kind == TimelineEventType::RoomRedaction {
 			use RoomVersionId::*;
-			match self.services.state.get_room_version(&pdu.room_id).await? {
+			match self
+				.services
+				.state
+				.get_room_version(&pdu.room_id)
+				.await?
+			{
 				| V1 | V2 | V3 | V4 | V5 | V6 | V7 | V8 | V9 | V10 => {
 					if let Some(redact_id) = &pdu.redacts {
 						if !self
@@ -885,7 +926,10 @@ impl Service {
 				.join_authorized_via_users_server
 				.as_ref()
 				.is_some_and(|authorising_user| {
-					!self.services.globals.user_is_local(authorising_user)
+					!self
+						.services
+						.globals
+						.user_is_local(authorising_user)
 				}) {
 				return Err!(Request(InvalidParam(
 					"Authorising user does not belong to this homeserver"
@@ -999,7 +1043,8 @@ impl Service {
 		user_id: &'a UserId,
 		room_id: &'a RoomId,
 	) -> impl Stream<Item = PdusIterItem> + Send + 'a {
-		self.pdus(Some(user_id), room_id, None).ignore_err()
+		self.pdus(Some(user_id), room_id, None)
+			.ignore_err()
 	}
 
 	/// Reverse iteration starting at from.
@@ -1052,7 +1097,11 @@ impl Service {
 			}
 		}
 
-		let room_version_id = self.services.state.get_room_version(&pdu.room_id).await?;
+		let room_version_id = self
+			.services
+			.state
+			.get_room_version(&pdu.room_id)
+			.await?;
 
 		pdu.redact(&room_version_id, reason)?;
 
@@ -1098,15 +1147,18 @@ impl Service {
 			.await
 			.unwrap_or_default();
 
-		let room_mods = power_levels.users.iter().filter_map(|(user_id, level)| {
-			if level > &power_levels.users_default
-				&& !self.services.globals.user_is_local(user_id)
-			{
-				Some(user_id.server_name())
-			} else {
-				None
-			}
-		});
+		let room_mods = power_levels
+			.users
+			.iter()
+			.filter_map(|(user_id, level)| {
+				if level > &power_levels.users_default
+					&& !self.services.globals.user_is_local(user_id)
+				{
+					Some(user_id.server_name())
+				} else {
+					None
+				}
+			});
 
 		let canonical_room_alias_server = once(
 			self.services
@@ -1158,7 +1210,11 @@ impl Service {
 			match response {
 				| Ok(response) => {
 					for pdu in response.pdus {
-						if let Err(e) = self.backfill_pdu(backfill_server, pdu).boxed().await {
+						if let Err(e) = self
+							.backfill_pdu(backfill_server, pdu)
+							.boxed()
+							.await
+						{
 							debug_warn!("Failed to add backfilled pdu in room {room_id}: {e}");
 						}
 					}
@@ -1176,8 +1232,11 @@ impl Service {
 
 	#[tracing::instrument(skip(self, pdu), level = "debug")]
 	pub async fn backfill_pdu(&self, origin: &ServerName, pdu: Box<RawJsonValue>) -> Result<()> {
-		let (room_id, event_id, value) =
-			self.services.event_handler.parse_incoming_pdu(&pdu).await?;
+		let (room_id, event_id, value) = self
+			.services
+			.event_handler
+			.parse_incoming_pdu(&pdu)
+			.await?;
 
 		// Lock so we cannot backfill the same pdu twice at the same time
 		let mutex_lock = self
@@ -1203,11 +1262,20 @@ impl Service {
 
 		let pdu = self.get_pdu(&event_id).await?;
 
-		let shortroomid = self.services.short.get_shortroomid(&room_id).await?;
+		let shortroomid = self
+			.services
+			.short
+			.get_shortroomid(&room_id)
+			.await?;
 
 		let insert_lock = self.mutex_insert.lock(&room_id).await;
 
-		let count: i64 = self.services.globals.next_count().unwrap().try_into()?;
+		let count: i64 = self
+			.services
+			.globals
+			.next_count()
+			.unwrap()
+			.try_into()?;
 
 		let pdu_id: RawPduId = PduId {
 			shortroomid,
@@ -1216,14 +1284,17 @@ impl Service {
 		.into();
 
 		// Insert pdu
-		self.db.prepend_backfill_pdu(&pdu_id, &event_id, &value);
+		self.db
+			.prepend_backfill_pdu(&pdu_id, &event_id, &value);
 
 		drop(insert_lock);
 
 		if pdu.kind == TimelineEventType::RoomMessage {
 			let content: ExtractBody = pdu.get_content()?;
 			if let Some(body) = content.body {
-				self.services.search.index_pdu(shortroomid, &pdu_id, &body);
+				self.services
+					.search
+					.index_pdu(shortroomid, &pdu_id, &body);
 			}
 		}
 		drop(mutex_lock);

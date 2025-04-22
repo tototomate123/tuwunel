@@ -102,7 +102,8 @@ where
 #[implement(Pdu)]
 #[must_use]
 pub fn get_unsigned_as_value(&self) -> JsonValue {
-	self.get_unsigned::<JsonValue>().unwrap_or_default()
+	self.get_unsigned::<JsonValue>()
+		.unwrap_or_default()
 }
 
 #[implement(Pdu)]

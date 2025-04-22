@@ -8,7 +8,12 @@ pub(super) const SIGNAL: &str = "SIGUSR2";
 #[implement(super::Service)]
 pub(super) async fn console_auto_start(&self) {
 	#[cfg(feature = "console")]
-	if self.services.server.config.admin_console_automatic {
+	if self
+		.services
+		.server
+		.config
+		.admin_console_automatic
+	{
 		// Allow more of the startup sequence to execute before spawning
 		tokio::task::yield_now().await;
 		self.console.start().await;
@@ -32,7 +37,12 @@ pub(super) async fn startup_execute(&self) -> Result {
 	let smoketest = self.services.server.config.test.contains("smoke");
 
 	// When true, errors are ignored and startup continues.
-	let errors = !smoketest && self.services.server.config.admin_execute_errors_ignore;
+	let errors = !smoketest
+		&& self
+			.services
+			.server
+			.config
+			.admin_execute_errors_ignore;
 
 	//TODO: remove this after run-states are broadcast
 	sleep(Duration::from_millis(500)).await;
@@ -65,10 +75,19 @@ pub(super) async fn startup_execute(&self) -> Result {
 #[implement(super::Service)]
 pub(super) async fn signal_execute(&self) -> Result {
 	// List of comamnds to execute
-	let commands = self.services.server.config.admin_signal_execute.clone();
+	let commands = self
+		.services
+		.server
+		.config
+		.admin_signal_execute
+		.clone();
 
 	// When true, errors are ignored and execution continues.
-	let ignore_errors = self.services.server.config.admin_execute_errors_ignore;
+	let ignore_errors = self
+		.services
+		.server
+		.config
+		.admin_execute_errors_ignore;
 
 	for (i, command) in commands.iter().enumerate() {
 		if let Err(e) = self.execute_command(i, command.clone()).await {

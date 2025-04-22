@@ -106,8 +106,10 @@ impl Console {
 					| ReadlineEvent::Line(string) => self.clone().handle(string).await,
 					| ReadlineEvent::Interrupted => continue,
 					| ReadlineEvent::Eof => break,
-					| ReadlineEvent::Quit =>
-						self.server.shutdown().unwrap_or_else(error::default_log),
+					| ReadlineEvent::Quit => self
+						.server
+						.shutdown()
+						.unwrap_or_else(error::default_log),
 				},
 				| Err(error) => match error {
 					| ReadlineError::Closed => break,
@@ -135,7 +137,11 @@ impl Console {
 
 		let (abort, abort_reg) = AbortHandle::new_pair();
 		let future = Abortable::new(future, abort_reg);
-		_ = self.input_abort.lock().expect("locked").insert(abort);
+		_ = self
+			.input_abort
+			.lock()
+			.expect("locked")
+			.insert(abort);
 		defer! {{
 			_ = self.input_abort.lock().expect("locked").take();
 		}}
@@ -158,7 +164,11 @@ impl Console {
 
 		let (abort, abort_reg) = AbortHandle::new_pair();
 		let future = Abortable::new(future, abort_reg);
-		_ = self.command_abort.lock().expect("locked").insert(abort);
+		_ = self
+			.command_abort
+			.lock()
+			.expect("locked")
+			.insert(abort);
 		defer! {{
 			_ = self.command_abort.lock().expect("locked").take();
 		}}

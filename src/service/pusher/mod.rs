@@ -129,10 +129,13 @@ impl Service {
 				let pushkey = data.pusher.ids.pushkey.as_str();
 				let key = (sender, pushkey);
 				self.db.senderkey_pusher.put(key, Json(pusher));
-				self.db.pushkey_deviceid.insert(pushkey, sender_device);
+				self.db
+					.pushkey_deviceid
+					.insert(pushkey, sender_device);
 			},
 			| set_pusher::v3::PusherAction::Delete(ids) => {
-				self.delete_pusher(sender, ids.pushkey.as_str()).await;
+				self.delete_pusher(sender, ids.pushkey.as_str())
+					.await;
 			},
 		}
 
@@ -152,7 +155,11 @@ impl Service {
 	}
 
 	pub async fn get_pusher_device(&self, pushkey: &str) -> Result<OwnedDeviceId> {
-		self.db.pushkey_deviceid.get(pushkey).await.deserialized()
+		self.db
+			.pushkey_deviceid
+			.get(pushkey)
+			.await
+			.deserialized()
 	}
 
 	pub async fn get_pusher(&self, sender: &UserId, pushkey: &str) -> Result<Pusher> {
@@ -217,7 +224,12 @@ impl Service {
 			}
 		}
 
-		let response = self.services.client.pusher.execute(reqwest_request).await;
+		let response = self
+			.services
+			.client
+			.pusher
+			.execute(reqwest_request)
+			.await;
 
 		match response {
 			| Ok(mut response) => {
@@ -319,7 +331,8 @@ impl Service {
 		}
 
 		if notify == Some(true) {
-			self.send_notice(unread, pusher, tweaks, pdu).await?;
+			self.send_notice(unread, pusher, tweaks, pdu)
+				.await?;
 		}
 		// Else the event triggered no actions
 
@@ -460,8 +473,12 @@ impl Service {
 							event.state_key.as_deref() == Some(event.sender.as_str());
 					}
 
-					notifi.sender_display_name =
-						self.services.users.displayname(&event.sender).await.ok();
+					notifi.sender_display_name = self
+						.services
+						.users
+						.displayname(&event.sender)
+						.await
+						.ok();
 
 					notifi.room_name = self
 						.services

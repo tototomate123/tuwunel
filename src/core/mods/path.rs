@@ -27,7 +27,10 @@ pub fn to_name(path: &OsStr) -> Result<String> {
 		.expect("path file stem")
 		.to_str()
 		.expect("name string");
-	let name = name.strip_prefix("lib").unwrap_or(name).to_owned();
+	let name = name
+		.strip_prefix("lib")
+		.unwrap_or(name)
+		.to_owned();
 
 	Ok(name)
 }

@@ -17,7 +17,12 @@ pub(crate) async fn create_knock_event_template_route(
 	State(services): State<crate::State>,
 	body: Ruma<create_knock_event_template::v1::Request>,
 ) -> Result<create_knock_event_template::v1::Response> {
-	if !services.rooms.metadata.exists(&body.room_id).await {
+	if !services
+		.rooms
+		.metadata
+		.exists(&body.room_id)
+		.await
+	{
 		return Err!(Request(NotFound("Room is unknown to this server.")));
 	}
 
@@ -57,7 +62,11 @@ pub(crate) async fn create_knock_event_template_route(
 		}
 	}
 
-	let room_version_id = services.rooms.state.get_room_version(&body.room_id).await?;
+	let room_version_id = services
+		.rooms
+		.state
+		.get_room_version(&body.room_id)
+		.await?;
 
 	if matches!(room_version_id, V1 | V2 | V3 | V4 | V5 | V6) {
 		return Err(Error::BadRequest(
@@ -73,7 +82,12 @@ pub(crate) async fn create_knock_event_template_route(
 		));
 	}
 
-	let state_lock = services.rooms.state.mutex.lock(&body.room_id).await;
+	let state_lock = services
+		.rooms
+		.state
+		.mutex
+		.lock(&body.room_id)
+		.await;
 
 	if let Ok(membership) = services
 		.rooms

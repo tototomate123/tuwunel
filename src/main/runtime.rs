@@ -104,7 +104,11 @@ pub(super) fn shutdown(server: &Arc<Server>, runtime: tokio::runtime::Runtime) {
 	);
 
 	runtime.shutdown_timeout(SHUTDOWN_TIMEOUT);
-	let runtime_metrics = server.server.metrics.runtime_interval().unwrap_or_default();
+	let runtime_metrics = server
+		.server
+		.metrics
+		.runtime_interval()
+		.unwrap_or_default();
 
 	event!(LEVEL, ?runtime_metrics, "Final runtime metrics");
 }

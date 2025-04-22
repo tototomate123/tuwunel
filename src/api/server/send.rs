@@ -92,7 +92,12 @@ pub(crate) async fn send_transaction_message_route(
 		.pdus
 		.iter()
 		.stream()
-		.broad_then(|pdu| services.rooms.event_handler.parse_incoming_pdu(pdu))
+		.broad_then(|pdu| {
+			services
+				.rooms
+				.event_handler
+				.parse_incoming_pdu(pdu)
+		})
 		.inspect_err(|e| debug_warn!("Could not parse PDU: {e}"))
 		.ready_filter_map(Result::ok);
 
@@ -215,7 +220,11 @@ async fn handle_edu(services: &Services, client: &IpAddr, origin: &ServerName, e
 		| Edu::Presence(presence) if services.server.config.allow_incoming_presence =>
 			handle_edu_presence(services, client, origin, presence).await,
 
-		| Edu::Receipt(receipt) if services.server.config.allow_incoming_read_receipts =>
+		| Edu::Receipt(receipt)
+			if services
+				.server
+				.config
+				.allow_incoming_read_receipts =>
 			handle_edu_receipt(services, client, origin, receipt).await,
 
 		| Edu::Typing(typing) if services.server.config.allow_incoming_typing =>
@@ -454,7 +463,10 @@ async fn handle_edu_device_list_update(
 		return;
 	}
 
-	services.users.mark_device_key_update(&user_id).await;
+	services
+		.users
+		.mark_device_key_update(&user_id)
+		.await;
 }
 
 async fn handle_edu_direct_to_device(

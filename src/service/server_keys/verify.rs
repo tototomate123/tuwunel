@@ -11,7 +11,10 @@ pub async fn validate_and_add_event_id(
 	room_version: &RoomVersionId,
 ) -> Result<(OwnedEventId, CanonicalJsonObject)> {
 	let (event_id, mut value) = gen_event_id_canonical_json(pdu, room_version)?;
-	if let Err(e) = self.verify_event(&value, Some(room_version)).await {
+	if let Err(e) = self
+		.verify_event(&value, Some(room_version))
+		.await
+	{
 		return Err!(BadServerResponse(debug_error!(
 			"Event {event_id} failed verification: {e:?}"
 		)));
@@ -29,13 +32,19 @@ pub async fn validate_and_add_event_id_no_fetch(
 	room_version: &RoomVersionId,
 ) -> Result<(OwnedEventId, CanonicalJsonObject)> {
 	let (event_id, mut value) = gen_event_id_canonical_json(pdu, room_version)?;
-	if !self.required_keys_exist(&value, room_version).await {
+	if !self
+		.required_keys_exist(&value, room_version)
+		.await
+	{
 		return Err!(BadServerResponse(debug_warn!(
 			"Event {event_id} cannot be verified: missing keys."
 		)));
 	}
 
-	if let Err(e) = self.verify_event(&value, Some(room_version)).await {
+	if let Err(e) = self
+		.verify_event(&value, Some(room_version))
+		.await
+	{
 		return Err!(BadServerResponse(debug_error!(
 			"Event {event_id} failed verification: {e:?}"
 		)));

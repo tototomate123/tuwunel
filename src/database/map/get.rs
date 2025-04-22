@@ -77,7 +77,9 @@ fn get_blocking_opts<K>(
 where
 	K: AsRef<[u8]> + ?Sized,
 {
-	self.db.db.get_pinned_cf_opt(&self.cf(), key, read_options)
+	self.db
+		.db
+		.get_pinned_cf_opt(&self.cf(), key, read_options)
 }
 
 #[inline]

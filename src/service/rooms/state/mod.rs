@@ -120,7 +120,11 @@ impl Service {
 
 			match pdu.kind {
 				| TimelineEventType::RoomMember => {
-					let Some(user_id) = pdu.state_key.as_ref().map(UserId::parse).flat_ok()
+					let Some(user_id) = pdu
+						.state_key
+						.as_ref()
+						.map(UserId::parse)
+						.flat_ok()
 					else {
 						continue;
 					};
@@ -154,7 +158,10 @@ impl Service {
 			}
 		}
 
-		self.services.state_cache.update_joined_count(room_id).await;
+		self.services
+			.state_cache
+			.update_joined_count(room_id)
+			.await;
 
 		self.set_room_state(room_id, shortstatehash, state_lock);
 
@@ -218,13 +225,15 @@ impl Service {
 				} else {
 					(state_ids_compressed, Arc::new(CompressedState::new()))
 				};
-			self.services.state_compressor.save_state_from_diff(
-				shortstatehash,
-				statediffnew,
-				statediffremoved,
-				1_000_000, // high number because no state will be based on this one
-				states_parents,
-			)?;
+			self.services
+				.state_compressor
+				.save_state_from_diff(
+					shortstatehash,
+					statediffnew,
+					statediffremoved,
+					1_000_000, // high number because no state will be based on this one
+					states_parents,
+				)?;
 		}
 
 		self.db
@@ -248,7 +257,9 @@ impl Service {
 			.get_or_create_shorteventid(&new_pdu.event_id)
 			.await;
 
-		let previous_shortstatehash = self.get_room_shortstatehash(&new_pdu.room_id).await;
+		let previous_shortstatehash = self
+			.get_room_shortstatehash(&new_pdu.room_id)
+			.await;
 
 		if let Ok(p) = previous_shortstatehash {
 			self.db
@@ -303,13 +314,15 @@ impl Service {
 					statediffremoved.insert(*replaces);
 				}
 
-				self.services.state_compressor.save_state_from_diff(
-					shortstatehash,
-					Arc::new(statediffnew),
-					Arc::new(statediffremoved),
-					2,
-					states_parents,
-				)?;
+				self.services
+					.state_compressor
+					.save_state_from_diff(
+						shortstatehash,
+						Arc::new(statediffnew),
+						Arc::new(statediffremoved),
+						2,
+						states_parents,
+					)?;
 
 				Ok(shortstatehash)
 			},

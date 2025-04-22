@@ -39,7 +39,10 @@ pub(super) async fn process(subcommand: GlobalsCommand, context: &Context<'_>) -
 		},
 		| GlobalsCommand::SigningKeysFor { origin } => {
 			let timer = tokio::time::Instant::now();
-			let results = services.server_keys.verify_keys_for(&origin).await;
+			let results = services
+				.server_keys
+				.verify_keys_for(&origin)
+				.await;
 			let query_time = timer.elapsed();
 
 			write!(context, "Query completed in {query_time:?}:\n\n```rs\n{results:#?}\n```")

@@ -85,14 +85,22 @@ async fn banned_room_check(
 			|| services
 				.config
 				.forbidden_remote_server_names
-				.is_match(room_id.server_name().expect("legacy room mxid").host())
-		{
+				.is_match(
+					room_id
+						.server_name()
+						.expect("legacy room mxid")
+						.host(),
+				) {
 			warn!(
 				"User {user_id} who is not an admin attempted to send an invite for or \
 				 attempted to join a banned room or banned room server name: {room_id}"
 			);
 
-			if services.server.config.auto_deactivate_banned_room_attempts {
+			if services
+				.server
+				.config
+				.auto_deactivate_banned_room_attempts
+			{
 				warn!(
 					"Automatically deactivating user {user_id} due to attempted banned room join"
 				);
@@ -131,7 +139,11 @@ async fn banned_room_check(
 				 name {server_name} that is globally forbidden. Rejecting.",
 			);
 
-			if services.server.config.auto_deactivate_banned_room_attempts {
+			if services
+				.server
+				.config
+				.auto_deactivate_banned_room_attempts
+			{
 				warn!(
 					"Automatically deactivating user {user_id} due to attempted banned room join"
 				);
@@ -247,7 +259,10 @@ pub(crate) async fn join_room_by_id_or_alias_route(
 	InsecureClientIp(client): InsecureClientIp,
 	body: Ruma<join_room_by_id_or_alias::v3::Request>,
 ) -> Result<join_room_by_id_or_alias::v3::Response> {
-	let sender_user = body.sender_user.as_deref().expect("user is authenticated");
+	let sender_user = body
+		.sender_user
+		.as_deref()
+		.expect("user is authenticated");
 	let appservice_info = &body.appservice_info;
 	let body = body.body;
 
@@ -513,9 +528,12 @@ pub(crate) async fn invite_user_route(
 
 	match &body.recipient {
 		| invite_user::v3::InvitationRecipient::UserId { user_id } => {
-			let sender_ignored_recipient = services.users.user_is_ignored(sender_user, user_id);
-			let recipient_ignored_by_sender =
-				services.users.user_is_ignored(user_id, sender_user);
+			let sender_ignored_recipient = services
+				.users
+				.user_is_ignored(sender_user, user_id);
+			let recipient_ignored_by_sender = services
+				.users
+				.user_is_ignored(user_id, sender_user);
 
 			let (sender_ignored_recipient, recipient_ignored_by_sender) =
 				join!(sender_ignored_recipient, recipient_ignored_by_sender);
@@ -567,7 +585,12 @@ pub(crate) async fn kick_user_route(
 	State(services): State<crate::State>,
 	body: Ruma<kick_user::v3::Request>,
 ) -> Result<kick_user::v3::Response> {
-	let state_lock = services.rooms.state.mutex.lock(&body.room_id).await;
+	let state_lock = services
+		.rooms
+		.state
+		.mutex
+		.lock(&body.room_id)
+		.await;
 
 	let Ok(event) = services
 		.rooms
@@ -626,7 +649,12 @@ pub(crate) async fn ban_user_route(
 		return Err!(Request(Forbidden("You cannot ban yourself.")));
 	}
 
-	let state_lock = services.rooms.state.mutex.lock(&body.room_id).await;
+	let state_lock = services
+		.rooms
+		.state
+		.mutex
+		.lock(&body.room_id)
+		.await;
 
 	let current_member_content = services
 		.rooms
@@ -667,7 +695,12 @@ pub(crate) async fn unban_user_route(
 	State(services): State<crate::State>,
 	body: Ruma<unban_user::v3::Request>,
 ) -> Result<unban_user::v3::Response> {
-	let state_lock = services.rooms.state.mutex.lock(&body.room_id).await;
+	let state_lock = services
+		.rooms
+		.state
+		.mutex
+		.lock(&body.room_id)
+		.await;
 
 	let current_member_content = services
 		.rooms
@@ -722,9 +755,18 @@ pub(crate) async fn forget_room_route(
 	let user_id = body.sender_user();
 	let room_id = &body.room_id;
 
-	let joined = services.rooms.state_cache.is_joined(user_id, room_id);
-	let knocked = services.rooms.state_cache.is_knocked(user_id, room_id);
-	let invited = services.rooms.state_cache.is_invited(user_id, room_id);
+	let joined = services
+		.rooms
+		.state_cache
+		.is_joined(user_id, room_id);
+	let knocked = services
+		.rooms
+		.state_cache
+		.is_knocked(user_id, room_id);
+	let invited = services
+		.rooms
+		.state_cache
+		.is_invited(user_id, room_id);
 
 	pin_mut!(joined, knocked, invited);
 	if joined.or(knocked).or(invited).await {
@@ -745,8 +787,17 @@ pub(crate) async fn forget_room_route(
 		.map(|member| member.membership)
 		.is_ok_and(is_matching!(MembershipState::Leave | MembershipState::Ban));
 
-	if non_membership || services.rooms.state_cache.is_left(user_id, room_id).await {
-		services.rooms.state_cache.forget(room_id, user_id);
+	if non_membership
+		|| services
+			.rooms
+			.state_cache
+			.is_left(user_id, room_id)
+			.await
+	{
+		services
+			.rooms
+			.state_cache
+			.forget(room_id, user_id);
 	}
 
 	Ok(forget_room::v3::Response::new())
@@ -791,7 +842,10 @@ fn membership_filter(
 		| Some(_) | None => MembershipState::Leave,
 	};
 
-	let evt_membership = pdu.get_content::<RoomMemberEventContent>().ok()?.membership;
+	let evt_membership = pdu
+		.get_content::<RoomMemberEventContent>()
+		.ok()?
+		.membership;
 
 	if for_membership.is_some() && not_membership.is_some() {
 		if membership_state_filter != evt_membership
@@ -912,7 +966,13 @@ pub async fn join_room_by_id_helper(
 		.unwrap_or(false)
 		&& appservice_info.is_none();
 
-	if user_is_guest && !services.rooms.state_accessor.guest_can_join(room_id).await {
+	if user_is_guest
+		&& !services
+			.rooms
+			.state_accessor
+			.guest_can_join(room_id)
+			.await
+	{
 		return Err!(Request(Forbidden("Guests are not allowed to join this room")));
 	}
 
@@ -999,7 +1059,10 @@ async fn join_room_by_id_helper_remote(
 		return Err!(BadServerResponse("Remote room version is not supported by conduwuit"));
 	};
 
-	if !services.server.supported_room_version(&room_version_id) {
+	if !services
+		.server
+		.supported_room_version(&room_version_id)
+	{
 		return Err!(BadServerResponse(
 			"Remote room version {room_version_id} is not supported by conduwuit"
 		));
@@ -1198,7 +1261,10 @@ async fn join_room_by_id_helper_remote(
 				},
 			};
 
-			services.rooms.outlier.add_pdu_outlier(&event_id, &value);
+			services
+				.rooms
+				.outlier
+				.add_pdu_outlier(&event_id, &value);
 			if let Some(state_key) = &pdu.state_key {
 				let shortstatekey = services
 					.rooms
@@ -1229,7 +1295,10 @@ async fn join_room_by_id_helper_remote(
 		})
 		.ready_filter_map(Result::ok)
 		.ready_for_each(|(event_id, value)| {
-			services.rooms.outlier.add_pdu_outlier(&event_id, &value);
+			services
+				.rooms
+				.outlier
+				.add_pdu_outlier(&event_id, &value);
 		})
 		.await;
 
@@ -1238,10 +1307,20 @@ async fn join_room_by_id_helper_remote(
 	debug!("Running send_join auth check");
 	let fetch_state = &state;
 	let state_fetch = |k: StateEventType, s: StateKey| async move {
-		let shortstatekey = services.rooms.short.get_shortstatekey(&k, &s).await.ok()?;
+		let shortstatekey = services
+			.rooms
+			.short
+			.get_shortstatekey(&k, &s)
+			.await
+			.ok()?;
 
 		let event_id = fetch_state.get(&shortstatekey)?;
-		services.rooms.timeline.get_pdu(event_id).await.ok()
+		services
+			.rooms
+			.timeline
+			.get_pdu(event_id)
+			.await
+			.ok()
 	};
 
 	let auth_check = state_res::event_auth::auth_check(
@@ -1436,7 +1515,10 @@ async fn join_room_by_id_helper_local(
 		return Err!(BadServerResponse("Remote room version is not supported by conduwuit"));
 	};
 
-	if !services.server.supported_room_version(&room_version_id) {
+	if !services
+		.server
+		.supported_room_version(&room_version_id)
+	{
 		return Err!(BadServerResponse(
 			"Remote room version {room_version_id} is not supported by conduwuit"
 		));
@@ -1572,7 +1654,10 @@ async fn make_join_request(
 				federation::membership::prepare_join_event::v1::Request {
 					room_id: room_id.to_owned(),
 					user_id: sender_user.to_owned(),
-					ver: services.server.supported_room_versions().collect(),
+					ver: services
+						.server
+						.supported_room_versions()
+						.collect(),
 				},
 			)
 			.await;
@@ -1667,7 +1752,11 @@ pub(crate) async fn invite_helper(
 			(pdu, pdu_json, invite_room_state)
 		};
 
-		let room_version_id = services.rooms.state.get_room_version(room_id).await?;
+		let room_version_id = services
+			.rooms
+			.state
+			.get_room_version(room_id)
+			.await?;
 
 		let response = services
 			.sending
@@ -1723,7 +1812,10 @@ pub(crate) async fn invite_helper(
 				err!(Request(InvalidParam("Could not accept incoming PDU as timeline event.")))
 			})?;
 
-		return services.sending.send_pdu_room(room_id, &pdu_id).await;
+		return services
+			.sending
+			.send_pdu_room(room_id, &pdu_id)
+			.await;
 	}
 
 	if !services
@@ -1797,7 +1889,10 @@ pub async fn leave_all_rooms(services: &Services, user_id: &UserId) {
 			warn!(%user_id, "Failed to leave {room_id} remotely: {e}");
 		}
 
-		services.rooms.state_cache.forget(&room_id, user_id);
+		services
+			.rooms
+			.state_cache
+			.forget(&room_id, user_id);
 	}
 }
 
@@ -1856,7 +1951,10 @@ pub async fn leave_room(
 
 	// Ask a remote server if we don't have this room and are not knocking on it
 	if dont_have_room.and(not_knocked).await {
-		if let Err(e) = remote_leave_room(services, user_id, room_id).boxed().await {
+		if let Err(e) = remote_leave_room(services, user_id, room_id)
+			.boxed()
+			.await
+		{
 			warn!(%user_id, "Failed to leave room {room_id} remotely: {e}");
 			// Don't tell the client about this error
 		}
@@ -1865,8 +1963,18 @@ pub async fn leave_room(
 			.rooms
 			.state_cache
 			.invite_state(user_id, room_id)
-			.or_else(|_| services.rooms.state_cache.knock_state(user_id, room_id))
-			.or_else(|_| services.rooms.state_cache.left_state(user_id, room_id))
+			.or_else(|_| {
+				services
+					.rooms
+					.state_cache
+					.knock_state(user_id, room_id)
+			})
+			.or_else(|_| {
+				services
+					.rooms
+					.state_cache
+					.left_state(user_id, room_id)
+			})
 			.await
 			.ok();
 
@@ -2029,7 +2137,10 @@ async fn remote_leave_room(
 		)));
 	};
 
-	if !services.server.supported_room_version(&room_version_id) {
+	if !services
+		.server
+		.supported_room_version(&room_version_id)
+	{
 		return Err!(BadServerResponse(warn!(
 			"Remote room version {room_version_id} for {room_id} is not supported by conduwuit",
 		)));
@@ -2186,7 +2297,11 @@ async fn knock_room_helper_local(
 ) -> Result {
 	debug_info!("We can knock locally");
 
-	let room_version_id = services.rooms.state.get_room_version(room_id).await?;
+	let room_version_id = services
+		.rooms
+		.state
+		.get_room_version(room_id)
+		.await?;
 
 	if matches!(
 		room_version_id,
@@ -2237,7 +2352,10 @@ async fn knock_room_helper_local(
 
 	let room_version_id = make_knock_response.room_version;
 
-	if !services.server.supported_room_version(&room_version_id) {
+	if !services
+		.server
+		.supported_room_version(&room_version_id)
+	{
 		return Err!(BadServerResponse(
 			"Remote room version {room_version_id} is not supported by conduwuit"
 		));
@@ -2367,7 +2485,10 @@ async fn knock_room_helper_remote(
 
 	let room_version_id = make_knock_response.room_version;
 
-	if !services.server.supported_room_version(&room_version_id) {
+	if !services
+		.server
+		.supported_room_version(&room_version_id)
+	{
 		return Err!(BadServerResponse(
 			"Remote room version {room_version_id} is not supported by conduwuit"
 		));
@@ -2481,7 +2602,10 @@ async fn knock_room_helper_remote(
 			.get_or_create_shortstatekey(&event_type, &state_key)
 			.await;
 
-		services.rooms.outlier.add_pdu_outlier(&event_id, &event);
+		services
+			.rooms
+			.outlier
+			.add_pdu_outlier(&event_id, &event);
 		state_map.insert(shortstatekey, event_id.clone());
 	}
 
@@ -2489,7 +2613,11 @@ async fn knock_room_helper_remote(
 	let compressed: CompressedState = services
 		.rooms
 		.state_compressor
-		.compress_state_events(state_map.iter().map(|(ssk, eid)| (ssk, eid.borrow())))
+		.compress_state_events(
+			state_map
+				.iter()
+				.map(|(ssk, eid)| (ssk, eid.borrow())),
+		)
 		.collect()
 		.await;
 
@@ -2582,7 +2710,10 @@ async fn make_knock_request(
 				federation::knock::create_knock_event_template::v1::Request {
 					room_id: room_id.to_owned(),
 					user_id: sender_user.to_owned(),
-					ver: services.server.supported_room_versions().collect(),
+					ver: services
+						.server
+						.supported_room_versions()
+						.collect(),
 				},
 			)
 			.await;

@@ -60,7 +60,12 @@ impl crate::Service for Service {
 #[implement(Service)]
 pub async fn read_tokens(&self) -> Result<HashSet<String>> {
 	let mut tokens = HashSet::new();
-	if let Some(file) = &self.services.config.registration_token_file.as_ref() {
+	if let Some(file) = &self
+		.services
+		.config
+		.registration_token_file
+		.as_ref()
+	{
 		match std::fs::read_to_string(file) {
 			| Ok(text) => {
 				text.split_ascii_whitespace().for_each(|token| {
@@ -91,14 +96,20 @@ pub fn create(
 	self.set_uiaa_request(
 		user_id,
 		device_id,
-		uiaainfo.session.as_ref().expect("session should be set"),
+		uiaainfo
+			.session
+			.as_ref()
+			.expect("session should be set"),
 		json_body,
 	);
 
 	self.update_uiaa_session(
 		user_id,
 		device_id,
-		uiaainfo.session.as_ref().expect("session should be set"),
+		uiaainfo
+			.session
+			.as_ref()
+			.expect("session should be set"),
 		Some(uiaainfo),
 	);
 }
@@ -112,7 +123,8 @@ pub async fn try_auth(
 	uiaainfo: &UiaaInfo,
 ) -> Result<(bool, UiaaInfo)> {
 	let mut uiaainfo = if let Some(session) = auth.session() {
-		self.get_uiaa_session(user_id, device_id, session).await?
+		self.get_uiaa_session(user_id, device_id, session)
+			.await?
 	} else {
 		uiaainfo.clone()
 	};
@@ -180,7 +192,9 @@ pub async fn try_auth(
 		| AuthData::RegistrationToken(t) => {
 			let tokens = self.read_tokens().await?;
 			if tokens.contains(t.token.trim()) {
-				uiaainfo.completed.push(AuthType::RegistrationToken);
+				uiaainfo
+					.completed
+					.push(AuthType::RegistrationToken);
 			} else {
 				uiaainfo.auth_error = Some(ruma::api::client::error::StandardErrorBody {
 					kind: ErrorKind::forbidden(),
@@ -211,7 +225,10 @@ pub async fn try_auth(
 		self.update_uiaa_session(
 			user_id,
 			device_id,
-			uiaainfo.session.as_ref().expect("session is always set"),
+			uiaainfo
+				.session
+				.as_ref()
+				.expect("session is always set"),
 			Some(&uiaainfo),
 		);
 
@@ -222,7 +239,10 @@ pub async fn try_auth(
 	self.update_uiaa_session(
 		user_id,
 		device_id,
-		uiaainfo.session.as_ref().expect("session is always set"),
+		uiaainfo
+			.session
+			.as_ref()
+			.expect("session is always set"),
 		None,
 	);
 
@@ -253,7 +273,9 @@ pub fn get_uiaa_request(
 ) -> Option<CanonicalJsonValue> {
 	let key = (
 		user_id.to_owned(),
-		device_id.unwrap_or_else(|| EMPTY.into()).to_owned(),
+		device_id
+			.unwrap_or_else(|| EMPTY.into())
+			.to_owned(),
 		session.to_owned(),
 	);
 

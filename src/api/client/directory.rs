@@ -137,7 +137,12 @@ pub(crate) async fn set_room_visibility_route(
 ) -> Result<set_room_visibility::v3::Response> {
 	let sender_user = body.sender_user();
 
-	if !services.rooms.metadata.exists(&body.room_id).await {
+	if !services
+		.rooms
+		.metadata
+		.exists(&body.room_id)
+		.await
+	{
 		// Return 404 if the room doesn't exist
 		return Err!(Request(NotFound("Room not found")));
 	}
@@ -158,7 +163,10 @@ pub(crate) async fn set_room_visibility_route(
 
 	match &body.visibility {
 		| room::Visibility::Public => {
-			if services.server.config.lockdown_public_room_directory
+			if services
+				.server
+				.config
+				.lockdown_public_room_directory
 				&& !services.users.is_admin(sender_user).await
 				&& body.appservice_info.is_none()
 			{
@@ -197,7 +205,10 @@ pub(crate) async fn set_room_visibility_route(
 			}
 			info!("{sender_user} made {0} public to the room directory", body.room_id);
 		},
-		| room::Visibility::Private => services.rooms.directory.set_not_public(&body.room_id),
+		| room::Visibility::Private => services
+			.rooms
+			.directory
+			.set_not_public(&body.room_id),
 		| _ => {
 			return Err!(Request(InvalidParam("Room visibility type is not supported.",)));
 		},
@@ -213,13 +224,23 @@ pub(crate) async fn get_room_visibility_route(
 	State(services): State<crate::State>,
 	body: Ruma<get_room_visibility::v3::Request>,
 ) -> Result<get_room_visibility::v3::Response> {
-	if !services.rooms.metadata.exists(&body.room_id).await {
+	if !services
+		.rooms
+		.metadata
+		.exists(&body.room_id)
+		.await
+	{
 		// Return 404 if the room doesn't exist
 		return Err!(Request(NotFound("Room not found")));
 	}
 
 	Ok(get_room_visibility::v3::Response {
-		visibility: if services.rooms.directory.is_public_room(&body.room_id).await {
+		visibility: if services
+			.rooms
+			.directory
+			.is_public_room(&body.room_id)
+			.await
+		{
 			room::Visibility::Public
 		} else {
 			room::Visibility::Private
@@ -332,9 +353,15 @@ pub(crate) async fn get_public_rooms_filtered_helper(
 		.unwrap_or_else(|_| uint!(0))
 		.into();
 
-	let chunk: Vec<_> = all_rooms.into_iter().skip(num_since).take(limit).collect();
+	let chunk: Vec<_> = all_rooms
+		.into_iter()
+		.skip(num_since)
+		.take(limit)
+		.collect();
 
-	let prev_batch = num_since.ne(&0).then_some(format!("p{num_since}"));
+	let prev_batch = num_since
+		.ne(&0)
+		.then_some(format!("p{num_since}"));
 
 	let next_batch = chunk
 		.len()
@@ -383,9 +410,17 @@ async fn user_can_publish_room(
 }
 
 async fn public_rooms_chunk(services: &Services, room_id: OwnedRoomId) -> PublicRoomsChunk {
-	let name = services.rooms.state_accessor.get_name(&room_id).ok();
+	let name = services
+		.rooms
+		.state_accessor
+		.get_name(&room_id)
+		.ok();
 
-	let room_type = services.rooms.state_accessor.get_room_type(&room_id).ok();
+	let room_type = services
+		.rooms
+		.state_accessor
+		.get_room_type(&room_id)
+		.ok();
 
 	let canonical_alias = services
 		.rooms
@@ -395,9 +430,16 @@ async fn public_rooms_chunk(services: &Services, room_id: OwnedRoomId) -> Public
 
 	let avatar_url = services.rooms.state_accessor.get_avatar(&room_id);
 
-	let topic = services.rooms.state_accessor.get_room_topic(&room_id).ok();
+	let topic = services
+		.rooms
+		.state_accessor
+		.get_room_topic(&room_id)
+		.ok();
 
-	let world_readable = services.rooms.state_accessor.is_world_readable(&room_id);
+	let world_readable = services
+		.rooms
+		.state_accessor
+		.is_world_readable(&room_id);
 
 	let join_rule = services
 		.rooms
@@ -410,9 +452,15 @@ async fn public_rooms_chunk(services: &Services, room_id: OwnedRoomId) -> Public
 			| _ => "invite".into(),
 		});
 
-	let guest_can_join = services.rooms.state_accessor.guest_can_join(&room_id);
+	let guest_can_join = services
+		.rooms
+		.state_accessor
+		.guest_can_join(&room_id);
 
-	let num_joined_members = services.rooms.state_cache.room_joined_count(&room_id);
+	let num_joined_members = services
+		.rooms
+		.state_cache
+		.room_joined_count(&room_id);
 
 	let (
 		(avatar_url, canonical_alias, guest_can_join, join_rule, name),

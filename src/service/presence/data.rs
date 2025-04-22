@@ -84,8 +84,13 @@ impl Data {
 		let now = utils::millis_since_unix_epoch();
 		let last_last_active_ts = match last_presence {
 			| Err(_) => 0,
-			| Ok((_, ref presence)) =>
-				now.saturating_sub(presence.content.last_active_ago.unwrap_or_default().into()),
+			| Ok((_, ref presence)) => now.saturating_sub(
+				presence
+					.content
+					.last_active_ago
+					.unwrap_or_default()
+					.into(),
+			),
 		};
 
 		let last_active_ts = match last_active_ago {
@@ -118,7 +123,8 @@ impl Data {
 		let count = self.services.globals.next_count()?;
 		let key = presenceid_key(count, user_id);
 
-		self.presenceid_presence.raw_put(key, Json(presence));
+		self.presenceid_presence
+			.raw_put(key, Json(presence));
 		self.userid_presenceid.raw_put(user_id, count);
 
 		if let Ok((last_count, _)) = last_presence {

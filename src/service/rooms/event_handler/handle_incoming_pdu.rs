@@ -66,7 +66,11 @@ pub async fn handle_incoming_pdu<'a>(
 	let meta_exists = self.services.metadata.exists(room_id).map(Ok);
 
 	// 1.2 Check if the room is disabled
-	let is_disabled = self.services.metadata.is_disabled(room_id).map(Ok);
+	let is_disabled = self
+		.services
+		.metadata
+		.is_disabled(room_id)
+		.map(Ok);
 
 	// 1.3.1 Check room ACL on origin field/server
 	let origin_acl_check = self.acl_check(origin, room_id);

@@ -100,7 +100,9 @@ impl crate::Service for Service {
 				pusher: args.depend::<pusher::Service>("pusher"),
 				federation: args.depend::<federation::Service>("federation"),
 			},
-			channels: (0..num_senders).map(|_| loole::unbounded()).collect(),
+			channels: (0..num_senders)
+				.map(|_| loole::unbounded())
+				.collect(),
 		}))
 	}
 
@@ -160,7 +162,10 @@ impl Service {
 		self.dispatch(Msg {
 			dest,
 			event,
-			queue_id: keys.into_iter().next().expect("request queue key"),
+			queue_id: keys
+				.into_iter()
+				.next()
+				.expect("request queue key"),
 		})
 	}
 
@@ -173,7 +178,10 @@ impl Service {
 		self.dispatch(Msg {
 			dest,
 			event,
-			queue_id: keys.into_iter().next().expect("request queue key"),
+			queue_id: keys
+				.into_iter()
+				.next()
+				.expect("request queue key"),
 		})
 	}
 
@@ -201,7 +209,9 @@ impl Service {
 			.await;
 
 		let _cork = self.db.db.cork();
-		let keys = self.db.queue_requests(requests.iter().map(|(o, e)| (e, o)));
+		let keys = self
+			.db
+			.queue_requests(requests.iter().map(|(o, e)| (e, o)));
 
 		for ((dest, event), queue_id) in requests.into_iter().zip(keys) {
 			self.dispatch(Msg { dest, event, queue_id })?;
@@ -219,7 +229,10 @@ impl Service {
 		self.dispatch(Msg {
 			dest,
 			event,
-			queue_id: keys.into_iter().next().expect("request queue key"),
+			queue_id: keys
+				.into_iter()
+				.next()
+				.expect("request queue key"),
 		})
 	}
 
@@ -250,7 +263,9 @@ impl Service {
 			.await;
 
 		let _cork = self.db.db.cork();
-		let keys = self.db.queue_requests(requests.iter().map(|(o, e)| (e, o)));
+		let keys = self
+			.db
+			.queue_requests(requests.iter().map(|(o, e)| (e, o)));
 
 		for ((dest, event), queue_id) in requests.into_iter().zip(keys) {
 			self.dispatch(Msg { dest, event, queue_id })?;
@@ -299,7 +314,10 @@ impl Service {
 	where
 		T: OutgoingRequest + Debug + Send,
 	{
-		self.services.federation.execute(dest, request).await
+		self.services
+			.federation
+			.execute(dest, request)
+			.await
 	}
 
 	/// Like send_federation_request() but with a very large timeout

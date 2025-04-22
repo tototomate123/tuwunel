@@ -21,7 +21,10 @@ pub(crate) async fn send_event_to_device_route(
 	State(services): State<crate::State>,
 	body: Ruma<send_event_to_device::v3::Request>,
 ) -> Result<send_event_to_device::v3::Response> {
-	let sender_user = body.sender_user.as_ref().expect("user is authenticated");
+	let sender_user = body
+		.sender_user
+		.as_ref()
+		.expect("user is authenticated");
 	let sender_device = body.sender_device.as_deref();
 
 	// Check if this is a new transaction id

@@ -53,7 +53,11 @@ async fn create_join_event(
 
 	// We do not add the event_id field to the pdu here because of signature and
 	// hashes checks
-	let room_version_id = services.rooms.state.get_room_version(room_id).await?;
+	let room_version_id = services
+		.rooms
+		.state
+		.get_room_version(room_id)
+		.await?;
 
 	let Ok((event_id, mut value)) = gen_event_id_canonical_json(pdu, &room_version_id) else {
 		// Event could not be converted to canonical json
@@ -239,7 +243,11 @@ async fn create_join_event(
 		.auth_chain
 		.event_ids_iter(room_id, starting_events)
 		.broad_and_then(|event_id| async move {
-			services.rooms.timeline.get_pdu_json(&event_id).await
+			services
+				.rooms
+				.timeline
+				.get_pdu_json(&event_id)
+				.await
 		})
 		.broad_and_then(|pdu| {
 			services
@@ -251,7 +259,10 @@ async fn create_join_event(
 		.boxed()
 		.await?;
 
-	services.sending.send_pdu_room(room_id, &pdu_id).await?;
+	services
+		.sending
+		.send_pdu_room(room_id, &pdu_id)
+		.await?;
 
 	Ok(create_join_event::v1::RoomState {
 		auth_chain,

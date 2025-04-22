@@ -46,7 +46,10 @@ impl ProxyConfig {
 			| Self::Global { url } => Some(Proxy::all(url)?),
 			| Self::ByDomain(proxies) => Some(Proxy::custom(move |url| {
 				// first matching proxy
-				proxies.iter().find_map(|proxy| proxy.for_url(url)).cloned()
+				proxies
+					.iter()
+					.find_map(|proxy| proxy.for_url(url))
+					.cloned()
 			})),
 		})
 	}

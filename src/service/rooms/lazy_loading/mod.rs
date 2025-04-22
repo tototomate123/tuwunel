@@ -76,7 +76,9 @@ pub async fn witness_retain(&self, senders: Witness, ctx: &Context<'_>) -> Witne
 	);
 
 	let include_redundant = cfg!(feature = "element_hacks")
-		|| ctx.options.is_some_and(Options::include_redundant_members);
+		|| ctx
+			.options
+			.is_some_and(Options::include_redundant_members);
 
 	let witness = self
 		.witness(ctx, senders.iter().map(AsRef::as_ref))

@@ -21,7 +21,10 @@ pub(crate) async fn get_devices_route(
 	State(services): State<crate::State>,
 	body: Ruma<get_devices::v3::Request>,
 ) -> Result<get_devices::v3::Response> {
-	let sender_user = body.sender_user.as_ref().expect("user is authenticated");
+	let sender_user = body
+		.sender_user
+		.as_ref()
+		.expect("user is authenticated");
 
 	let devices: Vec<device::Device> = services
 		.users
@@ -39,7 +42,10 @@ pub(crate) async fn get_device_route(
 	State(services): State<crate::State>,
 	body: Ruma<get_device::v3::Request>,
 ) -> Result<get_device::v3::Response> {
-	let sender_user = body.sender_user.as_ref().expect("user is authenticated");
+	let sender_user = body
+		.sender_user
+		.as_ref()
+		.expect("user is authenticated");
 
 	let device = services
 		.users
@@ -69,7 +75,9 @@ pub(crate) async fn update_device_route(
 	{
 		| Ok(mut device) => {
 			device.display_name.clone_from(&body.display_name);
-			device.last_seen_ip.clone_from(&Some(client.to_string()));
+			device
+				.last_seen_ip
+				.clone_from(&Some(client.to_string()));
 			device
 				.last_seen_ts
 				.clone_from(&Some(MilliSecondsSinceUnixEpoch::now()));
@@ -213,7 +221,10 @@ pub(crate) async fn delete_devices_route(
 			 enabled"
 		);
 		for device_id in &body.devices {
-			services.users.remove_device(sender_user, device_id).await;
+			services
+				.users
+				.remove_device(sender_user, device_id)
+				.await;
 		}
 
 		return Ok(delete_devices::v3::Response {});
@@ -256,7 +267,10 @@ pub(crate) async fn delete_devices_route(
 	}
 
 	for device_id in &body.devices {
-		services.users.remove_device(sender_user, device_id).await;
+		services
+			.users
+			.remove_device(sender_user, device_id)
+			.await;
 	}
 
 	Ok(delete_devices::v3::Response {})

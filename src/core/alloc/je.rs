@@ -369,7 +369,11 @@ where
 fn key(name: &str) -> Result<Key> {
 	// tikv asserts the output buffer length is tight to the number of required mibs
 	// so we slice that down here.
-	let segs = name.chars().filter(is_equal_to!(&'.')).count().try_add(1)?;
+	let segs = name
+		.chars()
+		.filter(is_equal_to!(&'.'))
+		.count()
+		.try_add(1)?;
 
 	let name = self::name(name)?;
 	let mut buf = [0_usize; KEY_SEGS];

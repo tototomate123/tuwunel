@@ -140,9 +140,13 @@ fn into_http_request(request: &Request, body: Bytes) -> hyper::Request<Bytes> {
 		.uri(request.parts.uri.clone())
 		.method(request.parts.method.clone());
 
-	*http_request.headers_mut().expect("mutable http headers") = request.parts.headers.clone();
+	*http_request
+		.headers_mut()
+		.expect("mutable http headers") = request.parts.headers.clone();
 
-	let http_request = http_request.body(body).expect("http request body");
+	let http_request = http_request
+		.body(body)
+		.expect("http request body");
 
 	let headers = http_request.headers();
 	let method = http_request.method();

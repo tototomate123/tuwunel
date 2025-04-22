@@ -87,7 +87,9 @@ impl Service {
 		let mut aliasid = room_id.as_bytes().to_vec();
 		aliasid.push(0xFF);
 		aliasid.extend_from_slice(&self.services.globals.next_count()?.to_be_bytes());
-		self.db.aliasid_alias.insert(&aliasid, alias.as_bytes());
+		self.db
+			.aliasid_alias
+			.insert(&aliasid, alias.as_bytes());
 
 		Ok(())
 	}
@@ -171,7 +173,11 @@ impl Service {
 
 	#[tracing::instrument(skip(self), level = "debug")]
 	pub async fn resolve_local_alias(&self, alias: &RoomAliasId) -> Result<OwnedRoomId> {
-		self.db.alias_roomid.get(alias.alias()).await.deserialized()
+		self.db
+			.alias_roomid
+			.get(alias.alias())
+			.await
+			.deserialized()
 	}
 
 	#[tracing::instrument(skip(self), level = "debug")]
@@ -248,7 +254,11 @@ impl Service {
 	}
 
 	async fn who_created_alias(&self, alias: &RoomAliasId) -> Result<OwnedUserId> {
-		self.db.alias_userid.get(alias.alias()).await.deserialized()
+		self.db
+			.alias_userid
+			.get(alias.alias())
+			.await
+			.deserialized()
 	}
 
 	async fn resolve_appservice_alias(

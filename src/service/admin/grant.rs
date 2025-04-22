@@ -30,7 +30,12 @@ pub async fn make_user_admin(&self, user_id: &UserId) -> Result {
 
 	let state_lock = self.services.state.mutex.lock(&room_id).await;
 
-	if self.services.state_cache.is_joined(user_id, &room_id).await {
+	if self
+		.services
+		.state_cache
+		.is_joined(user_id, &room_id)
+		.await
+	{
 		return Err!(debug_warn!("User is already joined in the admin room"));
 	}
 	if self
@@ -106,7 +111,9 @@ pub async fn make_user_admin(&self, user_id: &UserId) -> Result {
 	room_power_levels
 		.users
 		.insert(server_user.into(), 69420.into());
-	room_power_levels.users.insert(user_id.into(), 100.into());
+	room_power_levels
+		.users
+		.insert(user_id.into(), 100.into());
 
 	self.services
 		.timeline
@@ -119,9 +126,17 @@ pub async fn make_user_admin(&self, user_id: &UserId) -> Result {
 		.await?;
 
 	// Set room tag
-	let room_tag = self.services.server.config.admin_room_tag.as_str();
+	let room_tag = self
+		.services
+		.server
+		.config
+		.admin_room_tag
+		.as_str();
 	if !room_tag.is_empty() {
-		if let Err(e) = self.set_room_tag(&room_id, user_id, room_tag).await {
+		if let Err(e) = self
+			.set_room_tag(&room_id, user_id, room_tag)
+			.await
+		{
 			error!(?room_id, ?user_id, ?room_tag, "Failed to set tag for admin grant: {e}");
 		}
 	}

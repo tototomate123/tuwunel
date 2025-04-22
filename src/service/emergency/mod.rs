@@ -41,9 +41,13 @@ impl crate::Service for Service {
 			return Ok(());
 		}
 
-		self.set_emergency_access().await.inspect_err(|e| {
-			error!("Could not set the configured emergency password for the server user: {e}");
-		})
+		self.set_emergency_access()
+			.await
+			.inspect_err(|e| {
+				error!(
+					"Could not set the configured emergency password for the server user: {e}"
+				);
+			})
 	}
 
 	fn name(&self) -> &str { crate::service::make_name(std::module_path!()) }
@@ -69,7 +73,9 @@ impl Service {
 			.update(
 				None,
 				server_user,
-				GlobalAccountDataEventType::PushRules.to_string().into(),
+				GlobalAccountDataEventType::PushRules
+					.to_string()
+					.into(),
 				&serde_json::to_value(&GlobalAccountDataEvent {
 					content: PushRulesEventContent { global: ruleset },
 				})
@@ -86,7 +92,10 @@ impl Service {
 			Ok(())
 		} else {
 			// logs out any users still in the server service account and removes sessions
-			self.services.users.deactivate_account(server_user).await
+			self.services
+				.users
+				.deactivate_account(server_user)
+				.await
 		}
 	}
 }

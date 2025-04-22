@@ -98,7 +98,11 @@ pub async fn user_can_see_event(
 		return true;
 	};
 
-	let currently_member = self.services.state_cache.is_joined(user_id, room_id).await;
+	let currently_member = self
+		.services
+		.state_cache
+		.is_joined(user_id, room_id)
+		.await;
 
 	let history_visibility = self
 		.state_get_content(shortstatehash, &StateEventType::RoomHistoryVisibility, "")
@@ -110,11 +114,13 @@ pub async fn user_can_see_event(
 	match history_visibility {
 		| HistoryVisibility::Invited => {
 			// Allow if any member on requesting server was AT LEAST invited, else deny
-			self.user_was_invited(shortstatehash, user_id).await
+			self.user_was_invited(shortstatehash, user_id)
+				.await
 		},
 		| HistoryVisibility::Joined => {
 			// Allow if any member on requested server was joined, else deny
-			self.user_was_joined(shortstatehash, user_id).await
+			self.user_was_joined(shortstatehash, user_id)
+				.await
 		},
 		| HistoryVisibility::WorldReadable => true,
 		| HistoryVisibility::Shared | _ => currently_member,
@@ -126,7 +132,12 @@ pub async fn user_can_see_event(
 #[implement(super::Service)]
 #[tracing::instrument(skip_all, level = "trace")]
 pub async fn user_can_see_state_events(&self, user_id: &UserId, room_id: &RoomId) -> bool {
-	if self.services.state_cache.is_joined(user_id, room_id).await {
+	if self
+		.services
+		.state_cache
+		.is_joined(user_id, room_id)
+		.await
+	{
 		return true;
 	}
 
@@ -139,7 +150,10 @@ pub async fn user_can_see_state_events(&self, user_id: &UserId, room_id: &RoomId
 
 	match history_visibility {
 		| HistoryVisibility::Invited =>
-			self.services.state_cache.is_invited(user_id, room_id).await,
+			self.services
+				.state_cache
+				.is_invited(user_id, room_id)
+				.await,
 		| HistoryVisibility::WorldReadable => true,
 		| _ => false,
 	}

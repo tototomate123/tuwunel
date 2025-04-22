@@ -56,7 +56,9 @@ pub fn create_backup(
 	let count = self.services.globals.next_count()?;
 
 	let key = (user_id, &version);
-	self.db.backupid_algorithm.put(key, Json(backup_metadata));
+	self.db
+		.backupid_algorithm
+		.put(key, Json(backup_metadata));
 
 	self.db.backupid_etag.put(key, count);
 
@@ -88,7 +90,13 @@ pub async fn update_backup<'a>(
 	backup_metadata: &Raw<BackupAlgorithm>,
 ) -> Result<&'a str> {
 	let key = (user_id, version);
-	if self.db.backupid_algorithm.qry(&key).await.is_err() {
+	if self
+		.db
+		.backupid_algorithm
+		.qry(&key)
+		.await
+		.is_err()
+	{
 		return Err!(Request(NotFound("Tried to update nonexistent backup.")));
 	}
 
@@ -140,7 +148,11 @@ pub async fn get_latest_backup(
 #[implement(Service)]
 pub async fn get_backup(&self, user_id: &UserId, version: &str) -> Result<Raw<BackupAlgorithm>> {
 	let key = (user_id, version);
-	self.db.backupid_algorithm.qry(&key).await.deserialized()
+	self.db
+		.backupid_algorithm
+		.qry(&key)
+		.await
+		.deserialized()
 }
 
 #[implement(Service)]
@@ -153,7 +165,13 @@ pub async fn add_key(
 	key_data: &Raw<KeyBackupData>,
 ) -> Result<()> {
 	let key = (user_id, version);
-	if self.db.backupid_algorithm.qry(&key).await.is_err() {
+	if self
+		.db
+		.backupid_algorithm
+		.qry(&key)
+		.await
+		.is_err()
+	{
 		return Err!(Request(NotFound("Tried to update nonexistent backup.")));
 	}
 
@@ -251,7 +269,11 @@ pub async fn get_session(
 ) -> Result<Raw<KeyBackupData>> {
 	let key = (user_id, version, room_id, session_id);
 
-	self.db.backupkeyid_backup.qry(&key).await.deserialized()
+	self.db
+		.backupkeyid_backup
+		.qry(&key)
+		.await
+		.deserialized()
 }
 
 #[implement(Service)]

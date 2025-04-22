@@ -25,7 +25,8 @@ where
 	K: Deserialize<'a> + Send,
 	V: Deserialize<'a> + Send,
 {
-	self.stream_from_raw(from).map(result_deserialize::<K, V>)
+	self.stream_from_raw(from)
+		.map(result_deserialize::<K, V>)
 }
 
 /// Iterate key-value entries in the map starting from lower-bound.
@@ -59,7 +60,8 @@ where
 	K: Deserialize<'a> + Send,
 	V: Deserialize<'a> + Send,
 {
-	self.raw_stream_from(from).map(result_deserialize::<K, V>)
+	self.raw_stream_from(from)
+		.map(result_deserialize::<K, V>)
 }
 
 /// Iterate key-value entries in the map starting from lower-bound.

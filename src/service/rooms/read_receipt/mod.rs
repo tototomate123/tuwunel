@@ -54,7 +54,9 @@ impl Service {
 		room_id: &RoomId,
 		event: &ReceiptEvent,
 	) {
-		self.db.readreceipt_update(user_id, room_id, event).await;
+		self.db
+			.readreceipt_update(user_id, room_id, event)
+			.await;
 		self.services
 			.sending
 			.flush_room(room_id)
@@ -68,18 +70,30 @@ impl Service {
 		room_id: &RoomId,
 		user_id: &UserId,
 	) -> Result<Raw<AnySyncEphemeralRoomEvent>> {
-		let pdu_count = self.private_read_get_count(room_id, user_id).map_err(|e| {
-			err!(Database(warn!("No private read receipt was set in {room_id}: {e}")))
-		});
-		let shortroomid = self.services.short.get_shortroomid(room_id).map_err(|e| {
-			err!(Database(warn!("Short room ID does not exist in database for {room_id}: {e}")))
-		});
+		let pdu_count = self
+			.private_read_get_count(room_id, user_id)
+			.map_err(|e| {
+				err!(Database(warn!("No private read receipt was set in {room_id}: {e}")))
+			});
+		let shortroomid = self
+			.services
+			.short
+			.get_shortroomid(room_id)
+			.map_err(|e| {
+				err!(Database(warn!(
+					"Short room ID does not exist in database for {room_id}: {e}"
+				)))
+			});
 		let (pdu_count, shortroomid) = try_join!(pdu_count, shortroomid)?;
 
 		let shorteventid = PduCount::Normal(pdu_count);
 		let pdu_id: RawPduId = PduId { shortroomid, shorteventid }.into();
 
-		let pdu = self.services.timeline.get_pdu_from_id(&pdu_id).await?;
+		let pdu = self
+			.services
+			.timeline
+			.get_pdu_from_id(&pdu_id)
+			.await?;
 
 		let event_id: OwnedEventId = pdu.event_id;
 		let user_id: OwnedUserId = user_id.to_owned();
@@ -129,13 +143,17 @@ impl Service {
 		room_id: &RoomId,
 		user_id: &UserId,
 	) -> Result<u64> {
-		self.db.private_read_get_count(room_id, user_id).await
+		self.db
+			.private_read_get_count(room_id, user_id)
+			.await
 	}
 
 	/// Returns the PDU count of the last typing update in this room.
 	#[inline]
 	pub async fn last_privateread_update(&self, user_id: &UserId, room_id: &RoomId) -> u64 {
-		self.db.last_privateread_update(user_id, room_id).await
+		self.db
+			.last_privateread_update(user_id, room_id)
+			.await
 	}
 }
 

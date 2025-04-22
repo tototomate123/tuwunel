@@ -20,7 +20,9 @@ pub fn backup(&self) -> Result {
 			.map_err(map_err)?;
 
 		let engine_info = engine.get_backup_info();
-		let info = &engine_info.last().expect("backup engine info is not empty");
+		let info = &engine_info
+			.last()
+			.expect("backup engine info is not empty");
 		info!(
 			"Created database backup #{} using {} bytes in {} files",
 			info.backup_id, info.size, info.num_files,

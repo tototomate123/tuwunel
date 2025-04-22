@@ -25,7 +25,12 @@ pub(crate) enum RoomTimelineCommand {
 
 #[admin_command]
 pub(super) async fn last(&self, room_id: OwnedRoomOrAliasId) -> Result {
-	let room_id = self.services.rooms.alias.resolve(&room_id).await?;
+	let room_id = self
+		.services
+		.rooms
+		.alias
+		.resolve(&room_id)
+		.await?;
 
 	let result = self
 		.services
@@ -44,7 +49,12 @@ pub(super) async fn pdus(
 	from: Option<String>,
 	limit: Option<usize>,
 ) -> Result {
-	let room_id = self.services.rooms.alias.resolve(&room_id).await?;
+	let room_id = self
+		.services
+		.rooms
+		.alias
+		.resolve(&room_id)
+		.await?;
 
 	let from: Option<PduCount> = from.as_deref().map(str::parse).transpose()?;
 

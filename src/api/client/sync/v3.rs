@@ -480,7 +480,10 @@ async fn handle_left_room(
 
 	let mut left_state_events = Vec::new();
 
-	let since_shortstatehash = services.rooms.user.get_token_shortstatehash(room_id, since);
+	let since_shortstatehash = services
+		.rooms
+		.user
+		.get_token_shortstatehash(room_id, since);
 
 	let since_state_ids: HashMap<_, OwnedEventId> = since_shortstatehash
 		.map_ok(|since_shortstatehash| {
@@ -640,7 +643,11 @@ async fn load_joined_room(
 	let (timeline_pdus, limited) = timeline;
 	let initial = since_shortstatehash.is_none();
 	let lazy_loading_enabled = filter.room.state.lazy_load_options.is_enabled()
-		|| filter.room.timeline.lazy_load_options.is_enabled();
+		|| filter
+			.room
+			.timeline
+			.lazy_load_options
+			.is_enabled();
 
 	let lazy_loading_context = &lazy_loading::Context {
 		user_id: sender_user,
@@ -652,7 +659,12 @@ async fn load_joined_room(
 
 	// Reset lazy loading because this is an initial sync
 	let lazy_load_reset: OptionFuture<_> = initial
-		.then(|| services.rooms.lazy_loading.reset(lazy_loading_context))
+		.then(|| {
+			services
+				.rooms
+				.lazy_loading
+				.reset(lazy_loading_context)
+		})
 		.into();
 
 	lazy_load_reset.await;
@@ -964,15 +976,23 @@ async fn calculate_state_initial(
 		.ready_filter_map(|((event_type, state_key), event_id)| {
 			let lazy = !full_state
 				&& event_type == StateEventType::RoomMember
-				&& state_key.as_str().try_into().is_ok_and(|user_id: &UserId| {
-					sender_user != user_id
-						&& witness.is_some_and(|witness| !witness.contains(user_id))
-				});
+				&& state_key
+					.as_str()
+					.try_into()
+					.is_ok_and(|user_id: &UserId| {
+						sender_user != user_id
+							&& witness.is_some_and(|witness| !witness.contains(user_id))
+					});
 
 			lazy.or_some(event_id)
 		})
 		.broad_filter_map(|event_id: OwnedEventId| async move {
-			services.rooms.timeline.get_pdu(&event_id).await.ok()
+			services
+				.rooms
+				.timeline
+				.get_pdu(&event_id)
+				.await
+				.ok()
 		})
 		.collect()
 		.map(Ok);
@@ -1085,7 +1105,12 @@ async fn calculate_state_incremental<'a>(
 				.ok()
 		})
 		.broad_filter_map(|event_id: OwnedEventId| async move {
-			services.rooms.timeline.get_pdu(&event_id).await.ok()
+			services
+				.rooms
+				.timeline
+				.get_pdu(&event_id)
+				.await
+				.ok()
 		})
 		.collect::<Vec<_>>()
 		.await;
@@ -1118,7 +1143,9 @@ async fn calculate_state_incremental<'a>(
 		})
 		.await;
 
-	let send_member_count = state_events.iter().any(|event| event.kind == RoomMember);
+	let send_member_count = state_events
+		.iter()
+		.any(|event| event.kind == RoomMember);
 
 	let (joined_member_count, invited_member_count, heroes) = if send_member_count {
 		calculate_counts(services, room_id, sender_user).await?
@@ -1205,8 +1232,11 @@ async fn fold_hero(
 	sender_user: &UserId,
 	pdu: PduEvent,
 ) -> Vec<OwnedUserId> {
-	let Some(user_id): Option<&UserId> =
-		pdu.state_key.as_deref().map(TryInto::try_into).flat_ok()
+	let Some(user_id): Option<&UserId> = pdu
+		.state_key
+		.as_deref()
+		.map(TryInto::try_into)
+		.flat_ok()
 	else {
 		return heroes;
 	};
@@ -1229,8 +1259,14 @@ async fn fold_hero(
 	}
 
 	let (is_invited, is_joined) = join(
-		services.rooms.state_cache.is_invited(user_id, room_id),
-		services.rooms.state_cache.is_joined(user_id, room_id),
+		services
+			.rooms
+			.state_cache
+			.is_invited(user_id, room_id),
+		services
+			.rooms
+			.state_cache
+			.is_joined(user_id, room_id),
 	)
 	.await;
 

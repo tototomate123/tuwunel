@@ -17,7 +17,11 @@ pub(super) fn command(mut item: ItemFn, _args: &[Meta]) -> Result<TokenStream> {
 
 pub(super) fn command_dispatch(item: ItemEnum, _args: &[Meta]) -> Result<TokenStream> {
 	let name = &item.ident;
-	let arm: Vec<TokenStream2> = item.variants.iter().map(dispatch_arm).try_collect()?;
+	let arm: Vec<TokenStream2> = item
+		.variants
+		.iter()
+		.map(dispatch_arm)
+		.try_collect()?;
 	let switch = quote! {
 		#[allow(clippy::large_stack_frames)] //TODO: fixme
 		pub(super) async fn process(
@@ -44,7 +48,10 @@ fn dispatch_arm(v: &Variant) -> Result<TokenStream2> {
 	let handler = Ident::new(&target, Span::call_site().into());
 	let res = match &v.fields {
 		| Fields::Named(fields) => {
-			let field = fields.named.iter().filter_map(|f| f.ident.as_ref());
+			let field = fields
+				.named
+				.iter()
+				.filter_map(|f| f.ident.as_ref());
 			let arg = field.clone();
 			quote! {
 				#name { #( #field ),* } => {

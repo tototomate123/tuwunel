@@ -30,7 +30,10 @@ pub(crate) async fn report_room_route(
 	body: Ruma<report_room::v3::Request>,
 ) -> Result<report_room::v3::Response> {
 	// user authentication
-	let sender_user = body.sender_user.as_ref().expect("user is authenticated");
+	let sender_user = body
+		.sender_user
+		.as_ref()
+		.expect("user is authenticated");
 
 	info!(
 		"Received room report by user {sender_user} for room {} with reason: \"{}\"",
@@ -38,7 +41,11 @@ pub(crate) async fn report_room_route(
 		body.reason.as_deref().unwrap_or("")
 	);
 
-	if body.reason.as_ref().is_some_and(|s| s.len() > 750) {
+	if body
+		.reason
+		.as_ref()
+		.is_some_and(|s| s.len() > 750)
+	{
 		return Err(Error::BadRequest(
 			ErrorKind::InvalidParam,
 			"Reason too long, should be 750 characters or fewer",
@@ -84,7 +91,10 @@ pub(crate) async fn report_event_route(
 	body: Ruma<report_content::v3::Request>,
 ) -> Result<report_content::v3::Response> {
 	// user authentication
-	let sender_user = body.sender_user.as_ref().expect("user is authenticated");
+	let sender_user = body
+		.sender_user
+		.as_ref()
+		.expect("user is authenticated");
 
 	info!(
 		"Received event report by user {sender_user} for room {} and event ID {}, with reason: \
@@ -97,7 +107,12 @@ pub(crate) async fn report_event_route(
 	delay_response().await;
 
 	// check if we know about the reported event ID or if it's invalid
-	let Ok(pdu) = services.rooms.timeline.get_pdu(&body.event_id).await else {
+	let Ok(pdu) = services
+		.rooms
+		.timeline
+		.get_pdu(&body.event_id)
+		.await
+	else {
 		return Err!(Request(NotFound("Event ID is not known to us or Event ID is invalid")));
 	};
 

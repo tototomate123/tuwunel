@@ -248,7 +248,9 @@ impl Service {
 									.update(
 										None,
 										user_id,
-										GlobalAccountDataEventType::Direct.to_string().into(),
+										GlobalAccountDataEventType::Direct
+											.to_string()
+											.into(),
 										&serde_json::to_value(&direct_event)
 											.expect("to json always works"),
 									)
@@ -262,7 +264,12 @@ impl Service {
 			},
 			| MembershipState::Invite => {
 				// We want to know if the sender is ignored by the receiver
-				if self.services.users.user_is_ignored(sender, user_id).await {
+				if self
+					.services
+					.users
+					.user_is_ignored(sender, user_id)
+					.await
+				{
 					return Ok(());
 				}
 
@@ -346,14 +353,22 @@ impl Service {
 		self.db.userroomid_joined.insert(&userroom_id, []);
 		self.db.roomuserid_joined.insert(&roomuser_id, []);
 
-		self.db.userroomid_invitestate.remove(&userroom_id);
-		self.db.roomuserid_invitecount.remove(&roomuser_id);
+		self.db
+			.userroomid_invitestate
+			.remove(&userroom_id);
+		self.db
+			.roomuserid_invitecount
+			.remove(&roomuser_id);
 
 		self.db.userroomid_leftstate.remove(&userroom_id);
 		self.db.roomuserid_leftcount.remove(&roomuser_id);
 
-		self.db.userroomid_knockedstate.remove(&userroom_id);
-		self.db.roomuserid_knockedcount.remove(&roomuser_id);
+		self.db
+			.userroomid_knockedstate
+			.remove(&userroom_id);
+		self.db
+			.roomuserid_knockedcount
+			.remove(&roomuser_id);
 
 		self.db.roomid_inviteviaservers.remove(room_id);
 	}
@@ -382,11 +397,19 @@ impl Service {
 		self.db.userroomid_joined.remove(&userroom_id);
 		self.db.roomuserid_joined.remove(&roomuser_id);
 
-		self.db.userroomid_invitestate.remove(&userroom_id);
-		self.db.roomuserid_invitecount.remove(&roomuser_id);
+		self.db
+			.userroomid_invitestate
+			.remove(&userroom_id);
+		self.db
+			.roomuserid_invitecount
+			.remove(&roomuser_id);
 
-		self.db.userroomid_knockedstate.remove(&userroom_id);
-		self.db.roomuserid_knockedcount.remove(&roomuser_id);
+		self.db
+			.userroomid_knockedstate
+			.remove(&userroom_id);
+		self.db
+			.roomuserid_knockedcount
+			.remove(&roomuser_id);
 
 		self.db.roomid_inviteviaservers.remove(room_id);
 	}
@@ -417,8 +440,12 @@ impl Service {
 		self.db.userroomid_joined.remove(&userroom_id);
 		self.db.roomuserid_joined.remove(&roomuser_id);
 
-		self.db.userroomid_invitestate.remove(&userroom_id);
-		self.db.roomuserid_invitecount.remove(&roomuser_id);
+		self.db
+			.userroomid_invitestate
+			.remove(&userroom_id);
+		self.db
+			.roomuserid_invitecount
+			.remove(&roomuser_id);
 
 		self.db.userroomid_leftstate.remove(&userroom_id);
 		self.db.roomuserid_leftcount.remove(&roomuser_id);
@@ -523,7 +550,11 @@ impl Service {
 	/// Returns the number of users which are currently in a room
 	#[tracing::instrument(skip(self), level = "trace")]
 	pub async fn room_joined_count(&self, room_id: &RoomId) -> Result<u64> {
-		self.db.roomid_joinedcount.get(room_id).await.deserialized()
+		self.db
+			.roomid_joinedcount
+			.get(room_id)
+			.await
+			.deserialized()
 	}
 
 	#[tracing::instrument(skip(self), level = "debug")]
@@ -623,7 +654,11 @@ impl Service {
 	#[tracing::instrument(skip(self), level = "trace")]
 	pub async fn get_left_count(&self, room_id: &RoomId, user_id: &UserId) -> Result<u64> {
 		let key = (room_id, user_id);
-		self.db.roomuserid_leftcount.qry(&key).await.deserialized()
+		self.db
+			.roomuserid_leftcount
+			.qry(&key)
+			.await
+			.deserialized()
 	}
 
 	/// Returns an iterator over all rooms this user joined.
@@ -750,7 +785,11 @@ impl Service {
 	#[tracing::instrument(skip(self), level = "debug")]
 	pub async fn once_joined(&self, user_id: &UserId, room_id: &RoomId) -> bool {
 		let key = (user_id, room_id);
-		self.db.roomuseroncejoinedids.qry(&key).await.is_ok()
+		self.db
+			.roomuseroncejoinedids
+			.qry(&key)
+			.await
+			.is_ok()
 	}
 
 	#[tracing::instrument(skip(self), level = "trace")]
@@ -762,19 +801,31 @@ impl Service {
 	#[tracing::instrument(skip(self), level = "trace")]
 	pub async fn is_knocked<'a>(&'a self, user_id: &'a UserId, room_id: &'a RoomId) -> bool {
 		let key = (user_id, room_id);
-		self.db.userroomid_knockedstate.qry(&key).await.is_ok()
+		self.db
+			.userroomid_knockedstate
+			.qry(&key)
+			.await
+			.is_ok()
 	}
 
 	#[tracing::instrument(skip(self), level = "trace")]
 	pub async fn is_invited(&self, user_id: &UserId, room_id: &RoomId) -> bool {
 		let key = (user_id, room_id);
-		self.db.userroomid_invitestate.qry(&key).await.is_ok()
+		self.db
+			.userroomid_invitestate
+			.qry(&key)
+			.await
+			.is_ok()
 	}
 
 	#[tracing::instrument(skip(self), level = "trace")]
 	pub async fn is_left(&self, user_id: &UserId, room_id: &RoomId) -> bool {
 		let key = (user_id, room_id);
-		self.db.userroomid_leftstate.qry(&key).await.is_ok()
+		self.db
+			.userroomid_leftstate
+			.qry(&key)
+			.await
+			.is_ok()
 	}
 
 	#[tracing::instrument(skip(self), level = "trace")]
@@ -856,7 +907,10 @@ impl Service {
 	}
 
 	pub fn get_appservice_in_room_cache_usage(&self) -> (usize, usize) {
-		let cache = self.appservice_in_room_cache.read().expect("locked");
+		let cache = self
+			.appservice_in_room_cache
+			.read()
+			.expect("locked");
 
 		(cache.len(), cache.capacity())
 	}
@@ -899,8 +953,12 @@ impl Service {
 				.unwrap_or(0),
 		);
 
-		self.db.roomid_joinedcount.raw_put(room_id, joinedcount);
-		self.db.roomid_invitedcount.raw_put(room_id, invitedcount);
+		self.db
+			.roomid_joinedcount
+			.raw_put(room_id, joinedcount);
+		self.db
+			.roomid_invitedcount
+			.raw_put(room_id, invitedcount);
 		self.db
 			.roomuserid_knockedcount
 			.raw_put(room_id, knockedcount);
@@ -968,11 +1026,16 @@ impl Service {
 		self.db.userroomid_leftstate.remove(&userroom_id);
 		self.db.roomuserid_leftcount.remove(&roomuser_id);
 
-		self.db.userroomid_knockedstate.remove(&userroom_id);
-		self.db.roomuserid_knockedcount.remove(&roomuser_id);
+		self.db
+			.userroomid_knockedstate
+			.remove(&userroom_id);
+		self.db
+			.roomuserid_knockedcount
+			.remove(&roomuser_id);
 
 		if let Some(servers) = invite_via.filter(is_not_empty!()) {
-			self.add_servers_invite_via(room_id, servers).await;
+			self.add_servers_invite_via(room_id, servers)
+				.await;
 		}
 	}
 

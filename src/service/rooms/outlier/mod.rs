@@ -48,5 +48,7 @@ pub async fn get_pdu_outlier(&self, event_id: &EventId) -> Result<PduEvent> {
 #[implement(Service)]
 #[tracing::instrument(skip(self, pdu), level = "debug")]
 pub fn add_pdu_outlier(&self, event_id: &EventId, pdu: &CanonicalJsonObject) {
-	self.db.eventid_outlierpdu.raw_put(event_id, Json(pdu));
+	self.db
+		.eventid_outlierpdu
+		.raw_put(event_id, Json(pdu));
 }

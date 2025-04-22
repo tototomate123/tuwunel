@@ -429,7 +429,10 @@ where
 
 		reverse_graph.entry(node).or_default();
 		for edge in edges {
-			reverse_graph.entry(edge).or_default().insert(node);
+			reverse_graph
+				.entry(edge)
+				.or_default()
+				.insert(node);
 		}
 	}
 
@@ -710,7 +713,9 @@ where
 		.iter()
 		.stream()
 		.broad_filter_map(async |ev_id| {
-			fetch_event(ev_id.clone()).await.map(|event| (event, ev_id))
+			fetch_event(ev_id.clone())
+				.await
+				.map(|event| (event, ev_id))
 		})
 		.broad_filter_map(|(event, ev_id)| {
 			get_mainline_depth(Some(event.clone()), &mainline_map, fetch_event)
@@ -782,7 +787,11 @@ async fn add_event_and_auth_chain_to_graph<E, F, Fut>(
 	while let Some(eid) = state.pop() {
 		graph.entry(eid.clone()).or_default();
 		let event = fetch_event(eid.clone()).await;
-		let auth_events = event.as_ref().map(Event::auth_events).into_iter().flatten();
+		let auth_events = event
+			.as_ref()
+			.map(Event::auth_events)
+			.into_iter()
+			.flatten();
 
 		// Prefer the store to event as the store filters dedups the events
 		for aid in auth_events {
@@ -792,7 +801,10 @@ async fn add_event_and_auth_chain_to_graph<E, F, Fut>(
 				}
 
 				// We just inserted this at the start of the while loop
-				graph.get_mut(eid.borrow()).unwrap().insert(aid.to_owned());
+				graph
+					.get_mut(eid.borrow())
+					.unwrap()
+					.insert(aid.to_owned());
 			}
 		}
 	}
@@ -890,13 +902,21 @@ mod tests {
 		use futures::future::ready;
 
 		let _ = tracing::subscriber::set_default(
-			tracing_subscriber::fmt().with_test_writer().finish(),
+			tracing_subscriber::fmt()
+				.with_test_writer()
+				.finish(),
 		);
 		let events = INITIAL_EVENTS();
 
 		let event_map = events
 			.values()
-			.map(|ev| (ev.event_type().with_state_key(ev.state_key().unwrap()), ev.clone()))
+			.map(|ev| {
+				(
+					ev.event_type()
+						.with_state_key(ev.state_key().unwrap()),
+					ev.clone(),
+				)
+			})
 			.collect::<StateMap<_>>();
 
 		let auth_chain: HashSet<OwnedEventId> = HashSet::new();
@@ -965,7 +985,9 @@ mod tests {
 	#[tokio::test]
 	async fn ban_vs_power_level() {
 		let _ = tracing::subscriber::set_default(
-			tracing_subscriber::fmt().with_test_writer().finish(),
+			tracing_subscriber::fmt()
+				.with_test_writer()
+				.finish(),
 		);
 
 		let events = &[
@@ -1015,7 +1037,9 @@ mod tests {
 	#[tokio::test]
 	async fn topic_basic() {
 		let _ = tracing::subscriber::set_default(
-			tracing_subscriber::fmt().with_test_writer().finish(),
+			tracing_subscriber::fmt()
+				.with_test_writer()
+				.finish(),
 		);
 
 		let events = &[
@@ -1080,7 +1104,9 @@ mod tests {
 	#[tokio::test]
 	async fn topic_reset() {
 		let _ = tracing::subscriber::set_default(
-			tracing_subscriber::fmt().with_test_writer().finish(),
+			tracing_subscriber::fmt()
+				.with_test_writer()
+				.finish(),
 		);
 
 		let events = &[
@@ -1130,7 +1156,9 @@ mod tests {
 	#[tokio::test]
 	async fn join_rule_evasion() {
 		let _ = tracing::subscriber::set_default(
-			tracing_subscriber::fmt().with_test_writer().finish(),
+			tracing_subscriber::fmt()
+				.with_test_writer()
+				.finish(),
 		);
 
 		let events = &[
@@ -1163,7 +1191,9 @@ mod tests {
 	#[tokio::test]
 	async fn offtopic_power_level() {
 		let _ = tracing::subscriber::set_default(
-			tracing_subscriber::fmt().with_test_writer().finish(),
+			tracing_subscriber::fmt()
+				.with_test_writer()
+				.finish(),
 		);
 
 		let events = &[
@@ -1199,7 +1229,10 @@ mod tests {
 			.map(|list| list.into_iter().map(event_id).collect::<Vec<_>>())
 			.collect::<Vec<_>>();
 
-		let expected_state_ids = vec!["PC"].into_iter().map(event_id).collect::<Vec<_>>();
+		let expected_state_ids = vec!["PC"]
+			.into_iter()
+			.map(event_id)
+			.collect::<Vec<_>>();
 
 		do_check(events, edges, expected_state_ids).await;
 	}
@@ -1207,7 +1240,9 @@ mod tests {
 	#[tokio::test]
 	async fn topic_setting() {
 		let _ = tracing::subscriber::set_default(
-			tracing_subscriber::fmt().with_test_writer().finish(),
+			tracing_subscriber::fmt()
+				.with_test_writer()
+				.finish(),
 		);
 
 		let events = &[
@@ -1289,7 +1324,9 @@ mod tests {
 		use futures::future::ready;
 
 		let _ = tracing::subscriber::set_default(
-			tracing_subscriber::fmt().with_test_writer().finish(),
+			tracing_subscriber::fmt()
+				.with_test_writer()
+				.finish(),
 		);
 
 		let mut store = TestStore::<PduEvent>(hashmap! {});
@@ -1332,7 +1369,9 @@ mod tests {
 	#[tokio::test]
 	async fn test_lexicographical_sort() {
 		let _ = tracing::subscriber::set_default(
-			tracing_subscriber::fmt().with_test_writer().finish(),
+			tracing_subscriber::fmt()
+				.with_test_writer()
+				.finish(),
 		);
 
 		let graph = hashmap! {
@@ -1361,7 +1400,9 @@ mod tests {
 	#[tokio::test]
 	async fn ban_with_auth_chains() {
 		let _ = tracing::subscriber::set_default(
-			tracing_subscriber::fmt().with_test_writer().finish(),
+			tracing_subscriber::fmt()
+				.with_test_writer()
+				.finish(),
 		);
 		let ban = BAN_STATE_SET();
 
@@ -1383,7 +1424,9 @@ mod tests {
 		use futures::future::ready;
 
 		let _ = tracing::subscriber::set_default(
-			tracing_subscriber::fmt().with_test_writer().finish(),
+			tracing_subscriber::fmt()
+				.with_test_writer()
+				.finish(),
 		);
 		let init = INITIAL_EVENTS();
 		let ban = BAN_STATE_SET();
@@ -1402,7 +1445,13 @@ mod tests {
 			inner.get(&event_id("PA")).unwrap(),
 		]
 		.iter()
-		.map(|ev| (ev.event_type().with_state_key(ev.state_key().unwrap()), ev.event_id.clone()))
+		.map(|ev| {
+			(
+				ev.event_type()
+					.with_state_key(ev.state_key().unwrap()),
+				ev.event_id.clone(),
+			)
+		})
 		.collect::<StateMap<_>>();
 
 		let state_set_b = [
@@ -1415,7 +1464,13 @@ mod tests {
 			inner.get(&event_id("PA")).unwrap(),
 		]
 		.iter()
-		.map(|ev| (ev.event_type().with_state_key(ev.state_key().unwrap()), ev.event_id.clone()))
+		.map(|ev| {
+			(
+				ev.event_type()
+					.with_state_key(ev.state_key().unwrap()),
+				ev.event_id.clone(),
+			)
+		})
 		.collect::<StateMap<_>>();
 
 		let ev_map = &store.0;
@@ -1479,7 +1534,10 @@ mod tests {
 			.map(|list| list.into_iter().map(event_id).collect::<Vec<_>>())
 			.collect::<Vec<_>>();
 
-		let expected_state_ids = vec!["JR"].into_iter().map(event_id).collect::<Vec<_>>();
+		let expected_state_ids = vec!["JR"]
+			.into_iter()
+			.map(event_id)
+			.collect::<Vec<_>>();
 
 		do_check(&join_rule.values().cloned().collect::<Vec<_>>(), edges, expected_state_ids)
 			.await;

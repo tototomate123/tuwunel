@@ -35,7 +35,10 @@ pub(crate) async fn set_displayname_route(
 	State(services): State<crate::State>,
 	body: Ruma<set_display_name::v3::Request>,
 ) -> Result<set_display_name::v3::Response> {
-	let sender_user = body.sender_user.as_ref().expect("user is authenticated");
+	let sender_user = body
+		.sender_user
+		.as_ref()
+		.expect("user is authenticated");
 
 	if *sender_user != body.user_id && body.appservice_info.is_none() {
 		return Err!(Request(Forbidden("You cannot update the profile of another user")));
@@ -111,7 +114,11 @@ pub(crate) async fn get_displayname_route(
 	}
 
 	Ok(get_display_name::v3::Response {
-		displayname: services.users.displayname(&body.user_id).await.ok(),
+		displayname: services
+			.users
+			.displayname(&body.user_id)
+			.await
+			.ok(),
 	})
 }
 
@@ -124,7 +131,10 @@ pub(crate) async fn set_avatar_url_route(
 	State(services): State<crate::State>,
 	body: Ruma<set_avatar_url::v3::Request>,
 ) -> Result<set_avatar_url::v3::Response> {
-	let sender_user = body.sender_user.as_ref().expect("user is authenticated");
+	let sender_user = body
+		.sender_user
+		.as_ref()
+		.expect("user is authenticated");
 
 	if *sender_user != body.user_id && body.appservice_info.is_none() {
 		return Err!(Request(Forbidden("You cannot update the profile of another user")));
@@ -212,7 +222,11 @@ pub(crate) async fn get_avatar_url_route(
 	}
 
 	Ok(get_avatar_url::v3::Response {
-		avatar_url: services.users.avatar_url(&body.user_id).await.ok(),
+		avatar_url: services
+			.users
+			.avatar_url(&body.user_id)
+			.await
+			.ok(),
 		blurhash: services.users.blurhash(&body.user_id).await.ok(),
 	})
 }
@@ -295,9 +309,17 @@ pub(crate) async fn get_profile_route(
 	custom_profile_fields.remove("m.tz");
 
 	Ok(get_profile::v3::Response {
-		avatar_url: services.users.avatar_url(&body.user_id).await.ok(),
+		avatar_url: services
+			.users
+			.avatar_url(&body.user_id)
+			.await
+			.ok(),
 		blurhash: services.users.blurhash(&body.user_id).await.ok(),
-		displayname: services.users.displayname(&body.user_id).await.ok(),
+		displayname: services
+			.users
+			.displayname(&body.user_id)
+			.await
+			.ok(),
 		tz: services.users.timezone(&body.user_id).await.ok(),
 		custom_profile_fields,
 	})
@@ -324,7 +346,9 @@ pub async fn update_displayname(
 		return;
 	}
 
-	services.users.set_displayname(user_id, displayname.clone());
+	services
+		.users
+		.set_displayname(user_id, displayname.clone());
 
 	// Send a new join membership event into all joined rooms
 	let avatar_url = &current_avatar_url;
@@ -376,8 +400,12 @@ pub async fn update_avatar_url(
 		return;
 	}
 
-	services.users.set_avatar_url(user_id, avatar_url.clone());
-	services.users.set_blurhash(user_id, blurhash.clone());
+	services
+		.users
+		.set_avatar_url(user_id, avatar_url.clone());
+	services
+		.users
+		.set_blurhash(user_id, blurhash.clone());
 
 	// Send a new join membership event into all joined rooms
 	let avatar_url = &avatar_url;

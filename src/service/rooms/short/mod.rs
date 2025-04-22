@@ -112,7 +112,10 @@ pub async fn get_or_create_shortstatekey(
 ) -> ShortStateKey {
 	const BUFSIZE: usize = size_of::<ShortStateKey>();
 
-	if let Ok(shortstatekey) = self.get_shortstatekey(event_type, state_key).await {
+	if let Ok(shortstatekey) = self
+		.get_shortstatekey(event_type, state_key)
+		.await
+	{
 		return shortstatekey;
 	}
 
@@ -235,7 +238,11 @@ pub async fn get_or_create_shortstatehash(&self, state_hash: &[u8]) -> (ShortSta
 
 #[implement(Service)]
 pub async fn get_shortroomid(&self, room_id: &RoomId) -> Result<ShortRoomId> {
-	self.db.roomid_shortroomid.get(room_id).await.deserialized()
+	self.db
+		.roomid_shortroomid
+		.get(room_id)
+		.await
+		.deserialized()
 }
 
 #[implement(Service)]

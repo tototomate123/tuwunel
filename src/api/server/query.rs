@@ -73,7 +73,10 @@ pub(crate) async fn get_profile_information_route(
 		));
 	}
 
-	if !services.globals.server_is_ours(body.user_id.server_name()) {
+	if !services
+		.globals
+		.server_is_ours(body.user_id.server_name())
+	{
 		return Err(Error::BadRequest(
 			ErrorKind::InvalidParam,
 			"User does not belong to this server.",
@@ -88,10 +91,18 @@ pub(crate) async fn get_profile_information_route(
 
 	match &body.field {
 		| Some(ProfileField::DisplayName) => {
-			displayname = services.users.displayname(&body.user_id).await.ok();
+			displayname = services
+				.users
+				.displayname(&body.user_id)
+				.await
+				.ok();
 		},
 		| Some(ProfileField::AvatarUrl) => {
-			avatar_url = services.users.avatar_url(&body.user_id).await.ok();
+			avatar_url = services
+				.users
+				.avatar_url(&body.user_id)
+				.await
+				.ok();
 			blurhash = services.users.blurhash(&body.user_id).await.ok();
 		},
 		| Some(custom_field) => {
@@ -104,8 +115,16 @@ pub(crate) async fn get_profile_information_route(
 			}
 		},
 		| None => {
-			displayname = services.users.displayname(&body.user_id).await.ok();
-			avatar_url = services.users.avatar_url(&body.user_id).await.ok();
+			displayname = services
+				.users
+				.displayname(&body.user_id)
+				.await
+				.ok();
+			avatar_url = services
+				.users
+				.avatar_url(&body.user_id)
+				.await
+				.ok();
 			blurhash = services.users.blurhash(&body.user_id).await.ok();
 			tz = services.users.timezone(&body.user_id).await.ok();
 			custom_profile_fields = services

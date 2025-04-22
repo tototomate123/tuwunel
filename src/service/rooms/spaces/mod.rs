@@ -92,14 +92,23 @@ impl crate::Service for Service {
 	}
 
 	async fn memory_usage(&self, out: &mut (dyn Write + Send)) -> Result {
-		let roomid_spacehierarchy_cache = self.roomid_spacehierarchy_cache.lock().await.len();
+		let roomid_spacehierarchy_cache = self
+			.roomid_spacehierarchy_cache
+			.lock()
+			.await
+			.len();
 
 		writeln!(out, "roomid_spacehierarchy_cache: {roomid_spacehierarchy_cache}")?;
 
 		Ok(())
 	}
 
-	async fn clear_cache(&self) { self.roomid_spacehierarchy_cache.lock().await.clear(); }
+	async fn clear_cache(&self) {
+		self.roomid_spacehierarchy_cache
+			.lock()
+			.await
+			.clear();
+	}
 
 	fn name(&self) -> &str { crate::service::make_name(std::module_path!()) }
 }
@@ -121,7 +130,11 @@ pub async fn get_summary_and_children_local(
 		| None => (), // cache miss
 		| Some(None) => return Ok(None),
 		| Some(Some(cached)) => {
-			let allowed_rooms = cached.summary.allowed_room_ids.iter().map(AsRef::as_ref);
+			let allowed_rooms = cached
+				.summary
+				.allowed_room_ids
+				.iter()
+				.map(AsRef::as_ref);
 
 			let is_accessible_child = self.is_accessible_child(
 				current_room,
@@ -154,10 +167,13 @@ pub async fn get_summary_and_children_local(
 		return Ok(None);
 	};
 
-	self.roomid_spacehierarchy_cache.lock().await.insert(
-		current_room.to_owned(),
-		Some(CachedSpaceHierarchySummary { summary: summary.clone() }),
-	);
+	self.roomid_spacehierarchy_cache
+		.lock()
+		.await
+		.insert(
+			current_room.to_owned(),
+			Some(CachedSpaceHierarchySummary { summary: summary.clone() }),
+		);
 
 	Ok(Some(SummaryAccessibility::Accessible(summary)))
 }
@@ -196,10 +212,13 @@ async fn get_summary_and_children_federation(
 	};
 
 	let summary = response.room;
-	self.roomid_spacehierarchy_cache.lock().await.insert(
-		current_room.to_owned(),
-		Some(CachedSpaceHierarchySummary { summary: summary.clone() }),
-	);
+	self.roomid_spacehierarchy_cache
+		.lock()
+		.await
+		.insert(
+			current_room.to_owned(),
+			Some(CachedSpaceHierarchySummary { summary: summary.clone() }),
+		);
 
 	response
 		.children
@@ -304,7 +323,11 @@ async fn get_room_summary(
 	children_state: Vec<Raw<HierarchySpaceChildEvent>>,
 	identifier: &Identifier<'_>,
 ) -> Result<SpaceHierarchyParentSummary, Error> {
-	let join_rule = self.services.state_accessor.get_join_rules(room_id).await;
+	let join_rule = self
+		.services
+		.state_accessor
+		.get_join_rules(room_id)
+		.await;
 
 	let is_accessible_child = self
 		.is_accessible_child(
@@ -319,15 +342,33 @@ async fn get_room_summary(
 		return Err!(Request(Forbidden("User is not allowed to see the room")));
 	}
 
-	let name = self.services.state_accessor.get_name(room_id).ok();
+	let name = self
+		.services
+		.state_accessor
+		.get_name(room_id)
+		.ok();
 
-	let topic = self.services.state_accessor.get_room_topic(room_id).ok();
+	let topic = self
+		.services
+		.state_accessor
+		.get_room_topic(room_id)
+		.ok();
 
-	let room_type = self.services.state_accessor.get_room_type(room_id).ok();
+	let room_type = self
+		.services
+		.state_accessor
+		.get_room_type(room_id)
+		.ok();
 
-	let world_readable = self.services.state_accessor.is_world_readable(room_id);
+	let world_readable = self
+		.services
+		.state_accessor
+		.is_world_readable(room_id);
 
-	let guest_can_join = self.services.state_accessor.guest_can_join(room_id);
+	let guest_can_join = self
+		.services
+		.state_accessor
+		.guest_can_join(room_id);
 
 	let num_joined_members = self
 		.services
@@ -392,7 +433,10 @@ async fn get_room_summary(
 		room_version,
 		room_id: room_id.to_owned(),
 		num_joined_members: num_joined_members.try_into().unwrap_or_default(),
-		allowed_room_ids: join_rule.allowed_rooms().map(Into::into).collect(),
+		allowed_room_ids: join_rule
+			.allowed_rooms()
+			.map(Into::into)
+			.collect(),
 		join_rule: join_rule.clone().into(),
 	};
 
@@ -425,9 +469,15 @@ where
 	}
 
 	if let Identifier::UserId(user_id) = identifier {
-		let is_joined = self.services.state_cache.is_joined(user_id, current_room);
+		let is_joined = self
+			.services
+			.state_cache
+			.is_joined(user_id, current_room);
 
-		let is_invited = self.services.state_cache.is_invited(user_id, current_room);
+		let is_invited = self
+			.services
+			.state_cache
+			.is_invited(user_id, current_room);
 
 		pin_mut!(is_joined, is_invited);
 		if is_joined.or(is_invited).await {
@@ -444,9 +494,15 @@ where
 				.stream()
 				.any(async |room| match identifier {
 					| Identifier::UserId(user) =>
-						self.services.state_cache.is_joined(user, room).await,
+						self.services
+							.state_cache
+							.is_joined(user, room)
+							.await,
 					| Identifier::ServerName(server) =>
-						self.services.state_cache.server_in_room(server, room).await,
+						self.services
+							.state_cache
+							.server_in_room(server, room)
+							.await,
 				})
 				.await,
 

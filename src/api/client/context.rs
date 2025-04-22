@@ -107,7 +107,9 @@ pub(crate) async fn get_context_route(
 		.collect();
 
 	let (base_event, events_before, events_after): (_, Vec<_>, Vec<_>) =
-		join3(base_event, events_before, events_after).boxed().await;
+		join3(base_event, events_before, events_after)
+			.boxed()
+			.await;
 
 	let lazy_loading_context = lazy_loading::Context {
 		user_id: sender_user,
@@ -138,7 +140,12 @@ pub(crate) async fn get_context_route(
 		.rooms
 		.state_accessor
 		.pdu_shortstatehash(state_at)
-		.or_else(|_| services.rooms.state.get_room_shortstatehash(room_id))
+		.or_else(|_| {
+			services
+				.rooms
+				.state
+				.get_room_shortstatehash(room_id)
+		})
 		.map_ok(|shortstatehash| {
 			services
 				.rooms
@@ -177,14 +184,20 @@ pub(crate) async fn get_context_route(
 			Some(event_id)
 		})
 		.broad_filter_map(|event_id: &OwnedEventId| {
-			services.rooms.timeline.get_pdu(event_id.as_ref()).ok()
+			services
+				.rooms
+				.timeline
+				.get_pdu(event_id.as_ref())
+				.ok()
 		})
 		.map(PduEvent::into_state_event)
 		.collect()
 		.await;
 
 	Ok(get_context::v3::Response {
-		event: base_event.map(at!(1)).map(PduEvent::into_room_event),
+		event: base_event
+			.map(at!(1))
+			.map(PduEvent::into_room_event),
 
 		start: events_before
 			.last()

@@ -87,11 +87,14 @@ async fn fetch_thumbnail_authenticated(
 		timeout_ms,
 	};
 
-	let Response { content, .. } = self.federation_request(mxc, user, server, request).await?;
+	let Response { content, .. } = self
+		.federation_request(mxc, user, server, request)
+		.await?;
 
 	match content {
 		| FileOrLocation::File(content) =>
-			self.handle_thumbnail_file(mxc, user, dim, content).await,
+			self.handle_thumbnail_file(mxc, user, dim, content)
+				.await,
 		| FileOrLocation::Location(location) => self.handle_location(mxc, user, &location).await,
 	}
 }
@@ -111,7 +114,9 @@ async fn fetch_content_authenticated(
 		timeout_ms,
 	};
 
-	let Response { content, .. } = self.federation_request(mxc, user, server, request).await?;
+	let Response { content, .. } = self
+		.federation_request(mxc, user, server, request)
+		.await?;
 
 	match content {
 		| FileOrLocation::File(content) => self.handle_content_file(mxc, user, content).await,
@@ -145,11 +150,14 @@ async fn fetch_thumbnail_unauthenticated(
 
 	let Response {
 		file, content_type, content_disposition, ..
-	} = self.federation_request(mxc, user, server, request).await?;
+	} = self
+		.federation_request(mxc, user, server, request)
+		.await?;
 
 	let content = Content { file, content_type, content_disposition };
 
-	self.handle_thumbnail_file(mxc, user, dim, content).await
+	self.handle_thumbnail_file(mxc, user, dim, content)
+		.await
 }
 
 #[allow(deprecated)]
@@ -173,7 +181,9 @@ async fn fetch_content_unauthenticated(
 
 	let Response {
 		file, content_type, content_disposition, ..
-	} = self.federation_request(mxc, user, server, request).await?;
+	} = self
+		.federation_request(mxc, user, server, request)
+		.await?;
 
 	let content = Content { file, content_type, content_disposition };
 
@@ -245,11 +255,13 @@ async fn handle_location(
 	user: Option<&UserId>,
 	location: &str,
 ) -> Result<FileMeta> {
-	self.location_request(location).await.map_err(|error| {
-		err!(Request(NotFound(
-			debug_warn!(%mxc, ?user, ?location, ?error, "Fetching media from location failed")
-		)))
-	})
+	self.location_request(location)
+		.await
+		.map_err(|error| {
+			err!(Request(NotFound(
+				debug_warn!(%mxc, ?user, ?location, ?error, "Fetching media from location failed")
+			)))
+		})
 }
 
 #[implement(super::Service)]

@@ -54,7 +54,8 @@ pub(super) async fn upgrade_outlier_to_timeline_pdu(
 
 	debug!("Resolving state at event");
 	let mut state_at_incoming_event = if incoming_pdu.prev_events.len() == 1 {
-		self.state_at_incoming_degree_one(&incoming_pdu).await?
+		self.state_at_incoming_degree_one(&incoming_pdu)
+			.await?
 	} else {
 		self.state_at_incoming_resolved(&incoming_pdu, room_id, &room_version_id)
 			.await?
@@ -74,10 +75,19 @@ pub(super) async fn upgrade_outlier_to_timeline_pdu(
 	// 11. Check the auth of the event passes based on the state of the event
 	let state_fetch_state = &state_at_incoming_event;
 	let state_fetch = |k: StateEventType, s: StateKey| async move {
-		let shortstatekey = self.services.short.get_shortstatekey(&k, &s).await.ok()?;
+		let shortstatekey = self
+			.services
+			.short
+			.get_shortstatekey(&k, &s)
+			.await
+			.ok()?;
 
 		let event_id = state_fetch_state.get(&shortstatekey)?;
-		self.services.timeline.get_pdu(event_id).await.ok()
+		self.services
+			.timeline
+			.get_pdu(event_id)
+			.await
+			.ok()
 	};
 
 	let auth_check = state_res::event_auth::auth_check(

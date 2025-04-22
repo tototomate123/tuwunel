@@ -50,7 +50,11 @@ pub(crate) async fn get_presence_route(
 		.await;
 
 	if has_shared_rooms {
-		if let Ok(presence) = services.presence.get_presence(&body.user_id).await {
+		if let Ok(presence) = services
+			.presence
+			.get_presence(&body.user_id)
+			.await
+		{
 			presence_event = Some(presence);
 		}
 	}

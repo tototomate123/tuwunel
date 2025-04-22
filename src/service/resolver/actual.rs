@@ -77,10 +77,12 @@ impl super::Service {
 					self.services.server.check_running()?;
 					match self.request_well_known(dest.as_str()).await? {
 						| Some(delegated) =>
-							self.actual_dest_3(&mut host, cache, delegated).await?,
+							self.actual_dest_3(&mut host, cache, delegated)
+								.await?,
 						| _ => match self.query_srv_record(dest.as_str()).await? {
 							| Some(overrider) =>
-								self.actual_dest_4(&host, cache, overrider).await?,
+								self.actual_dest_4(&host, cache, overrider)
+									.await?,
 							| _ => self.actual_dest_5(dest, cache).await?,
 						},
 					}
@@ -97,7 +99,8 @@ impl super::Service {
 			let (host, port) = host.split_at(pos);
 			FedDest::Named(
 				host.to_owned(),
-				port.try_into().unwrap_or_else(|_| FedDest::default_port()),
+				port.try_into()
+					.unwrap_or_else(|_| FedDest::default_port()),
 			)
 		} else {
 			FedDest::Named(host, FedDest::default_port())
@@ -124,7 +127,8 @@ impl super::Service {
 
 		Ok(FedDest::Named(
 			host.to_owned(),
-			port.try_into().unwrap_or_else(|_| FedDest::default_port()),
+			port.try_into()
+				.unwrap_or_else(|_| FedDest::default_port()),
 		))
 	}
 
@@ -145,7 +149,8 @@ impl super::Service {
 					trace!("Delegated hostname has no port in this branch");
 					match self.query_srv_record(&delegated).await? {
 						| Some(overrider) =>
-							self.actual_dest_3_3(cache, delegated, overrider).await,
+							self.actual_dest_3_3(cache, delegated, overrider)
+								.await,
 						| _ => self.actual_dest_3_4(cache, delegated).await,
 					}
 				},
@@ -170,7 +175,8 @@ impl super::Service {
 
 		Ok(FedDest::Named(
 			host.to_owned(),
-			port.try_into().unwrap_or_else(|_| FedDest::default_port()),
+			port.try_into()
+				.unwrap_or_else(|_| FedDest::default_port()),
 		))
 	}
 
@@ -287,17 +293,23 @@ impl super::Service {
 		self.services.server.check_running()?;
 
 		debug!("querying IP for {untername:?} ({hostname:?}:{port})");
-		match self.resolver.resolver.lookup_ip(hostname.to_owned()).await {
+		match self
+			.resolver
+			.resolver
+			.lookup_ip(hostname.to_owned())
+			.await
+		{
 			| Err(e) => Self::handle_resolve_error(&e, hostname),
 			| Ok(override_ip) => {
-				self.cache.set_override(untername, &CachedOverride {
-					ips: override_ip.into_iter().take(MAX_IPS).collect(),
-					port,
-					expire: CachedOverride::default_expire(),
-					overriding: (hostname != untername)
-						.then_some(hostname.into())
-						.inspect(|_| debug_info!("{untername:?} overriden by {hostname:?}")),
-				});
+				self.cache
+					.set_override(untername, &CachedOverride {
+						ips: override_ip.into_iter().take(MAX_IPS).collect(),
+						port,
+						expire: CachedOverride::default_expire(),
+						overriding: (hostname != untername)
+							.then_some(hostname.into())
+							.inspect(|_| debug_info!("{untername:?} overriden by {hostname:?}")),
+					});
 
 				Ok(())
 			},
@@ -319,7 +331,11 @@ impl super::Service {
 				| Ok(result) => {
 					return Ok(result.iter().next().map(|result| {
 						FedDest::Named(
-							result.target().to_string().trim_end_matches('.').to_owned(),
+							result
+								.target()
+								.to_string()
+								.trim_end_matches('.')
+								.to_owned(),
 							format!(":{}", result.port())
 								.as_str()
 								.try_into()

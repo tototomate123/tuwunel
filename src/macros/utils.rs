@@ -14,7 +14,12 @@ pub(crate) fn get_simple_settings(args: &[Meta]) -> HashMap<String, String> {
 			return map;
 		};
 
-		if let Some(key) = path.segments.iter().next().map(|s| s.ident.clone()) {
+		if let Some(key) = path
+			.segments
+			.iter()
+			.next()
+			.map(|s| s.ident.clone())
+		{
 			map.insert(key.to_string(), str.value());
 		}
 

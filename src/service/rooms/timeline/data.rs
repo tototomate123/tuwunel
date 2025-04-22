@@ -159,7 +159,9 @@ impl Data {
 		let non_outlier = self.non_outlier_pdu_exists(event_id).boxed();
 		let outlier = self.outlier_pdu_exists(event_id).boxed();
 
-		select_ok([non_outlier, outlier]).await.map(at!(0))
+		select_ok([non_outlier, outlier])
+			.await
+			.map(at!(0))
 	}
 
 	/// Returns the pdu.
@@ -187,8 +189,10 @@ impl Data {
 		debug_assert!(matches!(count, PduCount::Normal(_)), "PduCount not Normal");
 
 		self.pduid_pdu.raw_put(pdu_id, Json(json));
-		self.eventid_pduid.insert(pdu.event_id.as_bytes(), pdu_id);
-		self.eventid_outlierpdu.remove(pdu.event_id.as_bytes());
+		self.eventid_pduid
+			.insert(pdu.event_id.as_bytes(), pdu_id);
+		self.eventid_outlierpdu
+			.remove(pdu.event_id.as_bytes());
 	}
 
 	pub(super) fn prepend_backfill_pdu(

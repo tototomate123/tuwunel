@@ -2218,8 +2218,12 @@ fn default_admin_room_tag() -> String { "m.server_notice".to_owned() }
 fn parallelism_scaled_f64(val: f64) -> f64 { val * (sys::available_parallelism() as f64) }
 
 fn parallelism_scaled_u32(val: u32) -> u32 {
-	let val = val.try_into().expect("failed to cast u32 to usize");
-	parallelism_scaled(val).try_into().unwrap_or(u32::MAX)
+	let val = val
+		.try_into()
+		.expect("failed to cast u32 to usize");
+	parallelism_scaled(val)
+		.try_into()
+		.unwrap_or(u32::MAX)
 }
 
 fn parallelism_scaled(val: usize) -> usize { val.saturating_mul(sys::available_parallelism()) }

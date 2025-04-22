@@ -25,7 +25,8 @@ type RoomVersion = (RoomVersionId, RoomVersionStability);
 impl crate::Server {
 	#[inline]
 	pub fn supported_room_version(&self, version: &RoomVersionId) -> bool {
-		self.supported_room_versions().any(is_equal_to!(*version))
+		self.supported_room_versions()
+			.any(is_equal_to!(*version))
 	}
 
 	#[inline]

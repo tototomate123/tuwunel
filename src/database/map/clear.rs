@@ -14,7 +14,10 @@ use crate::keyval::Key;
 #[implement(super::Map)]
 #[tracing::instrument(level = "trace")]
 pub async fn clear(self: &Arc<Self>) {
-	self.for_clear().ignore_err().ready_for_each(|_| ()).await;
+	self.for_clear()
+		.ignore_err()
+		.ready_for_each(|_| ())
+		.await;
 }
 
 /// Delete all data stored in this map. !!! USE WITH CAUTION !!!

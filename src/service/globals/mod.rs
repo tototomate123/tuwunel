@@ -140,19 +140,31 @@ impl Service {
 	pub fn notification_push_path(&self) -> &String { &self.server.config.notification_push_path }
 
 	pub fn url_preview_domain_contains_allowlist(&self) -> &Vec<String> {
-		&self.server.config.url_preview_domain_contains_allowlist
+		&self
+			.server
+			.config
+			.url_preview_domain_contains_allowlist
 	}
 
 	pub fn url_preview_domain_explicit_allowlist(&self) -> &Vec<String> {
-		&self.server.config.url_preview_domain_explicit_allowlist
+		&self
+			.server
+			.config
+			.url_preview_domain_explicit_allowlist
 	}
 
 	pub fn url_preview_domain_explicit_denylist(&self) -> &Vec<String> {
-		&self.server.config.url_preview_domain_explicit_denylist
+		&self
+			.server
+			.config
+			.url_preview_domain_explicit_denylist
 	}
 
 	pub fn url_preview_url_contains_allowlist(&self) -> &Vec<String> {
-		&self.server.config.url_preview_url_contains_allowlist
+		&self
+			.server
+			.config
+			.url_preview_url_contains_allowlist
 	}
 
 	pub fn url_preview_max_spider_size(&self) -> usize {

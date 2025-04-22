@@ -42,7 +42,10 @@ static DEPENDENCIES: OnceLock<DepsSet> = OnceLock::new();
 
 #[must_use]
 pub fn dependencies_names() -> Vec<&'static str> {
-	dependencies().keys().map(String::as_str).collect()
+	dependencies()
+		.keys()
+		.map(String::as_str)
+		.collect()
 }
 
 pub fn dependencies() -> &'static DepsSet {

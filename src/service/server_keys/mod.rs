@@ -107,8 +107,11 @@ async fn add_signing_keys(&self, new_keys: ServerSigningKeys) {
 		});
 
 	keys.verify_keys.extend(new_keys.verify_keys);
-	keys.old_verify_keys.extend(new_keys.old_verify_keys);
-	self.db.server_signingkeys.raw_put(origin, Json(&keys));
+	keys.old_verify_keys
+		.extend(new_keys.old_verify_keys);
+	self.db
+		.server_signingkeys
+		.raw_put(origin, Json(&keys));
 }
 
 #[implement(Service)]
@@ -177,7 +180,11 @@ pub async fn verify_keys_for(&self, origin: &ServerName) -> VerifyKeys {
 
 #[implement(Service)]
 pub async fn signing_keys_for(&self, origin: &ServerName) -> Result<ServerSigningKeys> {
-	self.db.server_signingkeys.get(origin).await.deserialized()
+	self.db
+		.server_signingkeys
+		.get(origin)
+		.await
+		.deserialized()
 }
 
 #[implement(Service)]

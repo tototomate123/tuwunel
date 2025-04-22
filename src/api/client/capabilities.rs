@@ -26,7 +26,11 @@ pub(crate) async fn get_capabilities_route(
 
 	let mut capabilities = Capabilities::default();
 	capabilities.room_versions = RoomVersionsCapability {
-		default: services.server.config.default_room_version.clone(),
+		default: services
+			.server
+			.config
+			.default_room_version
+			.clone(),
 		available,
 	};
 

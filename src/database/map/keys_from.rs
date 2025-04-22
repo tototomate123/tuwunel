@@ -20,7 +20,8 @@ where
 	P: Serialize + ?Sized + Debug,
 	K: Deserialize<'a> + Send,
 {
-	self.keys_from_raw(from).map(result_deserialize_key::<K>)
+	self.keys_from_raw(from)
+		.map(result_deserialize_key::<K>)
 }
 
 #[implement(super::Map)]
@@ -45,7 +46,8 @@ where
 	P: AsRef<[u8]> + ?Sized + Debug + Sync,
 	K: Deserialize<'a> + Send,
 {
-	self.raw_keys_from(from).map(result_deserialize_key::<K>)
+	self.raw_keys_from(from)
+		.map(result_deserialize_key::<K>)
 }
 
 #[implement(super::Map)]

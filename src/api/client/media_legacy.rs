@@ -55,7 +55,10 @@ pub(crate) async fn get_media_preview_legacy_route(
 	InsecureClientIp(client): InsecureClientIp,
 	body: Ruma<get_media_preview::v3::Request>,
 ) -> Result<get_media_preview::v3::Response> {
-	let sender_user = body.sender_user.as_ref().expect("user is authenticated");
+	let sender_user = body
+		.sender_user
+		.as_ref()
+		.expect("user is authenticated");
 
 	let url = &body.url;
 	let url = Url::parse(&body.url).map_err(|e| {
@@ -70,11 +73,15 @@ pub(crate) async fn get_media_preview_legacy_route(
 		)));
 	}
 
-	let preview = services.media.get_url_preview(&url).await.map_err(|e| {
-		err!(Request(Unknown(
-			debug_error!(%sender_user, %url, "Failed to fetch a URL preview: {e}")
-		)))
-	})?;
+	let preview = services
+		.media
+		.get_url_preview(&url)
+		.await
+		.map_err(|e| {
+			err!(Request(Unknown(
+				debug_error!(%sender_user, %url, "Failed to fetch a URL preview: {e}")
+			)))
+		})?;
 
 	serde_json::value::to_raw_value(&preview)
 		.map(get_media_preview::v3::Response::from_raw_value)

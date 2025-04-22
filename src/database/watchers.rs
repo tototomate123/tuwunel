@@ -19,7 +19,12 @@ impl Watchers {
 		&'a self,
 		prefix: &[u8],
 	) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>> {
-		let mut rx = match self.watchers.write().unwrap().entry(prefix.to_vec()) {
+		let mut rx = match self
+			.watchers
+			.write()
+			.unwrap()
+			.entry(prefix.to_vec())
+		{
 			| hash_map::Entry::Occupied(o) => o.get().1.clone(),
 			| hash_map::Entry::Vacant(v) => {
 				let (tx, rx) = watch::channel(());
@@ -50,7 +55,8 @@ impl Watchers {
 			let mut watchers = self.watchers.write().unwrap();
 			for prefix in triggered {
 				if let Some(tx) = watchers.remove(prefix) {
-					tx.0.send(()).expect("channel should still be open");
+					tx.0.send(())
+						.expect("channel should still be open");
 				}
 			}
 		}

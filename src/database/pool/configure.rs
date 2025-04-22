@@ -18,11 +18,16 @@ pub(super) fn configure(server: &Arc<Server>) -> (usize, Vec<usize>, Vec<usize>)
 
 	// This finds the block device and gathers all the properties we need.
 	let path: PathBuf = config.database_path.clone();
-	let device_name = storage::name_from_path(&path).log_debug_err().ok();
+	let device_name = storage::name_from_path(&path)
+		.log_debug_err()
+		.ok();
 	let device_prop = storage::parallelism(&path);
 
 	// The default worker count is masked-on if we didn't find better information.
-	let default_worker_count = device_prop.mq.is_empty().then_some(config.db_pool_workers);
+	let default_worker_count = device_prop
+		.mq
+		.is_empty()
+		.then_some(config.db_pool_workers);
 
 	// Determine the worker groupings. Each indice represents a hardware queue and
 	// contains the number of workers which will service it.
@@ -38,9 +43,13 @@ pub(super) fn configure(server: &Arc<Server>) -> (usize, Vec<usize>, Vec<usize>)
 				.count()
 				.max(1);
 
-			let limit = config.db_pool_workers_limit.saturating_mul(shares);
+			let limit = config
+				.db_pool_workers_limit
+				.saturating_mul(shares);
 
-			let limit = device_prop.nr_requests.map_or(limit, |nr| nr.min(limit));
+			let limit = device_prop
+				.nr_requests
+				.map_or(limit, |nr| nr.min(limit));
 
 			mq.nr_tags.unwrap_or(WORKER_LIMIT.0).min(limit)
 		})

@@ -54,9 +54,15 @@ pub(crate) async fn upgrade_room_route(
 		TRANSFERABLE_STATE_EVENTS.is_sorted(),
 		"TRANSFERABLE_STATE_EVENTS is not sorted"
 	);
-	let sender_user = body.sender_user.as_ref().expect("user is authenticated");
+	let sender_user = body
+		.sender_user
+		.as_ref()
+		.expect("user is authenticated");
 
-	if !services.server.supported_room_version(&body.new_version) {
+	if !services
+		.server
+		.supported_room_version(&body.new_version)
+	{
 		return Err(Error::BadRequest(
 			ErrorKind::UnsupportedRoomVersion,
 			"This server does not support that room version.",
@@ -72,7 +78,12 @@ pub(crate) async fn upgrade_room_route(
 		.get_or_create_shortroomid(&replacement_room)
 		.await;
 
-	let state_lock = services.rooms.state.mutex.lock(&body.room_id).await;
+	let state_lock = services
+		.rooms
+		.state
+		.mutex
+		.lock(&body.room_id)
+		.await;
 
 	// Send a m.room.tombstone event to the old room to indicate that it is not
 	// intended to be used any further Fail if the sender does not have the required
@@ -93,7 +104,12 @@ pub(crate) async fn upgrade_room_route(
 
 	// Change lock to replacement room
 	drop(state_lock);
-	let state_lock = services.rooms.state.mutex.lock(&replacement_room).await;
+	let state_lock = services
+		.rooms
+		.state
+		.mutex
+		.lock(&replacement_room)
+		.await;
 
 	// Get the old room creation event
 	let mut create_event_content: CanonicalJsonObject = services

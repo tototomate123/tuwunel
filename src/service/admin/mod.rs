@@ -260,7 +260,12 @@ impl Service {
 			return Ok(());
 		};
 
-		let Ok(pdu) = self.services.timeline.get_pdu(&in_reply_to.event_id).await else {
+		let Ok(pdu) = self
+			.services
+			.timeline
+			.get_pdu(&in_reply_to.event_id)
+			.await
+		else {
 			error!(
 				event_id = ?in_reply_to.event_id,
 				"Missing admin command in_reply_to event"
@@ -327,7 +332,10 @@ impl Service {
 	pub async fn is_admin_command(&self, pdu: &PduEvent, body: &str) -> bool {
 		// Server-side command-escape with public echo
 		let is_escape = body.starts_with('\\');
-		let is_public_escape = is_escape && body.trim_start_matches('\\').starts_with("!admin");
+		let is_public_escape = is_escape
+			&& body
+				.trim_start_matches('\\')
+				.starts_with("!admin");
 
 		// Admin command with public echo (in admin room)
 		let server_user = &self.services.globals.server_user;
@@ -361,7 +369,12 @@ impl Service {
 
 		// This will evaluate to false if the emergency password is set up so that
 		// the administrator can execute commands as the server user
-		let emergency_password_set = self.services.server.config.emergency_password.is_some();
+		let emergency_password_set = self
+			.services
+			.server
+			.config
+			.emergency_password
+			.is_some();
 		let from_server = pdu.sender == *server_user && !emergency_password_set;
 		if from_server && self.is_admin_room(&pdu.room_id).await {
 			return false;
@@ -382,7 +395,11 @@ impl Service {
 	/// Sets the self-reference to crate::Services which will provide context to
 	/// the admin commands.
 	pub(super) fn set_services(&self, services: Option<&Arc<crate::Services>>) {
-		let receiver = &mut *self.services.services.write().expect("locked for writing");
+		let receiver = &mut *self
+			.services
+			.services
+			.write()
+			.expect("locked for writing");
 		let weak = services.map(Arc::downgrade);
 		*receiver = weak;
 	}

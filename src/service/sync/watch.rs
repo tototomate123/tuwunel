@@ -17,11 +17,27 @@ pub async fn watch(&self, user_id: &UserId, device_id: &DeviceId) -> Result {
 
 	// Return when *any* user changed their key
 	// TODO: only send for user they share a room with
-	futures.push(self.db.todeviceid_events.watch_prefix(&userdeviceid_prefix));
+	futures.push(
+		self.db
+			.todeviceid_events
+			.watch_prefix(&userdeviceid_prefix),
+	);
 
-	futures.push(self.db.userroomid_joined.watch_prefix(&userid_prefix));
-	futures.push(self.db.userroomid_invitestate.watch_prefix(&userid_prefix));
-	futures.push(self.db.userroomid_leftstate.watch_prefix(&userid_prefix));
+	futures.push(
+		self.db
+			.userroomid_joined
+			.watch_prefix(&userid_prefix),
+	);
+	futures.push(
+		self.db
+			.userroomid_invitestate
+			.watch_prefix(&userid_prefix),
+	);
+	futures.push(
+		self.db
+			.userroomid_leftstate
+			.watch_prefix(&userid_prefix),
+	);
 	futures.push(
 		self.db
 			.userroomid_notificationcount
@@ -47,7 +63,11 @@ pub async fn watch(&self, user_id: &UserId, device_id: &DeviceId) -> Result {
 		roomid_prefix.push(0xFF);
 
 		// Key changes
-		futures.push(self.db.keychangeid_userid.watch_prefix(&roomid_prefix));
+		futures.push(
+			self.db
+				.keychangeid_userid
+				.watch_prefix(&roomid_prefix),
+		);
 
 		// Room account data
 		let mut roomuser_prefix = roomid_prefix.clone();
@@ -66,7 +86,10 @@ pub async fn watch(&self, user_id: &UserId, device_id: &DeviceId) -> Result {
 		// EDUs
 		let typing_room_id = room_id.to_owned();
 		let typing_wait_for_update = async move {
-			self.services.typing.wait_for_update(&typing_room_id).await;
+			self.services
+				.typing
+				.wait_for_update(&typing_room_id)
+				.await;
 		};
 
 		futures.push(typing_wait_for_update.boxed());
@@ -87,7 +110,11 @@ pub async fn watch(&self, user_id: &UserId, device_id: &DeviceId) -> Result {
 	);
 
 	// More key changes (used when user is not joined to any rooms)
-	futures.push(self.db.keychangeid_userid.watch_prefix(&userid_prefix));
+	futures.push(
+		self.db
+			.keychangeid_userid
+			.watch_prefix(&userid_prefix),
+	);
 
 	// One time keys
 	futures.push(

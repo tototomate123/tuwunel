@@ -115,7 +115,8 @@ impl Services {
 	pub async fn start(self: &Arc<Self>) -> Result<Arc<Self>> {
 		debug_info!("Starting services...");
 
-		self.admin.set_services(Some(Arc::clone(self)).as_ref());
+		self.admin
+			.set_services(Some(Arc::clone(self)).as_ref());
 		super::migrations::migrations(self).await?;
 		self.manager
 			.lock()
@@ -188,7 +189,12 @@ impl Services {
 
 	fn interrupt(&self) {
 		debug!("Interrupting services...");
-		for (name, (service, ..)) in self.service.read().expect("locked for reading").iter() {
+		for (name, (service, ..)) in self
+			.service
+			.read()
+			.expect("locked for reading")
+			.iter()
+		{
 			if let Some(service) = service.upgrade() {
 				trace!("Interrupting {name}");
 				service.interrupt();

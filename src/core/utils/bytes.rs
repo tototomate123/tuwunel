@@ -21,7 +21,9 @@ pub fn from_str(str: &str) -> Result<usize> {
 #[inline]
 #[must_use]
 pub fn pretty(bytes: usize) -> String {
-	let bytes: u64 = bytes.try_into().expect("failed to convert usize to u64");
+	let bytes: u64 = bytes
+		.try_into()
+		.expect("failed to convert usize to u64");
 
 	ByteSize::b(bytes).display().iec().to_string()
 }

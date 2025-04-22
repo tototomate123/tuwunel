@@ -194,8 +194,13 @@ pub(super) async fn compact(
 	}
 
 	let range = (
-		start.as_ref().map(String::as_bytes).map(Into::into),
-		stop.as_ref().map(String::as_bytes).map(Into::into),
+		start
+			.as_ref()
+			.map(String::as_bytes)
+			.map(Into::into),
+		stop.as_ref()
+			.map(String::as_bytes)
+			.map(Into::into),
 	);
 
 	let options = Options {
@@ -429,7 +434,13 @@ pub(super) async fn raw_get(&self, map: String, key: String) -> Result {
 
 #[admin_command]
 pub(super) async fn raw_maps(&self) -> Result {
-	let list: Vec<_> = self.services.db.iter().map(at!(0)).copied().collect();
+	let list: Vec<_> = self
+		.services
+		.db
+		.iter()
+		.map(at!(0))
+		.copied()
+		.collect();
 
 	self.write_str(&format!("{list:#?}")).await
 }

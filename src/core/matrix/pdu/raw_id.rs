@@ -97,7 +97,11 @@ impl From<Id> for RawId {
 		match id.shorteventid {
 			| Count::Normal(shorteventid) => {
 				vec.extend(shorteventid.to_be_bytes());
-				Self::Normal(vec.as_ref().try_into().expect("RawVec into RawId::Normal"))
+				Self::Normal(
+					vec.as_ref()
+						.try_into()
+						.expect("RawVec into RawId::Normal"),
+				)
 			},
 			| Count::Backfilled(shorteventid) => {
 				vec.extend(0_u64.to_be_bytes());

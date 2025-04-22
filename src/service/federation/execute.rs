@@ -74,10 +74,15 @@ where
 		return Err!(Request(Forbidden(debug_warn!("Federation with {dest} is not allowed."))));
 	}
 
-	let actual = self.services.resolver.get_actual_dest(dest).await?;
+	let actual = self
+		.services
+		.resolver
+		.get_actual_dest(dest)
+		.await?;
 	let request = into_http_request::<T>(&actual, request)?;
 	let request = self.prepare(dest, request)?;
-	self.perform::<T>(dest, &actual, request, client).await
+	self.perform::<T>(dest, &actual, request, client)
+		.await
 }
 
 #[implement(super::Service)]

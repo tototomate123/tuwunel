@@ -107,15 +107,24 @@ impl Service {
 	}
 
 	pub fn forget_snake_sync_connection(&self, key: &SnakeConnectionsKey) {
-		self.snake_connections.lock().expect("locked").remove(key);
+		self.snake_connections
+			.lock()
+			.expect("locked")
+			.remove(key);
 	}
 
 	pub fn remembered(&self, key: &DbConnectionsKey) -> bool {
-		self.connections.lock().expect("locked").contains_key(key)
+		self.connections
+			.lock()
+			.expect("locked")
+			.contains_key(key)
 	}
 
 	pub fn forget_sync_request_connection(&self, key: &DbConnectionsKey) {
-		self.connections.lock().expect("locked").remove(key);
+		self.connections
+			.lock()
+			.expect("locked")
+			.remove(key);
 	}
 
 	pub fn update_snake_sync_request_with_cache(

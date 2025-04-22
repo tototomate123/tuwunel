@@ -58,7 +58,8 @@ impl Data {
 
 		let count = self.services.globals.next_count().unwrap();
 		let latest_id = (room_id, count, user_id);
-		self.readreceiptid_readreceipt.put(latest_id, Json(event));
+		self.readreceiptid_readreceipt
+			.put(latest_id, Json(event));
 	}
 
 	pub(super) fn readreceipts_since<'a>(
@@ -91,7 +92,8 @@ impl Data {
 		let next_count = self.services.globals.next_count().unwrap();
 
 		self.roomuserid_privateread.put(key, pdu_count);
-		self.roomuserid_lastprivatereadupdate.put(key, next_count);
+		self.roomuserid_lastprivatereadupdate
+			.put(key, next_count);
 	}
 
 	pub(super) async fn private_read_get_count(
@@ -100,7 +102,10 @@ impl Data {
 		user_id: &UserId,
 	) -> Result<u64> {
 		let key = (room_id, user_id);
-		self.roomuserid_privateread.qry(&key).await.deserialized()
+		self.roomuserid_privateread
+			.qry(&key)
+			.await
+			.deserialized()
 	}
 
 	pub(super) async fn last_privateread_update(

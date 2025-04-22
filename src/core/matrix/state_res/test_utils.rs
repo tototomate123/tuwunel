@@ -206,12 +206,16 @@ pub(crate) async fn do_check(
 			)
 		});
 
-		let key = ev.event_type().with_state_key(ev.state_key().unwrap());
+		let key = ev
+			.event_type()
+			.with_state_key(ev.state_key().unwrap());
 
 		expected_state.insert(key, node);
 	}
 
-	let start_state = state_at_event.get(event_id!("$START:foo")).unwrap();
+	let start_state = state_at_event
+		.get(event_id!("$START:foo"))
+		.unwrap();
 
 	let end_state = state_at_event
 		.get(event_id!("$END:foo"))
@@ -340,21 +344,33 @@ impl TestStore<PduEvent> {
 		let state_at_bob = [&create_event, &alice_mem, &join_rules, &bob_mem]
 			.iter()
 			.map(|e| {
-				(e.event_type().with_state_key(e.state_key().unwrap()), e.event_id().to_owned())
+				(
+					e.event_type()
+						.with_state_key(e.state_key().unwrap()),
+					e.event_id().to_owned(),
+				)
 			})
 			.collect::<StateMap<_>>();
 
 		let state_at_charlie = [&create_event, &alice_mem, &join_rules, &charlie_mem]
 			.iter()
 			.map(|e| {
-				(e.event_type().with_state_key(e.state_key().unwrap()), e.event_id().to_owned())
+				(
+					e.event_type()
+						.with_state_key(e.state_key().unwrap()),
+					e.event_id().to_owned(),
+				)
 			})
 			.collect::<StateMap<_>>();
 
 		let expected = [&create_event, &alice_mem, &join_rules, &bob_mem, &charlie_mem]
 			.iter()
 			.map(|e| {
-				(e.event_type().with_state_key(e.state_key().unwrap()), e.event_id().to_owned())
+				(
+					e.event_type()
+						.with_state_key(e.state_key().unwrap()),
+					e.event_id().to_owned(),
+				)
 			})
 			.collect::<StateMap<_>>();
 

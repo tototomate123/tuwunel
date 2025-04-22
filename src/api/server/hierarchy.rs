@@ -17,7 +17,12 @@ pub(crate) async fn get_hierarchy_route(
 	State(services): State<crate::State>,
 	body: Ruma<get_hierarchy::v1::Request>,
 ) -> Result<get_hierarchy::v1::Response> {
-	if !services.rooms.metadata.exists(&body.room_id).await {
+	if !services
+		.rooms
+		.metadata
+		.exists(&body.room_id)
+		.await
+	{
 		return Err!(Request(NotFound("Room does not exist.")));
 	}
 
@@ -60,8 +65,15 @@ pub(crate) async fn get_hierarchy_route(
 					.unzip()
 					.map(|(children, inaccessible_children): (Vec<_>, Vec<_>)| {
 						(
-							children.into_iter().flatten().map(Into::into).collect(),
-							inaccessible_children.into_iter().flatten().collect(),
+							children
+								.into_iter()
+								.flatten()
+								.map(Into::into)
+								.collect(),
+							inaccessible_children
+								.into_iter()
+								.flatten()
+								.collect(),
 						)
 					})
 					.await;

@@ -139,9 +139,15 @@ pub async fn search_pdu_ids(
 	&self,
 	query: &RoomQuery<'_>,
 ) -> Result<impl Stream<Item = RawPduId> + Send + '_ + use<'_>> {
-	let shortroomid = self.services.short.get_shortroomid(query.room_id).await?;
+	let shortroomid = self
+		.services
+		.short
+		.get_shortroomid(query.room_id)
+		.await?;
 
-	let pdu_ids = self.search_pdu_ids_query_room(query, shortroomid).await;
+	let pdu_ids = self
+		.search_pdu_ids_query_room(query, shortroomid)
+		.await;
 
 	let iters = pdu_ids.into_iter().map(IntoIterator::into_iter);
 

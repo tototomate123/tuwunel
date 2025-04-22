@@ -30,10 +30,19 @@ pub(crate) async fn send_message_event_route(
 		return Err!(Request(Forbidden("Encryption has been disabled")));
 	}
 
-	let state_lock = services.rooms.state.mutex.lock(&body.room_id).await;
+	let state_lock = services
+		.rooms
+		.state
+		.mutex
+		.lock(&body.room_id)
+		.await;
 
 	if body.event_type == MessageLikeEventType::CallInvite
-		&& services.rooms.directory.is_public_room(&body.room_id).await
+		&& services
+			.rooms
+			.directory
+			.is_public_room(&body.room_id)
+			.await
 	{
 		return Err!(Request(Forbidden("Room call invites are not allowed in public rooms")));
 	}

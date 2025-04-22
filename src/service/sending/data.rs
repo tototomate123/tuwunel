@@ -170,7 +170,8 @@ impl Data {
 	}
 
 	pub(super) fn set_latest_educount(&self, server_name: &ServerName, last_count: u64) {
-		self.servername_educount.raw_put(server_name, last_count);
+		self.servername_educount
+			.raw_put(server_name, last_count);
 	}
 
 	pub async fn get_latest_educount(&self, server_name: &ServerName) -> u64 {
@@ -187,7 +188,9 @@ fn parse_servercurrentevent(key: &[u8], value: &[u8]) -> Result<(Destination, Se
 	Ok::<_, Error>(if key.starts_with(b"+") {
 		let mut parts = key[1..].splitn(2, |&b| b == 0xFF);
 
-		let server = parts.next().expect("splitn always returns one element");
+		let server = parts
+			.next()
+			.expect("splitn always returns one element");
 		let event = parts
 			.next()
 			.ok_or_else(|| Error::bad_database("Invalid bytes in servercurrentpdus."))?;
@@ -207,7 +210,9 @@ fn parse_servercurrentevent(key: &[u8], value: &[u8]) -> Result<(Destination, Se
 	} else if key.starts_with(b"$") {
 		let mut parts = key[1..].splitn(3, |&b| b == 0xFF);
 
-		let user = parts.next().expect("splitn always returns one element");
+		let user = parts
+			.next()
+			.expect("splitn always returns one element");
 		let user_string = utils::str_from_bytes(user)
 			.map_err(|_| Error::bad_database("Invalid user string in servercurrentevent"))?;
 		let user_id = UserId::parse(user_string)
@@ -235,7 +240,9 @@ fn parse_servercurrentevent(key: &[u8], value: &[u8]) -> Result<(Destination, Se
 	} else {
 		let mut parts = key.splitn(2, |&b| b == 0xFF);
 
-		let server = parts.next().expect("splitn always returns one element");
+		let server = parts
+			.next()
+			.expect("splitn always returns one element");
 		let event = parts
 			.next()
 			.ok_or_else(|| Error::bad_database("Invalid bytes in servercurrentpdus."))?;

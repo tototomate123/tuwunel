@@ -104,7 +104,10 @@ pub fn auth_types_for_event(
 				}
 
 				if membership == MembershipState::Invite {
-					if let Some(Ok(t_id)) = content.third_party_invite.map(|t| t.deserialize()) {
+					if let Some(Ok(t_id)) = content
+						.third_party_invite
+						.map(|t| t.deserialize())
+					{
 						let key =
 							(StateEventType::RoomThirdPartyInvite, t_id.signed.token.into());
 						if !auth_types.contains(&key) {
@@ -564,9 +567,12 @@ fn valid_membership_change(
 	}
 
 	let power_levels_event_id = power_levels_event.as_ref().map(Event::event_id);
-	let sender_membership_event_id = sender_membership_event.as_ref().map(Event::event_id);
-	let target_user_membership_event_id =
-		target_user_membership_event.as_ref().map(Event::event_id);
+	let sender_membership_event_id = sender_membership_event
+		.as_ref()
+		.map(Event::event_id);
+	let target_user_membership_event_id = target_user_membership_event
+		.as_ref()
+		.map(Event::event_id);
 
 	let user_for_join_auth_is_valid = if let Some(user_for_join_auth) = user_for_join_auth {
 		// Is the authorised user allowed to invite users into this room
@@ -725,7 +731,9 @@ fn valid_membership_change(
 				allow
 			} else if !sender_is_joined
 				|| target_user_current_membership == MembershipState::Ban
-					&& sender_power.filter(|&p| p < &power_levels.ban).is_some()
+					&& sender_power
+						.filter(|&p| p < &power_levels.ban)
+						.is_some()
 			{
 				warn!(
 					?target_user_membership_event_id,
@@ -734,8 +742,9 @@ fn valid_membership_change(
 				);
 				false
 			} else {
-				let allow = sender_power.filter(|&p| p >= &power_levels.kick).is_some()
-					&& target_power < sender_power;
+				let allow = sender_power
+					.filter(|&p| p >= &power_levels.kick)
+					.is_some() && target_power < sender_power;
 				if !allow {
 					warn!(
 						?target_user_membership_event_id,
@@ -750,8 +759,9 @@ fn valid_membership_change(
 				warn!(?sender_membership_event_id, "Can't ban user if sender is not joined");
 				false
 			} else {
-				let allow = sender_power.filter(|&p| p >= &power_levels.ban).is_some()
-					&& target_power < sender_power;
+				let allow = sender_power
+					.filter(|&p| p >= &power_levels.ban)
+					.is_some() && target_power < sender_power;
 				if !allow {
 					warn!(
 						?target_user_membership_event_id,
@@ -829,7 +839,9 @@ fn can_send_event(event: impl Event, ple: Option<impl Event>, user_level: Int) -
 		return false;
 	}
 
-	if event.state_key().is_some_and(|k| k.starts_with('@'))
+	if event
+		.state_key()
+		.is_some_and(|k| k.starts_with('@'))
 		&& event.state_key() != Some(event.sender().as_str())
 	{
 		return false; // permission required to post in this room
@@ -1040,13 +1052,17 @@ fn get_send_level(
 		.and_then(|ple| {
 			from_json_str::<RoomPowerLevelsEventContent>(ple.content().get())
 				.map(|content| {
-					content.events.get(e_type).copied().unwrap_or_else(|| {
-						if state_key.is_some() {
-							content.state_default
-						} else {
-							content.events_default
-						}
-					})
+					content
+						.events
+						.get(e_type)
+						.copied()
+						.unwrap_or_else(|| {
+							if state_key.is_some() {
+								content.state_default
+							} else {
+								content.events_default
+							}
+						})
 				})
 				.ok()
 		})
@@ -1135,13 +1151,21 @@ mod tests {
 	#[test]
 	fn test_ban_pass() {
 		let _ = tracing::subscriber::set_default(
-			tracing_subscriber::fmt().with_test_writer().finish(),
+			tracing_subscriber::fmt()
+				.with_test_writer()
+				.finish(),
 		);
 		let events = INITIAL_EVENTS();
 
 		let auth_events = events
 			.values()
-			.map(|ev| (ev.event_type().with_state_key(ev.state_key().unwrap()), ev.clone()))
+			.map(|ev| {
+				(
+					ev.event_type()
+						.with_state_key(ev.state_key().unwrap()),
+					ev.clone(),
+				)
+			})
 			.collect::<StateMap<_>>();
 
 		let requester = to_pdu_event(
@@ -1180,13 +1204,21 @@ mod tests {
 	#[test]
 	fn test_join_non_creator() {
 		let _ = tracing::subscriber::set_default(
-			tracing_subscriber::fmt().with_test_writer().finish(),
+			tracing_subscriber::fmt()
+				.with_test_writer()
+				.finish(),
 		);
 		let events = INITIAL_EVENTS_CREATE_ROOM();
 
 		let auth_events = events
 			.values()
-			.map(|ev| (ev.event_type().with_state_key(ev.state_key().unwrap()), ev.clone()))
+			.map(|ev| {
+				(
+					ev.event_type()
+						.with_state_key(ev.state_key().unwrap()),
+					ev.clone(),
+				)
+			})
 			.collect::<StateMap<_>>();
 
 		let requester = to_pdu_event(
@@ -1225,13 +1257,21 @@ mod tests {
 	#[test]
 	fn test_join_creator() {
 		let _ = tracing::subscriber::set_default(
-			tracing_subscriber::fmt().with_test_writer().finish(),
+			tracing_subscriber::fmt()
+				.with_test_writer()
+				.finish(),
 		);
 		let events = INITIAL_EVENTS_CREATE_ROOM();
 
 		let auth_events = events
 			.values()
-			.map(|ev| (ev.event_type().with_state_key(ev.state_key().unwrap()), ev.clone()))
+			.map(|ev| {
+				(
+					ev.event_type()
+						.with_state_key(ev.state_key().unwrap()),
+					ev.clone(),
+				)
+			})
 			.collect::<StateMap<_>>();
 
 		let requester = to_pdu_event(
@@ -1270,13 +1310,21 @@ mod tests {
 	#[test]
 	fn test_ban_fail() {
 		let _ = tracing::subscriber::set_default(
-			tracing_subscriber::fmt().with_test_writer().finish(),
+			tracing_subscriber::fmt()
+				.with_test_writer()
+				.finish(),
 		);
 		let events = INITIAL_EVENTS();
 
 		let auth_events = events
 			.values()
-			.map(|ev| (ev.event_type().with_state_key(ev.state_key().unwrap()), ev.clone()))
+			.map(|ev| {
+				(
+					ev.event_type()
+						.with_state_key(ev.state_key().unwrap()),
+					ev.clone(),
+				)
+			})
 			.collect::<StateMap<_>>();
 
 		let requester = to_pdu_event(
@@ -1315,7 +1363,9 @@ mod tests {
 	#[test]
 	fn test_restricted_join_rule() {
 		let _ = tracing::subscriber::set_default(
-			tracing_subscriber::fmt().with_test_writer().finish(),
+			tracing_subscriber::fmt()
+				.with_test_writer()
+				.finish(),
 		);
 		let mut events = INITIAL_EVENTS();
 		*events.get_mut(&event_id("IJR")).unwrap() = to_pdu_event(
@@ -1338,7 +1388,13 @@ mod tests {
 
 		let auth_events = events
 			.values()
-			.map(|ev| (ev.event_type().with_state_key(ev.state_key().unwrap()), ev.clone()))
+			.map(|ev| {
+				(
+					ev.event_type()
+						.with_state_key(ev.state_key().unwrap()),
+					ev.clone(),
+				)
+			})
 			.collect::<StateMap<_>>();
 
 		let requester = to_pdu_event(
@@ -1395,7 +1451,9 @@ mod tests {
 	#[test]
 	fn test_knock() {
 		let _ = tracing::subscriber::set_default(
-			tracing_subscriber::fmt().with_test_writer().finish(),
+			tracing_subscriber::fmt()
+				.with_test_writer()
+				.finish(),
 		);
 		let mut events = INITIAL_EVENTS();
 		*events.get_mut(&event_id("IJR")).unwrap() = to_pdu_event(
@@ -1410,7 +1468,13 @@ mod tests {
 
 		let auth_events = events
 			.values()
-			.map(|ev| (ev.event_type().with_state_key(ev.state_key().unwrap()), ev.clone()))
+			.map(|ev| {
+				(
+					ev.event_type()
+						.with_state_key(ev.state_key().unwrap()),
+					ev.clone(),
+				)
+			})
 			.collect::<StateMap<_>>();
 
 		let requester = to_pdu_event(

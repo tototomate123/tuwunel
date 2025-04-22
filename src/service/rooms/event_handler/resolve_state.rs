@@ -92,7 +92,11 @@ pub async fn resolve_state(
 	let new_room_state: CompressedState = self
 		.services
 		.state_compressor
-		.compress_state_events(state_events.iter().map(|(ssk, eid)| (ssk, (*eid).borrow())))
+		.compress_state_events(
+			state_events
+				.iter()
+				.map(|(ssk, eid)| (ssk, (*eid).borrow())),
+		)
 		.collect()
 		.await;
 

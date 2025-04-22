@@ -65,7 +65,11 @@ where
 		let h = h.into().unwrap_or_else(runtime::Handle::current);
 		self.broadn_and_then(n, move |val| {
 			let (h, f) = (h.clone(), f.clone());
-			async move { h.spawn_blocking(move || f(val)).map_err(E::from).await? }
+			async move {
+				h.spawn_blocking(move || f(val))
+					.map_err(E::from)
+					.await?
+			}
 		})
 	}
 }

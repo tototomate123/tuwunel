@@ -71,13 +71,18 @@ impl Service {
 			.await
 			.insert(room_id.to_owned(), self.services.globals.next_count()?);
 
-		if self.typing_update_sender.send(room_id.to_owned()).is_err() {
+		if self
+			.typing_update_sender
+			.send(room_id.to_owned())
+			.is_err()
+		{
 			trace!("receiver found what it was looking for and is no longer interested");
 		}
 
 		// update federation
 		if self.services.globals.user_is_local(user_id) {
-			self.federation_send(room_id, user_id, true).await?;
+			self.federation_send(room_id, user_id, true)
+				.await?;
 		}
 
 		Ok(())
@@ -99,13 +104,18 @@ impl Service {
 			.await
 			.insert(room_id.to_owned(), self.services.globals.next_count()?);
 
-		if self.typing_update_sender.send(room_id.to_owned()).is_err() {
+		if self
+			.typing_update_sender
+			.send(room_id.to_owned())
+			.is_err()
+		{
 			trace!("receiver found what it was looking for and is no longer interested");
 		}
 
 		// update federation
 		if self.services.globals.user_is_local(user_id) {
-			self.federation_send(room_id, user_id, false).await?;
+			self.federation_send(room_id, user_id, false)
+				.await?;
 		}
 
 		Ok(())
@@ -152,7 +162,11 @@ impl Service {
 				.await
 				.insert(room_id.to_owned(), self.services.globals.next_count()?);
 
-			if self.typing_update_sender.send(room_id.to_owned()).is_err() {
+			if self
+				.typing_update_sender
+				.send(room_id.to_owned())
+				.is_err()
+			{
 				trace!("receiver found what it was looking for and is no longer interested");
 			}
 
@@ -233,7 +247,10 @@ impl Service {
 		let mut buf = EduBuf::new();
 		serde_json::to_writer(&mut buf, &edu).expect("Serialized Edu::Typing");
 
-		self.services.sending.send_edu_room(room_id, buf).await?;
+		self.services
+			.sending
+			.send_edu_room(room_id, buf)
+			.await?;
 
 		Ok(())
 	}

@@ -182,7 +182,11 @@ pub(super) async fn process(subcommand: RoomStateCacheCommand, context: &Context
 		},
 		| RoomStateCacheCommand::RoomJoinedCount { room_id } => {
 			let timer = tokio::time::Instant::now();
-			let results = services.rooms.state_cache.room_joined_count(&room_id).await;
+			let results = services
+				.rooms
+				.state_cache
+				.room_joined_count(&room_id)
+				.await;
 			let query_time = timer.elapsed();
 
 			context

@@ -136,7 +136,10 @@ async fn get_auth_chain_outer(
 		return Ok(Vec::new());
 	}
 
-	if let Ok(cached) = self.get_cached_eventid_authchain(&chunk_key).await {
+	if let Ok(cached) = self
+		.get_cached_eventid_authchain(&chunk_key)
+		.await
+	{
 		return Ok(cached.to_vec());
 	}
 
@@ -144,11 +147,16 @@ async fn get_auth_chain_outer(
 		.into_iter()
 		.try_stream()
 		.broad_and_then(|(shortid, event_id)| async move {
-			if let Ok(cached) = self.get_cached_eventid_authchain(&[shortid]).await {
+			if let Ok(cached) = self
+				.get_cached_eventid_authchain(&[shortid])
+				.await
+			{
 				return Ok(cached.to_vec());
 			}
 
-			let auth_chain = self.get_auth_chain_inner(room_id, event_id).await?;
+			let auth_chain = self
+				.get_auth_chain_inner(room_id, event_id)
+				.await?;
 			self.cache_auth_chain_vec(vec![shortid], auth_chain.as_slice());
 			debug!(
 				?event_id,
@@ -254,4 +262,10 @@ pub fn get_cache_usage(&self) -> (usize, usize) {
 }
 
 #[implement(Service)]
-pub fn clear_cache(&self) { self.db.auth_chain_cache.lock().expect("locked").clear(); }
+pub fn clear_cache(&self) {
+	self.db
+		.auth_chain_cache
+		.lock()
+		.expect("locked")
+		.clear();
+}

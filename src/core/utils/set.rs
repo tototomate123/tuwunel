@@ -68,7 +68,11 @@ where
 	a.map(move |ai| (ai, b.clone()))
 		.filter_map(|(ai, b)| async move {
 			let mut lock = b.lock().await;
-			while let Some(bi) = Pin::new(&mut *lock).next_if(|bi| *bi <= ai).await.as_ref() {
+			while let Some(bi) = Pin::new(&mut *lock)
+				.next_if(|bi| *bi <= ai)
+				.await
+				.as_ref()
+			{
 				if ai == *bi {
 					return Some(ai);
 				}

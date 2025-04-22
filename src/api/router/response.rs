@@ -23,7 +23,11 @@ where
 			.inspect_err(|e| error!("response error: {e}"))
 			.map_or_else(
 				|_| StatusCode::INTERNAL_SERVER_ERROR.into_response(),
-				|r| r.map(BytesMut::freeze).map(Full::new).into_response(),
+				|r| {
+					r.map(BytesMut::freeze)
+						.map(Full::new)
+						.into_response()
+				},
 			)
 	}
 }

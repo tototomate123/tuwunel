@@ -69,7 +69,10 @@ async fn process_command(services: Arc<Services>, input: &CommandInput) -> Proce
 	let (result, mut logs) = process(&context, command, &args).await;
 
 	let output = &mut context.output.lock().await;
-	output.flush().await.expect("final flush of output stream");
+	output
+		.flush()
+		.await
+		.expect("final flush of output stream");
 
 	let output =
 		String::from_utf8(take(output.get_mut())).expect("invalid utf8 in command output stream");
@@ -79,7 +82,8 @@ async fn process_command(services: Arc<Services>, input: &CommandInput) -> Proce
 			Ok(Some(reply(RoomMessageEventContent::notice_markdown(output), context.reply_id))),
 
 		| Ok(()) => {
-			logs.write_str(output.as_str()).expect("output buffer");
+			logs.write_str(output.as_str())
+				.expect("output buffer");
 			Ok(Some(reply(RoomMessageEventContent::notice_markdown(logs), context.reply_id)))
 		},
 		| Err(error) => {
@@ -172,8 +176,14 @@ fn parse<'a>(
 	services: &Arc<Services>,
 	input: &'a CommandInput,
 ) -> Result<(AdminCommand, Vec<String>, Vec<&'a str>), CommandOutput> {
-	let lines = input.command.lines().filter(|line| !line.trim().is_empty());
-	let command_line = lines.clone().next().expect("command missing first line");
+	let lines = input
+		.command
+		.lines()
+		.filter(|line| !line.trim().is_empty());
+	let command_line = lines
+		.clone()
+		.next()
+		.expect("command missing first line");
 	let body = lines.skip(1).collect();
 	match parse_command(command_line) {
 		| Ok((command, args)) => Ok((command, args, body)),

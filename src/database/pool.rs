@@ -117,7 +117,11 @@ impl Drop for Pool {
 pub(crate) fn close(&self) {
 	let workers = take(&mut *self.workers.lock().expect("locked"));
 
-	let senders = self.queues.iter().map(Sender::sender_count).sum::<usize>();
+	let senders = self
+		.queues
+		.iter()
+		.map(Sender::sender_count)
+		.sum::<usize>();
 
 	let receivers = self
 		.queues
@@ -225,7 +229,9 @@ pub(crate) async fn execute_iter(self: &Arc<Self>, mut cmd: Seek) -> Result<stre
 fn select_queue(&self) -> &Sender<Cmd> {
 	let core_id = get_affinity().next().unwrap_or(0);
 	let chan_id = self.topology[core_id];
-	self.queues.get(chan_id).unwrap_or_else(|| &self.queues[0])
+	self.queues
+		.get(chan_id)
+		.unwrap_or_else(|| &self.queues[0])
 }
 
 #[implement(Pool)]
@@ -242,7 +248,8 @@ fn select_queue(&self) -> &Sender<Cmd> {
 )]
 async fn execute(&self, queue: &Sender<Cmd>, cmd: Cmd) -> Result {
 	if cfg!(debug_assertions) {
-		self.queued_max.fetch_max(queue.len(), Ordering::Relaxed);
+		self.queued_max
+			.fetch_max(queue.len(), Ordering::Relaxed);
 	}
 
 	queue

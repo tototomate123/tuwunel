@@ -18,7 +18,9 @@ static SEND_PANIC: OnceLock<bool> = OnceLock::new();
 static SEND_ERROR: OnceLock<bool> = OnceLock::new();
 
 pub(crate) fn init(config: &Config) -> Option<sentry::ClientInitGuard> {
-	config.sentry.then(|| sentry::init(options(config)))
+	config
+		.sentry
+		.then(|| sentry::init(options(config)))
 }
 
 fn options(config: &Config) -> ClientOptions {

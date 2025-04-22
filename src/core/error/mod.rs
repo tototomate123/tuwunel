@@ -184,7 +184,9 @@ impl Error {
 			| Self::Request(kind, _, code) => response::status_code(kind, *code),
 			| Self::BadRequest(kind, ..) => response::bad_request_code(kind),
 			| Self::FeatureDisabled(..) => response::bad_request_code(&self.kind()),
-			| Self::Reqwest(error) => error.status().unwrap_or(StatusCode::INTERNAL_SERVER_ERROR),
+			| Self::Reqwest(error) => error
+				.status()
+				.unwrap_or(StatusCode::INTERNAL_SERVER_ERROR),
 			| Self::Conflict(_) => StatusCode::CONFLICT,
 			| Self::Io(error) => response::io_error_code(error.kind()),
 			| _ => StatusCode::INTERNAL_SERVER_ERROR,

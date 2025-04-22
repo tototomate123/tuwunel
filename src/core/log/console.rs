@@ -103,8 +103,10 @@ where
 		writer: Writer<'_>,
 		event: &Event<'_>,
 	) -> Result<(), std::fmt::Error> {
-		let is_debug =
-			cfg!(debug_assertions) && event.fields().any(|field| field.name() == "_debug");
+		let is_debug = cfg!(debug_assertions)
+			&& event
+				.fields()
+				.any(|field| field.name() == "_debug");
 
 		match *event.metadata().level() {
 			| Level::ERROR if !is_debug => self.pretty.format_event(ctx, writer, event),

@@ -87,22 +87,26 @@ impl crate::Service for Service {
 	async fn memory_usage(&self, out: &mut (dyn Write + Send)) -> Result {
 		let (cache_len, ents) = {
 			let cache = self.stateinfo_cache.lock().expect("locked");
-			let ents = cache.iter().map(at!(1)).flat_map(|vec| vec.iter()).fold(
-				HashMap::new(),
-				|mut ents, ssi| {
+			let ents = cache
+				.iter()
+				.map(at!(1))
+				.flat_map(|vec| vec.iter())
+				.fold(HashMap::new(), |mut ents, ssi| {
 					for cs in &[&ssi.added, &ssi.removed, &ssi.full_state] {
 						ents.insert(Arc::as_ptr(cs), compressed_state_size(cs));
 					}
 
 					ents
-				},
-			);
+				});
 
 			(cache.len(), ents)
 		};
 
 		let ents_len = ents.len();
-		let bytes = ents.values().copied().fold(0_usize, usize::saturating_add);
+		let bytes = ents
+			.values()
+			.copied()
+			.fold(0_usize, usize::saturating_add);
 
 		let bytes = bytes::pretty(bytes);
 		writeln!(out, "stateinfo_cache: {cache_len} {ents_len} ({bytes})")?;
@@ -110,7 +114,12 @@ impl crate::Service for Service {
 		Ok(())
 	}
 
-	async fn clear_cache(&self) { self.stateinfo_cache.lock().expect("locked").clear(); }
+	async fn clear_cache(&self) {
+		self.stateinfo_cache
+			.lock()
+			.expect("locked")
+			.clear();
+	}
 
 	fn name(&self) -> &str { crate::service::make_name(std::module_path!()) }
 }
@@ -123,11 +132,17 @@ impl Service {
 		&self,
 		shortstatehash: ShortStateHash,
 	) -> Result<ShortStateInfoVec> {
-		if let Some(r) = self.stateinfo_cache.lock()?.get_mut(&shortstatehash) {
+		if let Some(r) = self
+			.stateinfo_cache
+			.lock()?
+			.get_mut(&shortstatehash)
+		{
 			return Ok(r.clone());
 		}
 
-		let stack = self.new_shortstatehash_info(shortstatehash).await?;
+		let stack = self
+			.new_shortstatehash_info(shortstatehash)
+			.await?;
 
 		self.cache_shortstatehash_info(shortstatehash, stack.clone())
 			.await?;
@@ -151,7 +166,9 @@ impl Service {
 		shortstatehash: ShortStateHash,
 		stack: ShortStateInfoVec,
 	) -> Result {
-		self.stateinfo_cache.lock()?.insert(shortstatehash, stack);
+		self.stateinfo_cache
+			.lock()?
+			.insert(shortstatehash, stack);
 
 		Ok(())
 	}
@@ -262,7 +279,9 @@ impl Service {
 		if parent_states.len() > 3 {
 			// Number of layers
 			// To many layers, we have to go deeper
-			let parent = parent_states.pop().expect("parent must have a state");
+			let parent = parent_states
+				.pop()
+				.expect("parent must have a state");
 
 			let mut parent_new = (*parent.added).clone();
 			let mut parent_removed = (*parent.removed).clone();
@@ -311,7 +330,9 @@ impl Service {
 		// 1. We add the current diff on top of the parent layer.
 		// 2. We replace a layer above
 
-		let parent = parent_states.pop().expect("parent must have a state");
+		let parent = parent_states
+			.pop()
+			.expect("parent must have a state");
 		let parent_added_len = parent.added.len();
 		let parent_removed_len = parent.removed.len();
 		let parent_diff = checked!(parent_added_len + parent_removed_len)?;
@@ -373,8 +394,11 @@ impl Service {
 			.await
 			.ok();
 
-		let state_hash =
-			utils::calculate_hash(new_state_ids_compressed.iter().map(|bytes| &bytes[..]));
+		let state_hash = utils::calculate_hash(
+			new_state_ids_compressed
+				.iter()
+				.map(|bytes| &bytes[..]),
+		);
 
 		let (new_shortstatehash, already_existed) = self
 			.services
@@ -390,7 +414,9 @@ impl Service {
 		}
 
 		let states_parents = if let Some(p) = previous_shortstatehash {
-			self.load_shortstatehash_info(p).await.unwrap_or_default()
+			self.load_shortstatehash_info(p)
+				.await
+				.unwrap_or_default()
 		} else {
 			ShortStateInfoVec::new()
 		};

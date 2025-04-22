@@ -24,7 +24,10 @@ pub(super) async fn process(subcommand: AppserviceCommand, context: &Context<'_>
 	match subcommand {
 		| AppserviceCommand::GetRegistration { appservice_id } => {
 			let timer = tokio::time::Instant::now();
-			let results = services.appservice.get_registration(&appservice_id).await;
+			let results = services
+				.appservice
+				.get_registration(&appservice_id)
+				.await;
 
 			let query_time = timer.elapsed();
 
@@ -32,7 +35,11 @@ pub(super) async fn process(subcommand: AppserviceCommand, context: &Context<'_>
 		},
 		| AppserviceCommand::All => {
 			let timer = tokio::time::Instant::now();
-			let results: Vec<_> = services.appservice.iter_db_ids().try_collect().await?;
+			let results: Vec<_> = services
+				.appservice
+				.iter_db_ids()
+				.try_collect()
+				.await?;
 			let query_time = timer.elapsed();
 
 			write!(context, "Query completed in {query_time:?}:\n\n```rs\n{results:#?}\n```")

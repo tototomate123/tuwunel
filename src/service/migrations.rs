@@ -55,7 +55,10 @@ pub(crate) async fn migrations(services: &Services) -> Result<()> {
 async fn fresh(services: &Services) -> Result<()> {
 	let db = &services.db;
 
-	services.globals.db.bump_database_version(DATABASE_VERSION);
+	services
+		.globals
+		.db
+		.bump_database_version(DATABASE_VERSION);
 
 	db["global"].insert(b"feat_sha256_media", []);
 	db["global"].insert(b"fix_bad_double_separator_in_state_cache", []);
@@ -64,7 +67,9 @@ async fn fresh(services: &Services) -> Result<()> {
 	db["global"].insert(b"fix_readreceiptid_readreceipt_duplicates", []);
 
 	// Create the admin room and server user on first run
-	crate::admin::create_admin_room(services).boxed().await?;
+	crate::admin::create_admin_room(services)
+		.boxed()
+		.await?;
 
 	warn!("Created new RocksDB database with version {DATABASE_VERSION}");
 
@@ -93,7 +98,11 @@ async fn migrate(services: &Services) -> Result<()> {
 		db_lt_13(services).await?;
 	}
 
-	if db["global"].get(b"feat_sha256_media").await.is_not_found() {
+	if db["global"]
+		.get(b"feat_sha256_media")
+		.await
+		.is_not_found()
+	{
 		media::migrations::migrate_sha256_media(services).await?;
 	} else if config.media_startup_check {
 		media::migrations::checkup_sha256_media(services).await?;
@@ -241,7 +250,9 @@ async fn db_lt_12(services: &Services) -> Result<()> {
 			let content_rule_transformation =
 				[".m.rules.contains_user_name", ".m.rule.contains_user_name"];
 
-			let rule = rules_list.content.get(content_rule_transformation[0]);
+			let rule = rules_list
+				.content
+				.get(content_rule_transformation[0]);
 			if rule.is_some() {
 				let mut rule = rule.unwrap().clone();
 				content_rule_transformation[1].clone_into(&mut rule.rule_id);
@@ -267,7 +278,9 @@ async fn db_lt_12(services: &Services) -> Result<()> {
 				if let Some(rule) = rule {
 					let mut rule = rule.clone();
 					transformation[1].clone_into(&mut rule.rule_id);
-					rules_list.underride.shift_remove(transformation[0]);
+					rules_list
+						.underride
+						.shift_remove(transformation[0]);
 					rules_list.underride.insert(rule);
 				}
 			}
@@ -278,7 +291,9 @@ async fn db_lt_12(services: &Services) -> Result<()> {
 			.update(
 				None,
 				&user,
-				GlobalAccountDataEventType::PushRules.to_string().into(),
+				GlobalAccountDataEventType::PushRules
+					.to_string()
+					.into(),
 				&serde_json::to_value(account_data).expect("to json value always works"),
 			)
 			.await?;
@@ -323,7 +338,9 @@ async fn db_lt_13(services: &Services) -> Result<()> {
 			.update(
 				None,
 				&user,
-				GlobalAccountDataEventType::PushRules.to_string().into(),
+				GlobalAccountDataEventType::PushRules
+					.to_string()
+					.into(),
 				&serde_json::to_value(account_data).expect("to json value always works"),
 			)
 			.await?;
@@ -435,12 +452,18 @@ async fn retroactively_fix_bad_data_from_roomuserid_joined(services: &Services) 
 
 		for user_id in &joined_members {
 			debug_info!("User is joined, marking as joined");
-			services.rooms.state_cache.mark_as_joined(user_id, room_id);
+			services
+				.rooms
+				.state_cache
+				.mark_as_joined(user_id, room_id);
 		}
 
 		for user_id in &non_joined_members {
 			debug_info!("User is left or banned, marking as left");
-			services.rooms.state_cache.mark_as_left(user_id, room_id);
+			services
+				.rooms
+				.state_cache
+				.mark_as_left(user_id, room_id);
 		}
 	}
 

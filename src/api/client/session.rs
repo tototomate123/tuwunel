@@ -100,7 +100,9 @@ pub(crate) async fn login_route(
 			)?;
 
 			if !services.globals.user_is_local(&user_id)
-				|| !services.globals.user_is_local(&lowercased_user_id)
+				|| !services
+					.globals
+					.user_is_local(&lowercased_user_id)
 			{
 				return Err!(Request(Unknown("User ID does not belong to this homeserver")));
 			}
@@ -149,7 +151,10 @@ pub(crate) async fn login_route(
 			if !services.server.config.login_via_existing_session {
 				return Err!(Request(Unknown("Token login is not enabled.")));
 			}
-			services.users.find_from_login_token(token).await?
+			services
+				.users
+				.find_from_login_token(token)
+				.await?
 		},
 		#[allow(deprecated)]
 		| login::v3::LoginInfo::ApplicationService(login::v3::ApplicationService {
@@ -312,7 +317,9 @@ pub(crate) async fn login_token_route(
 	}
 
 	let login_token = utils::random_string(TOKEN_LENGTH);
-	let expires_in = services.users.create_login_token(sender_user, &login_token);
+	let expires_in = services
+		.users
+		.create_login_token(sender_user, &login_token);
 
 	Ok(get_login_token::v1::Response {
 		expires_in: Duration::from_millis(expires_in),
@@ -335,8 +342,14 @@ pub(crate) async fn logout_route(
 	InsecureClientIp(client): InsecureClientIp,
 	body: Ruma<logout::v3::Request>,
 ) -> Result<logout::v3::Response> {
-	let sender_user = body.sender_user.as_ref().expect("user is authenticated");
-	let sender_device = body.sender_device.as_ref().expect("user is authenticated");
+	let sender_user = body
+		.sender_user
+		.as_ref()
+		.expect("user is authenticated");
+	let sender_device = body
+		.sender_device
+		.as_ref()
+		.expect("user is authenticated");
 
 	services
 		.users
@@ -365,12 +378,19 @@ pub(crate) async fn logout_all_route(
 	InsecureClientIp(client): InsecureClientIp,
 	body: Ruma<logout_all::v3::Request>,
 ) -> Result<logout_all::v3::Response> {
-	let sender_user = body.sender_user.as_ref().expect("user is authenticated");
+	let sender_user = body
+		.sender_user
+		.as_ref()
+		.expect("user is authenticated");
 
 	services
 		.users
 		.all_device_ids(sender_user)
-		.for_each(|device_id| services.users.remove_device(sender_user, device_id))
+		.for_each(|device_id| {
+			services
+				.users
+				.remove_device(sender_user, device_id)
+		})
 		.await;
 
 	Ok(logout_all::v3::Response::new())

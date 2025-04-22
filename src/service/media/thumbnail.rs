@@ -67,8 +67,14 @@ impl super::Service {
 
 		match self.db.search_file_metadata(mxc, &dim).await {
 			| Ok(metadata) => self.get_thumbnail_saved(metadata).await,
-			| _ => match self.db.search_file_metadata(mxc, &Dim::default()).await {
-				| Ok(metadata) => self.get_thumbnail_generate(mxc, &dim, metadata).await,
+			| _ => match self
+				.db
+				.search_file_metadata(mxc, &Dim::default())
+				.await
+			{
+				| Ok(metadata) =>
+					self.get_thumbnail_generate(mxc, &dim, metadata)
+						.await,
 				| _ => Ok(None),
 			},
 		}

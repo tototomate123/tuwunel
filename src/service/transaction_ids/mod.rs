@@ -34,11 +34,17 @@ pub fn add_txnid(
 ) {
 	let mut key = user_id.as_bytes().to_vec();
 	key.push(0xFF);
-	key.extend_from_slice(device_id.map(DeviceId::as_bytes).unwrap_or_default());
+	key.extend_from_slice(
+		device_id
+			.map(DeviceId::as_bytes)
+			.unwrap_or_default(),
+	);
 	key.push(0xFF);
 	key.extend_from_slice(txn_id.as_bytes());
 
-	self.db.userdevicetxnid_response.insert(&key, data);
+	self.db
+		.userdevicetxnid_response
+		.insert(&key, data);
 }
 
 // If there's no entry, this is a new transaction

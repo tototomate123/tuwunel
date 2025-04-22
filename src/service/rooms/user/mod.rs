@@ -48,8 +48,12 @@ impl crate::Service for Service {
 #[implement(Service)]
 pub fn reset_notification_counts(&self, user_id: &UserId, room_id: &RoomId) {
 	let userroom_id = (user_id, room_id);
-	self.db.userroomid_highlightcount.put(userroom_id, 0_u64);
-	self.db.userroomid_notificationcount.put(userroom_id, 0_u64);
+	self.db
+		.userroomid_highlightcount
+		.put(userroom_id, 0_u64);
+	self.db
+		.userroomid_notificationcount
+		.put(userroom_id, 0_u64);
 
 	let roomuser_id = (room_id, user_id);
 	let count = self.services.globals.next_count().unwrap();
@@ -118,7 +122,11 @@ pub async fn get_token_shortstatehash(
 	room_id: &RoomId,
 	token: u64,
 ) -> Result<ShortStateHash> {
-	let shortroomid = self.services.short.get_shortroomid(room_id).await?;
+	let shortroomid = self
+		.services
+		.short
+		.get_shortroomid(room_id)
+		.await?;
 
 	let key: &[u64] = &[shortroomid, token];
 	self.db

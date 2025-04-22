@@ -37,7 +37,12 @@ pub(crate) async fn search_users_route(
 	let mut users = services
 		.users
 		.stream()
-		.ready_filter(|user_id| user_id.as_str().to_lowercase().contains(&search_term))
+		.ready_filter(|user_id| {
+			user_id
+				.as_str()
+				.to_lowercase()
+				.contains(&search_term)
+		})
 		.map(ToOwned::to_owned)
 		.broad_filter_map(async |user_id| {
 			let display_name = services.users.displayname(&user_id).await.ok();

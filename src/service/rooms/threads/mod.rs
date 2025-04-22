@@ -141,7 +141,11 @@ impl Service {
 		shorteventid: PduCount,
 		_inc: &'a IncludeThreads,
 	) -> Result<impl Stream<Item = (PduCount, PduEvent)> + Send + 'a> {
-		let shortroomid: ShortRoomId = self.services.short.get_shortroomid(room_id).await?;
+		let shortroomid: ShortRoomId = self
+			.services
+			.short
+			.get_shortroomid(room_id)
+			.await?;
 
 		let current: RawPduId = PduId {
 			shortroomid,
@@ -157,7 +161,12 @@ impl Service {
 			.map(RawPduId::from)
 			.ready_take_while(move |pdu_id| pdu_id.shortroomid() == shortroomid.to_be_bytes())
 			.wide_filter_map(move |pdu_id| async move {
-				let mut pdu = self.services.timeline.get_pdu_from_id(&pdu_id).await.ok()?;
+				let mut pdu = self
+					.services
+					.timeline
+					.get_pdu_from_id(&pdu_id)
+					.await
+					.ok()?;
 				let pdu_id: PduId = pdu_id.into();
 
 				if pdu.sender != user_id {
@@ -187,6 +196,10 @@ impl Service {
 	}
 
 	pub(super) async fn get_participants(&self, root_id: &RawPduId) -> Result<Vec<OwnedUserId>> {
-		self.db.threadid_userids.get(root_id).await.deserialized()
+		self.db
+			.threadid_userids
+			.get(root_id)
+			.await
+			.deserialized()
 	}
 }

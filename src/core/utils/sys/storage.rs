@@ -42,7 +42,9 @@ pub struct Queue {
 /// Get device characteristics useful for random access throughput by name.
 #[must_use]
 pub fn parallelism(path: &Path) -> Parallelism {
-	let dev_id = dev_from_path(path).log_debug_err().unwrap_or_default();
+	let dev_id = dev_from_path(path)
+		.log_debug_err()
+		.unwrap_or_default();
 
 	let mq_path = block_path(dev_id).join("mq/");
 
@@ -60,7 +62,12 @@ pub fn parallelism(path: &Path) -> Parallelism {
 			.into_iter()
 			.flat_map(IntoIterator::into_iter)
 			.filter_map(Result::ok)
-			.filter(|entry| entry.file_type().as_ref().is_ok_and(FileType::is_dir))
+			.filter(|entry| {
+				entry
+					.file_type()
+					.as_ref()
+					.is_ok_and(FileType::is_dir)
+			})
 			.map(|dir| queue_parallelism(&dir.path()))
 			.collect(),
 	}

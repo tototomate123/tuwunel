@@ -63,8 +63,14 @@ pub(crate) async fn sync_events_v5_route(
 	body: Ruma<sync_events::v5::Request>,
 ) -> Result<sync_events::v5::Response> {
 	debug_assert!(DEFAULT_BUMP_TYPES.is_sorted(), "DEFAULT_BUMP_TYPES is not sorted");
-	let sender_user = body.sender_user.as_ref().expect("user is authenticated");
-	let sender_device = body.sender_device.as_ref().expect("user is authenticated");
+	let sender_user = body
+		.sender_user
+		.as_ref()
+		.expect("user is authenticated");
+	let sender_device = body
+		.sender_device
+		.as_ref()
+		.expect("user is authenticated");
 	let mut body = body.body;
 
 	// Setup watchers, so if there's no response, we can wait for them
@@ -90,7 +96,9 @@ pub(crate) async fn sync_events_v5_route(
 
 	// Client / User requested an initial sync
 	if globalsince == 0 {
-		services.sync.forget_snake_sync_connection(&snake_key);
+		services
+			.sync
+			.forget_snake_sync_connection(&snake_key);
 	}
 
 	// Get sticky parameters from cache
@@ -191,7 +199,11 @@ pub(crate) async fn sync_events_v5_route(
 	if response.rooms.iter().all(|(id, r)| {
 		r.timeline.is_empty()
 			&& r.required_state.is_empty()
-			&& !response.extensions.receipts.rooms.contains_key(id)
+			&& !response
+				.extensions
+				.receipts
+				.rooms
+				.contains_key(id)
 	}) && response
 		.extensions
 		.to_device
@@ -322,8 +334,11 @@ where
 			let room_ids =
 				active_rooms[usize_from_ruma(range.0)..usize_from_ruma(range.1)].to_vec();
 
-			let new_rooms: BTreeSet<OwnedRoomId> =
-				room_ids.clone().into_iter().map(From::from).collect();
+			let new_rooms: BTreeSet<OwnedRoomId> = room_ids
+				.clone()
+				.into_iter()
+				.map(From::from)
+				.collect();
 
 			new_known_rooms.extend(new_rooms);
 			//new_known_rooms.extend(room_ids..cloned());
@@ -394,7 +409,10 @@ where
 		let mut invite_state = None;
 		let (timeline_pdus, limited);
 		let new_room_id: &RoomId = (*room_id).as_ref();
-		if all_invited_rooms.clone().any(is_equal_to!(new_room_id)) {
+		if all_invited_rooms
+			.clone()
+			.any(is_equal_to!(new_room_id))
+		{
 			// TODO: figure out a timestamp we can use for remote invites
 			invite_state = services
 				.rooms
@@ -521,8 +539,9 @@ where
 
 		for (_, pdu) in timeline_pdus {
 			let ts = pdu.origin_server_ts;
-			if DEFAULT_BUMP_TYPES.binary_search(&pdu.kind).is_ok()
-				&& timestamp.is_none_or(|time| time <= ts)
+			if DEFAULT_BUMP_TYPES
+				.binary_search(&pdu.kind)
+				.is_ok() && timestamp.is_none_or(|time| time <= ts)
 			{
 				timestamp = Some(ts);
 			}
@@ -569,7 +588,11 @@ where
 			| Ordering::Greater => {
 				let firsts = heroes[1..]
 					.iter()
-					.map(|h| h.name.clone().unwrap_or_else(|| h.user_id.to_string()))
+					.map(|h| {
+						h.name
+							.clone()
+							.unwrap_or_else(|| h.user_id.to_string())
+					})
 					.collect::<Vec<_>>()
 					.join(", ");
 
@@ -605,7 +628,12 @@ where
 				.or(name),
 			avatar: match heroes_avatar {
 				| Some(heroes_avatar) => ruma::JsOption::Some(heroes_avatar),
-				| _ => match services.rooms.state_accessor.get_avatar(room_id).await {
+				| _ => match services
+					.rooms
+					.state_accessor
+					.get_avatar(room_id)
+					.await
+				{
 					| ruma::JsOption::Some(avatar) => ruma::JsOption::from_option(avatar.url),
 					| ruma::JsOption::Null => ruma::JsOption::Null,
 					| ruma::JsOption::Undefined => ruma::JsOption::Undefined,
@@ -674,7 +702,12 @@ async fn collect_account_data(
 		rooms: BTreeMap::new(),
 	};
 
-	if !body.extensions.account_data.enabled.unwrap_or(false) {
+	if !body
+		.extensions
+		.account_data
+		.enabled
+		.unwrap_or(false)
+	{
 		return sync_events::v5::response::AccountData::default();
 	}
 
@@ -732,8 +765,11 @@ where
 	);
 
 	for room_id in all_joined_rooms {
-		let Ok(current_shortstatehash) =
-			services.rooms.state.get_room_shortstatehash(room_id).await
+		let Ok(current_shortstatehash) = services
+			.rooms
+			.state
+			.get_room_shortstatehash(room_id)
+			.await
 		else {
 			error!("Room {room_id} has no state");
 			continue;
@@ -934,9 +970,16 @@ where
 	Rooms: Stream<Item = &'a RoomId> + Send + 'a,
 {
 	rooms.filter_map(async |room_id| {
-		let room_type = services.rooms.state_accessor.get_room_type(room_id).await;
+		let room_type = services
+			.rooms
+			.state_accessor
+			.get_room_type(room_id)
+			.await;
 
-		if room_type.as_ref().is_err_and(|e| !e.is_not_found()) {
+		if room_type
+			.as_ref()
+			.is_err_and(|e| !e.is_not_found())
+		{
 			return None;
 		}
 

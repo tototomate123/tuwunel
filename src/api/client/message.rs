@@ -258,7 +258,9 @@ pub(crate) async fn is_ignored_pdu(
 		return true;
 	}
 
-	let ignored_type = IGNORED_MESSAGE_TYPES.binary_search(&pdu.kind).is_ok();
+	let ignored_type = IGNORED_MESSAGE_TYPES
+		.binary_search(&pdu.kind)
+		.is_ok();
 
 	let ignored_server = services
 		.config
@@ -266,7 +268,11 @@ pub(crate) async fn is_ignored_pdu(
 		.is_match(pdu.sender().server_name().host());
 
 	if ignored_type
-		&& (ignored_server || services.users.user_is_ignored(&pdu.sender, user_id).await)
+		&& (ignored_server
+			|| services
+				.users
+				.user_is_ignored(&pdu.sender, user_id)
+				.await)
 	{
 		return true;
 	}

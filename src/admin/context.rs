@@ -24,7 +24,10 @@ impl Context<'_> {
 	) -> impl Future<Output = Result> + Send + '_ + use<'_> {
 		let buf = format!("{arguments}");
 		self.output.lock().then(async move |mut output| {
-			output.write_all(buf.as_bytes()).map_err(Into::into).await
+			output
+				.write_all(buf.as_bytes())
+				.map_err(Into::into)
+				.await
 		})
 	}
 
@@ -33,7 +36,10 @@ impl Context<'_> {
 		s: &'a str,
 	) -> impl Future<Output = Result> + Send + 'a {
 		self.output.lock().then(async move |mut output| {
-			output.write_all(s.as_bytes()).map_err(Into::into).await
+			output
+				.write_all(s.as_bytes())
+				.map_err(Into::into)
+				.await
 		})
 	}
 }

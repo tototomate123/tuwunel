@@ -66,27 +66,44 @@ pub async fn get_verify_key(
 	origin: &ServerName,
 	key_id: &ServerSigningKeyId,
 ) -> Result<VerifyKey> {
-	let notary_first = self.services.server.config.query_trusted_key_servers_first;
-	let notary_only = self.services.server.config.only_query_trusted_key_servers;
+	let notary_first = self
+		.services
+		.server
+		.config
+		.query_trusted_key_servers_first;
+	let notary_only = self
+		.services
+		.server
+		.config
+		.only_query_trusted_key_servers;
 
 	if let Some(result) = self.verify_keys_for(origin).await.remove(key_id) {
 		return Ok(result);
 	}
 
 	if notary_first {
-		if let Ok(result) = self.get_verify_key_from_notaries(origin, key_id).await {
+		if let Ok(result) = self
+			.get_verify_key_from_notaries(origin, key_id)
+			.await
+		{
 			return Ok(result);
 		}
 	}
 
 	if !notary_only {
-		if let Ok(result) = self.get_verify_key_from_origin(origin, key_id).await {
+		if let Ok(result) = self
+			.get_verify_key_from_origin(origin, key_id)
+			.await
+		{
 			return Ok(result);
 		}
 	}
 
 	if !notary_first {
-		if let Ok(result) = self.get_verify_key_from_notaries(origin, key_id).await {
+		if let Ok(result) = self
+			.get_verify_key_from_notaries(origin, key_id)
+			.await
+		{
 			return Ok(result);
 		}
 	}

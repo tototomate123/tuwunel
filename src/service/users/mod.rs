@@ -175,7 +175,11 @@ impl Service {
 
 	/// Find out which user an access token belongs to.
 	pub async fn find_from_token(&self, token: &str) -> Result<(OwnedUserId, OwnedDeviceId)> {
-		self.db.token_userdeviceid.get(token).await.deserialized()
+		self.db
+			.token_userdeviceid
+			.get(token)
+			.await
+			.deserialized()
 	}
 
 	/// Returns an iterator over all users on this homeserver (offered for
@@ -204,7 +208,11 @@ impl Service {
 
 	/// Returns the password hash for the given user.
 	pub async fn password_hash(&self, user_id: &UserId) -> Result<String> {
-		self.db.userid_password.get(user_id).await.deserialized()
+		self.db
+			.userid_password
+			.get(user_id)
+			.await
+			.deserialized()
 	}
 
 	/// Hash and set the user's password to the Argon2 hash
@@ -225,14 +233,20 @@ impl Service {
 
 	/// Returns the displayname of a user on this homeserver.
 	pub async fn displayname(&self, user_id: &UserId) -> Result<String> {
-		self.db.userid_displayname.get(user_id).await.deserialized()
+		self.db
+			.userid_displayname
+			.get(user_id)
+			.await
+			.deserialized()
 	}
 
 	/// Sets a new displayname or removes it if displayname is None. You still
 	/// need to nofify all rooms of this change.
 	pub fn set_displayname(&self, user_id: &UserId, displayname: Option<String>) {
 		if let Some(displayname) = displayname {
-			self.db.userid_displayname.insert(user_id, displayname);
+			self.db
+				.userid_displayname
+				.insert(user_id, displayname);
 		} else {
 			self.db.userid_displayname.remove(user_id);
 		}
@@ -240,14 +254,20 @@ impl Service {
 
 	/// Get the `avatar_url` of a user.
 	pub async fn avatar_url(&self, user_id: &UserId) -> Result<OwnedMxcUri> {
-		self.db.userid_avatarurl.get(user_id).await.deserialized()
+		self.db
+			.userid_avatarurl
+			.get(user_id)
+			.await
+			.deserialized()
 	}
 
 	/// Sets a new avatar_url or removes it if avatar_url is None.
 	pub fn set_avatar_url(&self, user_id: &UserId, avatar_url: Option<OwnedMxcUri>) {
 		match avatar_url {
 			| Some(avatar_url) => {
-				self.db.userid_avatarurl.insert(user_id, &avatar_url);
+				self.db
+					.userid_avatarurl
+					.insert(user_id, &avatar_url);
 			},
 			| _ => {
 				self.db.userid_avatarurl.remove(user_id);
@@ -257,7 +277,11 @@ impl Service {
 
 	/// Get the blurhash of a user.
 	pub async fn blurhash(&self, user_id: &UserId) -> Result<String> {
-		self.db.userid_blurhash.get(user_id).await.deserialized()
+		self.db
+			.userid_blurhash
+			.get(user_id)
+			.await
+			.deserialized()
 	}
 
 	/// Sets a new avatar_url or removes it if avatar_url is None.
@@ -302,7 +326,12 @@ impl Service {
 		let userdeviceid = (user_id, device_id);
 
 		// Remove tokens
-		if let Ok(old_token) = self.db.userdeviceid_token.qry(&userdeviceid).await {
+		if let Ok(old_token) = self
+			.db
+			.userdeviceid_token
+			.qry(&userdeviceid)
+			.await
+		{
 			self.db.userdeviceid_token.del(userdeviceid);
 			self.db.token_userdeviceid.remove(&old_token);
 		}
@@ -339,7 +368,11 @@ impl Service {
 
 	pub async fn get_token(&self, user_id: &UserId, device_id: &DeviceId) -> Result<String> {
 		let key = (user_id, device_id);
-		self.db.userdeviceid_token.qry(&key).await.deserialized()
+		self.db
+			.userdeviceid_token
+			.qry(&key)
+			.await
+			.deserialized()
 	}
 
 	/// Replaces the access token of one device.
@@ -350,7 +383,13 @@ impl Service {
 		token: &str,
 	) -> Result<()> {
 		let key = (user_id, device_id);
-		if self.db.userdeviceid_metadata.qry(&key).await.is_err() {
+		if self
+			.db
+			.userdeviceid_metadata
+			.qry(&key)
+			.await
+			.is_err()
+		{
 			return Err!(Database(error!(
 				?user_id,
 				?device_id,
@@ -382,7 +421,13 @@ impl Service {
 		// Only existing devices should be able to call this, but we shouldn't assert
 		// either...
 		let key = (user_id, device_id);
-		if self.db.userdeviceid_metadata.qry(&key).await.is_err() {
+		if self
+			.db
+			.userdeviceid_metadata
+			.qry(&key)
+			.await
+			.is_err()
+		{
 			return Err!(Database(error!(
 				?user_id,
 				?device_id,
@@ -407,7 +452,9 @@ impl Service {
 			.raw_put(key, Json(one_time_key_value));
 
 		let count = self.services.globals.next_count().unwrap();
-		self.db.userid_lastonetimekeyupdate.raw_put(user_id, count);
+		self.db
+			.userid_lastonetimekeyupdate
+			.raw_put(user_id, count);
 
 		Ok(())
 	}
@@ -428,7 +475,9 @@ impl Service {
 		key_algorithm: &OneTimeKeyAlgorithm,
 	) -> Result<(OwnedKeyId<OneTimeKeyAlgorithm, OneTimeKeyName>, Raw<OneTimeKey>)> {
 		let count = self.services.globals.next_count()?.to_be_bytes();
-		self.db.userid_lastonetimekeyupdate.insert(user_id, count);
+		self.db
+			.userid_lastonetimekeyupdate
+			.insert(user_id, count);
 
 		let mut prefix = user_id.as_bytes().to_vec();
 		prefix.push(0xFF);
@@ -542,10 +591,12 @@ impl Service {
 				.keys
 				.into_values();
 
-			let self_signing_key_id = self_signing_key_ids.next().ok_or(Error::BadRequest(
-				ErrorKind::InvalidParam,
-				"Self signing key contained no key.",
-			))?;
+			let self_signing_key_id = self_signing_key_ids
+				.next()
+				.ok_or(Error::BadRequest(
+					ErrorKind::InvalidParam,
+					"Self signing key contained no key.",
+				))?;
 
 			if self_signing_key_ids.next().is_some() {
 				return Err(Error::BadRequest(
@@ -625,7 +676,9 @@ impl Service {
 			.insert(signature.0, signature.1.into());
 
 		let key = (target_id, key_id);
-		self.db.keyid_key.put(key, Json(cross_signing_key));
+		self.db
+			.keyid_key
+			.put(key, Json(cross_signing_key));
 
 		self.mark_device_key_update(target_id).await;
 
@@ -697,7 +750,11 @@ impl Service {
 		device_id: &DeviceId,
 	) -> Result<Raw<DeviceKeys>> {
 		let key_id = (user_id, device_id);
-		self.db.keyid_key.qry(&key_id).await.deserialized()
+		self.db
+			.keyid_key
+			.qry(&key_id)
+			.await
+			.deserialized()
 	}
 
 	pub async fn get_key<F>(
@@ -710,7 +767,12 @@ impl Service {
 	where
 		F: Fn(&UserId) -> bool + Send + Sync,
 	{
-		let key: serde_json::Value = self.db.keyid_key.get(key_id).await.deserialized()?;
+		let key: serde_json::Value = self
+			.db
+			.keyid_key
+			.get(key_id)
+			.await
+			.deserialized()?;
 
 		let cleaned = clean_signatures(key, sender_user, user_id, allowed_signatures)?;
 		let raw_value = serde_json::value::to_raw_value(&cleaned)?;
@@ -741,7 +803,11 @@ impl Service {
 	where
 		F: Fn(&UserId) -> bool + Send + Sync,
 	{
-		let key_id = self.db.userid_selfsigningkeyid.get(user_id).await?;
+		let key_id = self
+			.db
+			.userid_selfsigningkeyid
+			.get(user_id)
+			.await?;
 
 		self.get_key(&key_id, sender_user, user_id, allowed_signatures)
 			.await
@@ -834,7 +900,9 @@ impl Service {
 		increment(&self.db.userid_devicelistversion, user_id.as_bytes());
 
 		let key = (user_id, device_id);
-		self.db.userdeviceid_metadata.put(key, Json(device));
+		self.db
+			.userdeviceid_metadata
+			.put(key, Json(device));
 
 		Ok(())
 	}
@@ -888,7 +956,11 @@ impl Service {
 		filter_id: &str,
 	) -> Result<FilterDefinition> {
 		let key = (user_id, filter_id);
-		self.db.userfilterid_filter.qry(&key).await.deserialized()
+		self.db
+			.userfilterid_filter
+			.qry(&key)
+			.await
+			.deserialized()
 	}
 
 	/// Creates an OpenID token, which can be used to prove that a user has
@@ -911,7 +983,12 @@ impl Service {
 
 	/// Find out which user an OpenID access token belongs to.
 	pub async fn find_from_openid_token(&self, token: &str) -> Result<OwnedUserId> {
-		let Ok(value) = self.db.openidtoken_expiresatuserid.get(token).await else {
+		let Ok(value) = self
+			.db
+			.openidtoken_expiresatuserid
+			.get(token)
+			.await
+		else {
 			return Err!(Request(Unauthorized("OpenID token is unrecognised")));
 		};
 
@@ -923,7 +1000,9 @@ impl Service {
 
 		if expires_at < utils::millis_since_unix_epoch() {
 			debug_warn!("OpenID token is expired, removing");
-			self.db.openidtoken_expiresatuserid.remove(token.as_bytes());
+			self.db
+				.openidtoken_expiresatuserid
+				.remove(token.as_bytes());
 
 			return Err!(Request(Unauthorized("OpenID token is expired")));
 		}
@@ -944,7 +1023,9 @@ impl Service {
 		let expires_at = Sat(utils::millis_since_unix_epoch()) + Sat(expires_in);
 
 		let value = (expires_at.0, user_id);
-		self.db.logintoken_expiresatuserid.raw_put(token, value);
+		self.db
+			.logintoken_expiresatuserid
+			.raw_put(token, value);
 
 		expires_in
 	}
@@ -952,7 +1033,12 @@ impl Service {
 	/// Find out which user a login token belongs to.
 	/// Removes the token to prevent double-use attacks.
 	pub async fn find_from_login_token(&self, token: &str) -> Result<OwnedUserId> {
-		let Ok(value) = self.db.logintoken_expiresatuserid.get(token).await else {
+		let Ok(value) = self
+			.db
+			.logintoken_expiresatuserid
+			.get(token)
+			.await
+		else {
 			return Err!(Request(Forbidden("Login token is unrecognised")));
 		};
 		let (expires_at, user_id): (u64, OwnedUserId) = value.deserialized()?;
@@ -1010,7 +1096,9 @@ impl Service {
 		let key = (user_id, profile_key);
 
 		if let Some(value) = profile_key_value {
-			self.db.useridprofilekey_value.put(key, Json(value));
+			self.db
+				.useridprofilekey_value
+				.put(key, Json(value));
 		} else {
 			self.db.useridprofilekey_value.del(key);
 		}
@@ -1038,7 +1126,9 @@ impl Service {
 		let key = (user_id, "us.cloke.msc4175.tz");
 
 		if let Some(timezone) = timezone {
-			self.db.useridprofilekey_value.put_raw(key, &timezone);
+			self.db
+				.useridprofilekey_value
+				.put_raw(key, &timezone);
 		} else {
 			self.db.useridprofilekey_value.del(key);
 		}

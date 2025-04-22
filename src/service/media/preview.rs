@@ -82,7 +82,10 @@ async fn request_url_preview(&self, url: &Url) -> Result<UrlPreviewData> {
 		}
 	}
 
-	let Some(content_type) = response.headers().get(reqwest::header::CONTENT_TYPE) else {
+	let Some(content_type) = response
+		.headers()
+		.get(reqwest::header::CONTENT_TYPE)
+	else {
 		return Err!(Request(Unknown("Unknown or invalid Content-Type header")));
 	};
 
@@ -108,14 +111,21 @@ pub async fn download_image(&self, url: &str) -> Result<UrlPreviewData> {
 	use ruma::Mxc;
 	use tuwunel_core::utils::random_string;
 
-	let image = self.services.client.url_preview.get(url).send().await?;
+	let image = self
+		.services
+		.client
+		.url_preview
+		.get(url)
+		.send()
+		.await?;
 	let image = image.bytes().await?;
 	let mxc = Mxc {
 		server_name: self.services.globals.server_name(),
 		media_id: &random_string(super::MXC_LENGTH),
 	};
 
-	self.create(&mxc, None, None, None, &image).await?;
+	self.create(&mxc, None, None, None, &image)
+		.await?;
 
 	let cursor = std::io::Cursor::new(&image);
 	let (width, height) = match ImageReader::new(cursor).with_guessed_format() {
@@ -152,13 +162,20 @@ async fn download_html(&self, url: &str) -> Result<UrlPreviewData> {
 	let mut bytes: Vec<u8> = Vec::new();
 	while let Some(chunk) = response.chunk().await? {
 		bytes.extend_from_slice(&chunk);
-		if bytes.len() > self.services.globals.url_preview_max_spider_size() {
+		if bytes.len()
+			> self
+				.services
+				.globals
+				.url_preview_max_spider_size()
+		{
 			debug!(
 				"Response body from URL {} exceeds url_preview_max_spider_size ({}), not \
 				 processing the rest of the response body and assuming our necessary data is in \
 				 this range.",
 				url,
-				self.services.globals.url_preview_max_spider_size()
+				self.services
+					.globals
+					.url_preview_max_spider_size()
 			);
 			break;
 		}
@@ -177,7 +194,10 @@ async fn download_html(&self, url: &str) -> Result<UrlPreviewData> {
 
 	/* use OpenGraph title/description, but fall back to HTML if not available */
 	data.title = props.get("title").cloned().or(html.title);
-	data.description = props.get("description").cloned().or(html.description);
+	data.description = props
+		.get("description")
+		.cloned()
+		.or(html.description);
 
 	Ok(data)
 }
@@ -214,8 +234,14 @@ pub fn url_preview_allowed(&self, url: &Url) -> bool {
 		.services
 		.globals
 		.url_preview_domain_explicit_allowlist();
-	let denylist_domain_explicit = self.services.globals.url_preview_domain_explicit_denylist();
-	let allowlist_url_contains = self.services.globals.url_preview_url_contains_allowlist();
+	let denylist_domain_explicit = self
+		.services
+		.globals
+		.url_preview_domain_explicit_denylist();
+	let allowlist_url_contains = self
+		.services
+		.globals
+		.url_preview_url_contains_allowlist();
 
 	if allowlist_domain_contains.contains(&"*".to_owned())
 		|| allowlist_domain_explicit.contains(&"*".to_owned())
@@ -262,7 +288,11 @@ pub fn url_preview_allowed(&self, url: &Url) -> bool {
 		}
 
 		// check root domain if available and if user has root domain checks
-		if self.services.globals.url_preview_check_root_domain() {
+		if self
+			.services
+			.globals
+			.url_preview_check_root_domain()
+		{
 			debug!("Checking root domain");
 			match host.split_once('.') {
 				| None => return false,

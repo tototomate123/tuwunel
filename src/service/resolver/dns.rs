@@ -127,7 +127,10 @@ async fn hooked_resolve(
 			.boxed()
 			.await,
 
-		| _ => resolve_to_reqwest(server, resolver, name).boxed().await,
+		| _ =>
+			resolve_to_reqwest(server, resolver, name)
+				.boxed()
+				.await,
 	}
 }
 
@@ -139,8 +142,13 @@ async fn resolve_to_reqwest(
 	use std::{io, io::ErrorKind::Interrupted};
 
 	let handle_shutdown = || Box::new(io::Error::new(Interrupted, "Server shutting down"));
-	let handle_results =
-		|results: LookupIp| Box::new(results.into_iter().map(|ip| SocketAddr::new(ip, 0)));
+	let handle_results = |results: LookupIp| {
+		Box::new(
+			results
+				.into_iter()
+				.map(|ip| SocketAddr::new(ip, 0)),
+		)
+	};
 
 	tokio::select! {
 		results = resolver.lookup_ip(name.as_str()) => Ok(handle_results(results?)),

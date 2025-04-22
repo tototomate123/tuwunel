@@ -93,7 +93,11 @@ pub(super) async fn auth(
 			| &get_display_name::v3::Request::METADATA
 			| &get_avatar_url::v3::Request::METADATA
 			| &get_timezone_key::unstable::Request::METADATA => {
-				if services.server.config.require_auth_for_profile_requests {
+				if services
+					.server
+					.config
+					.require_auth_for_profile_requests
+				{
 					match token {
 						| Token::Appservice(_) | Token::User(_) => {
 							// we should have validated the token above

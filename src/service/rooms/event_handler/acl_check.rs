@@ -25,8 +25,12 @@ pub async fn acl_check(&self, server_name: &ServerName, room_id: &RoomId) -> Res
 		return Ok(());
 	}
 
-	if acl_event_content.deny.contains(&String::from("*"))
-		&& acl_event_content.allow.contains(&String::from("*"))
+	if acl_event_content
+		.deny
+		.contains(&String::from("*"))
+		&& acl_event_content
+			.allow
+			.contains(&String::from("*"))
 	{
 		warn!(%room_id, "Ignoring broken ACL event (allow key and deny key both contain wildcard \"*\"");
 		return Ok(());

@@ -21,7 +21,10 @@ pub(crate) async fn update_tag_route(
 	State(services): State<crate::State>,
 	body: Ruma<create_tag::v3::Request>,
 ) -> Result<create_tag::v3::Response> {
-	let sender_user = body.sender_user.as_ref().expect("user is authenticated");
+	let sender_user = body
+		.sender_user
+		.as_ref()
+		.expect("user is authenticated");
 
 	let mut tags_event = services
 		.account_data
@@ -58,7 +61,10 @@ pub(crate) async fn delete_tag_route(
 	State(services): State<crate::State>,
 	body: Ruma<delete_tag::v3::Request>,
 ) -> Result<delete_tag::v3::Response> {
-	let sender_user = body.sender_user.as_ref().expect("user is authenticated");
+	let sender_user = body
+		.sender_user
+		.as_ref()
+		.expect("user is authenticated");
 
 	let mut tags_event = services
 		.account_data
@@ -68,7 +74,10 @@ pub(crate) async fn delete_tag_route(
 			content: TagEventContent { tags: BTreeMap::new() },
 		});
 
-	tags_event.content.tags.remove(&body.tag.clone().into());
+	tags_event
+		.content
+		.tags
+		.remove(&body.tag.clone().into());
 
 	services
 		.account_data
@@ -92,7 +101,10 @@ pub(crate) async fn get_tags_route(
 	State(services): State<crate::State>,
 	body: Ruma<get_tags::v3::Request>,
 ) -> Result<get_tags::v3::Response> {
-	let sender_user = body.sender_user.as_ref().expect("user is authenticated");
+	let sender_user = body
+		.sender_user
+		.as_ref()
+		.expect("user is authenticated");
 
 	let tags_event = services
 		.account_data

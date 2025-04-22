@@ -35,7 +35,13 @@ pub(super) async fn delete(
 		let mut mxc_urls = Vec::with_capacity(4);
 
 		// parsing the PDU for any MXC URLs begins here
-		match self.services.rooms.timeline.get_pdu_json(&event_id).await {
+		match self
+			.services
+			.rooms
+			.timeline
+			.get_pdu_json(&event_id)
+			.await
+		{
 			| Ok(event_json) => {
 				if let Some(content_key) = event_json.get("content") {
 					debug!("Event ID has \"content\".");
@@ -255,7 +261,11 @@ pub(super) async fn delete_past_remote_media(
 pub(super) async fn delete_all_from_user(&self, username: String) -> Result {
 	let user_id = parse_local_user_id(self.services, &username)?;
 
-	let deleted_count = self.services.media.delete_from_user(&user_id).await?;
+	let deleted_count = self
+		.services
+		.media
+		.delete_from_user(&user_id)
+		.await?;
 
 	self.write_str(&format!("Deleted {deleted_count} total files.",))
 		.await
@@ -294,7 +304,10 @@ pub(super) async fn delete_all_from_server(
 		};
 
 		if mxc_server_name != server_name
-			|| (self.services.globals.server_is_ours(mxc_server_name)
+			|| (self
+				.services
+				.globals
+				.server_is_ours(mxc_server_name)
 				&& !yes_i_want_to_delete_local_media)
 		{
 			trace!("skipping MXC URI {mxc}");
@@ -323,7 +336,8 @@ pub(super) async fn get_file_info(&self, mxc: OwnedMxcUri) -> Result {
 	let mxc: Mxc<'_> = mxc.as_str().try_into()?;
 	let metadata = self.services.media.get_metadata(&mxc).await;
 
-	self.write_str(&format!("```\n{metadata:#?}\n```")).await
+	self.write_str(&format!("```\n{metadata:#?}\n```"))
+		.await
 }
 
 #[admin_command]

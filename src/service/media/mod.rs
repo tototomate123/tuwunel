@@ -159,7 +159,11 @@ impl Service {
 
 	/// Downloads a file.
 	pub async fn get(&self, mxc: &Mxc<'_>) -> Result<Option<FileMeta>> {
-		match self.db.search_file_metadata(mxc, &Dim::default()).await {
+		match self
+			.db
+			.search_file_metadata(mxc, &Dim::default())
+			.await
+		{
 			| Ok(Metadata { content_disposition, content_type, key }) => {
 				let mut content = Vec::with_capacity(8192);
 				let path = self.get_media_file(&key);
