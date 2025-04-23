@@ -57,7 +57,11 @@ pub fn format(ts: SystemTime, str: &str) -> String {
 }
 
 #[must_use]
-#[allow(clippy::as_conversions, clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+#[allow(
+	clippy::as_conversions,
+	clippy::cast_possible_truncation,
+	clippy::cast_sign_loss
+)]
 pub fn pretty(d: Duration) -> String {
 	use Unit::*;
 

@@ -606,7 +606,10 @@ pub struct Config {
 	/// spiders.
 	///
 	/// This is inherently false if `allow_federation` is disabled
-	#[serde(default = "true_fn", alias = "allow_profile_lookup_federation_requests")]
+	#[serde(
+		default = "true_fn",
+		alias = "allow_profile_lookup_federation_requests"
+	)]
 	pub allow_inbound_profile_lookup_federation_requests: bool,
 
 	/// Allow standard users to create rooms. Appservices and admins are always
@@ -1827,7 +1830,10 @@ pub struct TlsConfig {
 
 #[allow(rustdoc::broken_intra_doc_links, rustdoc::bare_urls)]
 #[derive(Clone, Debug, Deserialize, Default)]
-#[config_example_generator(filename = "tuwunel-example.toml", section = "global.well_known")]
+#[config_example_generator(
+	filename = "tuwunel-example.toml",
+	section = "global.well_known"
+)]
 pub struct WellKnownConfig {
 	/// The server URL that the client well-known file will serve. This should
 	/// not contain a port, and should just be a valid HTTPS URL.
@@ -1853,7 +1859,10 @@ pub struct WellKnownConfig {
 
 #[derive(Clone, Copy, Debug, Deserialize, Default)]
 #[allow(rustdoc::broken_intra_doc_links, rustdoc::bare_urls)]
-#[config_example_generator(filename = "tuwunel-example.toml", section = "global.blurhashing")]
+#[config_example_generator(
+	filename = "tuwunel-example.toml",
+	section = "global.blurhashing"
+)]
 pub struct BlurhashConfig {
 	/// blurhashing x component, 4 is recommended by https://blurha.sh/
 	///

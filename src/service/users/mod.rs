@@ -184,7 +184,10 @@ impl Service {
 
 	/// Returns an iterator over all users on this homeserver (offered for
 	/// compatibility)
-	#[allow(clippy::iter_without_into_iter, clippy::iter_not_returning_iterator)]
+	#[allow(
+		clippy::iter_without_into_iter,
+		clippy::iter_not_returning_iterator
+	)]
 	pub fn iter(&self) -> impl Stream<Item = OwnedUserId> + Send + '_ {
 		self.stream().map(ToOwned::to_owned)
 	}

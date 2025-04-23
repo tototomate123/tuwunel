@@ -14,7 +14,10 @@ use crate::{
 };
 
 #[test]
-#[cfg_attr(debug_assertions, should_panic(expected = "serializing string at the top-level"))]
+#[cfg_attr(
+	debug_assertions,
+	should_panic(expected = "serializing string at the top-level")
+)]
 fn ser_str() {
 	let user_id: &UserId = "@user:example.com".try_into().unwrap();
 	let s = serialize_to_vec(&user_id).expect("failed to serialize user_id");
@@ -162,7 +165,10 @@ fn ser_json_macro() {
 }
 
 #[test]
-#[cfg_attr(debug_assertions, should_panic(expected = "serializing string at the top-level"))]
+#[cfg_attr(
+	debug_assertions,
+	should_panic(expected = "serializing string at the top-level")
+)]
 fn ser_json_raw() {
 	use tuwunel_core::ruma::api::client::filter::FilterDefinition;
 
@@ -179,7 +185,10 @@ fn ser_json_raw() {
 }
 
 #[test]
-#[cfg_attr(debug_assertions, should_panic(expected = "you can skip serialization instead"))]
+#[cfg_attr(
+	debug_assertions,
+	should_panic(expected = "you can skip serialization instead")
+)]
 fn ser_json_raw_json() {
 	use tuwunel_core::ruma::api::client::filter::FilterDefinition;
 

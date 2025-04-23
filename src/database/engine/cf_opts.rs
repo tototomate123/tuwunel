@@ -268,7 +268,11 @@ pub(crate) fn cache_size(config: &Config, base_size: u32, entity_size: usize) ->
 	cache_size_f64(config, f64::from(base_size), entity_size)
 }
 
-#[allow(clippy::as_conversions, clippy::cast_sign_loss, clippy::cast_possible_truncation)]
+#[allow(
+	clippy::as_conversions,
+	clippy::cast_sign_loss,
+	clippy::cast_possible_truncation
+)]
 pub(crate) fn cache_size_f64(config: &Config, base_size: f64, entity_size: usize) -> usize {
 	let ents = base_size * config.cache_capacity_modifier;
 

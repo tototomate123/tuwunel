@@ -92,7 +92,10 @@ pub(crate) fn init(
 	};
 
 	#[cfg(not(feature = "perf_measurements"))]
-	#[cfg_attr(not(feature = "perf_measurements"), allow(clippy::let_unit_value))]
+	#[cfg_attr(
+		not(feature = "perf_measurements"),
+		allow(clippy::let_unit_value)
+	)]
 	let flame_guard = ();
 
 	let ret = (reload_handles, flame_guard, cap_state);

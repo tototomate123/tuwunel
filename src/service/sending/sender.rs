@@ -519,7 +519,11 @@ impl Service {
 	}
 
 	/// Look for read receipts in this room
-	#[tracing::instrument(name = "receipts", level = "trace", skip(self, since, max_edu_count))]
+	#[tracing::instrument(
+		name = "receipts",
+		level = "trace",
+		skip(self, since, max_edu_count)
+	)]
 	async fn select_edus_receipts_room(
 		&self,
 		room_id: &RoomId,
