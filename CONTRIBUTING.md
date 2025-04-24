@@ -134,8 +134,19 @@ Contribution by users who violate either of these code of conducts will not have
 their contributions accepted. This includes users who have been banned from
 conduwuit Matrix rooms for Code of Conduct violations.
 
+### Branch Policy
+
+##### This section applies to Matrix-Construct members and Tuwunel maintainers
+
+All branches on the matrix-construct/tuwunel repository are _centrally
+maintained_. They may be rebased without your consent. Trivial conflicts may be
+resolved by another maintainer. Please resolve more difficult conflicts as soon
+as possible. Personal forks are advised to reduce the workload on other
+maintainers. Stale branches will be deleted to reduce the effort for this
+policy.
+
 [issues]: https://github.com/matrix-construct/tuwunel/issues
-[conduwuit-matrix]: https://matrix.to/#/#tuwunel:tuwunel.chat
+[tuwunel-chat]: https://matrix.to/#/#tuwunel:tuwunel.chat
 [complement]: https://github.com/matrix-org/complement/
 [engage.toml]: https://github.com/matrix-construct/tuwunel/blob/main/engage.toml
 [engage]: https://charles.page.computer.surgery/engage/
