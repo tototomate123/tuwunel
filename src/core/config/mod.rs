@@ -1805,14 +1805,7 @@ pub struct Config {
 	#[serde(default)]
 	pub blurhashing: BlurhashConfig,
 
-	#[cfg(not(doctest))]
-	/// Examples:
-	///
-	/// - No LDAP login (default):
-	///
-	///       ldap = "none"
-	///
-	/// default: "none"
+	// external structure; separate section
 	pub ldap: LdapConfig,
 
 	#[serde(flatten)]
@@ -1911,12 +1904,6 @@ pub struct LdapConfig {
 	#[serde(deserialize_with = "crate::utils::deserialize_from_str")]
 	pub uri: Url,
 
-	/// Whether to use StartTLS to bind to the LDAP server.
-	///
-	/// example: true
-	#[serde(default)]
-	pub start_tls: bool,
-
 	/// Root of the searches.
 	///
 	/// example: "ou=users,dc=example,dc=org"
@@ -1925,7 +1912,13 @@ pub struct LdapConfig {
 
 	/// Bind DN if anonymous search is not enabled.
 	///
-	/// example: "cn=ldap-reader,dc=example,dc=org"
+	/// You can use the variable `{username}` that will be replaced by the
+	/// entered username. In such case, the password used to bind will be the
+	/// one provided for the login and not the one given by
+	/// `bind_password_file`.
+	///
+	/// example: "cn=ldap-reader,dc=example,dc=org" or
+	/// "cn={username},ou=users,dc=example,dc=org"
 	#[serde(default)]
 	pub bind_dn: Option<String>,
 
@@ -1955,12 +1948,16 @@ pub struct LdapConfig {
 	/// Attribute containing the mail of the user.
 	///
 	/// example: "mail"
+	///
+	/// default: "mail"
 	#[serde(default = "default_ldap_mail_attribute")]
 	pub mail_attribute: String,
 
 	/// Attribute containing the distinguished name of the user.
 	///
 	/// example: "givenName" or "sn"
+	///
+	/// default: "givenName"
 	#[serde(default = "default_ldap_name_attribute")]
 	pub name_attribute: String,
 }
@@ -2359,4 +2356,4 @@ fn default_ldap_uid_attribute() -> String { String::from("uid") }
 
 fn default_ldap_mail_attribute() -> String { String::from("mail") }
 
-fn default_ldap_name_attribute() -> String { String::from("name") }
+fn default_ldap_name_attribute() -> String { String::from("givenName") }

@@ -91,16 +91,23 @@ async fn ldap_login(
 	lowercased_user_id: &UserId,
 	password: &str,
 ) -> Result<OwnedUserId> {
-	debug!("Searching user in LDAP");
+	let user_dn = match services.config.ldap.bind_dn.as_ref() {
+		| Some(bind_dn) if bind_dn.contains("{username}") =>
+			bind_dn.replace("{username}", lowercased_user_id.localpart()),
+		| _ => {
+			debug!("Searching user in LDAP");
 
-	let dns = services.users.search_ldap(user_id).await?;
+			let dns = services.users.search_ldap(user_id).await?;
+			if dns.len() >= 2 {
+				return Err!(Ldap("LDAP search returned two or more results"));
+			}
 
-	if dns.len() >= 2 {
-		return Err!(Ldap("LDAP search returned two or more results"));
-	}
+			let Some(user_dn) = dns.first() else {
+				return password_login(services, user_id, lowercased_user_id, password).await;
+			};
 
-	let Some(user_dn) = dns.first() else {
-		return password_login(services, user_id, lowercased_user_id, password).await;
+			user_dn.clone()
+		},
 	};
 
 	// LDAP users are automatically created on first login attempt. This is a very
@@ -111,16 +118,16 @@ async fn ldap_login(
 	// password is reserved for deactivated accounts. The tuwunel password field
 	// will never be read to login a LDAP user so it's not an issue.
 	if !services.users.exists(lowercased_user_id).await {
-		debug!("Creating user {lowercased_user_id} from LDAP");
 		services
 			.users
 			.create(lowercased_user_id, Some("*"), Some("ldap"))
 			.await?;
 	}
 
+	debug!("{user_dn:?} {password:?}");
 	services
 		.users
-		.auth_ldap(user_dn, password)
+		.auth_ldap(&user_dn, password)
 		.await
 		.map(|()| lowercased_user_id.to_owned())
 }

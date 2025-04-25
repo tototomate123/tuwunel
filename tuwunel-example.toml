@@ -1641,12 +1641,6 @@
 #
 #uri =
 
-# Whether to use StartTLS to bind to the LDAP server.
-#
-# example: true
-#
-#start_tls = false
-
 # Root of the searches.
 #
 # example: "ou=users,dc=example,dc=org"
@@ -1655,7 +1649,13 @@
 
 # Bind DN if anonymous search is not enabled.
 #
-# example: "cn=ldap-reader,dc=example,dc=org"
+# You can use the variable `{username}` that will be replaced by the
+# entered username. In such case, the password used to bind will be the
+# one provided for the login and not the one given by
+# `bind_password_file`.
+#
+# example: "cn=ldap-reader,dc=example,dc=org" or
+# "cn={username},ou=users,dc=example,dc=org"
 #
 #bind_dn = false
 
@@ -1682,10 +1682,10 @@
 #
 # example: "mail"
 #
-#mail_attribute =
+#mail_attribute = "mail"
 
 # Attribute containing the distinguished name of the user.
 #
 # example: "givenName" or "sn"
 #
-#name_attribute =
+#name_attribute = "givenName"
