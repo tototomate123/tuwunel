@@ -1806,6 +1806,7 @@ pub struct Config {
 	pub blurhashing: BlurhashConfig,
 
 	// external structure; separate section
+	#[serde(default)]
 	pub ldap: LdapConfig,
 
 	#[serde(flatten)]
@@ -1889,7 +1890,7 @@ pub struct BlurhashConfig {
 	pub blurhash_max_raw_size: u64,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize)]
 #[config_example_generator(filename = "tuwunel-example.toml", section = "global.ldap")]
 pub struct LdapConfig {
 	/// Whether to enable LDAP login.
@@ -1901,8 +1902,7 @@ pub struct LdapConfig {
 	/// URI of the LDAP server.
 	///
 	/// example: "ldap://ldap.example.com:389"
-	#[serde(deserialize_with = "crate::utils::deserialize_from_str")]
-	pub uri: Url,
+	pub uri: Option<Url>,
 
 	/// Root of the searches.
 	///

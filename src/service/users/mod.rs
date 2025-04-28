@@ -1185,7 +1185,13 @@ impl Service {
 		use tuwunel_core::{debug, error, result::LogErr};
 
 		let config = &self.services.server.config.ldap;
-		let (conn, mut ldap) = LdapConnAsync::new(config.uri.as_str())
+		let uri = config
+			.uri
+			.as_ref()
+			.ok_or_else(|| err!(Ldap(error!("LDAP URI is not configured."))))?;
+
+		debug!(?uri, "LDAP creating connection...");
+		let (conn, mut ldap) = LdapConnAsync::new(uri.as_str())
 			.await
 			.map_err(|e| err!(Ldap(error!(?user_id, "LDAP connection setup error: {e}"))))?;
 
@@ -1255,7 +1261,13 @@ impl Service {
 		use tuwunel_core::{debug, error, result::LogErr};
 
 		let config = &self.services.server.config.ldap;
-		let (conn, mut ldap) = LdapConnAsync::new(config.uri.as_str())
+		let uri = config
+			.uri
+			.as_ref()
+			.ok_or_else(|| err!(Ldap(error!("LDAP URI is not configured."))))?;
+
+		debug!(?uri, "LDAP creating connection...");
+		let (conn, mut ldap) = LdapConnAsync::new(uri.as_str())
 			.await
 			.map_err(|e| err!(Ldap(error!(?user_dn, "LDAP connection setup error: {e}"))))?;
 
