@@ -57,7 +57,7 @@ version = "2.3.1"
 version = "0.1.88"
 
 [workspace.dependencies.axum]
-version = "0.7.9"
+version = "0.8.3"
 default-features = false
 features = [
 	"form",
@@ -70,10 +70,10 @@ features = [
 ]
 
 [workspace.dependencies.axum-client-ip]
-version = "0.6.1"
+version = "0.7"
 
 [workspace.dependencies.axum-extra]
-version = "0.9.6"
+version = "0.10.1"
 default-features = false
 features = [
 	"typed-header",
@@ -86,6 +86,7 @@ default-features = false
 
 [workspace.dependencies.axum-server-dual-protocol]
 version = "0.7"
+default-features = false
 
 [workspace.dependencies.base64]
 version = "0.22.1"
@@ -304,7 +305,7 @@ default-features = false
 
 [workspace.dependencies.ruma]
 git = "https://github.com/matrix-construct/ruma"
-rev = "920148dca1076454ca0ca5d43b5ce1aa708381d4"
+rev = "a91c1b70fa3cc57fc87a6ce92d2c42a19124a666"
 features = [
     "compat",
     "rand",
