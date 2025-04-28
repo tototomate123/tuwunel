@@ -223,6 +223,11 @@ version = "0.1.3"
 [workspace.dependencies.itertools]
 version = "0.14.0"
 
+[workspace.dependencies.ldap3]
+version = "0.11"
+default-features = false
+features = ["sync", "tls-rustls"]
+
 [workspace.dependencies.libc]
 version = "0.2"
 
@@ -548,11 +553,6 @@ features = ["serde"]
 [workspace.dependencies.webpage]
 version = "2.0.1"
 default-features = false
-
-[workspace.dependencies.ldap3]
-version = "0.11"
-default-features = false
-features = ["sync", "tls-rustls"]
 
 #
 # Patches

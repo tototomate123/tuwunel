@@ -1,8 +1,6 @@
 use std::{collections::BTreeMap, mem, sync::Arc};
 
 use futures::{Stream, StreamExt, TryFutureExt};
-use itertools::Itertools;
-use ldap3::{LdapConnAsync, Scope, SearchEntry};
 use ruma::{
 	DeviceId, KeyId, MilliSecondsSinceUnixEpoch, OneTimeKeyAlgorithm, OneTimeKeyId,
 	OneTimeKeyName, OwnedDeviceId, OwnedKeyId, OwnedMxcUri, OwnedUserId, RoomId, UInt, UserId,
@@ -15,8 +13,8 @@ use ruma::{
 };
 use serde_json::json;
 use tuwunel_core::{
-	Err, Error, Result, Server, at, debug, debug_warn, err, error, trace,
-	utils::{self, ReadyExt, result::LogErr, stream::TryIgnore, string::Unquoted},
+	Err, Error, Result, Server, at, debug_warn, err, trace,
+	utils::{self, ReadyExt, stream::TryIgnore, string::Unquoted},
 };
 use tuwunel_database::{Deserialized, Ignore, Interfix, Json, Map};
 
@@ -249,30 +247,32 @@ impl Service {
 		// Cannot change the password of a LDAP user. There are two special cases :
 		// - a `None` password can be used to deactivate a LDAP user
 		// - a "*" password is used as the default password of an active LDAP user
-		if self
-			.db
-			.userid_origin
-			.get(user_id)
-			.await
-			.deserialized::<String>()?
-			== "ldap" && password.is_some()
+		if cfg!(feature = "ldap")
+			&& password.is_some()
 			&& password != Some("*")
+			&& self
+				.db
+				.userid_origin
+				.get(user_id)
+				.await
+				.deserialized::<String>()?
+				== "ldap"
 		{
-			Err!(Request(InvalidParam("Cannot change password of a LDAP user")))
-		} else {
-			password
-				.map(utils::hash::password)
-				.transpose()
-				.map_err(|e| {
-					err!(Request(InvalidParam("Password does not meet the requirements: {e}")))
-				})?
-				.map_or_else(
-					|| self.db.userid_password.insert(user_id, b""),
-					|hash| self.db.userid_password.insert(user_id, hash),
-				);
-
-			Ok(())
+			return Err!(Request(InvalidParam("Cannot change password of a LDAP user")));
 		}
+
+		password
+			.map(utils::hash::password)
+			.transpose()
+			.map_err(|e| {
+				err!(Request(InvalidParam("Password does not meet the requirements: {e}")))
+			})?
+			.map_or_else(
+				|| self.db.userid_password.insert(user_id, b""),
+				|hash| self.db.userid_password.insert(user_id, hash),
+			);
+
+		Ok(())
 	}
 
 	/// Returns the displayname of a user on this homeserver.
@@ -1178,7 +1178,12 @@ impl Service {
 		}
 	}
 
+	#[cfg(feature = "ldap")]
 	pub async fn search_ldap(&self, user_id: &UserId) -> Result<Vec<String>> {
+		use itertools::Itertools;
+		use ldap3::{LdapConnAsync, Scope, SearchEntry};
+		use tuwunel_core::{debug, error, result::LogErr};
+
 		let config = &self.services.server.config.ldap;
 		let (conn, mut ldap) = LdapConnAsync::new(config.uri.as_str())
 			.await
@@ -1239,7 +1244,16 @@ impl Service {
 		Ok(dns)
 	}
 
+	#[cfg(not(feature = "ldap"))]
+	pub async fn search_ldap(&self, _user_id: &UserId) -> Result<Vec<String>> {
+		Err!(FeatureDisabled("ldap"))
+	}
+
+	#[cfg(feature = "ldap")]
 	pub async fn auth_ldap(&self, user_dn: &str, password: &str) -> Result {
+		use ldap3::LdapConnAsync;
+		use tuwunel_core::{debug, error, result::LogErr};
+
 		let config = &self.services.server.config.ldap;
 		let (conn, mut ldap) = LdapConnAsync::new(config.uri.as_str())
 			.await
@@ -1266,6 +1280,11 @@ impl Service {
 		driver.await.log_err().ok();
 
 		Ok(())
+	}
+
+	#[cfg(not(feature = "ldap"))]
+	pub async fn auth_ldap(&self, _user_dn: &str, _password: &str) -> Result {
+		Err!(FeatureDisabled("ldap"))
 	}
 }
 

@@ -190,7 +190,7 @@ pub(crate) async fn login_route(
 				return Err!(Request(Unknown("User ID does not belong to this homeserver")));
 			}
 
-			if services.config.ldap.enable {
+			if cfg!(feature = "ldap") && services.config.ldap.enable {
 				ldap_login(&services, &user_id, &lowercased_user_id, password).await?
 			} else {
 				password_login(&services, &user_id, &lowercased_user_id, password).await?

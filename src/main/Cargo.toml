@@ -93,6 +93,10 @@ jemalloc_stats = [
 jemalloc_conf = [
 	"tuwunel-core/jemalloc_conf",
 ]
+ldap = [
+	"tuwunel-api/ldap",
+	"tuwunel-service/ldap",
+]
 media_thumbnail = [
 	"tuwunel-service/media_thumbnail",
 ]
