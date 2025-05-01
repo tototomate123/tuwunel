@@ -4,8 +4,23 @@ on:
   workflow_call:
 
 jobs:
+  fmt:
+    name: Format
+    uses: ./.github/workflows/bake.yml
+    with:
+      bake_targets: '["fmt"]'
+      cargo_profiles: ${{vars.CARGO_PROFILES}}
+      docker_id: ${{vars.DOCKER_ID}}
+      feat_sets: ${{vars.FEAT_SETS}}
+      machines: ${{vars.MACHINES}}
+      rust_targets: ${{vars.RUST_TARGETS}}
+      rust_toolchains: '["nightly"]'
+      sys_names: ${{vars.SYS_NAMES}}
+      sys_targets: ${{vars.SYS_TARGETS}}
+      sys_versions: ${{vars.SYS_VERSIONS}}
+
   clippy:
-    name: Clippy Lints
+    name: Clippy
     uses: ./.github/workflows/bake.yml
     with:
       bake_targets: '["clippy"]'

@@ -440,7 +440,7 @@ target "installer" {
         elem_tag("installer", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
     target = "installer"
-    dockerfile = "docker/Dockerfile.install"
+    dockerfile = "docker/Dockerfile.cargo.install"
     labels = {
         "_group" = "install"
         "_cache" = "trunk"
@@ -680,6 +680,25 @@ target "check" {
     }
 }
 
+target "fmt" {
+    name = elem("fmt", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+    tags = [
+        elem_tag("fmt", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
+    ]
+    dockerfile = "docker/Dockerfile.cargo.fmt"
+    matrix = cargo_rust_feat_sys
+    inherits = [
+        elem("deps-base", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
+        elem("cargo", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
+    ]
+    contexts = {
+        input = elem("target:ingredients", [rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+    }
+    args = {
+        fmt_args = "-- --color always"
+    }
+}
+
 target "cargo" {
     name = elem("cargo", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     target = "cargo"
@@ -803,7 +822,7 @@ target "deps-base" {
     target = "deps"
     output = ["type=docker,compression=zstd,mode=min"]
     cache_to = ["type=local,compression=zstd,mode=min"]
-    dockerfile = "docker/Dockerfile.deps"
+    dockerfile = "docker/Dockerfile.cargo.deps"
     labels = {
         "_group" = "deps"
         "_cache" = "trunk"

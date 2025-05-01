@@ -39,7 +39,7 @@ RUN \
     rustup component add \
         --toolchain ${rust_toolchain} \
         --target ${CARGO_TARGET} \
-        clippy
+        clippy rustfmt
 EOF
 
 
