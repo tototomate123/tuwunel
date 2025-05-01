@@ -9,7 +9,23 @@ docker_repo=${docker_repo:=$(echo $docker_id | cut -d"/" -f2)}
 CI="${CI:-true}"
 BASEDIR=$(dirname "$0")
 
+default_cargo_profile="test"
+default_feat_set="all"
+default_rust_toolchain="nightly"
+default_rust_target="x86_64-unknown-linux-gnu"
+default_sys_name="debian"
+default_sys_target="x86_64-linux-gnu"
+default_sys_version="testing-slim"
+
 set -a
+cargo_profile="${cargo_profile:-$default_cargo_profile}"
+feat_set="${feat_set:-$default_feat_set}"
+rust_target="${rust_target:-$default_rust_target}"
+rust_toolchain="${rust_toolchain:-$default_rust_toolchain}"
+sys_name="${sys_names:-$default_sys_name}"
+sys_target="${sys_target:-$default_sys_target}"
+sys_version="${sys_version:-$default_sys_version}"
+
 runner_name=$(echo $RUNNER_NAME | cut -d"." -f1)
 runner_num=$(echo $RUNNER_NAME | cut -d"." -f2)
 set +a
