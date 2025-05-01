@@ -1,14 +1,14 @@
-name: Build
+name: Dependency Build
 
 on:
   workflow_call:
 
 jobs:
-  install:
-    name: Install
+  sources:
+    name: Acquire Source
     uses: ./.github/workflows/bake.yml
     with:
-      bake_targets: '["install"]'
+      bake_targets: '["sources"]'
       cargo_profiles: ${{vars.CARGO_PROFILES}}
       docker_id: ${{vars.DOCKER_ID}}
       feat_sets: ${{vars.FEAT_SETS}}
@@ -19,12 +19,28 @@ jobs:
       sys_targets: ${{vars.SYS_TARGETS}}
       sys_versions: ${{vars.SYS_VERSIONS}}
 
-  complement:
-    name: Complement Testee
+  rocksdb:
+    name: Build RocksDB
     uses: ./.github/workflows/bake.yml
-    needs: [install]
+    needs: [sources]
     with:
-      bake_targets: '["complement-testee"]'
+      bake_targets: '["rocksdb"]'
+      cargo_profiles: ${{vars.CARGO_PROFILES}}
+      docker_id: ${{vars.DOCKER_ID}}
+      feat_sets: ${{vars.FEAT_SETS}}
+      machines: ${{vars.MACHINES}}
+      rust_targets: ${{vars.RUST_TARGETS}}
+      rust_toolchains: ${{vars.RUST_TOOLCHAINS}}
+      sys_names: ${{vars.SYS_NAMES}}
+      sys_targets: ${{vars.SYS_TARGETS}}
+      sys_versions: ${{vars.SYS_VERSIONS}}
+
+  deps:
+    name: Build Dependencies
+    uses: ./.github/workflows/bake.yml
+    needs: [rocksdb]
+    with:
+      bake_targets: '["deps"]'
       cargo_profiles: ${{vars.CARGO_PROFILES}}
       docker_id: ${{vars.DOCKER_ID}}
       feat_sets: ${{vars.FEAT_SETS}}

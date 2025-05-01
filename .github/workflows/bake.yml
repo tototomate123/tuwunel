@@ -58,6 +58,7 @@ env:
 
 jobs:
   task:
+    name: Bake
     runs-on: ${{matrix.machine}}
     strategy:
       fail-fast: false

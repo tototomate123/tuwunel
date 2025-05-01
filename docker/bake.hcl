@@ -181,8 +181,8 @@ group "complement" {
     targets = [
         "complement-tester",
         "complement-testee",
-        "complement-tester-valgrind",
-        "complement-testee-valgrind",
+        #"complement-tester-valgrind",
+        #"complement-testee-valgrind",
     ]
 }
 

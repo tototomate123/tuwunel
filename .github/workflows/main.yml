@@ -1,0 +1,49 @@
+name: Main
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+    branches:
+      - "**"
+
+  workflow_dispatch:
+    inputs:
+      bake:
+        type: string
+        required: false
+        description: JSON Object of inputs passed to the environment
+
+concurrency:
+  group: ${{github.workflow}}-${{github.ref}}
+  cancel-in-progress: true
+
+env:
+  docker_id: ${{vars.DOCKER_ID}}
+  inputs: ${{github.event.inputs}}
+
+jobs:
+  base:
+    name: Base
+    uses: ./.github/workflows/base.yml
+
+  deps:
+    name: Dependencies
+    uses: ./.github/workflows/deps.yml
+    needs: [base]
+
+  lint:
+    name: Linting
+    uses: ./.github/workflows/lint.yml
+    needs: [deps]
+
+  build:
+    name: Build
+    uses: ./.github/workflows/build.yml
+    needs: [deps]
+
+  test:
+    name: Test
+    uses: ./.github/workflows/test.yml
+    needs: [build]

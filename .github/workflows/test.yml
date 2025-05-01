@@ -1,0 +1,67 @@
+name: Test
+
+on:
+  workflow_call:
+
+jobs:
+  unit:
+    name: Unit Tests
+    uses: ./.github/workflows/bake.yml
+    with:
+      bake_targets: '["tests-unit"]'
+      cargo_profiles: ${{vars.CARGO_PROFILES}}
+      docker_id: ${{vars.DOCKER_ID}}
+      feat_sets: ${{vars.FEAT_SETS}}
+      machines: ${{vars.MACHINES}}
+      rust_targets: ${{vars.RUST_TARGETS}}
+      rust_toolchains: ${{vars.RUST_TOOLCHAINS}}
+      sys_names: ${{vars.SYS_NAMES}}
+      sys_targets: ${{vars.SYS_TARGETS}}
+      sys_versions: ${{vars.SYS_VERSIONS}}
+
+  smoke:
+    name: Smoke Tests
+    uses: ./.github/workflows/bake.yml
+    with:
+      bake_targets: '["tests-smoke"]'
+      cargo_profiles: ${{vars.CARGO_PROFILES}}
+      docker_id: ${{vars.DOCKER_ID}}
+      feat_sets: ${{vars.FEAT_SETS}}
+      machines: ${{vars.MACHINES}}
+      rust_targets: ${{vars.RUST_TARGETS}}
+      rust_toolchains: ${{vars.RUST_TOOLCHAINS}}
+      sys_names: ${{vars.SYS_NAMES}}
+      sys_targets: ${{vars.SYS_TARGETS}}
+      sys_versions: ${{vars.SYS_VERSIONS}}
+
+  complement:
+    name: Compliance Tests
+    needs: [smoke]
+    runs-on: ${{matrix.machine}}
+    concurrency: ${{matrix.feat_set}}-${{matrix.sys_name}}-${{matrix.sys_target}}-${{matrix.sys_version}}
+    strategy:
+      fail-fast: false
+      matrix:
+        cargo_profile: ${{fromJSON(vars.CARGO_PROFILES)}}
+        feat_set: ${{fromJSON(vars.FEAT_SETS)}}
+        machine: ${{fromJSON(vars.MACHINES)}}
+        rust_target: ${{fromJSON(vars.RUST_TARGETS)}}
+        rust_toolchain: ${{fromJSON(vars.RUST_TOOLCHAINS)}}
+        sys_name: ${{fromJSON(vars.SYS_NAMES)}}
+        sys_target: ${{fromJSON(vars.SYS_TARGETS)}}
+        sys_version: ${{fromJSON(vars.SYS_VERSIONS)}}
+
+    steps:
+    - name: Complement
+      env:
+        cargo_profile: ${{matrix.cargo_profile}}
+        feat_set: ${{matrix.feat_set}}
+        machine: ${{matrix.machine}}
+        rust_target: ${{matrix.rust_target}}
+        rust_toolchain: ${{matrix.rust_toolchain}}
+        sys_name: ${{matrix.sys_name}}
+        sys_target: ${{matrix.sys_target}}
+        sys_version: ${{matrix.sys_version}}
+
+      run: |
+        docker/complement.sh
