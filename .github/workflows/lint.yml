@@ -18,3 +18,19 @@ jobs:
       sys_names: ${{vars.SYS_NAMES}}
       sys_targets: ${{vars.SYS_TARGETS}}
       sys_versions: ${{vars.SYS_VERSIONS}}
+
+  doc:
+    name: Docs
+    needs: [clippy]
+    uses: ./.github/workflows/bake.yml
+    with:
+      bake_targets: '["docs"]'
+      cargo_profiles: ${{vars.CARGO_PROFILES}}
+      docker_id: ${{vars.DOCKER_ID}}
+      feat_sets: ${{vars.FEAT_SETS}}
+      machines: ${{vars.MACHINES}}
+      rust_targets: ${{vars.RUST_TARGETS}}
+      rust_toolchains: ${{vars.RUST_TOOLCHAINS}}
+      sys_names: ${{vars.SYS_NAMES}}
+      sys_targets: ${{vars.SYS_TARGETS}}
+      sys_versions: ${{vars.SYS_VERSIONS}}
