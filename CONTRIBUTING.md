@@ -23,40 +23,7 @@ suggestion, allow the lint and mention that in a comment.
 
 ### Running CI tests locally
 
-conduwuit's CI for tests, linting, formatting, audit, etc use
-[`engage`][engage]. engage can be installed from nixpkgs or `cargo install
-engage`. conduwuit's Nix flake devshell has the nixpkgs engage with `direnv`.
-Use `engage --help` for more usage details.
-
-To test, format, lint, etc that CI would do, install engage, allow the `.envrc`
-file using `direnv allow`, and run `engage`.
-
-All of the tasks are defined at the [engage.toml][engage.toml] file. You can
-view all of them neatly by running `engage list`
-
-If you would like to run only a specific engage task group, use `just`:
-
-- `engage just <group>`
-- Example: `engage just lints`
-
-If you would like to run a specific engage task in a specific group, use `just
-<GROUP> [TASK]`: `engage just lints cargo-fmt`
-
-The following binaries are used in [`engage.toml`][engage.toml]:
-
-- [`engage`][engage]
-- `nix`
-- [`direnv`][direnv]
-- `rustc`
-- `cargo`
-- `cargo-fmt`
-- `rustdoc`
-- `cargo-clippy`
-- [`cargo-audit`][cargo-audit]
-- [`cargo-deb`][cargo-deb]
-- [`lychee`][lychee]
-- [`markdownlint-cli`][markdownlint-cli]
-- `dpkg`
+<sub>TODO: docker bake matrix</sub>
 
 ### Matrix tests
 
@@ -148,8 +115,6 @@ policy.
 [issues]: https://github.com/matrix-construct/tuwunel/issues
 [tuwunel-chat]: https://matrix.to/#/#tuwunel:tuwunel.chat
 [complement]: https://github.com/matrix-org/complement/
-[engage.toml]: https://github.com/matrix-construct/tuwunel/blob/main/engage.toml
-[engage]: https://charles.page.computer.surgery/engage/
 [sytest]: https://github.com/matrix-org/sytest/
 [cargo-deb]: https://github.com/kornelski/cargo-deb
 [lychee]: https://github.com/lycheeverse/lychee
