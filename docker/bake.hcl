@@ -123,8 +123,12 @@ group "default" {
 
 group "lints" {
     targets = [
+        "audit",
         "check",
         "clippy",
+        "docs",
+        "fmt",
+        "lychee",
     ]
 }
 
@@ -208,6 +212,7 @@ target "complement-testee-valgrind" {
     ]
     contexts = {
         input = elem("target:smoketest-valgrind", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+        complement-tester = elem("target:complement-tester-valgrind", [feat_set, sys_name, sys_version, sys_target])
     }
 }
 
@@ -229,6 +234,7 @@ target "complement-testee" {
     ]
     contexts = {
         input = elem("target:install", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+        complement-tester = elem("target:complement-tester", [feat_set, sys_name, sys_version, sys_target])
         complement-config = elem("target:complement-config", [feat_set, sys_name, sys_version, sys_target])
     }
     args = {
@@ -680,11 +686,46 @@ target "check" {
     }
 }
 
+target "lychee" {
+    name = elem("lychee", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+    tags = [
+        elem_tag("lychee", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
+    ]
+    target = "lychee"
+    dockerfile = "docker/Dockerfile.cargo.lychee"
+    matrix = cargo_rust_feat_sys
+    inherits = [
+        elem("deps-base", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
+        elem("cargo", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
+    ]
+    contexts = {
+        input = elem("target:ingredients", [rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+    }
+}
+
+target "audit" {
+    name = elem("audit", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+    tags = [
+        elem_tag("audit", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
+    ]
+	target = "audit"
+    dockerfile = "docker/Dockerfile.cargo.audit"
+    matrix = cargo_rust_feat_sys
+    inherits = [
+        elem("deps-base", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
+        elem("cargo", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
+    ]
+    contexts = {
+        input = elem("target:ingredients", [rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+    }
+}
+
 target "fmt" {
     name = elem("fmt", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     tags = [
         elem_tag("fmt", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
+    target = "fmt"
     dockerfile = "docker/Dockerfile.cargo.fmt"
     matrix = cargo_rust_feat_sys
     inherits = [
@@ -721,11 +762,11 @@ target "cargo" {
 
 group "deps" {
     targets = [
-        #"deps-check",
+        "deps-check",
         "deps-clippy",
-        #"deps-build",
+        "deps-build",
         "deps-build-tests",
-        #"deps-build-bench",
+        "deps-build-bench",
         "deps-build-bins",
     ]
 }

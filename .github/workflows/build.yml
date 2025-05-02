@@ -10,7 +10,6 @@ jobs:
     with:
       bake_targets: '["install"]'
       cargo_profiles: ${{vars.CARGO_PROFILES}}
-      docker_id: ${{vars.DOCKER_ID}}
       feat_sets: ${{vars.FEAT_SETS}}
       machines: ${{vars.MACHINES}}
       rust_targets: ${{vars.RUST_TARGETS}}
@@ -26,7 +25,6 @@ jobs:
     with:
       bake_targets: '["complement-testee"]'
       cargo_profiles: ${{vars.CARGO_PROFILES}}
-      docker_id: ${{vars.DOCKER_ID}}
       feat_sets: ${{vars.FEAT_SETS}}
       machines: ${{vars.MACHINES}}
       rust_targets: ${{vars.RUST_TARGETS}}

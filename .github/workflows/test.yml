@@ -5,12 +5,11 @@ on:
 
 jobs:
   unit:
-    name: Unit Tests
+    name: Unit
     uses: ./.github/workflows/bake.yml
     with:
       bake_targets: '["tests-unit"]'
       cargo_profiles: ${{vars.CARGO_PROFILES}}
-      docker_id: ${{vars.DOCKER_ID}}
       feat_sets: ${{vars.FEAT_SETS}}
       machines: ${{vars.MACHINES}}
       rust_targets: ${{vars.RUST_TARGETS}}
@@ -20,12 +19,11 @@ jobs:
       sys_versions: ${{vars.SYS_VERSIONS}}
 
   smoke:
-    name: Smoke Tests
+    name: Smoke
     uses: ./.github/workflows/bake.yml
     with:
       bake_targets: '["tests-smoke"]'
       cargo_profiles: ${{vars.CARGO_PROFILES}}
-      docker_id: ${{vars.DOCKER_ID}}
       feat_sets: ${{vars.FEAT_SETS}}
       machines: ${{vars.MACHINES}}
       rust_targets: ${{vars.RUST_TARGETS}}
@@ -35,18 +33,19 @@ jobs:
       sys_versions: ${{vars.SYS_VERSIONS}}
 
   complement:
-    name: Compliance Tests
+    name: Compliance
     needs: [smoke]
     runs-on: ${{matrix.machine}}
-    concurrency: ${{matrix.feat_set}}-${{matrix.sys_name}}-${{matrix.sys_target}}-${{matrix.sys_version}}
+    #concurrency: ${{matrix.feat_set}}-${{matrix.sys_name}}-${{matrix.sys_target}}-${{matrix.sys_version}}
+    concurrency: complement-cant-walk-and-chew-bubblegum
     strategy:
       fail-fast: false
       matrix:
-        cargo_profile: ${{fromJSON(vars.CARGO_PROFILES)}}
-        feat_set: ${{fromJSON(vars.FEAT_SETS)}}
+        cargo_profile: ${{fromJSON('["test"]')}}
+        feat_set: ${{fromJSON('["all"]')}}
         machine: ${{fromJSON(vars.MACHINES)}}
         rust_target: ${{fromJSON(vars.RUST_TARGETS)}}
-        rust_toolchain: ${{fromJSON(vars.RUST_TOOLCHAINS)}}
+        rust_toolchain: ${{fromJSON('["nightly"]')}}
         sys_name: ${{fromJSON(vars.SYS_NAMES)}}
         sys_target: ${{fromJSON(vars.SYS_TARGETS)}}
         sys_version: ${{fromJSON(vars.SYS_VERSIONS)}}

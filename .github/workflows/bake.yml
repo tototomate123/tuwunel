@@ -13,10 +13,6 @@ on:
         required: false
         default: '["test", "bench"]'
         description: Cargo profiles
-      docker_id:
-        type: string
-        required: false
-        description: Dockerhub acct/repo identity.
       feat_sets:
         type: string
         required: false
@@ -53,11 +49,8 @@ on:
         default: '["testing-slim"]'
         description: System versions
 
-env:
-  docker_id: ${{inputs.docker_id}}
-
 jobs:
-  task:
+  bake:
     name: Bake
     runs-on: ${{matrix.machine}}
     strategy:
@@ -75,7 +68,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - name: Task
+    - name: Execute
       env:
         bake_target: ${{matrix.bake_target}}
         cargo_profile: ${{matrix.cargo_profile}}

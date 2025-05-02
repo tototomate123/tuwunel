@@ -1,11 +1,6 @@
 #!/bin/bash
 set -eo pipefail
 
-default_docker_id="jevolk/tuwunel"
-docker_id=${docker_id:=$default_docker_id}
-docker_acct=${docker_acct:=$(echo $docker_id | cut -d"/" -f1)}
-docker_repo=${docker_repo:=$(echo $docker_id | cut -d"/" -f2)}
-
 CI="${CI:-true}"
 BASEDIR=$(dirname "$0")
 
@@ -46,4 +41,4 @@ cid=$(docker run -d $arg)
 set +x
 trap 'docker container stop $cid; set +x; date; echo -e "\033[1;41;37mFAIL\033[0m"' INT
 docker wait "$cid" 2>/dev/null
-echo -e "\033[1;42;37mPASS\033[0m"
+echo -e "\033[1;42;30mPASS\033[0m"

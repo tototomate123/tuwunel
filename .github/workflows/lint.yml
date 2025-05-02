@@ -9,9 +9,36 @@ jobs:
     uses: ./.github/workflows/bake.yml
     with:
       bake_targets: '["fmt"]'
-      cargo_profiles: ${{vars.CARGO_PROFILES}}
-      docker_id: ${{vars.DOCKER_ID}}
-      feat_sets: ${{vars.FEAT_SETS}}
+      cargo_profiles: '["test"]'
+      feat_sets: '["none"]'
+      machines: ${{vars.MACHINES}}
+      rust_targets: ${{vars.RUST_TARGETS}}
+      rust_toolchains: '["nightly"]'
+      sys_names: ${{vars.SYS_NAMES}}
+      sys_targets: ${{vars.SYS_TARGETS}}
+      sys_versions: ${{vars.SYS_VERSIONS}}
+
+  audit:
+    name: Audit
+    uses: ./.github/workflows/bake.yml
+    with:
+      bake_targets: '["audit"]'
+      cargo_profiles: '["test"]'
+      feat_sets: '["none"]'
+      machines: ${{vars.MACHINES}}
+      rust_targets: ${{vars.RUST_TARGETS}}
+      rust_toolchains: '["nightly"]'
+      sys_names: ${{vars.SYS_NAMES}}
+      sys_targets: ${{vars.SYS_TARGETS}}
+      sys_versions: ${{vars.SYS_VERSIONS}}
+
+  lychee:
+    name: Lychee
+    uses: ./.github/workflows/bake.yml
+    with:
+      bake_targets: '["lychee"]'
+      cargo_profiles: '["test"]'
+      feat_sets: '["none"]'
       machines: ${{vars.MACHINES}}
       rust_targets: ${{vars.RUST_TARGETS}}
       rust_toolchains: '["nightly"]'
@@ -25,7 +52,6 @@ jobs:
     with:
       bake_targets: '["clippy"]'
       cargo_profiles: ${{vars.CARGO_PROFILES}}
-      docker_id: ${{vars.DOCKER_ID}}
       feat_sets: ${{vars.FEAT_SETS}}
       machines: ${{vars.MACHINES}}
       rust_targets: ${{vars.RUST_TARGETS}}
@@ -40,12 +66,11 @@ jobs:
     uses: ./.github/workflows/bake.yml
     with:
       bake_targets: '["docs"]'
-      cargo_profiles: ${{vars.CARGO_PROFILES}}
-      docker_id: ${{vars.DOCKER_ID}}
+      cargo_profiles: '["test"]'
       feat_sets: ${{vars.FEAT_SETS}}
       machines: ${{vars.MACHINES}}
       rust_targets: ${{vars.RUST_TARGETS}}
-      rust_toolchains: ${{vars.RUST_TOOLCHAINS}}
+      rust_toolchains: '["nightly"]'
       sys_names: ${{vars.SYS_NAMES}}
       sys_targets: ${{vars.SYS_TARGETS}}
       sys_versions: ${{vars.SYS_VERSIONS}}

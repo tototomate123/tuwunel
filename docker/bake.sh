@@ -1,11 +1,6 @@
 #!/bin/bash
 set -eo pipefail
 
-default_docker_id="jevolk/tuwunel"
-docker_id=${docker_id:=$default_docker_id}
-docker_acct=${docker_acct:=$(echo $docker_id | cut -d"/" -f1)}
-docker_repo=${docker_repo:=$(echo $docker_id | cut -d"/" -f2)}
-
 CI="${CI:-true}"
 BASEDIR=$(dirname "$0")
 
@@ -75,7 +70,6 @@ set +a
 export DOCKER_BUILDKIT=1
 if test "$CI" = "true"; then
     export BUILDKIT_PROGRESS="plain"
-    echo "plain"
 fi
 
 uwu_docker_build_args=""
@@ -101,7 +95,6 @@ date
 
 arg="$args -f $BASEDIR/bake.hcl"
 if test "$BUILDKIT_PROGRESS" = "plain"; then
-	echo "PRINTING"
     docker buildx bake --print $arg $bake_target
 fi
 
@@ -115,4 +108,4 @@ set -ux
 docker buildx bake $arg $bake_target
 
 set +x
-echo -e "\033[1;42;37mPASS\033[0m"
+echo -e "\033[1;42;30mPASS\033[0m"

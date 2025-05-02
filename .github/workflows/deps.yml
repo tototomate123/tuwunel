@@ -5,12 +5,11 @@ on:
 
 jobs:
   sources:
-    name: Acquire Source
+    name: Acquire
     uses: ./.github/workflows/bake.yml
     with:
       bake_targets: '["sources"]'
       cargo_profiles: ${{vars.CARGO_PROFILES}}
-      docker_id: ${{vars.DOCKER_ID}}
       feat_sets: ${{vars.FEAT_SETS}}
       machines: ${{vars.MACHINES}}
       rust_targets: ${{vars.RUST_TARGETS}}
@@ -20,13 +19,12 @@ jobs:
       sys_versions: ${{vars.SYS_VERSIONS}}
 
   rocksdb:
-    name: Build RocksDB
+    name: RocksDB
     uses: ./.github/workflows/bake.yml
     needs: [sources]
     with:
       bake_targets: '["rocksdb"]'
       cargo_profiles: ${{vars.CARGO_PROFILES}}
-      docker_id: ${{vars.DOCKER_ID}}
       feat_sets: ${{vars.FEAT_SETS}}
       machines: ${{vars.MACHINES}}
       rust_targets: ${{vars.RUST_TARGETS}}
@@ -36,13 +34,12 @@ jobs:
       sys_versions: ${{vars.SYS_VERSIONS}}
 
   deps:
-    name: Build Dependencies
+    name: Build
     uses: ./.github/workflows/bake.yml
     needs: [rocksdb]
     with:
-      bake_targets: '["deps"]'
+      bake_targets: '["deps-clippy", "deps-build-tests", "deps-build-bins"]'
       cargo_profiles: ${{vars.CARGO_PROFILES}}
-      docker_id: ${{vars.DOCKER_ID}}
       feat_sets: ${{vars.FEAT_SETS}}
       machines: ${{vars.MACHINES}}
       rust_targets: ${{vars.RUST_TARGETS}}

@@ -1,11 +1,11 @@
 # syntax = docker/dockerfile:1.11-labs
 
-FROM input AS fmt
+FROM input AS audit
 ARG sys_target
 ARG rust_toolchain="nightly"
 ARG RUSTUP_HOME
 ARG CARGO_HOME
-ARG fmt_args=""
+ARG audit_args=""
 
 WORKDIR /usr/src/tuwunel
 RUN \
@@ -15,9 +15,12 @@ RUN \
     env
     set -eux
     rustup run ${rust_toolchain} \
-        cargo fmt \
-            --all \
-            --check \
-            --manifest-path Cargo.toml \
-            ${fmt_args}
+        cargo audit \
+            --stale \
+            --deny yanked \
+            --deny unsound \
+            --deny unmaintained \
+            --deny warnings \
+            --color=always \
+            ${audit_args}
 EOF

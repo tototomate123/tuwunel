@@ -7,20 +7,13 @@ on:
   pull_request:
     branches:
       - "**"
-
   workflow_dispatch:
-    inputs:
-      bake:
-        type: string
-        required: false
-        description: JSON Object of inputs passed to the environment
 
 concurrency:
   group: ${{github.workflow}}-${{github.ref}}
   cancel-in-progress: true
 
 env:
-  docker_id: ${{vars.DOCKER_ID}}
   inputs: ${{github.event.inputs}}
 
 jobs:
@@ -29,12 +22,12 @@ jobs:
     uses: ./.github/workflows/base.yml
 
   deps:
-    name: Dependencies
+    name: Deps
     uses: ./.github/workflows/deps.yml
     needs: [base]
 
   lint:
-    name: Linting
+    name: Lint
     uses: ./.github/workflows/lint.yml
     needs: [deps]
 

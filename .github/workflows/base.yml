@@ -1,16 +1,15 @@
-name: Base Environment
+name: Base
 
 on:
   workflow_call:
 
 jobs:
   systems:
-    name: Base Environment
+    name: System
     uses: ./.github/workflows/bake.yml
     with:
       bake_targets: '["systems"]'
       cargo_profiles: ${{vars.CARGO_PROFILES}}
-      docker_id: ${{vars.DOCKER_ID}}
       feat_sets: ${{vars.FEAT_SETS}}
       machines: ${{vars.MACHINES}}
       rust_targets: ${{vars.RUST_TARGETS}}
@@ -20,13 +19,12 @@ jobs:
       sys_versions: ${{vars.SYS_VERSIONS}}
 
   buildsys:
-    name: Build Environment
+    name: Builder
     uses: ./.github/workflows/bake.yml
     needs: [systems]
     with:
       bake_targets: '["buildsys"]'
       cargo_profiles: ${{vars.CARGO_PROFILES}}
-      docker_id: ${{vars.DOCKER_ID}}
       feat_sets: ${{vars.FEAT_SETS}}
       machines: ${{vars.MACHINES}}
       rust_targets: ${{vars.RUST_TARGETS}}
@@ -36,13 +34,12 @@ jobs:
       sys_versions: ${{vars.SYS_VERSIONS}}
 
   complement:
-    name: Test Environment
+    name: Tester
     uses: ./.github/workflows/bake.yml
     needs: [systems]
     with:
       bake_targets: '["complement-tester"]'
       cargo_profiles: ${{vars.CARGO_PROFILES}}
-      docker_id: ${{vars.DOCKER_ID}}
       feat_sets: ${{vars.FEAT_SETS}}
       machines: ${{vars.MACHINES}}
       rust_targets: ${{vars.RUST_TARGETS}}
