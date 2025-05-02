@@ -1,10 +1,10 @@
 [Unit]
-Description=conduwuit Matrix homeserver
+Description=Tuwunel Matrix homeserver
 Wants=network-online.target
 After=network-online.target
-Documentation=https://conduwuit.puppyirl.gay/
-RequiresMountsFor=/var/lib/private/conduwuit
-Alias=matrix-conduwuit.service
+Documentation=https://tuwunel.chat/
+RequiresMountsFor=/var/lib/private/tuwunel
+Alias=matrix-tuwunel.service
 
 [Service]
 DynamicUser=yes
@@ -54,16 +54,18 @@ SystemCallArchitectures=native
 SystemCallFilter=@system-service @resources
 SystemCallFilter=~@clock @debug @module @mount @reboot @swap @cpu-emulation @obsolete @timer @chown @setuid @privileged @keyring @ipc
 SystemCallErrorNumber=EPERM
-StateDirectory=conduwuit
+StateDirectory=tuwunel
 
-RuntimeDirectory=conduwuit
+RuntimeDirectory=tuwunel
 RuntimeDirectoryMode=0750
 
-Environment="CONDUWUIT_CONFIG=/etc/conduwuit/conduwuit.toml"
-BindPaths=/var/lib/private/conduwuit:/var/lib/matrix-conduit
-BindPaths=/var/lib/private/conduwuit:/var/lib/private/matrix-conduit
+Environment="CONDUWUIT_CONFIG=/etc/tuwunel/tuwunel.toml"
+BindPaths=/var/lib/private/tuwunel:/var/lib/conduwuit
+BindPaths=/var/lib/private/tuwunel:/var/lib/private/conduwuit
+BindPaths=/var/lib/private/tuwunel:/var/lib/matrix-conduit
+BindPaths=/var/lib/private/tuwunel:/var/lib/private/matrix-conduit
 
-ExecStart=/usr/bin/conduwuit
+ExecStart=/usr/bin/tuwunel
 Restart=on-failure
 RestartSec=5
 

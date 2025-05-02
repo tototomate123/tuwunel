@@ -1,21 +1,21 @@
 [Unit]
-Description=conduwuit Matrix homeserver
+Description=Tuwunel Matrix homeserver
 Wants=network-online.target
 After=network-online.target
-Alias=matrix-conduwuit.service
-Documentation=https://conduwuit.puppyirl.gay/
+Alias=matrix-tuwunel.service
+Documentation=https://tuwunel.chat/
 
 [Service]
 DynamicUser=yes
-User=conduwuit
-Group=conduwuit
+User=tuwunel
+Group=tuwunel
 Type=notify
 
-Environment="CONDUWUIT_CONFIG=/etc/conduwuit/conduwuit.toml"
+Environment="TUWUNEL_CONFIG=/etc/tuwunel/tuwunel.toml"
 
-ExecStart=/usr/sbin/conduwuit
+ExecStart=/usr/sbin/tuwunel
 
-ReadWritePaths=/var/lib/conduwuit /etc/conduwuit
+ReadWritePaths=/var/lib/tuwunel /etc/tuwunel
 
 AmbientCapabilities=
 CapabilityBoundingSet=
@@ -48,9 +48,9 @@ SystemCallArchitectures=native
 SystemCallFilter=@system-service @resources
 SystemCallFilter=~@clock @debug @module @mount @reboot @swap @cpu-emulation @obsolete @timer @chown @setuid @privileged @keyring @ipc
 SystemCallErrorNumber=EPERM
-#StateDirectory=conduwuit
+#StateDirectory=tuwunel
 
-RuntimeDirectory=conduwuit
+RuntimeDirectory=tuwunel
 RuntimeDirectoryMode=0750
 
 Restart=on-failure
