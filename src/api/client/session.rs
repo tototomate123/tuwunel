@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use axum::extract::State;
 use axum_client_ip::InsecureClientIp;
-use futures::{StreamExt, TryFutureExt};
+use futures::{FutureExt, StreamExt, TryFutureExt};
 use ruma::{
 	OwnedUserId, UserId,
 	api::client::{
@@ -52,6 +52,7 @@ pub(crate) async fn get_login_types_route(
 /// Authenticates the given user by its ID and its password.
 ///
 /// Returns the user ID if successful, and an error otherwise.
+#[tracing::instrument(skip_all, fields(%user_id), name = "password")]
 async fn password_login(
 	services: &Services,
 	user_id: &UserId,
@@ -85,15 +86,16 @@ async fn password_login(
 ///
 /// Creates the user if the user is found in the LDAP and do not already have an
 /// account.
+#[tracing::instrument(skip_all, fields(%user_id), name = "ldap")]
 async fn ldap_login(
 	services: &Services,
 	user_id: &UserId,
 	lowercased_user_id: &UserId,
 	password: &str,
 ) -> Result<OwnedUserId> {
-	let user_dn = match services.config.ldap.bind_dn.as_ref() {
+	let (user_dn, is_ldap_admin) = match services.config.ldap.bind_dn.as_ref() {
 		| Some(bind_dn) if bind_dn.contains("{username}") =>
-			bind_dn.replace("{username}", lowercased_user_id.localpart()),
+			(bind_dn.replace("{username}", lowercased_user_id.localpart()), false),
 		| _ => {
 			debug!("Searching user in LDAP");
 
@@ -102,11 +104,11 @@ async fn ldap_login(
 				return Err!(Ldap("LDAP search returned two or more results"));
 			}
 
-			let Some(user_dn) = dns.first() else {
+			let Some((user_dn, is_admin)) = dns.first() else {
 				return password_login(services, user_id, lowercased_user_id, password).await;
 			};
 
-			user_dn.clone()
+			(user_dn.clone(), *is_admin)
 		},
 	};
 
@@ -127,6 +129,23 @@ async fn ldap_login(
 		services
 			.users
 			.create(lowercased_user_id, Some("*"), Some("ldap"))
+			.await?;
+	}
+
+	let is_tuwunel_admin = services
+		.admin
+		.user_is_admin(lowercased_user_id)
+		.await;
+
+	if is_ldap_admin && !is_tuwunel_admin {
+		services
+			.admin
+			.make_user_admin(lowercased_user_id)
+			.await?;
+	} else if !is_ldap_admin && is_tuwunel_admin {
+		services
+			.admin
+			.revoke_admin(lowercased_user_id)
 			.await?;
 	}
 
@@ -192,9 +211,13 @@ pub(crate) async fn login_route(
 			}
 
 			if cfg!(feature = "ldap") && services.config.ldap.enable {
-				ldap_login(&services, &user_id, &lowercased_user_id, password).await?
+				ldap_login(&services, &user_id, &lowercased_user_id, password)
+					.boxed()
+					.await?
 			} else {
-				password_login(&services, &user_id, &lowercased_user_id, password).await?
+				password_login(&services, &user_id, &lowercased_user_id, password)
+					.boxed()
+					.await?
 			}
 		},
 		| login::v3::LoginInfo::Token(login::v3::Token { token }) => {
