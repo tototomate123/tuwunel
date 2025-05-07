@@ -44,7 +44,7 @@ if test "$CI_VERBOSE_ENV" = "true"; then
 fi
 
 set -x -e
-cid=$(docker run -d $arg)
+cid=$(docker run $arg)
 set +x
 
 trap 'docker container stop $cid; set +x; date; echo -e "\033[1;41;37mFAIL\033[0m"' INT
