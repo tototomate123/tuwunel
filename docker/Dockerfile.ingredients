@@ -20,7 +20,6 @@ ARG rust_toolchain
 ARG RUSTUP_HOME
 ARG CARGO_HOME
 ARG CARGO_TARGET
-ARG CARGO_TARGET_DIR
 
 WORKDIR /usr/src/tuwunel
 COPY --link --from=source /usr/src/tuwunel .
@@ -28,7 +27,6 @@ COPY --link --from=source /usr/src/tuwunel .
 RUN \
 --mount=type=cache,dst=${RUSTUP_HOME},sharing=locked \
 --mount=type=cache,dst=${CARGO_HOME},sharing=locked \
---mount=type=cache,dst=${CARGO_TARGET_DIR},sharing=locked \
 <<EOF
     set -eux
     git submodule update \
@@ -50,13 +48,11 @@ ARG rust_toolchain
 ARG RUSTUP_HOME
 ARG CARGO_HOME
 ARG CARGO_TARGET
-ARG CARGO_TARGET_DIR
 
 WORKDIR /usr/src/tuwunel
 RUN \
 --mount=type=cache,dst=${RUSTUP_HOME},sharing=locked \
 --mount=type=cache,dst=${CARGO_HOME},sharing=locked \
---mount=type=cache,dst=${CARGO_TARGET_DIR},sharing=locked \
 <<EOF
     set -euxo pipefail
     rustup run ${rust_toolchain} \

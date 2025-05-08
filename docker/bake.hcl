@@ -187,7 +187,35 @@ sys = {
 group "publish" {
     targets = [
         "dockerhub",
+        "github",
     ]
+}
+
+target "github" {
+    name = elem("github", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+    tags = [
+        "ghcr.io/matrix-construct/tuwunel:${cargo_profile}-${feat_set}-${sys_target}",
+        (GITHUB_REF_NAME == "main" && cargo_profile == "release" && feat_set == "all")?
+            "ghcr.io/matrix-construct/tuwunel:main": "",
+        (GITHUB_REF_NAME == "main" && cargo_profile == "release" && feat_set == "all")?
+            "ghcr.io/matrix-construct/tuwunel:${GITHUB_REF_NAME}": "",
+        (GITHUB_REF_NAME == "main" && cargo_profile == "release" && feat_set == "all")?
+            "ghcr.io/matrix-construct/tuwunel:latest": "",
+    ]
+    output = ["type=registry,compression=zstd,mode=min"]
+    matrix = cargo_rust_feat_sys
+    inherits = [
+        elem("install", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
+    ]
+    contexts = {
+        input = elem("target:install", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+    }
+    target = "tuwunel"
+    dockerfile-inline =<<EOF
+        FROM input AS tuwunel
+        EXPOSE 8008 8448
+        ENTRYPOINT ["${cargo_install_root}/bin/tuwunel"]
+EOF
 }
 
 target "dockerhub" {
@@ -209,9 +237,9 @@ target "dockerhub" {
     contexts = {
         input = elem("target:install", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     }
-    target = "dockerhub"
+    target = "tuwunel"
     dockerfile-inline =<<EOF
-        FROM input AS dockerhub
+        FROM input AS tuwunel
         EXPOSE 8008 8448
         ENTRYPOINT ["${cargo_install_root}/bin/tuwunel"]
 EOF
@@ -497,7 +525,59 @@ target "installer" {
 group "pkg" {
     targets = [
         "pkg-deb-install",
+        "pkg-rpm-install",
     ]
+}
+
+target "pkg-rpm-install" {
+    name = elem("pkg-rpm-install", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+    tags = [
+        elem_tag("pkg-rpm-install", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
+    ]
+    target = "package-install"
+    output = ["type=cacheonly,compression=zstd,mode=min"]
+    matrix = cargo_rust_feat_sys
+    inherits = [
+        elem("pkg-rpm", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
+    ]
+    contexts = {
+        package = elem("target:pkg-rpm", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
+    }
+}
+
+target "pkg-rpm" {
+    name = elem("pkg-rpm", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+    tags = [
+        elem_tag("pkg-rpm", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
+    ]
+    target = "package"
+    output = ["type=docker,compression=zstd,mode=min"]
+    matrix = cargo_rust_feat_sys
+    inherits = [
+        elem("rpmbuild", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
+    ]
+    contexts = {
+        rpmbuild = elem("target:rpmbuild", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
+    }
+}
+
+target "rpmbuild" {
+    name = elem("rpmbuild", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+    tags = [
+        elem_tag("rpmbuild", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
+    ]
+    target = "rpmbuild"
+    dockerfile = "docker/Dockerfile.cargo.rpm"
+    matrix = cargo_rust_feat_sys
+    inherits = [
+        elem("build-bins", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
+    ]
+    contexts = {
+        input = elem("target:build-bins", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
+    }
+    args = {
+        pkg_dir = "/opt/tuwunel/rpm"
+    }
 }
 
 target "pkg-deb-install" {
@@ -947,8 +1027,9 @@ target "deps-base" {
         rocksdb = elem("target:rocksdb", [rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     }
     args = {
-        cook_args = "--all-targets --no-build"
         cargo_profile = cargo_profile
+        cook_args = "--all-targets --no-build"
+        CARGO_TARGET_DIR = "/usr/src/tuwunel/target/${sys_name}/${sys_version}/${rust_toolchain}/${cargo_profile}"
     }
 }
 
@@ -1087,7 +1168,6 @@ target "ingredients" {
             feat_set == "all"?
                 "--all-features": "--no-default-features"
         )
-        CARGO_TARGET_DIR = "/usr/src/tuwunel/target/${sys_name}/${sys_version}/${rust_toolchain}"
         CARGO_BUILD_RUSTFLAGS = (
             rust_toolchain == "nightly"?
                 join(" ", nightly_rustflags): ""

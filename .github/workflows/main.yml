@@ -18,7 +18,7 @@ env:
 
 jobs:
   deps:
-    if: ${{vars.CI_VERBOSE_DEPS || false}}
+    if: ${{ vars.CI_VERBOSE_DEPS || false }}
     name: Deps
     uses: ./.github/workflows/deps.yml
     with:
@@ -32,7 +32,7 @@ jobs:
       machines: ${{vars.MACHINES}}
 
   lint:
-    if: ${{ always() && !cancelled() }}
+    if: ${{ !failure() && !cancelled() }}
     name: Lint
     needs: [deps]
     uses: ./.github/workflows/lint.yml
@@ -47,7 +47,7 @@ jobs:
       machines: ${{vars.MACHINES}}
 
   test:
-    if: ${{ always() && !cancelled() }}
+    if: ${{ !failure() && !cancelled() }}
     name: Test
     needs: [lint]
     uses: ./.github/workflows/test.yml
@@ -63,10 +63,25 @@ jobs:
       complement: true
 
   package:
-    if: ${{ always() && !cancelled() }}
+    if: ${{ !failure() && !cancelled() }}
     name: Package
     needs: [test]
     uses: ./.github/workflows/package.yml
+    with:
+      cargo_profiles: '["release"]'
+      feat_sets: ${{vars.FEAT_SETS}}
+      rust_toolchains: '["stable"]'
+      sys_names: ${{vars.SYS_NAMES}}
+      sys_versions: ${{vars.SYS_VERSIONS}}
+      rust_targets: ${{vars.RUST_TARGETS}}
+      sys_targets: ${{vars.sys_TARGETS}}
+      machines: ${{vars.MACHINES}}
+
+  publish:
+    if: ${{ !failure() && !cancelled() }}
+    name: Publish
+    needs: [package]
+    uses: ./.github/workflows/publish.yml
     with:
       cargo_profiles: '["release"]'
       feat_sets: ${{vars.FEAT_SETS}}

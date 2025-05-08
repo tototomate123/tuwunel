@@ -9,9 +9,9 @@ CI_VERBOSE_ENV="${CI_VERBOSE_ENV:-$CI_VERBOSE}"
 CI_SILENT_BAKE="${CI_SILENT_BAKE:-false}"
 CI_PRINT_BAKE="${CI_PRINT_BAKE:-$CI_VERBOSE}"
 
-default_cargo_profiles='["release"]'
+default_cargo_profiles='["test"]'
 default_feat_sets='["all"]'
-default_rust_toolchains='["stable"]'
+default_rust_toolchains='["nightly"]'
 default_rust_targets='["x86_64-unknown-linux-gnu"]'
 default_sys_names='["debian"]'
 default_sys_targets='["x86_64-linux-gnu"]'
@@ -79,9 +79,12 @@ if test "$CI" = "true"; then
 fi
 
 args=""
-args="$args --allow=network.host"
 args="$args --builder ${builder_name}"
 #args="$args --set *.platform=${sys_platform}"
+
+if test "$CI" = "true"; then
+	args="$args --allow=network.host"
+fi
 
 if test ! -z "$runner_num"; then
     #cpu_num=$(expr $runner_num % $(nproc))

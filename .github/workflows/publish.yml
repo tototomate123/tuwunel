@@ -1,4 +1,4 @@
-name: Package
+name: Publish
 
 on:
   workflow_call:
@@ -38,14 +38,14 @@ on:
         description: Matrix inclusions
 
 jobs:
-  deb:
-    if: ${{ !failure() && !cancelled() && contains(fromJSON(inputs.feat_sets), fromJSON('["all"]')[0]) }}
-    name: Deb
+  dockerhub:
+    if: ${{ !failure() && !cancelled() && github.ref == 'refs/heads/main' }}
+    name: DockerHub
     uses: ./.github/workflows/bake.yml
     with:
-      bake_targets: '["pkg-deb-install"]'
+      bake_targets: '["dockerhub"]'
       cargo_profiles: ${{inputs.cargo_profiles}}
-      feat_sets: '["all"]'
+      feat_sets: ${{inputs.feat_sets}}
       rust_toolchains: ${{inputs.rust_toolchains}}
       sys_names: ${{inputs.sys_names}}
       sys_versions: ${{inputs.sys_versions}}
@@ -55,14 +55,14 @@ jobs:
       excludes: ${{inputs.excludes}}
       includes: ${{inputs.includes}}
 
-  rpm:
-    if: ${{ !failure() && !cancelled() && contains(fromJSON(inputs.feat_sets), fromJSON('["all"]')[0]) }}
-    name: RPM
+  ghcr:
+    if: ${{ !failure() && !cancelled() && github.ref == 'refs/heads/main' }}
+    name: GitHub Container Registry
     uses: ./.github/workflows/bake.yml
     with:
-      bake_targets: '["pkg-rpm"]'
+      bake_targets: '["github"]'
       cargo_profiles: ${{inputs.cargo_profiles}}
-      feat_sets: '["all"]'
+      feat_sets: ${{inputs.feat_sets}}
       rust_toolchains: ${{inputs.rust_toolchains}}
       sys_names: ${{inputs.sys_names}}
       sys_versions: ${{inputs.sys_versions}}

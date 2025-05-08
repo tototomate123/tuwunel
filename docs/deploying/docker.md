@@ -11,10 +11,10 @@ OCI images for tuwunel are available in the registries listed below.
 
 | Registry        | Image                                                           | Size                          | Notes                  |
 | --------------- | --------------------------------------------------------------- | ----------------------------- | ---------------------- |
-| GitHub Registry | [ghcr.io/jevolk/tuwunel:latest][gh] | ![Image Size][shield-latest]  | Stable latest tagged image.          |
+| GitHub Registry | [ghcr.io/matrix-construct/tuwunel:latest][gh] | ![Image Size][shield-latest]  | Stable latest tagged image.          |
 | GitLab Registry | [registry.gitlab.com/jevolk/tuwunel:latest][gl] | ![Image Size][shield-latest]  | Stable latest tagged image.          |
 | Docker Hub      | [docker.io/jevolk/tuwunel:latest][dh]             | ![Image Size][shield-latest]  | Stable latest tagged image.          |
-| GitHub Registry | [ghcr.io/jevolk/tuwunel:main][gh]   | ![Image Size][shield-main]    | Stable main branch.   |
+| GitHub Registry | [ghcr.io/matrix-construct/tuwunel:main][gh]   | ![Image Size][shield-main]    | Stable main branch.   |
 | GitLab Registry | [registry.gitlab.com/jevolk/tuwunel:main][gl]   | ![Image Size][shield-main]    | Stable main branch.   |
 | Docker Hub      | [docker.io/jevolk/tuwunel:main][dh]               | ![Image Size][shield-main]    | Stable main branch.   |
 
