@@ -12,28 +12,14 @@ OCI images for tuwunel are available in the registries listed below.
 | Registry        | Image                                                           | Size                          | Notes                  |
 | --------------- | --------------------------------------------------------------- | ----------------------------- | ---------------------- |
 | GitHub Registry | [ghcr.io/matrix-construct/tuwunel:latest][gh] | ![Image Size][shield-latest]  | Stable latest tagged image.          |
-| GitLab Registry | [registry.gitlab.com/jevolk/tuwunel:latest][gl] | ![Image Size][shield-latest]  | Stable latest tagged image.          |
 | Docker Hub      | [docker.io/jevolk/tuwunel:latest][dh]             | ![Image Size][shield-latest]  | Stable latest tagged image.          |
 | GitHub Registry | [ghcr.io/matrix-construct/tuwunel:main][gh]   | ![Image Size][shield-main]    | Stable main branch.   |
-| GitLab Registry | [registry.gitlab.com/jevolk/tuwunel:main][gl]   | ![Image Size][shield-main]    | Stable main branch.   |
 | Docker Hub      | [docker.io/jevolk/tuwunel:main][dh]               | ![Image Size][shield-main]    | Stable main branch.   |
 
 [dh]: https://hub.docker.com/r/jevolk/tuwunel
-[gh]: https://github.com/jevolk/tuwunel/pkgs/container/tuwunel
-[gl]: https://gitlab.com/tuwunel/tuwunel/container_registry/6369729
+[gh]: https://github.com/matrix-construct/tuwunel/pkgs/container/tuwunel
 [shield-latest]: https://img.shields.io/docker/image-size/jevolk/tuwunel/latest
 [shield-main]: https://img.shields.io/docker/image-size/jevolk/tuwunel/main
-
-OCI image `.tar.gz` files are also hosted directly at when uploaded by CI with a
-commit hash/revision or a tagged release: <https://pup.systems/~strawberry/tuwunel/>
-
-Use
-
-```bash
-docker image pull $LINK
-```
-
-to pull it to your machine.
 
 ### Run
 
