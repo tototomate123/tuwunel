@@ -91,6 +91,8 @@ jobs:
       rust_targets: ${{vars.RUST_TARGETS}}
       sys_targets: ${{vars.sys_TARGETS}}
       machines: ${{vars.MACHINES}}
+      excludes: '[{"feat_set": "none"}]'
+      docker_id: ${{vars.DOCKER_ID}}
     secrets:
-      dockerhub_token: ${{ secrets.dockerhub_token }}
-      ghcr_token: ${{ secrets.ghcr_token }}
+      ghcr_token: ${{ secrets.GHCR_TOKEN }}
+      dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}

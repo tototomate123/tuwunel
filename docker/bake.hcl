@@ -1,8 +1,23 @@
-variable "acct" {}
-variable "repo" {}
-variable GITHUB_REF {}
-variable GITHUB_REF_SHA {}
-variable GITHUB_REF_NAME {}
+variable "acct" {
+	default = "$GITHUB_ACTOR"
+}
+
+variable "repo" {
+	default = "$GITHUB_REPOSITORY"
+}
+variable "docker_repo" {
+	default = "$DOCKER_ID"
+}
+
+variable "git_ref" {
+	default = "$GITHUB_REF"
+}
+variable "git_ref_sha" {
+	default = "$GITHUB_REF_SHA"
+}
+variable "git_ref_name" {
+	default = "$GITHUB_REF_NAME"
+}
 
 cargo_feat_sets = {
     none = ""
@@ -194,11 +209,11 @@ group "publish" {
 target "github" {
     name = elem("github", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     tags = [
-        "ghcr.io/matrix-construct/tuwunel:${GITHUB_REF_NAME}-${cargo_profile}-${feat_set}-${sys_target}",
+        "ghcr.io/${repo}:${git_ref_name}-${cargo_profile}-${feat_set}-${sys_target}",
         (cargo_profile == "release" && feat_set == "all")?
-            "ghcr.io/matrix-construct/tuwunel:${GITHUB_REF_NAME}": "",
-        (GITHUB_REF_NAME == "main" && cargo_profile == "release" && feat_set == "all")?
-            "ghcr.io/matrix-construct/tuwunel:latest": "",
+            "ghcr.io/${repo}:${git_ref_name}": "",
+        (git_ref_name == "main" && cargo_profile == "release" && feat_set == "all")?
+            "ghcr.io/${repo}:latest": "",
     ]
     output = ["type=registry,compression=zstd,mode=min"]
     matrix = cargo_rust_feat_sys
@@ -210,11 +225,11 @@ target "github" {
 target "dockerhub" {
     name = elem("dockerhub", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     tags = [
-        "jevolk/tuwunel:${GITHUB_REF_NAME}-${cargo_profile}-${feat_set}-${sys_target}",
+        "${docker_repo}:${git_ref_name}-${cargo_profile}-${feat_set}-${sys_target}",
         (cargo_profile == "release" && feat_set == "all")?
-            "jevolk/tuwunel:${GITHUB_REF_NAME}": "",
-        (GITHUB_REF_NAME == "main" && cargo_profile == "release" && feat_set == "all")?
-            "jevolk/tuwunel:latest": "",
+            "${docker_repo}:${git_ref_name}": "",
+        (git_ref_name == "main" && cargo_profile == "release" && feat_set == "all")?
+            "${docker_repo}:latest": "",
     ]
     output = ["type=registry,compression=zstd,mode=min"]
     matrix = cargo_rust_feat_sys

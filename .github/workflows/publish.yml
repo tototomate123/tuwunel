@@ -36,18 +36,22 @@ on:
         type: string
         default: '[]'
         description: Matrix inclusions
+      docker_id:
+        type: string
+        description: DockerHub ID
     secrets:
-      dockerhub_token:
       ghcr_token:
+      dockerhub_token:
 
 jobs:
   containers:
-    if: ${{ !failure() && !cancelled() }}
-    name: Publish via Github
+    if: ${{ !failure() && !cancelled() && inputs.docker_id }}
+    name: Publish containers
     runs-on: ${{matrix.machine}}
     permissions: write-all
+    continue-on-error: false
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         bake_target: ${{fromJSON('["github", "dockerhub"]')}}
         cargo_profile: ${{fromJSON(inputs.cargo_profiles)}}
@@ -69,12 +73,11 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.ghcr_token }}
 
-      - uses: actions/checkout@v4
       - name: DockerHub Login
         uses: docker/login-action@v3
         with:
           registry: docker.io
-          username: ${{ github.actor }}
+          username: ${{ inputs.docker_id }}
           password: ${{ secrets.dockerhub_token }}
 
       - name: Bake
@@ -90,9 +93,7 @@ jobs:
           machine: ${{matrix.machine}}
           acct: ${{github.actor}}
           repo: ${{github.repository}}
-          CI_VERBOSE_ENV: ${{inputs.verbose_env}}
-          CI_SILENT_BAKE: ${{inputs.silent_bake}}
-          CI_PRINT_BAKE: ${{inputs.print_bake}}
+          docker_repo: ${{inputs.docker_id}}
 
         run: |
           docker/bake.sh ${{matrix.bake_target}}
