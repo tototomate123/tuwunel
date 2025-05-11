@@ -68,7 +68,6 @@ complement_skip="${complement_skip}|TestRoomDeleteAlias/Pa.*/Can_delete_canonica
 complement_skip="${complement_skip}|TestUnbanViaInvite.*"
 complement_skip="${complement_skip}|TestRoomDeleteAlias/Pa.*/Regular_users_can_add_and_delete_aliases_when.*"
 complement_skip="${complement_skip}|TestToDeviceMessagesOverFederation/stopped_server"
-complement_skip="${complement_skip}|TestLogin/parallel/POST_/login_as_non-existing_user_is_rejected"
 complement_run=".*"
 set +a
 
