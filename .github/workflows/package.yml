@@ -39,12 +39,12 @@ on:
 
 jobs:
   deb:
-    if: ${{ !failure() && !cancelled() && contains(fromJSON(inputs.feat_sets), fromJSON('["all"]')[0]) }}
+    if: ${{ !failure() && !cancelled() && contains(fromJSON(inputs.feat_sets), fromJSON('["all"]')[0]) && contains(fromJSON(inputs.cargo_profiles), fromJSON('["release"]')[0]) }}
     name: Deb
     uses: ./.github/workflows/bake.yml
     with:
       bake_targets: '["pkg-deb"]'
-      cargo_profiles: ${{inputs.cargo_profiles}}
+      cargo_profiles: '["release"]'
       feat_sets: '["all"]'
       rust_toolchains: ${{inputs.rust_toolchains}}
       sys_names: ${{inputs.sys_names}}
@@ -56,12 +56,12 @@ jobs:
       includes: ${{inputs.includes}}
 
   rpm:
-    if: ${{ !failure() && !cancelled() && contains(fromJSON(inputs.feat_sets), fromJSON('["all"]')[0]) }}
+    if: ${{ !failure() && !cancelled() && contains(fromJSON(inputs.feat_sets), fromJSON('["all"]')[0]) && contains(fromJSON(inputs.cargo_profiles), fromJSON('["release"]')[0]) }}
     name: RPM
     uses: ./.github/workflows/bake.yml
     with:
       bake_targets: '["pkg-rpm"]'
-      cargo_profiles: ${{inputs.cargo_profiles}}
+      cargo_profiles: '["release"]'
       feat_sets: '["all"]'
       rust_toolchains: ${{inputs.rust_toolchains}}
       sys_names: ${{inputs.sys_names}}

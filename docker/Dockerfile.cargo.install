@@ -30,7 +30,7 @@ RUN \
            "test") profile_dir="debug";;
         "release") profile_dir="release";;
           "bench") profile_dir="release";;
-                *) profile_dir="$cargp_profile";;
+                *) profile_dir="$cargo_profile";;
     esac
 
     rustup run ${rust_toolchain} \
