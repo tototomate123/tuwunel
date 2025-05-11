@@ -18,7 +18,7 @@ env:
 
 jobs:
   deps:
-    if: ${{ vars.CI_VERBOSE_DEPS || false }}
+    if: ${{fromJSON(vars.CI_VERBOSE_DEPS || 'true')}}
     name: Deps
     uses: ./.github/workflows/deps.yml
     with:
@@ -27,7 +27,7 @@ jobs:
       rust_toolchains: ${{vars.RUST_TOOLCHAINS}}
       rust_targets: ${{vars.RUST_TARGETS}}
       sys_names: ${{vars.SYS_NAMES}}
-      sys_targets: ${{vars.sys_TARGETS}}
+      sys_targets: ${{vars.SYS_TARGETS}}
       sys_versions: ${{vars.SYS_VERSIONS}}
       machines: ${{vars.MACHINES}}
 
@@ -42,7 +42,7 @@ jobs:
       rust_toolchains: ${{vars.RUST_TOOLCHAINS}}
       rust_targets: ${{vars.RUST_TARGETS}}
       sys_names: ${{vars.SYS_NAMES}}
-      sys_targets: ${{vars.sys_TARGETS}}
+      sys_targets: ${{vars.SYS_TARGETS}}
       sys_versions: ${{vars.SYS_VERSIONS}}
       machines: ${{vars.MACHINES}}
       excludes: '[{"cargo_profile": "release-debuginfo", "rust_toolchain": "nightly"}]'
@@ -58,7 +58,7 @@ jobs:
       rust_toolchains: ${{vars.RUST_TOOLCHAINS}}
       rust_targets: ${{vars.RUST_TARGETS}}
       sys_names: ${{vars.SYS_NAMES}}
-      sys_targets: ${{vars.sys_TARGETS}}
+      sys_targets: ${{vars.SYS_TARGETS}}
       sys_versions: ${{vars.SYS_VERSIONS}}
       machines: ${{vars.MACHINES}}
       complement: ${{fromJSON(vars.COMPLEMENT || 'true')}}
@@ -75,7 +75,7 @@ jobs:
       sys_names: ${{vars.SYS_NAMES}}
       sys_versions: ${{vars.SYS_VERSIONS}}
       rust_targets: ${{vars.RUST_TARGETS}}
-      sys_targets: ${{vars.sys_TARGETS}}
+      sys_targets: ${{vars.SYS_TARGETS}}
       machines: ${{vars.MACHINES}}
       excludes: '[{"cargo_profile": "test"}, {"feat_set": "none"}]'
 
@@ -91,10 +91,10 @@ jobs:
       sys_names: ${{vars.SYS_NAMES}}
       sys_versions: ${{vars.SYS_VERSIONS}}
       rust_targets: ${{vars.RUST_TARGETS}}
-      sys_targets: ${{vars.sys_TARGETS}}
+      sys_targets: ${{vars.SYS_TARGETS}}
       machines: ${{vars.MACHINES}}
       excludes: '[{"cargo_profile": "test"}, {"feat_set": "none"}]'
-      docker_id: ${{vars.DOCKER_ID}}
+      docker_repo: ${{vars.DOCKER_REPO}}
 
     secrets:
       ghcr_token: ${{ secrets.GHCR_TOKEN }}

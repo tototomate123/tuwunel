@@ -20,7 +20,7 @@ cargo_profile="${cargo_profile:-$default_cargo_profile}"
 feat_set="${feat_set:-$default_feat_set}"
 rust_target="${rust_target:-$default_rust_target}"
 rust_toolchain="${rust_toolchain:-$default_rust_toolchain}"
-sys_name="${sys_names:-$default_sys_name}"
+sys_name="${sys_name:-$default_sys_name}"
 sys_target="${sys_target:-$default_sys_target}"
 sys_version="${sys_version:-$default_sys_version}"
 
@@ -30,37 +30,36 @@ set +a
 
 ###############################################################################
 
+set -x
 tester_image="complement-tester--${feat_set}--${sys_name}--${sys_version}--${sys_target}"
 testee_image="complement-testee--${cargo_profile}--${rust_toolchain}--${rust_target}--${feat_set}--${sys_name}--${sys_version}--${sys_target}"
 name="complement_tester__${cargo_profile}__${rust_toolchain}__${rust_target}__${feat_set}__${sys_name}__${sys_version}__${sys_target}"
 sock="/var/run/docker.sock"
 arg="--name $name -v $sock:$sock --network=host $tester_image ${testee_image}"
+set +x
 
 if test "$CI_VERBOSE_ENV" = "true"; then
 	date
 	env
 fi
 
-if test "$CI" = "true"; then
-	arg="-d $arg"
-else
-	arg="--rm $arg"
-fi
-
 docker rm -f "$name" 2>/dev/null
 
 trap 'set +x; date; echo -e "\033[1;41;37mFAIL\033[0m"' ERR
 
-set -x -e
-cid=$(docker run $arg)
-set +x
-
 if test "$CI" = "true"; then
-	echo -n "$cid" > "$name"
+	arg="-d $arg"
+	cid=$(docker run $arg)
+else
+	arg="--rm -a stdout -a stderr $arg"
+	docker run $arg
+	exit $?
 fi
 
-trap 'docker container stop $cid; set +x; date; echo -e "\033[1;41;37mFAIL\033[0m"' INT
+echo -n "$cid" > "$name"
 
+trap 'docker container stop $cid; set +x; date; echo -e "\033[1;41;37mFAIL\033[0m"' INT
 docker logs -f "$cid"
 docker wait "$cid" 2>/dev/null
+
 echo -e "\033[1;42;30mPASS\033[0m"

@@ -1,22 +1,27 @@
-variable "acct" {
-	default = "$GITHUB_ACTOR"
-}
+variable "GITHUB_ACTOR" {}
+variable "GITHUB_REPOSITORY" {}
+variable "GITHUB_REF" {}
+variable "GITHUB_REF_SHA" {}
+variable "GITHUB_REF_NAME" {}
 
+variable "acct" {
+	default = "${GITHUB_ACTOR}"
+}
 variable "repo" {
-	default = "$GITHUB_REPOSITORY"
+	default = "${GITHUB_REPOSITORY}"
 }
 variable "docker_repo" {
-	default = "$DOCKER_ID"
+	default = "${repo}"
 }
 
 variable "git_ref" {
-	default = "$GITHUB_REF"
+	default = "${GITHUB_REF}"
 }
 variable "git_ref_sha" {
-	default = "$GITHUB_REF_SHA"
+	default = "${GITHUB_REF_SHA}"
 }
 variable "git_ref_name" {
-	default = "$GITHUB_REF_NAME"
+	default = "${GITHUB_REF_NAME}"
 }
 
 cargo_feat_sets = {
@@ -33,7 +38,7 @@ variable "feat_sets" {
     default = "[\"none\", \"default\", \"all\"]"
 }
 variable "cargo_profiles" {
-    default = "[\"test\", \"bench\"]"
+    default = "[\"test\", \"release\"]"
 }
 variable "cargo_install_root" {
     default = "/usr"
@@ -554,7 +559,7 @@ target "install" {
     contexts = {
         input = elem("target:diner", [feat_set, sys_name, sys_version, sys_target])
         output = elem("target:installer", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
-        docs = elem("target:docs", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+        #docs = elem("target:docs", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     }
 }
 
