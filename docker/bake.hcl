@@ -128,6 +128,30 @@ nightly_rustflags = [
     "-Zenforce-type-length-limit",
 ]
 
+rmp_rustflags = [
+    "-Ctarget-cpu=native",
+    "-Ztune-cpu=native",
+    "-Ctarget-feature=+crt-static",
+    "-Crelocation-model=static",
+    "-Ztls-model=local-exec",
+    "-Zinline-mir=true",
+    "-Zmir-opt-level=3",
+    "-Clink-arg=-Wl,--gc-sections",
+    #"-Ztime-passes",
+    #"-Ztime-llvm-passes",
+]
+
+rmp_bo_rustflags = [
+    "-Crelocation-model=pic",
+    "-Ctarget-feature=-crt-static",
+    "-Clink-arg=-Wl,--no-gc-sections",
+]
+
+rmp_macro_rustflags = [
+    "-Crelocation-model=pic",
+    "-Ctarget-feature=-crt-static",
+]
+
 #
 # Default
 #
