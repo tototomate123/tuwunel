@@ -6,6 +6,7 @@ ARG RUSTUP_HOME
 ARG CARGO_HOME
 ARG CARGO_TARGET
 ARG rustup_version="1.28.1"
+ARG rustup_components
 
 WORKDIR /opt
 RUN \
@@ -37,8 +38,7 @@ RUN \
     rustup component add \
         --toolchain ${rust_toolchain} \
         --target ${CARGO_TARGET} \
-        clippy \
-        rustfmt \
+        ${rustup_components} \
         ;
 EOF
 
@@ -48,6 +48,7 @@ ARG rust_toolchain
 ARG RUSTUP_HOME
 ARG CARGO_HOME
 ARG CARGO_TARGET
+ARG cargo_installs
 
 RUN \
 --mount=type=cache,dst=${RUSTUP_HOME},sharing=locked \
@@ -58,11 +59,6 @@ RUN \
         cargo install \
             --locked \
             --target ${CARGO_TARGET} \
-            cargo-chef \
-            cargo-audit \
-            cargo-deb \
-            cargo-arch \
-            cargo-generate-rpm \
-            lychee \
+            ${cargo_installs} \
             ;
 EOF

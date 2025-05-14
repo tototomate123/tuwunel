@@ -1279,6 +1279,20 @@ group "buildsys" {
     ]
 }
 
+rustup_components = [
+    "clippy",
+    "rustfmt",
+]
+
+cargo_installs = [
+    "cargo-chef",
+    "cargo-audit",
+    "cargo-deb",
+    "cargo-arch",
+    "cargo-generate-rpm",
+    "lychee",
+]
+
 #
 # Rust build environment
 #
@@ -1318,6 +1332,8 @@ target "cookware" {
         CARGO_HOME = "/opt/${sys_name}/${sys_target}/cargo"
         CARGO_TARGET = rust_target
         CARGO_TERM_VERBOSE = CARGO_TERM_VERBOSE
+        cargo_installs = join(" ", cargo_installs)
+        rustup_components = join(" ", rustup_components)
     }
 }
 
