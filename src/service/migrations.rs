@@ -150,7 +150,7 @@ async fn migrate(services: &Services) -> Result<()> {
 	assert_eq!(
 		services.globals.db.database_version().await,
 		DATABASE_VERSION,
-		"Failed asserting local database version {} is equal to known latest conduwuit database \
+		"Failed asserting local database version {} is equal to known latest tuwunel database \
 		 version {}",
 		services.globals.db.database_version().await,
 		DATABASE_VERSION,

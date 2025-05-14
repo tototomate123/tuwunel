@@ -22,7 +22,7 @@ use crate::Services;
 
 /// Create the admin room.
 ///
-/// Users in this room are considered admins by conduwuit, and the room can be
+/// Users in this room are considered admins by tuwunel, and the room can be
 /// used to issue admin commands by talking to the server user inside it.
 pub async fn create_admin_room(services: &Services) -> Result {
 	let room_id = RoomId::new(services.globals.server_name());
@@ -168,7 +168,7 @@ pub async fn create_admin_room(services: &Services) -> Result {
 		.timeline
 		.build_and_append_pdu(
 			PduBuilder::state(String::new(), &RoomTopicEventContent {
-				topic: format!("Manage {} | Run commands prefixed with `!admin` | Run `!admin -h` for help | Documentation: https://conduwuit.puppyirl.gay/", services.config.server_name),
+				topic: format!("Manage {} | Run commands prefixed with `!admin` | Run `!admin -h` for help | Documentation: https://github.com/matrix-construct/tuwunel/", services.config.server_name),
 			}),
 			server_user,
 			&room_id,

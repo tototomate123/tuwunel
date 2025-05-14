@@ -11,7 +11,7 @@ use tuwunel_core::{
 
 use crate::Ruma;
 
-// conduwuit can handle a lot more results than synapse
+// Tuwunel can handle a lot more results than synapse
 const LIMIT_MAX: usize = 500;
 const LIMIT_DEFAULT: usize = 10;
 
