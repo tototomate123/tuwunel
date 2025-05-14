@@ -17,82 +17,107 @@ env:
   inputs: ${{github.event.inputs}}
 
 jobs:
+  init:
+    name: Init
+    runs-on: self-hosted
+    outputs:
+      cargo_profiles: ${{vars.CARGO_PROFILES || env.default_cargo_profiles}}
+      feat_sets: ${{vars.FEAT_SETS || env.default_feat_sets}}
+      rust_toolchains: ${{vars.RUST_TOOLCHAINS || env.default_rust_toolchains}}
+      rust_targets: ${{vars.RUST_TARGETS || env.default_rust_targets}}
+      sys_names: ${{vars.SYS_NAMES || env.default_sys_names}}
+      sys_targets: ${{vars.SYS_TARGETS || env.default_sys_targets}}
+      sys_versions: ${{vars.SYS_VERSIONS || env.default_sys_versions}}
+      machines: ${{vars.MACHINES || env.default_machines}}
+    env:
+      default_cargo_profiles: '["test", "release"]'
+      default_feat_sets: '["none", "default", "all"]'
+      default_rust_toolchains: '["nightly", "stable"]'
+      default_sys_names: '["debian"]'
+      default_sys_versions: '["testing-slim"]'
+      default_rust_targets: '["x86_64-unknown-linux-gnu"]'
+      default_sys_targets: '["x86_64-linux-gnu"]'
+      default_machines: '["x86_64"]'
+    steps:
+    - run: true
+
   deps:
-    if: ${{fromJSON(vars.CI_VERBOSE_DEPS || 'true')}}
+    if: ${{fromJSON(vars.CI_VERBOSE_DEPS || 'false')}}
     name: Deps
+    needs: [init]
     uses: ./.github/workflows/deps.yml
     with:
-      cargo_profiles: ${{vars.CARGO_PROFILES}}
-      feat_sets: ${{vars.FEAT_SETS}}
-      rust_toolchains: ${{vars.RUST_TOOLCHAINS}}
-      rust_targets: ${{vars.RUST_TARGETS}}
-      sys_names: ${{vars.SYS_NAMES}}
-      sys_targets: ${{vars.SYS_TARGETS}}
-      sys_versions: ${{vars.SYS_VERSIONS}}
-      machines: ${{vars.MACHINES}}
+      cargo_profiles: ${{needs.init.outputs.cargo_profiles}}
+      feat_sets: ${{needs.init.outputs.feat_sets}}
+      rust_toolchains: ${{needs.init.outputs.rust_toolchains}}
+      rust_targets: ${{needs.init.outputs.rust_targets}}
+      sys_names: ${{needs.init.outputs.sys_names}}
+      sys_targets: ${{needs.init.outputs.sys_targets}}
+      sys_versions: ${{needs.init.outputs.sys_versions}}
+      machines: ${{needs.init.outputs.machines}}
 
   lint:
     if: ${{ !failure() && !cancelled() }}
     name: Lint
-    needs: [deps]
+    needs: [init, deps]
     uses: ./.github/workflows/lint.yml
     with:
-      cargo_profiles: ${{vars.CARGO_PROFILES}}
-      feat_sets: ${{vars.FEAT_SETS}}
-      rust_toolchains: ${{vars.RUST_TOOLCHAINS}}
-      rust_targets: ${{vars.RUST_TARGETS}}
-      sys_names: ${{vars.SYS_NAMES}}
-      sys_targets: ${{vars.SYS_TARGETS}}
-      sys_versions: ${{vars.SYS_VERSIONS}}
-      machines: ${{vars.MACHINES}}
+      cargo_profiles: ${{needs.init.outputs.cargo_profiles}}
+      feat_sets: ${{needs.init.outputs.feat_sets}}
+      rust_toolchains: ${{needs.init.outputs.rust_toolchains}}
+      rust_targets: ${{needs.init.outputs.rust_targets}}
+      sys_names: ${{needs.init.outputs.sys_names}}
+      sys_targets: ${{needs.init.outputs.sys_targets}}
+      sys_versions: ${{needs.init.outputs.sys_versions}}
+      machines: ${{needs.init.outputs.machines}}
       excludes: '[{"cargo_profile": "release-debuginfo", "rust_toolchain": "nightly"}]'
 
   test:
     if: ${{ !failure() && !cancelled() }}
     name: Test
-    needs: [lint]
+    needs: [init, lint]
     uses: ./.github/workflows/test.yml
     with:
-      cargo_profiles: ${{vars.CARGO_PROFILES}}
-      feat_sets: ${{vars.FEAT_SETS}}
-      rust_toolchains: ${{vars.RUST_TOOLCHAINS}}
-      rust_targets: ${{vars.RUST_TARGETS}}
-      sys_names: ${{vars.SYS_NAMES}}
-      sys_targets: ${{vars.SYS_TARGETS}}
-      sys_versions: ${{vars.SYS_VERSIONS}}
-      machines: ${{vars.MACHINES}}
+      cargo_profiles: ${{needs.init.outputs.cargo_profiles}}
+      feat_sets: ${{needs.init.outputs.feat_sets}}
+      rust_toolchains: ${{needs.init.outputs.rust_toolchains}}
+      rust_targets: ${{needs.init.outputs.rust_targets}}
+      sys_names: ${{needs.init.outputs.sys_names}}
+      sys_targets: ${{needs.init.outputs.sys_targets}}
+      sys_versions: ${{needs.init.outputs.sys_versions}}
+      machines: ${{needs.init.outputs.machines}}
       complement: ${{fromJSON(vars.COMPLEMENT || 'true')}}
 
   package:
     if: ${{ !failure() && !cancelled() }}
     name: Package
-    needs: [lint]
+    needs: [init, lint]
     uses: ./.github/workflows/package.yml
     with:
-      cargo_profiles: ${{vars.CARGO_PROFILES}}
-      feat_sets: ${{vars.FEAT_SETS}}
+      cargo_profiles: ${{needs.init.outputs.cargo_profiles}}
+      feat_sets: ${{needs.init.outputs.feat_sets}}
       rust_toolchains: '["stable"]'
-      sys_names: ${{vars.SYS_NAMES}}
-      sys_versions: ${{vars.SYS_VERSIONS}}
-      rust_targets: ${{vars.RUST_TARGETS}}
-      sys_targets: ${{vars.SYS_TARGETS}}
-      machines: ${{vars.MACHINES}}
+      rust_targets: ${{needs.init.outputs.rust_targets}}
+      sys_names: ${{needs.init.outputs.sys_names}}
+      sys_targets: ${{needs.init.outputs.sys_targets}}
+      sys_versions: ${{needs.init.outputs.sys_versions}}
+      machines: ${{needs.init.outputs.machines}}
       excludes: '[{"cargo_profile": "test"}, {"feat_set": "none"}]'
 
   publish:
     if: ${{ !failure() && !cancelled() }}
     name: Publish
-    needs: [test, package]
+    needs: [init, test, package]
     uses: ./.github/workflows/publish.yml
     with:
-      cargo_profiles: ${{vars.CARGO_PROFILES}}
-      feat_sets: ${{vars.FEAT_SETS}}
+      cargo_profiles: ${{needs.init.outputs.cargo_profiles}}
+      feat_sets: ${{needs.init.outputs.feat_sets}}
       rust_toolchains: '["stable"]'
-      sys_names: ${{vars.SYS_NAMES}}
-      sys_versions: ${{vars.SYS_VERSIONS}}
-      rust_targets: ${{vars.RUST_TARGETS}}
-      sys_targets: ${{vars.SYS_TARGETS}}
-      machines: ${{vars.MACHINES}}
+      rust_targets: ${{needs.init.outputs.rust_targets}}
+      sys_names: ${{needs.init.outputs.sys_names}}
+      sys_targets: ${{needs.init.outputs.sys_targets}}
+      sys_versions: ${{needs.init.outputs.sys_versions}}
+      machines: ${{needs.init.outputs.machines}}
       excludes: '[{"cargo_profile": "test"}, {"feat_set": "none"}]'
       docker_repo: ${{vars.DOCKER_REPO}}
 
