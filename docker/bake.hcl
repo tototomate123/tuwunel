@@ -943,6 +943,23 @@ target "audit" {
     }
 }
 
+target "typos" {
+    name = elem("typos", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+    tags = [
+        elem_tag("typos", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
+    ]
+    target = "typos"
+    dockerfile = "docker/Dockerfile.cargo.typos"
+    matrix = cargo_rust_feat_sys
+    inherits = [
+        elem("deps-base", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
+        elem("cargo", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
+    ]
+    contexts = {
+        input = elem("target:ingredients", [rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+    }
+}
+
 target "fmt" {
     name = elem("fmt", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     tags = [
@@ -1291,6 +1308,7 @@ cargo_installs = [
     "cargo-arch",
     "cargo-generate-rpm",
     "lychee",
+    "typos-cli",
 ]
 
 #
