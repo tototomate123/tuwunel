@@ -68,7 +68,7 @@ EOF
 ENV bin_path="${CARGO_INSTALL_ROOT}/bin/tuwunel"
 RUN <<EOF
     set -eux
-    ldd -v ${bin_path}
+    ldd -v ${bin_path} || echo "static"
     du -h ${bin_path}
     sha1sum ${bin_path}
 EOF

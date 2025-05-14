@@ -1,3 +1,4 @@
+variable "CI" {}
 variable "GITHUB_ACTOR" {}
 variable "GITHUB_REPOSITORY" {}
 variable "GITHUB_REF" {}
@@ -1113,6 +1114,17 @@ target "deps-base" {
         cargo_profile = cargo_profile
         cook_args = "--all-targets --no-build"
         CARGO_TARGET_DIR = "/usr/src/tuwunel/target/${sys_name}/${sys_version}/${rust_toolchain}/${cargo_profile}"
+        CARGO_PROFILE_test_DEBUG = "0"
+        CARGO_PROFILE_bench_DEBUG = "0"
+        CARGO_PROFILE_bench_LTO = "0"
+        CARGO_PROFILE_bench_CODEGEN_UNITS = "1"
+        CARGO_BUILD_RUSTFLAGS = (
+            cargo_profile == "release-max-perf"?
+                join(" ", [join(" ", nightly_rustflags), join(" ", rmp_rustflags)]):
+            rust_toolchain == "nightly"?
+                join(" ", nightly_rustflags):
+                ""
+        )
     }
 }
 
@@ -1239,10 +1251,6 @@ target "ingredients" {
         source = elem("target:source", [feat_set, sys_name, sys_version, sys_target])
     }
     args = {
-        CARGO_PROFILE_test_DEBUG = "0"
-        CARGO_PROFILE_bench_DEBUG = "0"
-        CARGO_PROFILE_bench_LTO = "0"
-        CARGO_PROFILE_bench_CODEGEN_UNITS = "1"
         cargo_features = join(",", [
             cargo_feat_sets[feat_set],
             cargo_features_always,
@@ -1251,10 +1259,7 @@ target "ingredients" {
             feat_set == "all"?
                 "--all-features": "--no-default-features"
         )
-        CARGO_BUILD_RUSTFLAGS = (
-            rust_toolchain == "nightly"?
-                join(" ", nightly_rustflags): ""
-        )
+        CARGO_TERM_VERBOSE = CI == "true"
         RUST_BACKTRACE = "full"
         ROCKSDB_LIB_DIR="/usr/lib/${sys_target}"
         JEMALLOC_OVERRIDE="/usr/lib/${sys_target}/libjemalloc.so"

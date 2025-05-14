@@ -20,10 +20,12 @@ ARG rust_toolchain
 ARG RUSTUP_HOME
 ARG CARGO_HOME
 ARG CARGO_TARGET
+ARG CARGO_TERM_VERBOSE=0
 
 WORKDIR /usr/src/tuwunel
 COPY --link --from=source /usr/src/tuwunel .
 
+ENV CARGO_TERM_VERBOSE="${CARGO_TERM_VERBOSE}"
 RUN \
 --mount=type=cache,dst=${RUSTUP_HOME},sharing=locked \
 --mount=type=cache,dst=${CARGO_HOME},sharing=locked \
