@@ -15,6 +15,9 @@ ARG crate_path="src/main"
 ARG crate_ident=""
 ARG install_temp="/usr/src/tuwunel/install"
 
+WORKDIR /
+COPY --link --from=input . .
+
 WORKDIR /usr/lib/${sys_target}
 COPY --link --from=rocksdb . .
 
