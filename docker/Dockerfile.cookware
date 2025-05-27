@@ -8,6 +8,9 @@ ARG CARGO_TARGET
 ARG rustup_version="1.28.1"
 ARG rustup_components
 
+WORKDIR /
+COPY --link --from=input . .
+
 WORKDIR /opt
 RUN \
 --mount=type=cache,dst=${RUSTUP_HOME},sharing=locked \
@@ -49,6 +52,9 @@ ARG RUSTUP_HOME
 ARG CARGO_HOME
 ARG CARGO_TARGET
 ARG cargo_installs
+
+WORKDIR /
+COPY --link --from=input . .
 
 RUN \
 --mount=type=cache,dst=${RUSTUP_HOME},sharing=locked \

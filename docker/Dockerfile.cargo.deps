@@ -18,7 +18,7 @@ WORKDIR /usr/lib/${sys_target}
 COPY --from=rocksdb . .
 
 WORKDIR /usr/src/tuwunel
-COPY --link --from=recipe recipe.json .
+COPY --from=recipe recipe.json .
 
 ENV CARGO_BUILD_RUSTFLAGS=${CARGO_BUILD_RUSTFLAGS}
 RUN \

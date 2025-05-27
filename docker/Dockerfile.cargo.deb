@@ -13,6 +13,9 @@ ARG cargo_spec_features
 ARG pkg_dir
 ARG deb_args=""
 
+WORKDIR /
+COPY --link --from=input . .
+
 WORKDIR /usr/src/tuwunel
 RUN \
 --mount=type=cache,dst=${RUSTUP_HOME},sharing=locked \

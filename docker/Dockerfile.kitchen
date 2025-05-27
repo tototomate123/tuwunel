@@ -21,6 +21,9 @@ xz-utils \
 ${packages} \
 "
 
+WORKDIR /
+COPY --link --from=input . .
+
 RUN  \
 --mount=type=cache,dst=${var_cache},sharing=locked \
 --mount=type=cache,dst=${var_lib_apt},sharing=locked \
