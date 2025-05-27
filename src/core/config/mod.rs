@@ -73,6 +73,7 @@ pub struct Config {
 	/// example: "girlboss.ceo"
 	pub server_name: OwnedServerName,
 
+	#[allow(clippy::doc_link_with_quotes)]
 	/// The default address (IPv4 or IPv6) tuwunel will listen on.
 	///
 	/// If you are using Docker or a container NAT networking setup, this must
@@ -698,6 +699,7 @@ pub struct Config {
 	#[serde(default)]
 	pub proxy: ProxyConfig,
 
+	#[allow(clippy::doc_link_with_quotes)]
 	/// Servers listed here will be used to gather public keys of other servers
 	/// (notary trusted key servers).
 	///
@@ -826,6 +828,7 @@ pub struct Config {
 	#[serde(default)]
 	pub turn_password: String,
 
+	#[allow(clippy::doc_link_with_quotes)]
 	/// Vector list of TURN URIs/servers to use.
 	///
 	/// Replace "example.turn.uri" with your TURN domain, such as the coturn
@@ -863,6 +866,7 @@ pub struct Config {
 	#[serde(default = "default_turn_ttl")]
 	pub turn_ttl: u64,
 
+	#[allow(clippy::doc_link_with_quotes)]
 	/// List/vector of room IDs or room aliases that tuwunel will make newly
 	/// registered users join. The rooms specified must be rooms that you have
 	/// joined at least once on the server, and must be public.
@@ -1384,6 +1388,7 @@ pub struct Config {
 	#[serde(default, with = "serde_regex")]
 	pub forbidden_remote_room_directory_server_names: RegexSet,
 
+	#[allow(clippy::doc_link_with_quotes)]
 	/// Vector list of IPv4 and IPv6 CIDR ranges / subnets *in quotes* that you
 	/// do not want tuwunel to send outbound requests to. Defaults to
 	/// RFC1918, unroutable, loopback, multicast, and testnet addresses for
@@ -1566,6 +1571,7 @@ pub struct Config {
 	#[serde(default)]
 	pub admin_console_automatic: bool,
 
+	#[allow(clippy::doc_link_with_quotes)]
 	/// List of admin commands to execute on startup.
 	///
 	/// This option can also be configured with the `--execute` tuwunel
