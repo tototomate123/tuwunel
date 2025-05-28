@@ -183,7 +183,6 @@ group "lints" {
 group "tests" {
     targets = [
         "tests-unit",
-        "tests-bench",
         "tests-smoke",
         "complement",
     ]
@@ -703,35 +702,6 @@ target "debuild" {
 # Unit tests
 #
 
-cargo_bench_matrix = {
-    cargo_profile = ["bench"]
-    rust_toolchain = ["nightly"]
-    rust_target = cargo_rust_feat_sys.rust_target
-    feat_set = cargo_rust_feat_sys.feat_set
-    sys_name = cargo_rust_feat_sys.sys_name
-    sys_version = cargo_rust_feat_sys.sys_version
-    sys_target = cargo_rust_feat_sys.sys_target
-}
-
-target "tests-bench" {
-    name = elem("tests-bench", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
-    tags = [
-        elem_tag("tests-bench", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
-    ]
-    target = "cargo"
-    matrix = cargo_bench_matrix
-    inherits = [
-        elem("build-bench", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
-    ]
-    contexts = {
-        input = elem("target:build-bench", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
-    }
-    args = {
-        cargo_cmd = "bench"
-        cargo_args = "--no-fail-fast"
-    }
-}
-
 target "tests-unit" {
     name = elem("tests-unit", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     tags = [
@@ -746,7 +716,7 @@ target "tests-unit" {
         input = elem("target:build-tests", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     }
     args = {
-        cargo_cmd = "test"
+        cargo_cmd = (cargo_profile == "bench"? "bench": "test")
         cargo_args = "--no-fail-fast"
     }
 }
@@ -777,28 +747,6 @@ target "build-bins" {
     }
 }
 
-target "build-bench" {
-    name = elem("build-bench", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
-    tags = [
-        elem_tag("build-bench", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
-    ]
-    matrix = cargo_bench_matrix
-    inherits = [
-        elem("deps-build-bench", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
-        elem("build", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
-    ]
-    contexts = {
-        input = (use_chef == "true"?
-            elem("target:deps-build-bench", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]):
-            elem("target:build", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
-        )
-    }
-    args = {
-        cargo_cmd = "bench"
-        cargo_args = "--no-run"
-    }
-}
-
 target "build-tests" {
     name = elem("build-tests", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     tags = [
@@ -816,7 +764,7 @@ target "build-tests" {
         )
     }
     args = {
-        cargo_cmd = "test"
+        cargo_cmd = (cargo_profile == "bench"? "bench": "test")
         cargo_args = "--no-run"
     }
 }
@@ -1003,7 +951,6 @@ group "deps" {
         "deps-clippy",
         "deps-build",
         "deps-build-tests",
-        "deps-build-bench",
         "deps-build-bins",
     ]
 }
@@ -1022,20 +969,6 @@ target "deps-build-bins" {
     }
 }
 
-target "deps-build-bench" {
-    name = elem("deps-build-bench", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
-    tags = [
-        elem_tag("deps-build-bench", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
-    ]
-    matrix = cargo_bench_matrix
-    inherits = [
-        elem("deps-base", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
-    ]
-    args = {
-        cook_args = "--benches"
-    }
-}
-
 target "deps-build-tests" {
     name = elem("deps-build-tests", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     tags = [
@@ -1046,7 +979,7 @@ target "deps-build-tests" {
         elem("deps-base", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     ]
     args = {
-        cook_args = "--tests"
+        cook_args = (cargo_profile == "bench"? "--benches": "--tests")
     }
 }
 
