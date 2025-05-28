@@ -105,7 +105,7 @@ if test "$CI_SILENT_BAKE" = "true"; then
 fi
 
 arg="$args -f $BASEDIR/bake.hcl"
-trap 'set +x; date; echo -e "\033[1;41;37mFAIL\033[0m"' ERR
+trap 'set +x; date; echo -e "\033[1;41;37mERROR\033[0m"' ERR
 
 if test "$CI_VERBOSE_ENV" = "true"; then
 	date
@@ -124,4 +124,4 @@ trap '' ERR
 set -ux
 docker buildx bake $arg $bake_target
 set +x
-echo -e "\033[1;42;30mPASS\033[0m"
+echo -e "\033[1;42;30mACCEPT\033[0m"

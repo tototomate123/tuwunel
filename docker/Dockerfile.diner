@@ -11,9 +11,6 @@ ARG var_cache
 ARG var_lib_apt
 ARG packages
 
-WORKDIR /
-COPY --link --from=input . .
-
 ENV packages="ca-certificates ${packages}"
 RUN \
 --mount=type=cache,dst=${var_cache},sharing=locked \
@@ -34,9 +31,6 @@ FROM input AS valgrind
 ARG var_cache
 ARG var_lib_apt
 
-WORKDIR /
-COPY --link --from=input . .
-
 RUN \
 --mount=type=cache,dst=${var_cache},sharing=locked \
 --mount=type=cache,dst=${var_lib_apt},sharing=locked \
@@ -49,9 +43,6 @@ EOF
 FROM input AS perf
 ARG var_cache
 ARG var_lib_apt
-
-WORKDIR /
-COPY --link --from=input . .
 
 RUN \
 --mount=type=cache,dst=${var_cache},sharing=locked \

@@ -1,6 +1,7 @@
 # syntax = docker/dockerfile:1.11-labs
 
 FROM input AS rocksdb-fetch
+
 WORKDIR /usr/src
 COPY --link --from=recipe rocksdb.url .
 RUN <<EOF

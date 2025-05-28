@@ -60,9 +60,6 @@ ARG sys_target
 ARG CARGO_INSTALL_ROOT
 ARG install_temp="/usr/src/tuwunel/install"
 
-WORKDIR /usr/lib/${sys_target}
-COPY --from=rocksdb --exclude=librocksdb.a . .
-
 WORKDIR /
 RUN \
 --mount=type=bind,from=output,src=${install_temp},dst=/mnt/install \

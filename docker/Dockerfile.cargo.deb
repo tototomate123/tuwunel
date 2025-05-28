@@ -55,7 +55,7 @@ FROM input AS package-install
 ARG pkg_dir
 
 WORKDIR ${pkg_dir}
-COPY --from=package . .
+COPY --link --from=package . .
 RUN <<EOF
 	set -eux
 	dpkg --info *
