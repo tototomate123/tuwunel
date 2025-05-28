@@ -242,7 +242,7 @@ target "github" {
         "ghcr.io/${repo}:${git_ref_name}-${cargo_profile}-${feat_set}-${sys_target}",
         (cargo_profile == "release" && feat_set == "all")?
             "ghcr.io/${repo}:${git_ref_name}": "",
-        (git_ref_name == "main" && cargo_profile == "release" && feat_set == "all")?
+        (substr(git_ref, 0, 10) == "refs/tags/" && cargo_profile == "release" && feat_set == "all")?
             "ghcr.io/${repo}:latest": "",
     ]
     output = ["type=registry,compression=zstd,mode=min"]
@@ -258,7 +258,7 @@ target "dockerhub" {
         "${docker_repo}:${git_ref_name}-${cargo_profile}-${feat_set}-${sys_target}",
         (cargo_profile == "release" && feat_set == "all")?
             "${docker_repo}:${git_ref_name}": "",
-        (git_ref_name == "main" && cargo_profile == "release" && feat_set == "all")?
+        (substr(git_ref, 0, 10) == "refs/tags/" && cargo_profile == "release" && feat_set == "all")?
             "${docker_repo}:latest": "",
     ]
     output = ["type=registry,compression=zstd,mode=min"]
