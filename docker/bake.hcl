@@ -601,6 +601,7 @@ target "install" {
         input = elem("target:diner", [feat_set, sys_name, sys_version, sys_target])
         output = elem("target:installer", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
         #docs = elem("target:docs", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+        #book = elem("target:book", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     }
 }
 
@@ -771,6 +772,53 @@ target "tests-unit" {
 # Workspace builds
 #
 
+target "book" {
+    name = elem("book", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+    tags = [
+        elem_tag("book", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
+    ]
+    target = "book"
+    dockerfile = "${docker_dir}/Dockerfile.cargo.book"
+    output = ["type=docker,compression=zstd,mode=min,compression-level=${image_compress_level}"]
+    matrix = cargo_rust_feat_sys
+    inherits = [
+        elem("deps-base", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
+        elem("cargo", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
+    ]
+    contexts = {
+        input = elem("target:ingredients", [rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+    }
+    dockerfile-inline =<<EOF
+        FROM input AS book
+        WORKDIR /
+        COPY --link --from=input . .
+        RUN ["mdbook", "build", "-d", "/book", "/usr/src/tuwunel"]
+EOF
+}
+
+target "docs" {
+    name = elem("docs", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+    tags = [
+        elem_tag("docs", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
+    ]
+    matrix = cargo_rust_feat_sys
+    inherits = [
+        elem("deps-build", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
+        elem("build", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
+    ]
+    contexts = {
+        input = (use_chef == "true"?
+            elem("target:deps-build", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]):
+            elem("target:ingredients", [rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+        )
+    }
+    args = {
+        cargo_cmd = "doc"
+        cargo_args = "--no-deps --document-private-items"
+        RUSTDOCFLAGS = "-D warnings"
+    }
+}
+
 target "build-bins" {
     name = elem("build-bins", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     tags = [
@@ -834,29 +882,6 @@ target "build" {
     args = {
         cargo_cmd = "build"
         cargo_args = "--all-targets"
-    }
-}
-
-target "docs" {
-    name = elem("docs", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
-    tags = [
-        elem_tag("docs", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
-    ]
-    matrix = cargo_rust_feat_sys
-    inherits = [
-        elem("deps-clippy", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
-        elem("cargo", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
-    ]
-    contexts = {
-        input = (use_chef == "true"?
-            elem("target:deps-clippy", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]):
-            elem("target:ingredients", [rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
-        )
-    }
-    args = {
-        cargo_cmd = "doc"
-        cargo_args = "--no-deps --document-private-items"
-        RUSTDOCFLAGS = "-D warnings"
     }
 }
 
@@ -1362,6 +1387,7 @@ cargo_installs = [
     "cargo-arch",
     "cargo-generate-rpm",
     "lychee",
+    "mdbook",
     "typos-cli",
 ]
 

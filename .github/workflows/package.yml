@@ -37,6 +37,32 @@ on:
         description: Matrix inclusions
 
 jobs:
+  book:
+    if: >
+      !failure() && !cancelled()
+      && contains(fromJSON(inputs.cargo_profiles), fromJSON('["release"]')[0])
+      && contains(fromJSON(inputs.feat_sets), fromJSON('["default"]')[0])
+      && contains(fromJSON(inputs.rust_toolchains), fromJSON('["stable"]')[0])
+
+    name: Book
+    uses: ./.github/workflows/bake.yml
+    with:
+      bake_targets: '["book"]'
+      cargo_profiles: '["release"]'
+      feat_sets: '["default"]'
+      rust_toolchains: '["stable"]'
+      rust_targets: ${{inputs.rust_targets}}
+      sys_names: ${{inputs.sys_names}}
+      sys_targets: ${{inputs.sys_targets}}
+      sys_versions: ${{inputs.sys_versions}}
+      machines: ${{inputs.machines}}
+      excludes: ${{inputs.excludes}}
+      includes: ${{inputs.includes}}
+      artifact: >
+        {
+          "book": {"dst": "book", "src": "/book"},
+        }
+
   build_standalone:
     if: >
       !failure() && !cancelled()
