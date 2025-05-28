@@ -318,7 +318,7 @@ async fn remote_leave_room(
 	let Some(room_version_id) = make_leave_response.room_version else {
 		return Err!(BadServerResponse(warn!(
 			"No room version was returned by {remote_server} for {room_id}, room version is \
-			 likely not supported by conduwuit"
+			 likely not supported by tuwunel"
 		)));
 	};
 

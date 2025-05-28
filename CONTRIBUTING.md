@@ -1,6 +1,6 @@
 # Contributing guide
 
-This page is for about contributing to conduwuit. The
+This page is for about contributing to Tuwunel. The
 [development](./development.md) page may be of interest for you as well.
 
 If you would like to work on an [issue][issues] that is not assigned, preferably
@@ -40,7 +40,7 @@ If you'd like to run Complement locally using Nix, see the
 
 ### Writing documentation
 
-conduwuit's website uses [`mdbook`][mdbook] and deployed via CI using GitHub
+Tuwunel's website uses [`mdbook`][mdbook] and deployed via CI using GitHub
 Pages in the [`documentation.yml`][documentation.yml] workflow file with Nix's
 mdbook in the devshell. All documentation is in the `docs/` directory at the top
 level. The compiled mdbook website is also uploaded as an artifact.
@@ -78,7 +78,7 @@ applies here.
 
 ### Creating pull requests
 
-Please try to keep contributions to the GitHub. While the mirrors of conduwuit
+Please try to keep contributions to the GitHub. While the mirrors of Tuwunel
 allow for pull/merge requests, there is no guarantee I will see them in a timely
 manner. Additionally, please mark WIP or unfinished or incomplete PRs as drafts.
 This prevents me from having to ping once in a while to double check the status
@@ -87,7 +87,7 @@ of it, especially when the CI completed successfully and everything so it
 
 If you open a pull request on one of the mirrors, it is your responsibility to
 inform me about its existence. In the future I may try to solve this with more
-repo bots in the conduwuit Matrix room. There is no mailing list or email-patch
+repo bots in the Tuwunel Matrix room. There is no mailing list or email-patch
 support on the sr.ht mirror, but if you'd like to email me a git patch you can
 do so at `maintainer@tuwunel.chat`.
 
@@ -95,11 +95,11 @@ Direct all PRs/MRs to the `main` branch.
 
 By sending a pull request or patch, you are agreeing that your changes are
 allowed to be licenced under the Apache-2.0 licence and all of your conduct is
-in line with the Contributor's Covenant, and conduwuit's Code of Conduct.
+in line with the Contributor's Covenant, and Tuwunel's Code of Conduct.
 
 Contribution by users who violate either of these code of conducts will not have
 their contributions accepted. This includes users who have been banned from
-conduwuit Matrix rooms for Code of Conduct violations.
+Tuwunel Matrix rooms for Code of Conduct violations.
 
 ### Branch Policy
 

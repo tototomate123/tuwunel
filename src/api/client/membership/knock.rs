@@ -294,7 +294,7 @@ async fn knock_room_helper_local(
 		.supported_room_version(&room_version_id)
 	{
 		return Err!(BadServerResponse(
-			"Remote room version {room_version_id} is not supported by conduwuit"
+			"Remote room version {room_version_id} is not supported by tuwunel"
 		));
 	}
 
@@ -427,7 +427,7 @@ async fn knock_room_helper_remote(
 		.supported_room_version(&room_version_id)
 	{
 		return Err!(BadServerResponse(
-			"Remote room version {room_version_id} is not supported by conduwuit"
+			"Remote room version {room_version_id} is not supported by tuwunel"
 		));
 	}
 
