@@ -88,6 +88,48 @@ If you are not sure please ask. If you found out that something did in fact need
 please open an issue immediately.
 
 
+### Upgrading & Downgrading Tuwunel
+
+We strive to make moving between versions of Tuwunel safe and easy. There may be some startup
+delays during a significant update involving database schema changes. These are always crafted to
+handle any loss of power or partial completion. If you encounter a problem during startup after an
+update: don't panic, report the issue, try again a few times, or fallback to the last version you
+were using.
+
+Downgrading Tuwunel is always safe but often prevented by a guard. An error will indicate the
+downgrade is not possible and a newer version which does not error must be sought.
+
+#### Versioning
+
+Tuwunel uses a semantic version tag in the format of `v<major>.<minor>.<patch>`. The `patch` value will
+always correspond to the number of commits from the last `minor` change. The `minor` value is changed
+at developer discretion, but has significance to users. The `major` value is changed to indicate
+significant milestones, but does not necessarily indicate any "breaking" change. Note that an irreversible
+database schema change may occur with only a `minor` version change, but these policies are not finalized,
+or very important for users right now. **Users should place an importance on keeping up to date with the
+latest `minor` version.**
+
+We currently do not have separate stable and unstable branches, but we reserve the possibility for
+exploring this model in the future. This would only occur between different `major`
+versions (i.e. `1.x` is stable and only receives fixes, while `2.x` receives new features). There are no
+concrete plans to move to this model at this time.
+
+#### Branches
+
+The main branch is always _reasonably safe_ to run. We understand the propensity for users to simply clone
+the main branch to get up and running, and we're obliged to ensure it's always viable. Nevertheless, only
+tagged releases are true releases. If you don't care to update often, find the latest `minor` version
+change rather than `patch`. We don't recommend simply following `major` version changes at this time.
+
+#### Tracking
+
+Containerized deployments often track an image tag to automatically update and restart the server. **We
+strongly advise tracking the `:latest` tag** (or some other similar indirect meta-tag appropriate for
+your platform). This gives us the necessary discretion to keep you on the appropriate version; we will
+point these tags at the latest stable release. We discourage tracking the main branch, as we want to
+update that more frequently moving forward.
+
+
 ### Getting Help & Support
 
 The official community will be found at [#tuwunel:tuwunel.chat](https://matrix.to/#/#tuwunel:tuwunel.chat).
