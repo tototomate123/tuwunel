@@ -47,6 +47,7 @@ RUN \
         "-DCMAKE_VERBOSE_MAKEFILE:BOOL=${rocksdb_make_verbose}" \
         "-DCMAKE_BUILD_TYPE=${rocksdb_build_type}" \
         "-DBUILD_SHARED_LIBS=${rocksdb_shared}" \
+        "-DROCKSDB_BUILD_SHARED=${rocksdb_shared}" \
         "-DCMAKE_CXX_FLAGS:STRING=${rocksdb_cxx_flags}" \
         "-DCMAKE_CXX_FLAGS_RELEASE:STRING=-g0 -O${rocksdb_opt_level} -DNDEBUG" \
         "-DPORTABLE=${rocksdb_portable}" \
