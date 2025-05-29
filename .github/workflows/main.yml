@@ -65,31 +65,33 @@ jobs:
           --name "${GITHUB_ACTOR}" \
           --buildkitd-flags "--allow-insecure-entitlement network.host"
 
-  deps:
-    if: ${{fromJSON(vars.CI_VERBOSE_DEPS || 'false')}}
-    name: Deps
-    needs: [init]
-    uses: ./.github/workflows/deps.yml
-    with:
-      cargo_profiles: ${{needs.init.outputs.cargo_profiles}}
-      feat_sets: ${{needs.init.outputs.feat_sets}}
-      rust_toolchains: ${{needs.init.outputs.rust_toolchains}}
-      rust_targets: ${{needs.init.outputs.rust_targets}}
-      sys_names: ${{needs.init.outputs.sys_names}}
-      sys_targets: ${{needs.init.outputs.sys_targets}}
-      sys_versions: ${{needs.init.outputs.sys_versions}}
-      machines: ${{needs.init.outputs.machines}}
-      excludes: >
-        [
-          {"cargo_profile": "release-debuginfo", "rust_toolchain": "nightly"},
-          {"cargo_profile": "release-max-perf", "rust_toolchain": "stable"},
-          {"cargo_profile": "release-max-perf", "feat_set": "none"}
-        ]
+## commented out due to https://github.com/orgs/community/discussions/18001
+#
+#  deps:
+#    if: ${{fromJSON(vars.CI_VERBOSE_DEPS || 'false')}}
+#    name: Deps
+#    needs: [init]
+#    uses: ./.github/workflows/deps.yml
+#    with:
+#      cargo_profiles: ${{needs.init.outputs.cargo_profiles}}
+#      feat_sets: ${{needs.init.outputs.feat_sets}}
+#      rust_toolchains: ${{needs.init.outputs.rust_toolchains}}
+#      rust_targets: ${{needs.init.outputs.rust_targets}}
+#      sys_names: ${{needs.init.outputs.sys_names}}
+#      sys_targets: ${{needs.init.outputs.sys_targets}}
+#      sys_versions: ${{needs.init.outputs.sys_versions}}
+#      machines: ${{needs.init.outputs.machines}}
+#      excludes: >
+#        [
+#          {"cargo_profile": "release-debuginfo", "rust_toolchain": "nightly"},
+#          {"cargo_profile": "release-max-perf", "rust_toolchain": "stable"},
+#          {"cargo_profile": "release-max-perf", "feat_set": "none"}
+#        ]
 
   lint:
     if: ${{ !failure() && !cancelled() }}
     name: Lint
-    needs: [init, deps]
+    needs: [init] #needs: [init, deps]
     uses: ./.github/workflows/lint.yml
     with:
       cargo_profiles: ${{needs.init.outputs.cargo_profiles}}
