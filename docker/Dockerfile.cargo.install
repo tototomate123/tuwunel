@@ -26,6 +26,8 @@ RUN \
 --mount=type=cache,dst=${RUSTUP_HOME},sharing=locked \
 --mount=type=cache,dst=${CARGO_HOME},sharing=locked \
 --mount=type=cache,dst=${CARGO_TARGET_DIR},sharing=locked \
+--mount=type=cache,dst=${CARGO_TARGET_DIR}/deps,sharing=shared \
+--mount=type=cache,dst=${CARGO_TARGET_DIR}/build,sharing=shared \
 <<EOF
     set -eux
     case "$cargo_profile" in
