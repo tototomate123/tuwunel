@@ -51,10 +51,14 @@ on:
         type: string
         default: ${{vars.CI_PRINT_BAKE || false}}
         description: Print the computed receipe.
+      artifact:
+        type: string
+        default: '{}'
+        description: Map of targets to artifact files to upload
 
 jobs:
   bake:
-    if: ${{fromJSON(inputs.machines)[0] != null}}
+    if: ${{ !failure() && !cancelled() && fromJSON(inputs.machines)[0] != null }}
     name: >
       ${{matrix.bake_target}}
       ${{matrix.cargo_profile}}
@@ -104,3 +108,23 @@ jobs:
 
       run: |
         docker/bake.sh "${{matrix.bake_target}}"
+
+    - if: ${{ !failure() && !cancelled() && fromJSON(inputs.artifact)[matrix.bake_target].dst }}
+      name: Extract Artifact
+      env:
+        iid: ${{matrix.bake_target}}--${{matrix.cargo_profile}}--${{matrix.rust_toolchain}}--${{matrix.rust_target}}--${{matrix.feat_set}}--${{matrix.sys_name}}--${{matrix.sys_version}}--${{matrix.sys_target}}
+        dst: ${{ fromJSON(inputs.artifact)[matrix.bake_target].dst }}
+        src: ${{ fromJSON(inputs.artifact)[matrix.bake_target].src || fromJSON(inputs.artifact)[matrix.bake_target].dst }}
+
+      run: |
+        cid=$(docker create "$iid" /)
+        rm -rf _artifact
+        mkdir -p _artifact
+        docker cp "$cid:$src" "_artifact/$dst"
+
+    - if: ${{ !failure() && !cancelled() && fromJSON(inputs.artifact)[matrix.bake_target].dst }}
+      name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{matrix.cargo_profile}}-${{fromJSON(inputs.artifact)[matrix.bake_target].dst}}
+        path: _artifact/${{fromJSON(inputs.artifact)[matrix.bake_target].dst}}

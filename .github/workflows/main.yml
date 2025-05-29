@@ -145,8 +145,9 @@ jobs:
       machines: ${{needs.init.outputs.machines}}
       excludes: >
         [
-          {"cargo_profile": "test"},
           {"feat_set": "none"},
+          {"cargo_profile": "test"},
+          {"cargo_profile": "release", "rust_toolchain": "nightly"},
           {"cargo_profile": "release-max-perf", "rust_toolchain": "stable"}
         ]
 
