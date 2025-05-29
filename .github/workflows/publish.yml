@@ -44,8 +44,66 @@ on:
       dockerhub_token:
 
 jobs:
+  packages:
+    if: >
+      ${{
+        !failure() && !cancelled()
+        && contains(fromJSON(inputs.feat_sets), fromJSON('["all"]')[0])
+      }}
+    name: Publish packages
+    runs-on: ${{matrix.machine}}
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        target: >
+          ${{fromJSON('[
+            ["standalone", "tuwunel"]
+            ["pkg-deb","tuwunel_1.0.0-1_amd64.deb"],
+            ["pkg-rpm","tuwunel-1.0.0-1.x86_64.rpm"],
+          ]')}}
+        cargo_profile: ${{fromJSON(inputs.cargo_profiles)}}
+        rust_toolchain: ${{fromJSON(inputs.rust_toolchains)}}
+        feat_set: ${{fromJSON('["all"]')}}
+        sys_name: ${{fromJSON(inputs.sys_names)}}
+        sys_version: ${{fromJSON(inputs.sys_versions)}}
+        rust_target: ${{fromJSON(inputs.rust_targets)}}
+        sys_target: ${{fromJSON(inputs.sys_targets)}}
+        machine: ${{fromJSON(inputs.machines)}}
+        exclude: ${{fromJSON(inputs.excludes)}}
+        include: ${{fromJSON(inputs.includes)}}
+
+    steps:
+      - name: Extract
+        env:
+          file: ${{matrix.target[1]}}
+          iid:
+            ${{matrix.target[0]}}
+            --${{matrix.cargo_profile}}
+            --${{matrix.rust_toolchain}}
+            --${{matrix.rust_target}}
+            --${{matrix.feat_set}}
+            --${{matrix.sys_name}}
+            --${{matrix.sys_version}}
+            --${{matrix.sys_target}}
+
+        run: |
+          cid=$(docker create "$iid" /)
+          docker cp "$cid:$file" .
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          path: ${{matrix.target[1]}}
+          name: ${{matrix.target[1]}}-${{matrix.cargo_profile}}
+
   containers:
-    if: ${{ !failure() && !cancelled() && inputs.docker_repo }}
+    if: >
+      ${{
+        !failure() && !cancelled()
+        && inputs.docker_repo
+        && github.ref == 'refs/heads/main'
+      }}
     name: Publish containers
     runs-on: ${{matrix.machine}}
     permissions: write-all
@@ -97,39 +155,3 @@ jobs:
 
         run: |
           docker/bake.sh "${{matrix.bake_target}}"
-
-  packages:
-    if: ${{ !failure() && !cancelled() && contains(fromJSON(inputs.feat_sets), fromJSON('["all"]')[0]) }}
-    name: Publish packages
-    runs-on: ${{matrix.machine}}
-    continue-on-error: true
-    strategy:
-      fail-fast: false
-      matrix:
-        target: ${{fromJSON('[["pkg-rpm","tuwunel-1.0.0-1.x86_64.rpm"],["pkg-deb","tuwunel_1.0.0-1_amd64.deb"],["standalone", "tuwunel"]]')}}
-        cargo_profile: ${{fromJSON(inputs.cargo_profiles)}}
-        rust_toolchain: ${{fromJSON(inputs.rust_toolchains)}}
-        feat_set: ${{fromJSON('["all"]')}}
-        sys_name: ${{fromJSON(inputs.sys_names)}}
-        sys_version: ${{fromJSON(inputs.sys_versions)}}
-        rust_target: ${{fromJSON(inputs.rust_targets)}}
-        sys_target: ${{fromJSON(inputs.sys_targets)}}
-        machine: ${{fromJSON(inputs.machines)}}
-        exclude: ${{fromJSON(inputs.excludes)}}
-        include: ${{fromJSON(inputs.includes)}}
-
-    steps:
-      - name: Extract
-        env:
-          iid: ${{matrix.target[0]}}--${{matrix.cargo_profile}}--${{matrix.rust_toolchain}}--${{matrix.rust_target}}--${{matrix.feat_set}}--${{matrix.sys_name}}--${{matrix.sys_version}}--${{matrix.sys_target}}
-          file: ${{matrix.target[1]}}
-
-        run: |
-          cid=$(docker create "$iid" /)
-          docker cp "$cid:$file" .
-
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{matrix.target[1]}}-${{matrix.cargo_profile}}
-          path: ${{matrix.target[1]}}

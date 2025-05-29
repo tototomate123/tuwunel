@@ -55,7 +55,15 @@ on:
 jobs:
   bake:
     if: ${{fromJSON(inputs.machines)[0] != null}}
-    name: ${{matrix.bake_target}} ${{matrix.cargo_profile}} ${{matrix.rust_toolchain}} ${{matrix.feat_set}} ${{matrix.sys_name}} ${{matrix.sys_version}} ${{matrix.sys_target}}
+    name: >
+      ${{matrix.bake_target}}
+      ${{matrix.cargo_profile}}
+      ${{matrix.rust_toolchain}}
+      ${{matrix.feat_set}}
+      ${{matrix.sys_name}}
+      ${{matrix.sys_version}}
+      ${{matrix.sys_target}}
+
     runs-on: ${{matrix.machine}}
     strategy:
       fail-fast: true

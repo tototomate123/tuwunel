@@ -39,7 +39,31 @@ jobs:
       default_sys_targets: '["x86_64-linux-gnu"]'
       default_machines: '["x86_64"]'
     steps:
-    - run: true
+    - name: Initialize Builder
+      run: |
+        set +e
+        docker buildx inspect "${GITHUB_ACTOR}"
+        if test x"$?" = x"0"; then
+          exit 0
+        fi
+
+        set -e
+        cat <<EOF > ./buildkitd.toml
+          [system]
+          platformsCacheMaxAge = "504h"
+
+          [worker.oci]
+          enabled = true
+          rootless = true
+          gc = false
+        EOF
+
+        docker buildx create \
+          --bootstrap \
+          --driver docker-container \
+          --buildkitd-config ./buildkitd.toml \
+          --name "${GITHUB_ACTOR}" \
+          --buildkitd-flags "--allow-insecure-entitlement network.host"
 
   deps:
     if: ${{fromJSON(vars.CI_VERBOSE_DEPS || 'false')}}
@@ -55,7 +79,12 @@ jobs:
       sys_targets: ${{needs.init.outputs.sys_targets}}
       sys_versions: ${{needs.init.outputs.sys_versions}}
       machines: ${{needs.init.outputs.machines}}
-      excludes: '[{"cargo_profile": "release-debuginfo", "rust_toolchain": "nightly"}, {"cargo_profile": "release-max-perf", "rust_toolchain": "stable"}, {"cargo_profile": "release-max-perf", "feat_set": "none"}]'
+      excludes: >
+        [
+          {"cargo_profile": "release-debuginfo", "rust_toolchain": "nightly"},
+          {"cargo_profile": "release-max-perf", "rust_toolchain": "stable"},
+          {"cargo_profile": "release-max-perf", "feat_set": "none"}
+        ]
 
   lint:
     if: ${{ !failure() && !cancelled() }}
@@ -71,7 +100,12 @@ jobs:
       sys_targets: ${{needs.init.outputs.sys_targets}}
       sys_versions: ${{needs.init.outputs.sys_versions}}
       machines: ${{needs.init.outputs.machines}}
-      excludes: '[{"cargo_profile": "release-debuginfo", "rust_toolchain": "nightly"}, {"cargo_profile": "release-max-perf", "rust_toolchain": "stable"}, {"cargo_profile": "release-max-perf", "feat_set": "none"}]'
+      excludes: >
+        [
+          {"cargo_profile": "release-debuginfo", "rust_toolchain": "nightly"},
+          {"cargo_profile": "release-max-perf", "rust_toolchain": "stable"},
+          {"cargo_profile": "release-max-perf", "feat_set": "none"}
+        ]
 
   test:
     if: ${{ !failure() && !cancelled() }}
@@ -88,7 +122,12 @@ jobs:
       sys_versions: ${{needs.init.outputs.sys_versions}}
       machines: ${{needs.init.outputs.machines}}
       complement: ${{fromJSON(vars.COMPLEMENT || 'true')}}
-      excludes: '[{"cargo_profile": "release-debuginfo", "rust_toolchain": "nightly"}, {"cargo_profile": "release-max-perf", "rust_toolchain": "stable"}, {"cargo_profile": "release-max-perf", "feat_set": "none"}]'
+      excludes: >
+        [
+          {"cargo_profile": "release-debuginfo", "rust_toolchain": "nightly"},
+          {"cargo_profile": "release-max-perf", "rust_toolchain": "stable"},
+          {"cargo_profile": "release-max-perf", "feat_set": "none"}
+        ]
 
   package:
     if: ${{ !failure() && !cancelled() }}
@@ -104,14 +143,20 @@ jobs:
       sys_targets: ${{needs.init.outputs.sys_targets}}
       sys_versions: ${{needs.init.outputs.sys_versions}}
       machines: ${{needs.init.outputs.machines}}
-      excludes: '[{"cargo_profile": "test"}, {"feat_set": "none"}, {"cargo_profile": "release-max-perf", "rust_toolchain": "stable"}]'
+      excludes: >
+        [
+          {"cargo_profile": "test"},
+          {"feat_set": "none"},
+          {"cargo_profile": "release-max-perf", "rust_toolchain": "stable"}
+        ]
 
   publish:
-    if: ${{ !failure() && !cancelled() && github.ref == 'refs/heads/main' }}
+    if: ${{ !failure() && !cancelled() }}
     name: Publish
     needs: [init, test, package]
     uses: ./.github/workflows/publish.yml
     with:
+      docker_repo: ${{vars.DOCKER_REPO}}
       cargo_profiles: ${{needs.init.outputs.cargo_profiles}}
       feat_sets: ${{needs.init.outputs.feat_sets}}
       rust_toolchains: ${{needs.init.outputs.rust_toolchains}}
@@ -120,8 +165,13 @@ jobs:
       sys_targets: ${{needs.init.outputs.sys_targets}}
       sys_versions: ${{needs.init.outputs.sys_versions}}
       machines: ${{needs.init.outputs.machines}}
-      excludes: '[{"cargo_profile": "test"}, {"feat_set": "none"}, {"rust_toolchain": "nightly", "cargo_profile": "release"}, {"cargo_profile": "release-max-perf"}]'
-      docker_repo: ${{vars.DOCKER_REPO}}
+      excludes: >
+        [
+          {"cargo_profile": "test"},
+          {"feat_set": "none"},
+          {"rust_toolchain": "nightly", "cargo_profile": "release"},
+          {"cargo_profile": "release-max-perf"}
+        ]
 
     secrets:
       ghcr_token: ${{ secrets.GHCR_TOKEN }}

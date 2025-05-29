@@ -130,7 +130,12 @@ jobs:
     needs: [rocksdb]
     uses: ./.github/workflows/bake.yml
     with:
-      bake_targets: '["deps-clippy", "deps-build-tests", "deps-build-bins"]'
+      bake_targets: >
+        [
+          "deps-clippy",
+          "deps-build-tests",
+          "deps-build-bins"
+        ]
       cargo_profiles: ${{inputs.cargo_profiles}}
       feat_sets: ${{inputs.feat_sets}}
       rust_toolchains: ${{inputs.rust_toolchains}}
