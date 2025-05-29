@@ -121,6 +121,10 @@ variable "CARGO_TERM_VERBOSE" {
     default = BUILDKIT_PROGRESS == "plain"? 1: 0
 }
 
+variable "docker_dir" {
+	default = "."
+}
+
 # Override the project checkout
 variable "git_checkout" {
     default = "HEAD"
@@ -311,7 +315,7 @@ target "complement-testee-valgrind" {
     ]
     target = "complement-testee-valgrind"
     entitlements = ["network.host"]
-    dockerfile = "docker/Dockerfile.complement"
+    dockerfile = "${docker_dir}/Dockerfile.complement"
     matrix = cargo_rust_feat_sys
     inherits = [
         elem("smoketest-valgrind", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
@@ -331,7 +335,7 @@ target "complement-testee" {
     target = "complement-testee"
     output = ["type=docker,compression=zstd,mode=min"]
     entitlements = ["network.host"]
-    dockerfile = "docker/Dockerfile.complement"
+    dockerfile = "${docker_dir}/Dockerfile.complement"
     matrix = cargo_rust_feat_sys
     inherits = [
         elem("install", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
@@ -402,7 +406,7 @@ target "complement-config" {
         elem_tag("complement-config", [feat_set, sys_name, sys_version, sys_target], "latest")
     ]
     target = "complement-config"
-    dockerfile = "docker/Dockerfile.complement"
+    dockerfile = "${docker_dir}/Dockerfile.complement"
     matrix = feat_sys
     inherits = [
         elem("source", [feat_set, sys_name, sys_version, sys_target])
@@ -489,7 +493,7 @@ target "smoketest" {
         elem_tag("smoketest", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
     output = ["type=cacheonly,compression=zstd,mode=min"]
-    dockerfile = "docker/Dockerfile.smoketest"
+    dockerfile = "${docker_dir}/Dockerfile.smoketest"
     matrix = cargo_rust_feat_sys
     inherits = [
         elem("install", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
@@ -565,7 +569,7 @@ target "installer" {
         elem_tag("installer", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
     target = "installer"
-    dockerfile = "docker/Dockerfile.cargo.install"
+    dockerfile = "${docker_dir}/Dockerfile.cargo.install"
     matrix = cargo_rust_feat_sys
     inherits = [
         elem("deps-build-bins", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
@@ -629,7 +633,7 @@ target "rpmbuild" {
         elem_tag("rpmbuild", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
     target = "rpmbuild"
-    dockerfile = "docker/Dockerfile.cargo.rpm"
+    dockerfile = "${docker_dir}/Dockerfile.cargo.rpm"
     matrix = cargo_rust_feat_sys
     inherits = [
         elem("build-bins", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
@@ -681,7 +685,7 @@ target "debuild" {
         elem_tag("debuild", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
     target = "debuild"
-    dockerfile = "docker/Dockerfile.cargo.deb"
+    dockerfile = "${docker_dir}/Dockerfile.cargo.deb"
     matrix = cargo_rust_feat_sys
     inherits = [
         elem("build-bins", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
@@ -860,7 +864,7 @@ target "lychee" {
         elem_tag("lychee", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
     target = "lychee"
-    dockerfile = "docker/Dockerfile.cargo.lychee"
+    dockerfile = "${docker_dir}/Dockerfile.cargo.lychee"
     matrix = cargo_rust_feat_sys
     inherits = [
         elem("deps-base", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
@@ -877,7 +881,7 @@ target "audit" {
         elem_tag("audit", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
     target = "audit"
-    dockerfile = "docker/Dockerfile.cargo.audit"
+    dockerfile = "${docker_dir}/Dockerfile.cargo.audit"
     matrix = cargo_rust_feat_sys
     inherits = [
         elem("deps-base", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
@@ -894,7 +898,7 @@ target "typos" {
         elem_tag("typos", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
     target = "typos"
-    dockerfile = "docker/Dockerfile.cargo.typos"
+    dockerfile = "${docker_dir}/Dockerfile.cargo.typos"
     matrix = cargo_rust_feat_sys
     inherits = [
         elem("deps-base", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
@@ -911,7 +915,7 @@ target "fmt" {
         elem_tag("fmt", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
     target = "fmt"
-    dockerfile = "docker/Dockerfile.cargo.fmt"
+    dockerfile = "${docker_dir}/Dockerfile.cargo.fmt"
     matrix = cargo_rust_feat_sys
     inherits = [
         elem("deps-base", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
@@ -930,7 +934,7 @@ target "cargo" {
     target = "cargo"
     output = ["type=cacheonly,compression=zstd,mode=min"]
     cache_to = ["type=local,compression=zstd,mode=min"]
-    dockerfile = "docker/Dockerfile.cargo"
+    dockerfile = "${docker_dir}/Dockerfile.cargo"
     matrix = cargo_rust_feat_sys
     inherits = [
         elem("deps-base", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
@@ -1029,7 +1033,7 @@ target "deps-base" {
     target = "deps"
     output = ["type=cacheonly,compression=zstd,mode=min"]
     cache_to = ["type=local,compression=zstd,mode=min"]
-    dockerfile = "docker/Dockerfile.cargo.deps"
+    dockerfile = "${docker_dir}/Dockerfile.cargo.deps"
     matrix = cargo_rust_feat_sys
     inherits = [
         elem("recipe", [rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
@@ -1107,7 +1111,7 @@ target "rocksdb-fetch" {
         elem_tag("rocksdb-fetch", [rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
     target = "rocksdb-fetch"
-    dockerfile = "docker/Dockerfile.rocksdb"
+    dockerfile = "${docker_dir}/Dockerfile.rocksdb"
     matrix = rust_feat_sys
     inherits = [
         elem("recipe", [rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
@@ -1169,7 +1173,7 @@ target "ingredients" {
         elem_tag("ingredients", [rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
     target =  "ingredients"
-    dockerfile = "docker/Dockerfile.ingredients"
+    dockerfile = "${docker_dir}/Dockerfile.ingredients"
     matrix = rust_feat_sys
     inherits = [
         elem("source", [feat_set, sys_name, sys_version, sys_target]),
@@ -1204,7 +1208,7 @@ target "source" {
         elem_tag("source", [feat_set, sys_name, sys_version, sys_target], "latest")
     ]
     target =  "source"
-    dockerfile = "docker/Dockerfile.ingredients"
+    dockerfile = "${docker_dir}/Dockerfile.ingredients"
     matrix = feat_sys
     inherits = [
         elem("kitchen", [feat_set, sys_name, sys_version, sys_target])
@@ -1270,7 +1274,7 @@ target "cookware" {
         elem_tag("cookware", [rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
     target = "cookware"
-    dockerfile = "docker/Dockerfile.cookware"
+    dockerfile = "${docker_dir}/Dockerfile.cookware"
     matrix = rust_feat_sys
     inherits = [
         elem("kitchen", [feat_set, sys_name, sys_version, sys_target])
@@ -1300,7 +1304,7 @@ target "kitchen" {
         elem_tag("kitchen", [feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
     target = "kitchen"
-    dockerfile = "docker/Dockerfile.kitchen"
+    dockerfile = "${docker_dir}/Dockerfile.kitchen"
     matrix = feat_sys
     inherits = [
         elem("diner", [feat_set, sys_name, sys_version, sys_target])
@@ -1382,7 +1386,7 @@ target "diner" {
         elem_tag("diner", [feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
     target = "diner"
-    dockerfile = "docker/Dockerfile.diner"
+    dockerfile = "${docker_dir}/Dockerfile.diner"
     matrix = feat_sys
     variable "cargo_feat_set" {
         default = cargo_feat_sets[feat_set]
@@ -1425,7 +1429,7 @@ target "system" {
     output = ["type=cacheonly,compression=zstd,mode=min"]
     cache_to = ["type=local,compression=zstd,mode=max"]
     cache_from = ["type=local"]
-    dockerfile = "docker/Dockerfile.diner"
+    dockerfile = "${docker_dir}/Dockerfile.diner"
     matrix = sys
     context = "."
     args = {

@@ -55,6 +55,7 @@ sys_names="${env_sys_names:-$default_sys_names}"
 sys_targets="${env_sys_targets:-$default_sys_targets}"
 sys_versions="${env_sys_versions:-$default_sys_versions}"
 
+docker_dir="$PWD/$BASEDIR"
 runner_name=$(echo $RUNNER_NAME | cut -d"." -f1)
 runner_num=$(echo $RUNNER_NAME | cut -d"." -f2)
 builder_name="owo"
