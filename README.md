@@ -22,7 +22,7 @@ low-cost, lightweight, community-driven alternative covering all but the most ni
 
 This project is the official successor to [conduwuit](https://github.com/girlbossceo/conduwuit), which
 was a featureful and high-performance fork of [Conduit](https://gitlab.com/famedly/conduit), all
-community-lead alternatives to Synapse implementing the compatible
+community-lead homeservers implementing the compatible
 [Matrix Specification](https://spec.matrix.org/latest/).
 
 Tuwunel is operated by enterprise users with a vested interest in sponsoring its continued
@@ -30,35 +30,49 @@ development. It is now maintained by full-time staff.
 
 ### Getting Started
 
-1. Download Tuwunel
-	- [GitHub Releases](https://github.com/matrix-construct/tuwunel/releases)
-	- [Sourcecode](https://github.com/matrix-construct/tuwunel/) `git clone https://github.com/matrix-construct/tuwunel.git`
-    - [DockerHub](https://hub.docker.com/r/jevolk/tuwunel) or `docker pull jevolk/tuwunel:latest`
-    - [GHCR](https://github.com/matrix-construct/tuwunel/pkgs/container/tuwunel) or `docker pull ghcr.io/matrix-construct/tuwunel:latest`
-    - Deb and RPM packages are available and this will be updated with a link.
-    - Arch Package is expected very soon and this will be updated.
-    - Nix Package has not yet been updated but expect this soon.
+1. Get Tuwunel
+- [GitHub Releases](https://github.com/matrix-construct/tuwunel/releases)
+- [Sourcecode](https://github.com/matrix-construct/tuwunel/) `git clone https://github.com/matrix-construct/tuwunel.git`
+- [DockerHub](https://hub.docker.com/r/jevolk/tuwunel) or `docker pull jevolk/tuwunel:latest`
+- [GHCR](https://github.com/matrix-construct/tuwunel/pkgs/container/tuwunel) or `docker pull ghcr.io/matrix-construct/tuwunel:latest`
+- Deb and RPM packages are available and this will be updated with a link.
+- Arch Package is expected very soon and this will be updated.
+- Nix Package has not yet been updated but expect this soon.
 
-2. [Configure](https://github.com/matrix-construct/tuwunel/blob/main/docs/configuration.md) by copying and editing the `tuwunel-example.toml`. **Most users deploy via docker or a distribution package and should follow the [appropriate guide](https://github.com/matrix-construct/tuwunel/tree/main/docs/deploying) instead**. This is just a summary for the impatient. See the full [documentation](https://github.com/matrix-construct/tuwunel/blob/main/docs/).
+2. [Configure](https://github.com/matrix-construct/tuwunel/blob/main/docs/configuration.md) by
+copying and editing the `tuwunel-example.toml`. **Most users deploy via docker or a distribution
+package and should follow the [appropriate guide](https://github.com/matrix-construct/tuwunel/tree/main/docs/deploying)
+instead.** This is just a summary for the impatient. See the full [documentation](https://github.com/matrix-construct/tuwunel/blob/main/docs/).
 
-	- Setting the `server_name` and `database_path` is required.
-	- The `registration_token` is the easiest method to enable `allow_registration = true`.
+> [!IMPORTANT]
+> Setting the `server_name` and `database_path` is required.
 
-	👉 Avoid using a sub-domain for your `server_name`. You can always delegate `example.com` to `matrix.example.com` by setting up a [`.well-known`](https://github.com/spantaleev/matrix-docker-ansible-deploy/blob/master/docs/configuring-well-known.md) file later, but you can never change your `server_name`.
+> [!WARNING]
+> Avoid using a sub-domain for your `server_name`. You can always delegate with a [`.well-known`](https://github.com/spantaleev/matrix-docker-ansible-deploy/blob/master/docs/configuring-well-known.md)
+> file later, but you can never change your `server_name`.
 
-3. Setup TLS certificates. Most users enjoy the [Caddy](https://caddyserver.com/) reverse-proxy which automates their certificate renewal. Advanced users can load their own TLS certificates using the configuration and Tuwunel can be deployed without a reverse proxy. Example `/etc/caddy/Caddyfile` configuration with [Element-web](https://github.com/element-hq/element-web/releases) unzipped in `/var/www/element`:
-    ```
-    https://tuwunel.me:8448 {
-       reverse_proxy http://127.0.0.1:8008
-    }
+3. Setup TLS certificates. Most users enjoy the [Caddy](https://caddyserver.com/) reverse-proxy
+which automates their certificate renewal. Advanced users can load their own TLS certificates
+using the configuration and Tuwunel can be deployed without a reverse proxy. Example
+`/etc/caddy/Caddyfile` configuration with [Element-web](https://github.com/element-hq/element-web/releases)
+unzipped in `/var/www/element`:
+```
+https://tuwunel.me:8448 {
+	reverse_proxy http://127.0.0.1:8008
+}
 
-    https://tuwunel.me:443 {
-        root * /var/www/element/
-        file_server
-   }
-    ```
-    `caddy reload --config /etc/caddy/Caddyfile`
+https://tuwunel.me:443 {
+	root * /var/www/element/
+	file_server
+}
+```
+`caddy reload --config /etc/caddy/Caddyfile`
 
+4. Start the server, connect your client and register your username. The first registration is
+granted server admin.
+
+> [!TIP]
+> Configure a secret `registration_token` and set `allow_registration = true`
 
  🤗 Did you find this and other documentation helpful? We would love your feedback when setting up Tuwunel. _No problem is your fault_. Please open an issue to help us streamline.
 	
@@ -71,7 +85,11 @@ development. It is now maintained by full-time staff.
 | Synapse? | ❌ Not yet, but this is planned and an important issue. Subscribe to [#2](https://github.com/matrix-construct/tuwunel/issues/2). |
 | Conduit? | ❌ Not right now, but this is planned and expected in the near future. Subscribe to [#41](https://github.com/matrix-construct/tuwunel/issues/41). |
 | Another domain? |  ❌ No. Matrix does not yet support changing your domain. The `server_name` you choose is permanent. |
-| Any other fork of Conduit? |  ❌ **Never switch between different derivatives of Conduit or you will corrupt your database.** Even if it appears to be working fine for a while, the corruption is often silent and the damage is permanent. We cannot help you the moment you run another fork without a migration path explicitly sanctioned by Tuwunel in this table. |
+| Any other fork of Conduit? | ❌ No. The migration must be explicitly listed in this table. |
+> [!CAUTION]
+> **Never switch between different forks of Conduit or you will corrupt your database.**
+> All derivatives of Conduit share the same linear database version without any awareness of other
+> forks. The database will permanently corrupt and we will not be able to help you.
 
 
 #### Migrating from conduwuit
@@ -106,13 +124,15 @@ always correspond to the number of commits from the last `minor` change. The `mi
 at developer discretion, but has significance to users. The `major` value is changed to indicate
 significant milestones, but does not necessarily indicate any "breaking" change. Note that an irreversible
 database schema change may occur with only a `minor` version change, but these policies are not finalized,
-or very important for users right now. **Users should place an importance on keeping up to date with the
-latest `minor` version.**
+or very important for users right now.
+
+> [!IMPORTANT]
+> **Users should attempt to keep up to date with the latest minor version.**
 
 We currently do not have separate stable and unstable branches, but we reserve the possibility for
 exploring this model in the future. This would only occur between different `major`
-versions (i.e. `1.x` is stable and only receives fixes, while `2.x` receives new features). There are no
-concrete plans to move to this model at this time.
+versions (i.e. `1.x.x` is stable and only receives fixes, while `2.x.x` receives new features). There
+are no concrete plans to move to this model at this time.
 
 #### Branches
 
@@ -123,12 +143,11 @@ change rather than `patch`. We don't recommend simply following `major` version 
 
 #### Tracking
 
-Containerized deployments often track an image tag to automatically update and restart the server. **We
-strongly advise tracking the `:latest` tag** (or some other similar indirect meta-tag appropriate for
-your platform). This gives us the necessary discretion to keep you on the appropriate version; we will
-point these tags at the latest stable release. We discourage tracking the main branch, as we want to
-update that more frequently moving forward.
+> [!IMPORTANT]
+> **We strongly advise tracking the `:latest` tag when automatically updating.**
 
+This gives us the necessary discretion to keep you on the appropriate stable version.
+We discourage tracking the main branch, as we want to update that more frequently moving forward.
 
 ### Getting Help & Support
 
