@@ -283,6 +283,7 @@ target "tuwunel" {
     target = "tuwunel"
     dockerfile-inline =<<EOF
         FROM input AS tuwunel
+        COPY --link --from=input . .
         EXPOSE 8008 8448
         ENTRYPOINT ["${cargo_install_root}/bin/tuwunel"]
 EOF
