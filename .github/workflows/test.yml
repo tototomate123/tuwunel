@@ -44,7 +44,12 @@ on:
 
 jobs:
   unit:
-    if: ${{contains(fromJSON(inputs.cargo_profiles), fromJSON('["test"]')[0]) && contains(fromJSON(inputs.feat_sets), fromJSON('["all"]')[0]) && contains(fromJSON(inputs.rust_toolchains), fromJSON('["nightly"]')[0])}}
+    if: >
+      ${{
+        contains(fromJSON(inputs.cargo_profiles), fromJSON('["test"]')[0])
+        && contains(fromJSON(inputs.feat_sets), fromJSON('["all"]')[0])
+        && contains(fromJSON(inputs.rust_toolchains), fromJSON('["nightly"]')[0])
+      }}
     name: Unit
     uses: ./.github/workflows/bake.yml
     with:
@@ -61,6 +66,7 @@ jobs:
       includes: ${{inputs.includes}}
 
   smoke:
+    if: inputs.cargo_profiles
     name: Smoke
     uses: ./.github/workflows/bake.yml
     with:
@@ -73,11 +79,24 @@ jobs:
       rust_targets: ${{inputs.rust_targets}}
       sys_targets: ${{inputs.sys_targets}}
       machines: ${{inputs.machines}}
-      excludes: '[{"cargo_profile": "release", "rust_toolchain": "nightly"}, {"cargo_profile": "release-debuginfo", "rust_toolchain": "nightly"}, {"cargo_profile": "test", "feat_set": "default"}, {"cargo_profile": "release-max-perf", "rust_toolchain": "stable"}, {"cargo_profile": "release-max-perf", "feat_set": "none"}]'
       includes: ${{inputs.includes}}
+      excludes: >
+        [
+          {"cargo_profile": "test", "feat_set": "default"},
+          {"cargo_profile": "release", "rust_toolchain": "nightly"},
+          {"cargo_profile": "release-debuginfo", "rust_toolchain": "nightly"},
+          {"cargo_profile": "release-max-perf", "rust_toolchain": "stable"},
+          {"cargo_profile": "release-max-perf", "feat_set": "none"}
+        ]
 
   complement:
-    if: ${{inputs.complement && contains(fromJSON(inputs.cargo_profiles), fromJSON('["test"]')[0]) && contains(fromJSON(inputs.feat_sets), fromJSON('["all"]')[0]) && contains(fromJSON(inputs.rust_toolchains), fromJSON('["nightly"]')[0])}}
+    if: >
+      ${{
+        inputs.complement
+        && contains(fromJSON(inputs.cargo_profiles), fromJSON('["test"]')[0])
+        && contains(fromJSON(inputs.feat_sets), fromJSON('["all"]')[0])
+        && contains(fromJSON(inputs.rust_toolchains), fromJSON('["nightly"]')[0])
+      }}
     name: Complement
     uses: ./.github/workflows/bake.yml
     with:
@@ -94,7 +113,13 @@ jobs:
       includes: ${{inputs.includes}}
 
   compliance:
-    if: ${{inputs.complement && contains(fromJSON(inputs.cargo_profiles), fromJSON('["test"]')[0]) && contains(fromJSON(inputs.feat_sets), fromJSON('["all"]')[0]) && contains(fromJSON(inputs.rust_toolchains), fromJSON('["nightly"]')[0])}}
+    if: >
+      ${{
+        inputs.complement
+        && contains(fromJSON(inputs.cargo_profiles), fromJSON('["test"]')[0])
+        && contains(fromJSON(inputs.feat_sets), fromJSON('["all"]')[0])
+        && contains(fromJSON(inputs.rust_toolchains), fromJSON('["nightly"]')[0])
+      }}
     name: Matrix Compliance
     needs: [complement]
     runs-on: ${{matrix.machine}}
