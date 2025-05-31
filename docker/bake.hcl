@@ -740,7 +740,9 @@ target "tests-unit" {
     }
     args = {
         cargo_cmd = (cargo_profile == "bench"? "bench": "test")
-        cargo_args = "--no-fail-fast"
+        cargo_args = (rust_toolchain == "nightly"?
+            "--no-fail-fast --all-targets": "--no-fail-fast --bins --tests"
+        )
     }
 }
 
