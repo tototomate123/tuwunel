@@ -38,6 +38,7 @@ assets = [
 name = "tuwunel"
 summary = """\
 High performance Matrix homeserver written in Rust"""
+require-sh = false
 assets = [
 	{ source = "target/release/tuwunel", dest = "/usr/sbin/tuwunel", mode = "755" },
 	{ source = "README.md", dest = "/usr/share/doc/tuwunel/", mode = "644", doc = true },
