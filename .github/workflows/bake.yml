@@ -54,6 +54,10 @@ on:
         type: string
         default: '{}'
         description: Map of targets to artifact files to upload
+      fail_fast:
+        type: boolean
+        default: false
+        description: Fail-fast for the underlying matrix.
 
 jobs:
   bake:
@@ -75,7 +79,7 @@ jobs:
 
     runs-on: ${{matrix.machine}}
     strategy:
-      fail-fast: true
+      fail-fast: ${{inputs.fail_fast}}
       matrix:
         exclude: ${{fromJSON(inputs.excludes)}}
         include: ${{fromJSON(inputs.includes)}}
