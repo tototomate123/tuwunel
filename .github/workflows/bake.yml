@@ -50,14 +50,17 @@ on:
         type: string
         default: ${{vars.CI_PRINT_BAKE || false}}
         description: Print the computed receipe.
-      artifact:
-        type: string
-        default: '{}'
-        description: Map of targets to artifact files to upload
       fail_fast:
         type: boolean
         default: false
         description: Fail-fast for the underlying matrix.
+      artifact:
+        type: string
+        default: '{}'
+        description: >
+          Map of targets to artifact files to upload. Key is bake target (image prefix),
+          value is a JSON object containing keys 'src' and 'dst'. dst is the artifact name,
+          src is optional path inside image, defaulting to dst.
 
 jobs:
   bake:
@@ -128,12 +131,12 @@ jobs:
       run: |
         cid=$(docker create "$iid" /)
         rm -rf _artifact
-        mkdir -p _artifact
-        docker cp "$cid:$src" "_artifact/$dst"
+        mkdir -p _artifact/$dst/
+        docker cp "$cid:$src" "_artifact/$dst/$dst"
 
     - if: ${{ !failure() && !cancelled() && fromJSON(inputs.artifact)[matrix.bake_target].dst }}
       name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
+        path: _artifact/${{ fromJSON(inputs.artifact)[matrix.bake_target].dst }}
         name: ${{matrix.cargo_profile}}-${{matrix.feat_set}}-${{fromJSON(inputs.artifact)[matrix.bake_target].dst}}
-        path: _artifact/${{fromJSON(inputs.artifact)[matrix.bake_target].dst}}
