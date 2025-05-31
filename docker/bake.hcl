@@ -136,28 +136,50 @@ nightly_rustflags = [
     "--allow=unstable-features",
     "-Zcrate-attr=feature(test)",
     "-Zenforce-type-length-limit",
+    #"-Ztime-passes",
+    #"-Ztime-llvm-passes",
+]
+
+static_rustflags = [
+    "-Crelocation-model=static",
+    "-Ctarget-feature=+crt-static",
+    "-Clink-arg=--verbose",
+    "-Clink-arg=-Wl,--gc-sections",
+    "-Clink-arg=-L/usr/lib/gcc/x86_64-linux-gnu/14",     # FIXME
+    "-Clink-arg=-l:libstdc++.a",
+    "-Clink-arg=-l:libc.a",
+    "-Clink-arg=-l:libm.a",
+]
+
+dynamic_rustflags = [
+    "-Crelocation-model=pic",
+    "-Ctarget-feature=-crt-static",
+    "-Clink-arg=--verbose",
+    "-Clink-arg=-Wl,--gc-sections",
+    "-Clink-arg=-Wl,--as-needed",
+    "-Clink-arg=-lstdc++",
+    "-Clink-arg=-lc",
+    "-Clink-arg=-lm",
+]
+
+static_nightly_rustflags = [
+    "-Ztls-model=local-exec",
 ]
 
 rmp_rustflags = [
     "-Ctarget-cpu=native",
     "-Ztune-cpu=native",
-    "-Ctarget-feature=+crt-static",
-    "-Crelocation-model=static",
-    "-Ztls-model=local-exec",
     "-Zinline-mir=true",
     "-Zmir-opt-level=3",
-    "-Clink-arg=-Wl,--gc-sections",
-    #"-Ztime-passes",
-    #"-Ztime-llvm-passes",
 ]
 
-rmp_bo_rustflags = [
+override_rustflags = [
     "-Crelocation-model=pic",
     "-Ctarget-feature=-crt-static",
     "-Clink-arg=-Wl,--no-gc-sections",
 ]
 
-rmp_macro_rustflags = [
+macro_rustflags = [
     "-Crelocation-model=pic",
     "-Ctarget-feature=-crt-static",
 ]
@@ -1054,10 +1076,63 @@ target "deps-base" {
         CARGO_PROFILE_bench_CODEGEN_UNITS = "1"
         CARGO_BUILD_RUSTFLAGS = (
             cargo_profile == "release-max-perf"?
-                join(" ", [join(" ", nightly_rustflags), join(" ", rmp_rustflags)]):
+                join(" ", [
+                    join(" ", nightly_rustflags),
+                    contains(split(",", cargo_feat_sets[feat_set]), "zstd_compression")?
+                        "-Clink-arg=-l:libzstd.a": "",
+                    contains(split(",", cargo_feat_sets[feat_set]), "io_uring")?
+                        "-Clink-arg=-l:liburing.a": "",
+                    join(" ", static_rustflags),
+                    join(" ", static_nightly_rustflags),
+                    join(" ", rmp_rustflags),
+                ]):
+
+            cargo_profile == "release" && rust_toolchain == "nightly"?
+                join(" ", [
+                    join(" ", nightly_rustflags),
+                    contains(split(",", cargo_feat_sets[feat_set]), "zstd_compression")?
+                        "-Clink-arg=-l:libzstd.a": "",
+                    contains(split(",", cargo_feat_sets[feat_set]), "io_uring")?
+                        "-Clink-arg=-l:liburing.a": "",
+                    join(" ", static_rustflags),
+                    join(" ", static_nightly_rustflags),
+                ]):
+
+            cargo_profile == "release" || cargo_profile == "release-debuginfo"?
+                join(" ", [
+                    contains(split(",", cargo_feat_sets[feat_set]), "zstd_compression")?
+                        "-Clink-arg=-l:libzstd.a": "",
+                    contains(split(",", cargo_feat_sets[feat_set]), "io_uring")?
+                        "-Clink-arg=-l:liburing.a": "",
+                    join(" ", static_rustflags),
+                ]):
+
+            rust_toolchain == "stable"?
+                join(" ", [
+                    contains(split(",", cargo_feat_sets[feat_set]), "zstd_compression")?
+                        "-Clink-arg=-l:libzstd.a": "",
+                    contains(split(",", cargo_feat_sets[feat_set]), "io_uring")?
+                        "-Clink-arg=-l:liburing.a": "",
+                    join(" ", static_rustflags),
+                ]):
+
             rust_toolchain == "nightly"?
-                join(" ", nightly_rustflags):
-                ""
+                join(" ", [
+                    join(" ", nightly_rustflags),
+                    contains(split(",", cargo_feat_sets[feat_set]), "zstd_compression")?
+                        "-Clink-arg=-lzstd": "",
+                    contains(split(",", cargo_feat_sets[feat_set]), "io_uring")?
+                        "-Clink-arg=-luring": "",
+                    join(" ", dynamic_rustflags),
+                ]):
+
+            join(" ", [
+                contains(split(",", cargo_feat_sets[feat_set]), "zstd_compression")?
+                    "-Clink-arg=-lzstd": "",
+                contains(split(",", cargo_feat_sets[feat_set]), "io_uring")?
+                    "-Clink-arg=-luring": "",
+                join(" ", dynamic_rustflags),
+            ])
         )
     }
 }
@@ -1197,9 +1272,9 @@ target "ingredients" {
         RUST_BACKTRACE = "full"
         ROCKSDB_LIB_DIR="/usr/lib/${sys_target}"
         JEMALLOC_OVERRIDE="/usr/lib/${sys_target}/libjemalloc.a"
-        #ZSTD_SYS_USE_PKG_CONFIG = (
-        #    contains(split(",", cargo_feat_sets[feat_set]), "zstd_compression")? 1: 0
-        #)
+        ZSTD_SYS_USE_PKG_CONFIG = (
+            contains(split(",", cargo_feat_sets[feat_set]), "zstd_compression")? 1: 0
+        )
     }
 }
 

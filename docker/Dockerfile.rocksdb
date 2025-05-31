@@ -42,7 +42,6 @@ RUN \
 <<EOF
     set -eux
 
-    LDFLAGS="-Wl,--strip-all" \
     cmake -H. -Bbuild \
         "-DCMAKE_RULE_MESSAGES:BOOL=${rocksdb_make_rule_messages}" \
         "-DCMAKE_VERBOSE_MAKEFILE:BOOL=${rocksdb_make_verbose}" \
