@@ -74,7 +74,7 @@ things said upstream project won't accept for any reason, faster-paced
 development (unresponsive or slow upstream), Tuwunel-specific usecases, or
 lack of time to upstream some things.
 
-- [ruma/ruma][1]: <https://github.com/matrix-construct/ruwuma> - various performance
+- [ruma/ruma][1]: <https://github.com/matrix-construct/ruma> - various performance
 improvements, more features, faster-paced development, better client/server interop
 hacks upstream won't accept, etc
 - [facebook/rocksdb][2]: <https://github.com/matrix-construct/rocksdb> - liburing
