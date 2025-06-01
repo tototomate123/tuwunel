@@ -17,16 +17,6 @@ jobs:
   init:
     name: Init
     runs-on: self-hosted
-    outputs:
-      cargo_profiles: ${{vars.CARGO_PROFILES || env.default_cargo_profiles}}
-      feat_sets: ${{vars.FEAT_SETS || env.default_feat_sets}}
-      rust_toolchains: ${{vars.RUST_TOOLCHAINS || env.default_rust_toolchains}}
-      rust_targets: ${{vars.RUST_TARGETS || env.default_rust_targets}}
-      sys_names: ${{vars.SYS_NAMES || env.default_sys_names}}
-      sys_targets: ${{vars.SYS_TARGETS || env.default_sys_targets}}
-      sys_versions: ${{vars.SYS_VERSIONS || env.default_sys_versions}}
-      machines: ${{vars.MACHINES || env.default_machines}}
-      excludes: ${{vars.EXCLUDES || env.default_excludes}}
     env:
       default_cargo_profiles: '["test", "release"]'
       default_feat_sets: '["none", "default", "all"]'
@@ -42,6 +32,18 @@ jobs:
           {"cargo_profile": "release-max-perf", "rust_toolchain": "stable"},
           {"cargo_profile": "release-max-perf", "feat_set": "none"}
         ]
+
+    outputs:
+      cargo_profiles: ${{vars.CARGO_PROFILES || env.default_cargo_profiles}}
+      feat_sets: ${{vars.FEAT_SETS || env.default_feat_sets}}
+      rust_toolchains: ${{vars.RUST_TOOLCHAINS || env.default_rust_toolchains}}
+      rust_targets: ${{vars.RUST_TARGETS || env.default_rust_targets}}
+      sys_names: ${{vars.SYS_NAMES || env.default_sys_names}}
+      sys_targets: ${{vars.SYS_TARGETS || env.default_sys_targets}}
+      sys_versions: ${{vars.SYS_VERSIONS || env.default_sys_versions}}
+      machines: ${{vars.MACHINES || env.default_machines}}
+      excludes: ${{vars.EXCLUDES || env.default_excludes}}
+
     steps:
     - name: Initialize Builder
       run: |
@@ -92,7 +94,9 @@ jobs:
   #      ]
 
   lint:
-    if: ${{ !failure() && !cancelled() }}
+    if: >
+      !failure() && !cancelled()
+
     name: Lint
     needs: [init] #needs: [init, deps]
     uses: ./.github/workflows/lint.yml
@@ -108,7 +112,9 @@ jobs:
       excludes: ${{needs.init.outputs.excludes}}
 
   test:
-    if: ${{ !failure() && !cancelled() }}
+    if: >
+      !failure() && !cancelled()
+
     name: Test
     needs: [init, lint]
     uses: ./.github/workflows/test.yml
@@ -125,7 +131,9 @@ jobs:
       complement: ${{fromJSON(vars.COMPLEMENT || 'true')}}
 
   package:
-    if: ${{ !failure() && !cancelled() }}
+    if: >
+      !failure() && !cancelled()
+
     name: Package
     needs: [init, lint]
     uses: ./.github/workflows/package.yml
@@ -148,7 +156,9 @@ jobs:
         ]
 
   publish:
-    if: ${{ !failure() && !cancelled() }}
+    if: >
+      !failure() && !cancelled()
+
     name: Publish
     needs: [init, test, package]
     uses: ./.github/workflows/publish.yml

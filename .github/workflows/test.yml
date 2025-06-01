@@ -45,11 +45,10 @@ on:
 jobs:
   unit:
     if: >
-      ${{
-        contains(fromJSON(inputs.cargo_profiles), fromJSON('["test"]')[0])
-        && contains(fromJSON(inputs.feat_sets), fromJSON('["all"]')[0])
-        && contains(fromJSON(inputs.rust_toolchains), fromJSON('["nightly"]')[0])
-      }}
+      contains(fromJSON(inputs.cargo_profiles), fromJSON('["test"]')[0])
+      && contains(fromJSON(inputs.feat_sets), fromJSON('["all"]')[0])
+      && contains(fromJSON(inputs.rust_toolchains), fromJSON('["nightly"]')[0])
+
     name: Unit
     uses: ./.github/workflows/bake.yml
     with:
@@ -91,12 +90,11 @@ jobs:
 
   complement:
     if: >
-      ${{
-        inputs.complement
-        && contains(fromJSON(inputs.cargo_profiles), fromJSON('["test"]')[0])
-        && contains(fromJSON(inputs.complement_feat_sets), fromJSON('["all"]')[0])
-        && contains(fromJSON(inputs.rust_toolchains), fromJSON('["nightly"]')[0])
-      }}
+      inputs.complement
+      && contains(fromJSON(inputs.cargo_profiles), fromJSON('["test"]')[0])
+      && contains(fromJSON(inputs.complement_feat_sets), fromJSON('["all"]')[0])
+      && contains(fromJSON(inputs.rust_toolchains), fromJSON('["nightly"]')[0])
+
     name: Complement
     uses: ./.github/workflows/bake.yml
     with:
@@ -114,12 +112,11 @@ jobs:
 
   compliance:
     if: >
-      ${{
-        inputs.complement
-        && contains(fromJSON(inputs.cargo_profiles), fromJSON('["test"]')[0])
-        && contains(fromJSON(inputs.feat_sets), fromJSON('["all"]')[0])
-        && contains(fromJSON(inputs.rust_toolchains), fromJSON('["nightly"]')[0])
-      }}
+      inputs.complement
+      && contains(fromJSON(inputs.cargo_profiles), fromJSON('["test"]')[0])
+      && contains(fromJSON(inputs.feat_sets), fromJSON('["all"]')[0])
+      && contains(fromJSON(inputs.rust_toolchains), fromJSON('["nightly"]')[0])
+
     name: Matrix Compliance
     needs: [complement]
     runs-on: ${{matrix.machine}}

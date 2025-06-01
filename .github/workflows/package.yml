@@ -39,9 +39,8 @@ on:
 jobs:
   build_standalone:
     if: >
-      ${{
-        !failure() && !cancelled()
-      }}
+      !failure() && !cancelled()
+
     name: Standalone
     uses: ./.github/workflows/bake.yml
     with:
@@ -64,12 +63,11 @@ jobs:
 
   build_pkgs:
     if: >
-      ${{
-        !failure() && !cancelled()
-        && contains(fromJSON(inputs.feat_sets), fromJSON('["all"]')[0])
-        && contains(fromJSON(inputs.cargo_profiles), fromJSON('["release"]')[0])
-        && contains(fromJSON(inputs.rust_toolchains), fromJSON('["stable"]')[0])
-      }}
+      !failure() && !cancelled()
+      && contains(fromJSON(inputs.feat_sets), fromJSON('["all"]')[0])
+      && contains(fromJSON(inputs.cargo_profiles), fromJSON('["release"]')[0])
+      && contains(fromJSON(inputs.rust_toolchains), fromJSON('["stable"]')[0])
+
     name: Build Pkgs
     uses: ./.github/workflows/bake.yml
     with:
@@ -92,12 +90,11 @@ jobs:
 
   check_pkgs:
     if: >
-      ${{
-        !failure() && !cancelled()
-        && contains(fromJSON(inputs.feat_sets), fromJSON('["all"]')[0])
-        && contains(fromJSON(inputs.cargo_profiles), fromJSON('["release"]')[0])
-        && contains(fromJSON(inputs.rust_toolchains), fromJSON('["stable"]')[0])
-      }}
+      !failure() && !cancelled()
+      && contains(fromJSON(inputs.feat_sets), fromJSON('["all"]')[0])
+      && contains(fromJSON(inputs.cargo_profiles), fromJSON('["release"]')[0])
+      && contains(fromJSON(inputs.rust_toolchains), fromJSON('["stable"]')[0])
+
     name: Check Pkgs
     needs: [build_pkgs]
     uses: ./.github/workflows/bake.yml

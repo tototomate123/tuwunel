@@ -54,7 +54,10 @@ on:
 
 jobs:
   systems:
-    if: ${{ !failure() && !cancelled() && inputs.show_systems }}
+    if: >
+      !failure() && !cancelled()
+      && inputs.show_systems
+
     name: System
     uses: ./.github/workflows/bake.yml
     with:
@@ -71,7 +74,10 @@ jobs:
       includes: ${{inputs.includes}}
 
   buildsys:
-    if: ${{ !failure() && !cancelled() && inputs.show_systems }}
+    if: >
+      !failure() && !cancelled()
+      && inputs.show_systems
+
     name: Builder
     needs: [systems]
     uses: ./.github/workflows/bake.yml
@@ -89,7 +95,10 @@ jobs:
       includes: ${{inputs.includes}}
 
   sources:
-    if: ${{ !failure() && !cancelled() && inputs.show_sources }}
+    if: >
+      !failure() && !cancelled()
+      && inputs.show_sources
+
     name: Acquire
     needs: [buildsys]
     uses: ./.github/workflows/bake.yml
@@ -107,7 +116,10 @@ jobs:
       includes: ${{inputs.includes}}
 
   rocksdb:
-    if: ${{ !failure() && !cancelled() && inputs.show_rocksdb }}
+    if: >
+      !failure() && !cancelled()
+      && inputs.show_rocksdb
+
     name: RocksDB
     needs: [sources]
     uses: ./.github/workflows/bake.yml
@@ -125,7 +137,10 @@ jobs:
       includes: ${{inputs.includes}}
 
   deps:
-    if: ${{ !failure() && !cancelled() && inputs.show_cargo }}
+    if: >
+      !failure() && !cancelled()
+      && inputs.show_cargo
+
     name: Build
     needs: [rocksdb]
     uses: ./.github/workflows/bake.yml
