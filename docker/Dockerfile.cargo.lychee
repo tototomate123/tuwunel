@@ -7,23 +7,31 @@ ARG RUSTUP_HOME
 ARG CARGO_HOME
 ARG lychee_cache_age="7d"
 ARG lychee_mode="color"
-ARG lychee_args="docs *.md"
+# .lycheecache is hardcoded as path to reg file in the cwd so we execute lychee
+# in cache directory itself. all paths here should be absolute paths
+ARG lychee_args="/usr/src/tuwunel/docs /usr/src/tuwunel/*.md"
 
-WORKDIR /usr/src/tuwunel
+WORKDIR /
+COPY --link --from=input . .
+
+WORKDIR /usr/src/
 RUN \
---mount=type=cache,dst=${RUSTUP_HOME},sharing=locked \
---mount=type=cache,dst=${CARGO_HOME},sharing=locked \
+--mount=type=cache,dst=${RUSTUP_HOME}/downloads,sharing=shared,ro \
+--mount=type=cache,dst=${CARGO_HOME}/registry,sharing=shared,ro \
+--mount=type=cache,dst=${CARGO_HOME}/git,sharing=shared,ro \
+--mount=type=cache,dst=lychee,sharing=locked \
 <<EOF
     set -eux
+    cd lychee
     rustup run ${rust_toolchain} \
         lychee \
             --verbose \
-            --cache \
+            --no-progress \
             --offline \
-            --max-cache-age ${lychee_cache_age} \
-            --mode ${lychee_mode} \
-            --exclude development.md \
-            --exclude contributing.md \
-            --exclude testing.md \
+            --cache \
+            --max-cache-age "${lychee_cache_age}" \
+            --mode "${lychee_mode}" \
+            --exclude /usr/src/tuwunel/contributing.md \
+            --exclude /usr/src/tuwunel/development/testing.md \
             ${lychee_args}
 EOF

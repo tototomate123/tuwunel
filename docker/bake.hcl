@@ -200,7 +200,6 @@ group "lints" {
         "audit",
         "check",
         "clippy",
-        "docs",
         "fmt",
         "lychee",
     ]
@@ -305,7 +304,6 @@ target "tuwunel" {
     target = "tuwunel"
     dockerfile-inline =<<EOF
         FROM input AS tuwunel
-        COPY --link --from=input . .
         EXPOSE 8008 8448
         ENTRYPOINT ["${cargo_install_root}/bin/tuwunel"]
 EOF
@@ -551,8 +549,6 @@ target "standalone" {
     ]
     target = "standalone"
     labels = install_labels
-    output = ["type=docker,compression=zstd,mode=min"]
-    cache_to = ["type=local,compression=zstd,mode=min"]
     matrix = cargo_rust_feat_sys
     inherits = [
         elem("install", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
@@ -613,6 +609,8 @@ target "installer" {
 
 group "pkg" {
     targets = [
+        "pkg-deb",
+        "pkg-rpm",
         "pkg-deb-install",
         "pkg-rpm-install",
     ]
@@ -1050,6 +1048,10 @@ target "deps-check" {
     }
 }
 
+variable "cargo_tgt_dir_base" {
+    default = "/usr/src/tuwunel/target"
+}
+
 target "deps-base" {
     name = elem("deps-base", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     tags = [
@@ -1071,12 +1073,22 @@ target "deps-base" {
     args = {
         cargo_profile = cargo_profile
         cook_args = "--all-targets --no-build"
-        CARGO_TARGET_DIR = "/usr/src/tuwunel/target/${sys_name}/${sys_version}/${rust_toolchain}/${cargo_profile}/${feat_set}"
-        CARGO_TARGET_CACHE = "/usr/src/tuwunel/target/${sys_name}/${sys_version}/_shared_cache"
-        CARGO_PROFILE_test_DEBUG = "0"
-        CARGO_PROFILE_bench_DEBUG = "0"
-        CARGO_PROFILE_bench_LTO = "0"
-        CARGO_PROFILE_bench_CODEGEN_UNITS = "1"
+
+        CARGO_TARGET_DIR = "${cargo_tgt_dir_base}"
+        cargo_tgt_cache = "${cargo_tgt_dir_base}/${sys_name}/${sys_version}/${rust_target}/${rust_toolchain}/${cargo_profile}/_shared_cache"
+        cargo_tgt_dst = "${cargo_tgt_dir_base}/${sys_name}/${sys_version}/${rust_target}/${rust_toolchain}/${cargo_profile}/${feat_set}"
+        cargo_tgt_sub = (
+            (cargo_profile == "dev" || cargo_profile == "test")? "debug":
+            (cargo_profile == "release" || cargo_profile == "bench")? "release":
+            cargo_profile
+        )
+
+        CARGO_PROFILE_TEST_DEBUG = "false"
+        CARGO_PROFILE_BENCH_DEBUG = "false"
+        CARGO_PROFILE_BENCH_LTO = "false"
+        CARGO_PROFILE_BENCH_CODEGEN_UNITS = "1"
+        CARGO_PROFILE_RELEASE_BUILD_OVERRIDE_DEBUG = "true"
+
         CARGO_BUILD_RUSTFLAGS = (
             cargo_profile == "release-max-perf"?
                 join(" ", [
@@ -1345,6 +1357,11 @@ target "chef" {
     contexts = {
         input = elem("target:cookware", [rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     }
+    args = {
+        CARGO_TERM_VERBOSE = CARGO_TERM_VERBOSE
+        rustup_components = join(" ", rustup_components)
+        cargo_installs = join(" ", cargo_installs)
+    }
 }
 
 target "cookware" {
@@ -1363,12 +1380,9 @@ target "cookware" {
     }
     args = {
         rust_toolchain = rust_toolchain
-        RUSTUP_HOME = "/opt/rustup"
-        CARGO_HOME = "/opt/${sys_name}/${sys_target}/cargo"
-        CARGO_TARGET = rust_target
-        CARGO_TERM_VERBOSE = CARGO_TERM_VERBOSE
-        cargo_installs = join(" ", cargo_installs)
-        rustup_components = join(" ", rustup_components)
+        rust_target = rust_target
+        RUSTUP_HOME = "/opt/rustup/${sys_name}"
+        CARGO_HOME = "/opt/cargo/${sys_name}/${sys_target}"
     }
 }
 
@@ -1506,7 +1520,7 @@ target "system" {
     ]
     target = "system"
     output = ["type=cacheonly,compression=zstd,mode=min"]
-    cache_to = ["type=local,compression=zstd,mode=max"]
+    cache_to = ["type=local,compression=zstd,mode=min"]
     cache_from = ["type=local"]
     dockerfile = "${docker_dir}/Dockerfile.diner"
     matrix = sys

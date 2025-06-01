@@ -2,8 +2,12 @@
 
 FROM input AS rocksdb-fetch
 
+WORKDIR /
+COPY --link --from=input . .
+
 WORKDIR /usr/src
 COPY --link --from=recipe rocksdb.url .
+
 RUN <<EOF
     set -eux
     submodule="librocksdb-sys/rocksdb"
@@ -33,12 +37,15 @@ ARG rocksdb_zlib=0
 ARG rocksdb_snappy=0
 ARG nprocs
 
+WORKDIR /
+COPY --link --from=input . .
+
+WORKDIR /usr/src/rocksdb/librocksdb-sys/rocksdb
 ENV CC="clang"
 ENV CXX="clang++"
-WORKDIR /usr/src/rocksdb/librocksdb-sys/rocksdb
 ENV nprocs=${nprocs}
 RUN \
---mount=type=cache,dst=/var/lock/uwu/${rocksdb_jemalloc}/${rocksdb_iouring}/${rocksdb_portable},sharing=locked \
+--mount=type=cache,dst=/var/lock/uwu/rocksdb,sharing=locked \
 <<EOF
     set -eux
 

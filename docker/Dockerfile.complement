@@ -4,6 +4,9 @@ FROM input AS key-gen-base
 ARG var_cache
 ARG var_lib_apt
 
+WORKDIR /
+COPY --link --from=input . .
+
 RUN \
 --mount=type=cache,dst=${var_cache},sharing=locked \
 --mount=type=cache,dst=${var_lib_apt},sharing=locked \
@@ -116,6 +119,9 @@ EOF
 
 FROM input AS complement-testee
 
+WORKDIR /
+COPY --link --from=input . .
+
 EXPOSE 8008 8448
 RUN mkdir /database
 COPY --from=complement-config * /complement/
@@ -124,6 +130,9 @@ ENTRYPOINT tuwunel -Oserver_name=\""$SERVER_NAME\""
 
 
 FROM input AS complement-testee-valgrind
+
+WORKDIR /
+COPY --link --from=input . .
 
 EXPOSE 8008 8448
 RUN mkdir /database
@@ -182,6 +191,10 @@ ARG complement_tags="conduwuit_blacklist"
 ARG complement_tests="./tests/..."
 ARG complement_base_image
 
+WORKDIR /
+COPY --link --from=input . .
+
+WORKDIR /usr/src/complement
 ENV COMPLEMENT_DEBUG=$complement_debug
 ENV complement_parallel="$complement_parallel"
 ENV complement_shuffle="$complement_shuffle"
@@ -198,7 +211,6 @@ ENV COMPLEMENT_HOST_MOUNTS="/var/run/docker.sock:/var/run/docker.sock"
 ENV jq_res='{Action: .Action, Test: .Test}'
 ENV jq_sel='select((.Action == \"pass\" or .Action == \"fail\" or .Action == \"skip\") and .Test != null)'
 ENV jq_tab='[.Action, .Test] | @tsv'
-WORKDIR /usr/src/complement
 COPY --from=complement-config /complement/old_results.jsonl .
 COPY <<EOF uwu.sh
     env;
@@ -240,6 +252,10 @@ ARG complement_tags="conduwuit_blacklist"
 ARG complement_tests="./tests/..."
 ARG complement_base_image
 
+WORKDIR /
+COPY --link --from=input . .
+
+WORKDIR /usr/src/complement
 ENV COMPLEMENT_DEBUG=$complement_debug
 ENV complement_parallel="$complement_parallel"
 ENV complement_shuffle="$complement_shuffle"
@@ -252,7 +268,6 @@ ENV complement_run="$complement_run"
 ENV complement_tests="$complement_tests"
 ENV COMPLEMENT_HOSTNAME_RUNNING_COMPLEMENT="host.docker.internal"
 ENV COMPLEMENT_HOST_MOUNTS="/var/run/docker.sock:/var/run/docker.sock"
-WORKDIR /usr/src/complement
 COPY <<EOF valgrind.sh
     env;
     set -eux;

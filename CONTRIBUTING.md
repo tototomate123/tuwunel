@@ -122,4 +122,4 @@ policy.
 [cargo-audit]: https://github.com/RustSec/rustsec/tree/main/cargo-audit
 [direnv]: https://direnv.net/
 [mdbook]: https://rust-lang.github.io/mdBook/
-[documentation.yml]: https://github.com/matrix-construct/tuwunel/blob/main/.github/workflows/documentation.yml
+[documentation.yml]: https://github.com/matrix-construct/tuwunel/blob/main/.github/workflows/docs.yml

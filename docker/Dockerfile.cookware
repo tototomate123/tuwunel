@@ -2,74 +2,76 @@
 
 FROM input AS cookware
 ARG rust_toolchain
+ARG rust_target
 ARG RUSTUP_HOME
 ARG CARGO_HOME
-ARG CARGO_TARGET
-ARG CARGO_TERM_VERBOSE
 ARG rustup_version="1.28.1"
-ARG rustup_components
+ARG rustup_profile="minimal"
 
 WORKDIR /
 COPY --link --from=input . .
 
-ENV RUSTUP_HOME="${RUSTUP_HOME}"
-ENV CARGO_HOME="${CARGO_HOME}"
-ENV CARGO_TARGET="${CARGO_TARGET}"
-ENV CARGO_TERM_VERBOSE="${CARGO_TERM_VERBOSE}"
+ENV CARGO_TARGET="${rust_target}"
 WORKDIR /opt
-RUN \
---mount=type=cache,dst=${RUSTUP_HOME},sharing=locked \
---mount=type=cache,dst=${CARGO_HOME},sharing=locked \
-<<EOF
+RUN <<EOF
     set -eux
 
-    url="https://static.rust-lang.org/rustup/archive/${rustup_version}/${CARGO_TARGET}/rustup-init"
+    url="https://static.rust-lang.org/rustup/archive/${rustup_version}/${rust_target}/rustup-init"
     curl -S -O -s "$url"
     chmod o+x rustup-init
+EOF
+
+ENV RUSTUP_HOME="${RUSTUP_HOME}"
+ENV CARGO_HOME="${CARGO_HOME}"
+RUN \
+--mount=type=cache,dst=${RUSTUP_HOME}/downloads,sharing=locked \
+--mount=type=cache,dst=${CARGO_HOME}/registry,sharing=locked \
+--mount=type=cache,dst=${CARGO_HOME}/git,sharing=locked \
+<<EOF
+    set -eux
     ./rustup-init -y \
-        --verbose \
-        --profile minimal \
-        --no-modify-path \
+        --quiet \
+        --profile "${rustup_profile}" \
+        --default-host "${CARGO_TARGET}" \
+        --default-toolchain "${rust_toolchain}" \
         --no-update-default-toolchain \
-        --default-host ${CARGO_TARGET} \
-        --default-toolchain ${rust_toolchain}
+        --no-modify-path
 
     chmod -R go+rw $CARGO_HOME $RUSTUP_HOME
     rm rustup-init
 EOF
 ENV PATH="${CARGO_HOME}/bin:$PATH"
-RUN \
---mount=type=cache,dst=${RUSTUP_HOME},sharing=locked \
---mount=type=cache,dst=${CARGO_HOME},sharing=locked \
-<<EOF
-    set -eux
-    rustup component add \
-        --toolchain ${rust_toolchain} \
-        --target ${CARGO_TARGET} \
-        ${rustup_components} \
-        ;
-EOF
 
 
 FROM input AS chef
 ARG rust_toolchain
+ARG rust_target
 ARG RUSTUP_HOME
 ARG CARGO_HOME
-ARG CARGO_TARGET
+ARG CARGO_TERM_VERBOSE
+ARG rustup_components
 ARG cargo_installs
 
 WORKDIR /
 COPY --link --from=input . .
 
 RUN \
---mount=type=cache,dst=${RUSTUP_HOME},sharing=locked \
---mount=type=cache,dst=${CARGO_HOME},sharing=locked \
+--mount=type=cache,dst=${RUSTUP_HOME}/downloads,sharing=locked \
+--mount=type=cache,dst=${CARGO_HOME}/registry,sharing=locked \
+--mount=type=cache,dst=${CARGO_HOME}/git,sharing=locked \
 <<EOF
     set -eux
+    rustup component add \
+        --toolchain ${rust_toolchain} \
+        --target ${rust_target} \
+        ${rustup_components} \
+        ;
+
     rustup run --install ${rust_toolchain} \
         cargo install \
+            --quiet \
             --locked \
-            --target ${CARGO_TARGET} \
+            --target ${rust_target} \
             ${cargo_installs} \
             ;
 EOF

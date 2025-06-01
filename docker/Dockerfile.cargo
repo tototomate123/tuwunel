@@ -7,7 +7,9 @@ ARG RUSTUP_HOME
 ARG CARGO_HOME
 ARG CARGO_TARGET
 ARG CARGO_TARGET_DIR
-ARG CARGO_TARGET_CACHE
+ARG cargo_tgt_dst
+ARG cargo_tgt_sub
+ARG cargo_tgt_cache
 ARG cargo_profile
 ARG cargo_features
 ARG cargo_spec_features
@@ -22,13 +24,14 @@ COPY --link --from=rocksdb . .
 
 WORKDIR /usr/src/tuwunel
 RUN \
---mount=type=cache,dst=${RUSTUP_HOME},sharing=locked \
---mount=type=cache,dst=${CARGO_HOME},sharing=locked \
---mount=type=cache,dst=${CARGO_TARGET_DIR},sharing=locked \
---mount=type=cache,dst=${CARGO_TARGET_DIR}/deps,id=${CARGO_TARGET_CACHE}/deps,sharing=shared \
---mount=type=cache,dst=${CARGO_TARGET_DIR}/build,id=${CARGO_TARGET_CACHE}/build,sharing=shared \
---mount=type=cache,dst=${CARGO_TARGET_DIR}/incremental,id=${CARGO_TARGET_CACHE}/incremental,sharing=shared \
---mount=type=cache,dst=${CARGO_TARGET_DIR}/.fingerprint,id=${CARGO_TARGET_CACHE}/fingerprint,sharing=shared \
+--mount=type=cache,dst=${RUSTUP_HOME}/downloads,sharing=shared,ro \
+--mount=type=cache,dst=${CARGO_HOME}/registry,sharing=shared,ro \
+--mount=type=cache,dst=${CARGO_HOME}/git,sharing=shared,ro \
+--mount=type=cache,dst=${CARGO_TARGET_DIR},id=${cargo_tgt_dst}/${cargo_tgt_sub},sharing=locked \
+--mount=type=cache,dst=${CARGO_TARGET_DIR}/${cargo_tgt_sub}/deps,id=${cargo_tgt_cache}/deps,sharing=locked \
+--mount=type=cache,dst=${CARGO_TARGET_DIR}/${cargo_tgt_sub}/build,id=${cargo_tgt_cache}/build,sharing=locked \
+--mount=type=cache,dst=${CARGO_TARGET_DIR}/${cargo_tgt_sub}/incremental,id=${cargo_tgt_cache}/incremental,sharing=locked \
+--mount=type=cache,dst=${CARGO_TARGET_DIR}/${cargo_tgt_sub}/.fingerprint,id=${cargo_tgt_cache}/fingerprint,sharing=locked \
 <<EOF
     set -eux
     rustup run ${rust_toolchain} \

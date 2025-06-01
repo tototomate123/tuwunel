@@ -8,7 +8,9 @@ COPY --link --from=input . .
 
 ADD --link --keep-git-dir . /usr/src/tuwunel
 WORKDIR /usr/src/tuwunel
-RUN <<EOF
+RUN \
+--mount=type=cache,dst=/var/lock/uwu/source,sharing=locked \
+<<EOF
     set -eux
     git reset \
         --hard \
@@ -41,8 +43,9 @@ ENV JEMALLOC_OVERRIDE="${JEMALLOC_OVERRIDE}"
 #ENV ZSTD_SYS_USE_PKG_CONFIG="${ZSTD_SYS_USE_PKG_CONFIG}"
 ENV ROCKSDB_LIB_DIR="${ROCKSDB_LIB_DIR}"
 RUN \
---mount=type=cache,dst=${RUSTUP_HOME},sharing=locked \
---mount=type=cache,dst=${CARGO_HOME},sharing=locked \
+--mount=type=cache,dst=${RUSTUP_HOME}/downloads,sharing=locked \
+--mount=type=cache,dst=${CARGO_HOME}/registry,sharing=locked \
+--mount=type=cache,dst=${CARGO_HOME}/git,sharing=locked \
 <<EOF
     set -eux
     git submodule update \
@@ -70,8 +73,9 @@ COPY --link --from=input . .
 
 WORKDIR /usr/src/tuwunel
 RUN \
---mount=type=cache,dst=${RUSTUP_HOME},sharing=locked \
---mount=type=cache,dst=${CARGO_HOME},sharing=locked \
+--mount=type=cache,dst=${RUSTUP_HOME}/downloads,sharing=locked \
+--mount=type=cache,dst=${CARGO_HOME}/registry,sharing=locked \
+--mount=type=cache,dst=${CARGO_HOME}/git,sharing=locked \
 <<EOF
     set -euxo pipefail
     rustup run ${rust_toolchain} \
@@ -91,5 +95,5 @@ EOF
 FROM scratch AS recipe
 
 WORKDIR /
-COPY --from=preparing /usr/src/tuwunel/recipe.json .
-COPY --from=preparing /usr/src/tuwunel/rocksdb.url .
+COPY --link --from=preparing /usr/src/tuwunel/recipe.json .
+COPY --link --from=preparing /usr/src/tuwunel/rocksdb.url .
