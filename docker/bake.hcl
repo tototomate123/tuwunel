@@ -288,27 +288,6 @@ target "dockerhub" {
     ]
 }
 
-target "tuwunel" {
-    name = elem("tuwunel", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
-    tags = [
-        elem_tag("tuwunel", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
-    ]
-    output = ["type=docker,compression=zstd,mode=min"]
-    matrix = cargo_rust_feat_sys
-    inherits = [
-        elem("install", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
-    ]
-    contexts = {
-        input = elem("target:install", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
-    }
-    target = "tuwunel"
-    dockerfile-inline =<<EOF
-        FROM input AS tuwunel
-        EXPOSE 8008 8448
-        ENTRYPOINT ["${cargo_install_root}/bin/tuwunel"]
-EOF
-}
-
 #
 # Complement tests
 #
@@ -528,6 +507,14 @@ target "smoketest" {
 # Installation
 #
 
+group "installs" {
+    targets = [
+        "install",
+        "standalone",
+        "tuwunel",
+    ]
+}
+
 install_labels = {
     "org.opencontainers.image.authors" = "${package_authors}"
     "org.opencontainers.image.created" ="${package_last_modified}"
@@ -542,13 +529,40 @@ install_labels = {
     "org.opencontainers.image.version" = "${package_version}"
 }
 
+target "tuwunel" {
+    name = elem("tuwunel", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+    tags = [
+        elem_tag("tuwunel", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
+    ]
+    output = ["type=docker,compression=zstd,mode=min"]
+    matrix = cargo_rust_feat_sys
+    inherits = [
+        elem("standalone", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
+        elem("install", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
+    ]
+    contexts = {
+        input = (
+            rust_toolchain == "stable"
+            || cargo_profile == "release-max-perf"
+            || cargo_profile == "release"
+            || cargo_profile == "release-debuginfo"?
+                elem("target:standalone", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]):
+                elem("target:install", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+        )
+    }
+    target = "tuwunel"
+    dockerfile-inline =<<EOF
+        FROM input AS tuwunel
+        EXPOSE 8008 8448
+        ENTRYPOINT ["tuwunel"]
+EOF
+}
+
 target "standalone" {
     name = elem("standalone", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     tags = [
         elem_tag("standalone", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
-    target = "standalone"
-    labels = install_labels
     matrix = cargo_rust_feat_sys
     inherits = [
         elem("install", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
@@ -556,6 +570,7 @@ target "standalone" {
     contexts = {
         input = elem("target:install", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
     }
+    target = "standalone"
     dockerfile-inline =<<EOF
         FROM scratch AS standalone
         COPY --from=input /usr/bin/tuwunel .
@@ -621,14 +636,15 @@ target "pkg-rpm-install" {
     tags = [
         elem_tag("pkg-rpm-install", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
-    target = "package-install"
+    target = "pkg-rpm-install"
     output = ["type=cacheonly,compression=zstd,mode=min"]
     matrix = cargo_rust_feat_sys
     inherits = [
         elem("pkg-rpm", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
     ]
     contexts = {
-        package = elem("target:pkg-rpm", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
+        input = "docker-image://redhat/ubi9"
+        pkg-rpm = elem("target:pkg-rpm", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     }
 }
 
@@ -637,23 +653,23 @@ target "pkg-rpm" {
     tags = [
         elem_tag("pkg-rpm", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
-    target = "package"
+    target = "pkg-rpm"
     output = ["type=docker,compression=zstd,mode=min"]
     matrix = cargo_rust_feat_sys
     inherits = [
-        elem("rpmbuild", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
+        elem("rpm", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
     ]
     contexts = {
-        rpmbuild = elem("target:rpmbuild", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
+        input = elem("target:rpm", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
     }
 }
 
-target "rpmbuild" {
-    name = elem("rpmbuild", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+target "rpm" {
+    name = elem("rpm", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     tags = [
-        elem_tag("rpmbuild", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
+        elem_tag("rpm", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
-    target = "rpmbuild"
+    target = "rpm"
     dockerfile = "${docker_dir}/Dockerfile.cargo.rpm"
     matrix = cargo_rust_feat_sys
     inherits = [
@@ -672,7 +688,7 @@ target "pkg-deb-install" {
     tags = [
         elem_tag("pkg-deb-install", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
-    target = "package-install"
+    target = "pkg-deb-install"
     output = ["type=cacheonly,compression=zstd,mode=min"]
     matrix = cargo_rust_feat_sys
     inherits = [
@@ -680,7 +696,7 @@ target "pkg-deb-install" {
     ]
     contexts = {
         input = elem("target:diner", [feat_set, sys_name, sys_version, sys_target])
-        package = elem("target:pkg-deb", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
+        pkg-deb = elem("target:pkg-deb", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
     }
 }
 
@@ -689,23 +705,23 @@ target "pkg-deb" {
     tags = [
         elem_tag("pkg-deb", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
-    target = "package"
+    target = "pkg-deb"
     output = ["type=docker,compression=zstd,mode=min"]
     matrix = cargo_rust_feat_sys
     inherits = [
-        elem("debuild", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
+        elem("deb", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
     ]
     contexts = {
-        debuild = elem("target:debuild", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
+        input = elem("target:deb", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
     }
 }
 
-target "debuild" {
-    name = elem("debuild", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+target "deb" {
+    name = elem("deb", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     tags = [
-        elem_tag("debuild", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
+        elem_tag("deb", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
-    target = "debuild"
+    target = "deb"
     dockerfile = "${docker_dir}/Dockerfile.cargo.deb"
     matrix = cargo_rust_feat_sys
     inherits = [
