@@ -45,7 +45,7 @@ jobs:
     name: Standalone
     uses: ./.github/workflows/bake.yml
     with:
-      bake_targets: '["standalone"]'
+      bake_targets: '["standalone", "tuwunel"]'
       cargo_profiles: ${{inputs.cargo_profiles}}
       feat_sets: ${{inputs.feat_sets}}
       rust_toolchains: ${{inputs.rust_toolchains}}
@@ -58,7 +58,8 @@ jobs:
       includes: ${{inputs.includes}}
       artifact: >
         {
-          "standalone": {"dst": "tuwunel"}
+          "standalone": {"dst": "tuwunel"},
+          "tuwunel": {"dst": "tuwunel-docker.tar.gz", "img": true }
         }
 
   build_pkgs:

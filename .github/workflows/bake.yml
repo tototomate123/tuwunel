@@ -101,6 +101,7 @@ jobs:
       with:
         persist-credentials: false
 
+    # Call docker
     - name: Bake ${{matrix.bake_target}}
       env:
         bake_target: ${{matrix.bake_target}}
@@ -121,8 +122,9 @@ jobs:
       run: |
         docker/bake.sh "${{matrix.bake_target}}"
 
-    - if: ${{ !failure() && !cancelled() && fromJSON(inputs.artifact)[matrix.bake_target].dst }}
-      name: Extract Artifact
+    # Optionally extract an inner artifact
+    - name: Extract Artifact
+      if: ${{ !failure() && !cancelled() && fromJSON(inputs.artifact)[matrix.bake_target].dst && fromJSON(inputs.artifact)[matrix.bake_target].img == null }}
       env:
         iid: ${{matrix.bake_target}}--${{matrix.cargo_profile}}--${{matrix.rust_toolchain}}--${{matrix.rust_target}}--${{matrix.feat_set}}--${{matrix.sys_name}}--${{matrix.sys_version}}--${{matrix.sys_target}}
         dst: ${{ fromJSON(inputs.artifact)[matrix.bake_target].dst }}
@@ -131,11 +133,24 @@ jobs:
       run: |
         cid=$(docker create "$iid" /)
         rm -rf _artifact
-        mkdir -p _artifact/$dst/
+        mkdir -p "_artifact/$dst"
         docker cp "$cid:$src" "_artifact/$dst/$dst"
 
-    - if: ${{ !failure() && !cancelled() && fromJSON(inputs.artifact)[matrix.bake_target].dst }}
-      name: Upload Artifact
+    # Optionally extract the image itself as an artifact.
+    - name: Extract Image
+      if: ${{ !failure() && !cancelled() && fromJSON(inputs.artifact)[matrix.bake_target].dst && fromJSON(inputs.artifact)[matrix.bake_target].img != null }}
+      env:
+        iid: ${{matrix.bake_target}}--${{matrix.cargo_profile}}--${{matrix.rust_toolchain}}--${{matrix.rust_target}}--${{matrix.feat_set}}--${{matrix.sys_name}}--${{matrix.sys_version}}--${{matrix.sys_target}}
+        dst: ${{ fromJSON(inputs.artifact)[matrix.bake_target].dst }}
+
+      run: |
+        rm -rf _artifact
+        mkdir -p "_artifact/$dst"
+        docker save -o "_artifact/$dst/$dst" "$iid"
+
+    # Upload either artifact
+    - name: Upload Artifact
+      if: ${{ !failure() && !cancelled() && fromJSON(inputs.artifact)[matrix.bake_target].dst }}
       uses: actions/upload-artifact@v4
       with:
         path: _artifact/${{ fromJSON(inputs.artifact)[matrix.bake_target].dst }}
