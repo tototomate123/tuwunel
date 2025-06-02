@@ -57,7 +57,7 @@ jobs:
       includes: ${{inputs.includes}}
       artifact: >
         {
-          "standalone": {"dst": "tuwunel"},
+          "standalone": {"dst": "tuwunel", "src": "/usr/bin/tuwunel" },
           "tuwunel": {"dst": "tuwunel-docker.tar.gz", "img": true }
         }
 

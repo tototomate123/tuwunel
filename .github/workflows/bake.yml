@@ -135,8 +135,8 @@ jobs:
       run: |
         cid=$(docker create "$iid" /)
         rm -rf _artifact
-        mkdir -p "_artifact/$dst"
-        docker cp "$cid:$src" "_artifact/$dst/$dst"
+        mkdir -p "_artifact"
+        docker cp "$cid:$src" "_artifact/$dst"
 
     # Optionally extract the image itself as an artifact.
     - name: Extract Image
@@ -151,8 +151,8 @@ jobs:
 
       run: |
         rm -rf _artifact
-        mkdir -p "_artifact/$dst"
-        docker save -o "_artifact/$dst/$dst" "$iid"
+        mkdir -p "_artifact"
+        docker save -o "_artifact/$dst" "$iid"
 
     # Upload either artifact
     - name: Upload Artifact
@@ -162,5 +162,5 @@ jobs:
 
       uses: actions/upload-artifact@v4
       with:
-        path: _artifact/${{ fromJSON(inputs.artifact)[matrix.bake_target].dst }}
+        path: _artifact/*
         name: ${{matrix.cargo_profile}}-${{matrix.feat_set}}-${{fromJSON(inputs.artifact)[matrix.bake_target].dst}}
