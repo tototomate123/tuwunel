@@ -107,6 +107,14 @@ variable "package_last_modified" {
     default = ""
 }
 
+# Compression options
+variable "image_compress_level" {
+	default = 11
+}
+variable "cache_compress_level" {
+	default = 6
+}
+
 # Use the cargo-chef layering strategy to separate and pre-build dependencies
 # in a lower-layer image; only workspace crates will rebuild unless
 # dependencies themselves change (default). This option can be set to false for
@@ -267,7 +275,7 @@ target "github" {
         (substr(git_ref, 0, 10) == "refs/tags/" && cargo_profile == "release" && feat_set == "all")?
             "ghcr.io/${repo}:latest": "",
     ]
-    output = ["type=registry,compression=zstd,mode=min"]
+    output = ["type=registry,compression=zstd,mode=min,compression-level=${image_compress_level}"]
     matrix = cargo_rust_feat_sys
     inherits = [
         elem("tuwunel", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
@@ -281,7 +289,7 @@ target "dockerhub" {
         (substr(git_ref, 0, 10) == "refs/tags/" && cargo_profile == "release" && feat_set == "all")?
             "${docker_repo}:latest": "",
     ]
-    output = ["type=registry,compression=zstd,mode=min"]
+    output = ["type=registry,compression=zstd,mode=min,compression-level=${image_compress_level}"]
     matrix = cargo_rust_feat_sys
     inherits = [
         elem("tuwunel", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
@@ -372,7 +380,7 @@ target "complement-tester" {
         elem_tag("complement-tester", [feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
     target = "complement-tester"
-    output = ["type=docker,compression=zstd,mode=min"]
+    output = ["type=docker,compression=zstd,mode=min,compression-level=${image_compress_level}"]
     entitlements = ["network.host"]
     matrix = feat_sys
     inherits = [
@@ -492,7 +500,7 @@ target "smoketest" {
     tags = [
         elem_tag("smoketest", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
-    output = ["type=cacheonly,compression=zstd,mode=min"]
+    output = ["type=cacheonly,compression=zstd,mode=min,compression-level=${cache_compress_level}"]
     dockerfile = "${docker_dir}/Dockerfile.smoketest"
     matrix = cargo_rust_feat_sys
     inherits = [
@@ -534,7 +542,6 @@ target "tuwunel" {
     tags = [
         elem_tag("tuwunel", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
-    output = ["type=docker,compression=zstd,mode=min"]
     matrix = cargo_rust_feat_sys
     inherits = [
         elem("standalone", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
@@ -584,8 +591,8 @@ target "install" {
     ]
     target = "install"
     labels = install_labels
-    output = ["type=docker,compression=zstd,mode=min"]
-    cache_to = ["type=local,compression=zstd,mode=min"]
+    output = ["type=docker,compression=zstd,mode=min,compression-level=${image_compress_level}"]
+    cache_to = ["type=local,compression=zstd,mode=min,compression-level=${cache_compress_level}"]
     matrix = cargo_rust_feat_sys
     inherits = [
         elem("installer", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
@@ -637,7 +644,7 @@ target "pkg-rpm-install" {
         elem_tag("pkg-rpm-install", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
     target = "pkg-rpm-install"
-    output = ["type=cacheonly,compression=zstd,mode=min"]
+    output = ["type=cacheonly,compression=zstd,mode=min,compression-level=${cache_compress_level}"]
     matrix = cargo_rust_feat_sys
     inherits = [
         elem("pkg-rpm", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
@@ -689,7 +696,7 @@ target "pkg-deb-install" {
         elem_tag("pkg-deb-install", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
     target = "pkg-deb-install"
-    output = ["type=cacheonly,compression=zstd,mode=min"]
+    output = ["type=cacheonly,compression=zstd,mode=min,compression-level=${cache_compress_level}"]
     matrix = cargo_rust_feat_sys
     inherits = [
         elem("pkg-deb", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
@@ -971,8 +978,8 @@ target "fmt" {
 target "cargo" {
     name = elem("cargo", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     target = "cargo"
-    output = ["type=cacheonly,compression=zstd,mode=min"]
-    cache_to = ["type=local,compression=zstd,mode=min"]
+    output = ["type=cacheonly,compression=zstd,mode=min,compression-level=${cache_compress_level}"]
+    cache_to = ["type=local,compression=zstd,mode=min,compression-level=${cache_compress_level}"]
     dockerfile = "${docker_dir}/Dockerfile.cargo"
     matrix = cargo_rust_feat_sys
     inherits = [
@@ -1074,8 +1081,8 @@ target "deps-base" {
         elem_tag("deps-base", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest")
     ]
     target = "deps"
-    output = ["type=cacheonly,compression=zstd,mode=min"]
-    cache_to = ["type=local,compression=zstd,mode=min"]
+    output = ["type=cacheonly,compression=zstd,mode=min,compression-level=${cache_compress_level}"]
+    cache_to = ["type=local,compression=zstd,mode=min,compression-level=${cache_compress_level}"]
     dockerfile = "${docker_dir}/Dockerfile.cargo.deps"
     matrix = cargo_rust_feat_sys
     inherits = [
@@ -1535,8 +1542,8 @@ target "system" {
         elem_tag("system", [sys_name, sys_version, sys_target], "latest"),
     ]
     target = "system"
-    output = ["type=cacheonly,compression=zstd,mode=min"]
-    cache_to = ["type=local,compression=zstd,mode=min"]
+    output = ["type=cacheonly,compression=zstd,mode=min,compression-level=${cache_compress_level}"]
+    cache_to = ["type=local,compression=zstd,mode=min,compression-level=${cache_compress_level}"]
     cache_from = ["type=local"]
     dockerfile = "${docker_dir}/Dockerfile.diner"
     matrix = sys
