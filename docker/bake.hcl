@@ -580,7 +580,7 @@ target "standalone" {
     target = "standalone"
     dockerfile-inline =<<EOF
         FROM scratch AS standalone
-        COPY --from=input /usr/bin/tuwunel .
+        COPY --from=input /usr/bin/tuwunel /usr/bin/tuwunel
 EOF
 }
 
