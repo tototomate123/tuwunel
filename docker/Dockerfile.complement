@@ -8,6 +8,7 @@ WORKDIR /
 COPY --link --from=input . .
 
 RUN \
+--mount=type=cache,dst=/var/lock/uwu/local,sharing=locked \
 --mount=type=cache,dst=${var_cache},sharing=locked \
 --mount=type=cache,dst=${var_lib_apt},sharing=locked \
 <<EOF
@@ -156,6 +157,7 @@ ARG complement_run=".*"
 
 WORKDIR /
 RUN \
+--mount=type=cache,dst=/var/lock/uwu/local,sharing=locked \
 --mount=type=cache,dst=${var_cache},sharing=locked \
 --mount=type=cache,dst=${var_lib_apt},sharing=locked \
 --mount=type=cache,dst=/go/pkg/mod/cache,sharing=locked \

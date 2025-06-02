@@ -1107,10 +1107,13 @@ target "deps-base" {
         )
 
         CARGO_PROFILE_TEST_DEBUG = "false"
-        CARGO_PROFILE_BENCH_DEBUG = "false"
+        CARGO_PROFILE_TEST_BUILD_OVERRIDE_DEBUG = "false"
+        CARGO_PROFILE_TEST_INCREMENTAL = "false"
+        CARGO_PROFILE_BENCH_DEBUG = "limited"
+        CARGO_PROFILE_BENCH_BUILD_OVERRIDE_DEBUG = "false"
         CARGO_PROFILE_BENCH_LTO = "false"
-        CARGO_PROFILE_BENCH_CODEGEN_UNITS = "1"
-        CARGO_PROFILE_RELEASE_BUILD_OVERRIDE_DEBUG = "true"
+        CARGO_PROFILE_RELEASE_BUILD_OVERRIDE_DEBUG = "false"
+        CARGO_PROFILE_RELEASE_LTO = "thin"
 
         CARGO_BUILD_RUSTFLAGS = (
             cargo_profile == "release-max-perf"?
@@ -1256,7 +1259,6 @@ target "recipe" {
         elem_tag("recipe", [rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest")
     ]
     target =  "recipe"
-    output = ["type=cacheonly,compression=zstd,mode=min"]
     matrix = rust_feat_sys
     inherits = [
         elem("preparing", [rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
