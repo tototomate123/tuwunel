@@ -30,7 +30,8 @@ jobs:
         [
           {"cargo_profile": "release-debuginfo", "rust_toolchain": "nightly"},
           {"cargo_profile": "release-max-perf", "rust_toolchain": "stable"},
-          {"cargo_profile": "release-max-perf", "feat_set": "none"}
+          {"cargo_profile": "release-max-perf", "feat_set": "none"},
+          {"cargo_profile": "test", "rust_toolchain": "stable", "feat_set": "none"}
         ]
 
     outputs:
@@ -56,12 +57,17 @@ jobs:
         set -e
         cat <<EOF > ./buildkitd.toml
           [system]
-          platformsCacheMaxAge = "504h"
-
+            platformsCacheMaxAge = "504h"
           [worker.oci]
-          enabled = true
-          rootless = true
-          gc = false
+            enabled = true
+            rootless = true
+            gc = true
+          [[worker.oci.gcpolicy]]
+            reservedSpace = "384GB"
+            maxUsedSpace = "768GB"
+            keepDuration = "504h"
+            filters = ["label!=cache==pin"]
+            all = true
         EOF
 
         docker buildx create \
@@ -160,7 +166,7 @@ jobs:
       !failure() && !cancelled()
 
     name: Publish
-    needs: [init, test, package]
+    needs: [package, test]
     uses: ./.github/workflows/publish.yml
     with:
       docker_repo: ${{vars.DOCKER_REPO}}

@@ -1,0 +1,21 @@
+# syntax = docker/dockerfile:1.11-labs
+
+FROM input AS install
+ARG rust_target
+ARG CARGO_TARGET_DIR
+ARG cargo_target_profile
+ARG install_prefix
+
+WORKDIR /
+COPY --link --from=input . .
+
+WORKDIR ${install_prefix}
+ENV src_path="${CARGO_TARGET_DIR}/${rust_target}/${cargo_target_profile}/tuwunel"
+ENV dst_path="${install_prefix}/bin/tuwunel"
+COPY --from=bins $src_path $dst_path
+RUN <<EOF
+    set -eux
+    ldd -v ${dst_path} || true
+    du -h ${dst_path}
+    sha1sum ${dst_path}
+EOF
