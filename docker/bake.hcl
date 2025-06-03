@@ -1126,6 +1126,9 @@ target "deps-base" {
         CARGO_PROFILE_BENCH_LTO = "false"
         CARGO_PROFILE_RELEASE_BUILD_OVERRIDE_DEBUG = "false"
         CARGO_PROFILE_RELEASE_LTO = "thin"
+        CARGO_PROFILE_RELEASE_DEBUGINFO_BUILD_OVERRIDE_DEBUG = "false"
+        CARGO_PROFILE_RELEASE_DEBUGINFO_DEBUG = "limited"
+        CARGO_PROFILE_RELEASE_DEBUGINFO_LTO = "off"
 
         CARGO_BUILD_RUSTFLAGS = (
             cargo_profile == "release-max-perf"?
