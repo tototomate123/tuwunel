@@ -8,9 +8,10 @@ of images from shared intermediate layers with a huge ever-growing pulsating cac
 The result is the ability to run continuous integration for a number of build
 variations while only paying the cost of rebuilding the last layer for each one.
 
+
 ### Layout
 
-This directory is made up of four types of files.
+This directory is made up of three types of files:
 
 - Shell scripts are the user interface. Use this system through one of the shell scripts. The
 bake files can still be docker'ed directly but it's recomended to run the script.
@@ -24,9 +25,6 @@ always be a single unified tree.
 - The `Dockerfile.*` files are like "library functions" and provide definition for targets.
 These are written generically in the style of "template functions" with many variables allowing
 many targets to create many variations using the same Dockerfile.
-
-- All other files are various assets that may be referenced or used in a build mount, though
-at the time of this writing I've actually eliminated all of them, more may return one day.
 
 
 ### Getting started

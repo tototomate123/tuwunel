@@ -35,6 +35,7 @@ RUN \
     mkdir -p "${pkg_dir}"
     rustup run ${rust_toolchain} \
         cargo deb \
+            --verbose \
             --frozen \
             --no-build \
             "${cargo_spec_features}" \

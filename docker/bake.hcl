@@ -6,23 +6,23 @@ variable "GITHUB_REF_SHA" {}
 variable "GITHUB_REF_NAME" {}
 
 variable "acct" {
-	default = "${GITHUB_ACTOR}"
+    default = "${GITHUB_ACTOR}"
 }
 variable "repo" {
-	default = "${GITHUB_REPOSITORY}"
+    default = "${GITHUB_REPOSITORY}"
 }
 variable "docker_repo" {
-	default = "${repo}"
+    default = "${repo}"
 }
 
 variable "git_ref" {
-	default = "${GITHUB_REF}"
+    default = "${GITHUB_REF}"
 }
 variable "git_ref_sha" {
-	default = "${GITHUB_REF_SHA}"
+    default = "${GITHUB_REF_SHA}"
 }
 variable "git_ref_name" {
-	default = "${GITHUB_REF_NAME}"
+    default = "${GITHUB_REF_NAME}"
 }
 
 cargo_feat_sets = {
@@ -109,10 +109,10 @@ variable "package_last_modified" {
 
 # Compression options
 variable "image_compress_level" {
-	default = 11
+    default = 11
 }
 variable "cache_compress_level" {
-	default = 6
+    default = 6
 }
 
 # Use the cargo-chef layering strategy to separate and pre-build dependencies
@@ -126,11 +126,11 @@ variable "use_chef" {
 # Options for output verbosity
 variable "BUILDKIT_PROGRESS" {}
 variable "CARGO_TERM_VERBOSE" {
-    default = BUILDKIT_PROGRESS == "plain"? "true": "false"
+    default = false
 }
 
 variable "docker_dir" {
-	default = "."
+    default = "."
 }
 
 # Override the project checkout
@@ -778,7 +778,6 @@ target "book" {
         elem_tag("book", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
     target = "book"
-    dockerfile = "${docker_dir}/Dockerfile.cargo.book"
     output = ["type=docker,compression=zstd,mode=min,compression-level=${image_compress_level}"]
     matrix = cargo_rust_feat_sys
     inherits = [
@@ -790,7 +789,6 @@ target "book" {
     }
     dockerfile-inline =<<EOF
         FROM input AS book
-        WORKDIR /
         COPY --link --from=input . .
         RUN ["mdbook", "build", "-d", "/book", "/usr/src/tuwunel"]
 EOF
@@ -1333,7 +1331,6 @@ target "ingredients" {
             feat_set == "all"?
                 "--all-features": "--no-default-features"
         )
-        CARGO_TERM_VERBOSE = CI == "true"
         RUST_BACKTRACE = "full"
         ROCKSDB_LIB_DIR="/usr/lib/${sys_target}"
         JEMALLOC_OVERRIDE="/usr/lib/${sys_target}/libjemalloc.a"

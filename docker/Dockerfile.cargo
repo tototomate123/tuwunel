@@ -36,6 +36,7 @@ RUN \
     set -eux
     rustup run ${rust_toolchain} \
         cargo ${cargo_cmd} \
+            --verbose \
             --frozen \
             --workspace \
             "${cargo_spec_features}" \
