@@ -1132,14 +1132,10 @@ target "deps-base" {
         )
 
         CARGO_PROFILE_TEST_DEBUG = "false"
-        CARGO_PROFILE_TEST_BUILD_OVERRIDE_DEBUG = "false"
         CARGO_PROFILE_TEST_INCREMENTAL = "false"
         CARGO_PROFILE_BENCH_DEBUG = "limited"
-        CARGO_PROFILE_BENCH_BUILD_OVERRIDE_DEBUG = "false"
         CARGO_PROFILE_BENCH_LTO = "false"
-        CARGO_PROFILE_RELEASE_BUILD_OVERRIDE_DEBUG = "false"
         CARGO_PROFILE_RELEASE_LTO = "thin"
-        CARGO_PROFILE_RELEASE_DEBUGINFO_BUILD_OVERRIDE_DEBUG = "false"
         CARGO_PROFILE_RELEASE_DEBUGINFO_DEBUG = "limited"
         CARGO_PROFILE_RELEASE_DEBUGINFO_LTO = "off"
 
@@ -1195,13 +1191,7 @@ target "deps-base" {
                     join(" ", dynamic_rustflags),
                 ]):
 
-            join(" ", [
-                contains(split(",", cargo_feat_sets[feat_set]), "zstd_compression")?
-                    "-Clink-arg=-lzstd": "",
-                contains(split(",", cargo_feat_sets[feat_set]), "io_uring")?
-                    "-Clink-arg=-luring": "",
-                join(" ", dynamic_rustflags),
-            ])
+            join(" ", [])
         )
     }
 }
