@@ -141,7 +141,7 @@ jobs:
           {"cargo_profile": "release-max-perf", "rust_toolchain": "stable"},
           {"cargo_profile": "release-max-perf", "feat_set": "default"},
           {"cargo_profile": "release-max-perf", "feat_set": "none"},
-          {"cargo_profile": "release"}
+          {"cargo_profile": "release-debuginfo"}
         ]
 
   package:
@@ -166,9 +166,12 @@ jobs:
           {"cargo_profile": "test"},
           {"cargo_profile": "release-debuginfo", "feat_set": "default"},
           {"cargo_profile": "release-debuginfo", "rust_toolchain": "nightly"},
+          {"cargo_profile": "release-debuginfo", "bake_target": "oci"},
           {"cargo_profile": "release-max-perf", "feat_set": "default"},
           {"cargo_profile": "release-max-perf", "rust_toolchain": "stable"},
           {"cargo_profile": "release-max-perf", "feat_set": "default"},
+          {"cargo_profile": "release-max-perf", "bake_target": "docker"},
+          {"cargo_profile": "release-max-perf", "bake_target": "oci"},
           {"cargo_profile": "release", "rust_toolchain": "nightly"}
         ]
 

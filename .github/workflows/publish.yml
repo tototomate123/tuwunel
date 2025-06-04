@@ -50,7 +50,7 @@ jobs:
       && inputs.docker_repo != ''
       && github.ref == 'refs/heads/main'
 
-    name: Publish containers
+    name: Containers
     runs-on: ${{matrix.machine}}
     permissions: write-all
     continue-on-error: false
