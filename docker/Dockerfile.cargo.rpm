@@ -2,8 +2,6 @@
 
 FROM input AS rpm
 ARG sys_target
-ARG rust_target
-ARG rust_target
 ARG rust_toolchain
 ARG RUSTUP_HOME
 ARG CARGO_HOME

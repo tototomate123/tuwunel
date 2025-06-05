@@ -82,7 +82,7 @@ jobs:
     needs: [systems]
     uses: ./.github/workflows/bake.yml
     with:
-      bake_targets: '["buildsys"]'
+      bake_targets: '["rust"]'
       cargo_profiles: ${{inputs.cargo_profiles}}
       feat_sets: ${{inputs.feat_sets}}
       rust_toolchains: ${{inputs.rust_toolchains}}

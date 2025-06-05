@@ -42,13 +42,31 @@ so please be patient.
 		- To run the complement compliance suite we need the `--allow-insecure-entitlement network.host`.
 		This requirement is probably a defect in Complement.
 
-	Finally create
+	- The default cache policies are usually insufficient and custom values should be used,
+	 though the ones below are probably too much for a single or simple build.
+
+	Finally create:
 	
 	```
+	cat <<EOF > ./buildkitd.toml
+		[system]
+		  platformsCacheMaxAge = "504h"
+		[worker.oci]
+		  enabled = true
+		  gc = true
+		  reservedSpace = "64GB"
+		  maxUsedSpace = "128GB"
+		[[worker.oci.gcpolicy]]
+		  reservedSpace = "64GB"
+		  maxUsedSpace = "128GB"
+		  all = true
+	EOF
+
 	BKD_FLAGS="--allow-insecure-entitlement netwok.host"
 	docker buildx create \
 		--name owo \
 		--bootstrap \
+		--buildkitd-config ./buildkitd.toml \
 		--driver docker-container \
 		--buildkitd-flags "$BKD_FLAGS"
 	```

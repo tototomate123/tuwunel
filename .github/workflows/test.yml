@@ -161,7 +161,7 @@ jobs:
     - name: Extract
       id: extract
       env:
-        name: complement_tester__${{matrix.cargo_profile}}__${{matrix.rust_toolchain}}__${{matrix.rust_target}}__${{matrix.feat_set}}__${{matrix.sys_name}}__${{matrix.sys_version}}__${{matrix.sys_target}}
+        name: complement_tester__${{matrix.sys_name}}__${{matrix.sys_version}}__${{matrix.sys_target}}
         tag: latest
 
       run: |

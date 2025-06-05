@@ -39,6 +39,7 @@ ARG nprocs
 
 WORKDIR /
 COPY --link --from=input . .
+COPY --link --from=rocksdb-fetch /usr/src/rocksdb /usr/src/rocksdb
 
 WORKDIR /usr/src/rocksdb/librocksdb-sys/rocksdb
 ENV CC="clang"

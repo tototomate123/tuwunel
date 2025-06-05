@@ -31,9 +31,9 @@ set +a
 ###############################################################################
 
 set -x
-tester_image="complement-tester--${feat_set}--${sys_name}--${sys_version}--${sys_target}"
+tester_image="complement-tester--${sys_name}--${sys_version}--${sys_target}"
 testee_image="complement-testee--${cargo_profile}--${rust_toolchain}--${rust_target}--${feat_set}--${sys_name}--${sys_version}--${sys_target}"
-name="complement_tester__${cargo_profile}__${rust_toolchain}__${rust_target}__${feat_set}__${sys_name}__${sys_version}__${sys_target}"
+name="complement_tester__${sys_name}__${sys_version}__${sys_target}"
 sock="/var/run/docker.sock"
 arg="--name $name -v $sock:$sock --network=host $tester_image ${testee_image}"
 set +x

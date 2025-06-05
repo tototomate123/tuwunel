@@ -48,18 +48,19 @@ jobs:
 
         set -e
         cat <<EOF > ./buildkitd.toml
-          [system]
-            platformsCacheMaxAge = "504h"
-          [worker.oci]
-            enabled = true
-            rootless = true
-            gc = true
-          [[worker.oci.gcpolicy]]
-            reservedSpace = "384GB"
-            maxUsedSpace = "768GB"
-            keepDuration = "504h"
-            filters = ["label!=cache==pin"]
-            all = true
+        [system]
+          platformsCacheMaxAge = "504h"
+        [worker.oci]
+          enabled = true
+          rootless = false
+          gc = true
+          reservedSpace = "256GB"
+          maxUsedSpace = "576GB"
+        [[worker.oci.gcpolicy]]
+          reservedSpace = "256GB"
+          maxUsedSpace = "576GB"
+          filters = ["label!=cache==pin"]
+          all = true
         EOF
 
         docker buildx create \
