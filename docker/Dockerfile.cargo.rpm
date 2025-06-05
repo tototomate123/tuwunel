@@ -21,9 +21,9 @@ COPY --link --from=input . .
 
 WORKDIR /usr/src/tuwunel
 RUN \
---mount=type=cache,dst=${RUSTUP_HOME}/downloads,sharing=shared,ro \
---mount=type=cache,dst=${CARGO_HOME}/registry,sharing=shared,ro \
---mount=type=cache,dst=${CARGO_HOME}/git,sharing=shared,ro \
+--mount=type=cache,dst=${RUSTUP_HOME}/downloads,sharing=shared \
+--mount=type=cache,dst=${CARGO_HOME}/registry,sharing=shared \
+--mount=type=cache,dst=${CARGO_HOME}/git,sharing=shared \
 --mount=type=cache,dst=${targ_dir}/deps,id=${cargo_target_share}/deps,sharing=locked \
 --mount=type=cache,dst=${targ_dir}/build,id=${cargo_target_share}/build,sharing=locked \
 --mount=type=cache,dst=${targ_dir}/examples,id=${cargo_target_share}/examples,sharing=locked \

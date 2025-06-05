@@ -46,9 +46,9 @@ ENV CARGO_TARGET_DIR="${CARGO_TARGET_DIR}"
 ENV targ_dir="${CARGO_TARGET_DIR}/${cargo_target_profile}"
 ENV targ_targ_dir="${CARGO_TARGET_DIR}/${rust_target}/${cargo_target_profile}"
 RUN \
---mount=type=cache,dst=${RUSTUP_HOME}/downloads,sharing=shared,ro \
---mount=type=cache,dst=${CARGO_HOME}/registry,sharing=shared,ro \
---mount=type=cache,dst=${CARGO_HOME}/git,sharing=shared,ro \
+--mount=type=cache,dst=${RUSTUP_HOME}/downloads,sharing=shared \
+--mount=type=cache,dst=${CARGO_HOME}/registry,sharing=shared \
+--mount=type=cache,dst=${CARGO_HOME}/git,sharing=shared \
 --mount=type=cache,dst=${targ_dir}/deps,id=${cargo_target_share}/deps,sharing=locked \
 --mount=type=cache,dst=${targ_dir}/build,id=${cargo_target_share}/build,sharing=locked \
 --mount=type=cache,dst=${targ_dir}/examples,id=${cargo_target_share}/examples,sharing=locked \
@@ -64,7 +64,7 @@ RUN \
     rustup run ${rust_toolchain} \
         cargo chef cook ${cook_args} \
             --verbose \
-            --frozen \
+            --locked \
             --workspace \
             "${cargo_spec_features}" \
             --features "${cargo_features}" \
