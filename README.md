@@ -39,12 +39,12 @@ development. It is now maintained by full-time staff.
 - Arch Package is expected very soon and this will be updated.
 - Nix Package has not yet been updated but expect this soon.
 
-**1.** [Configure](https://github.com/matrix-construct/tuwunel/blob/main/docs/configuration.md) by
+**1.** [Configure](https://matrix-construct.github.io/tuwunel/configuration.html) by
 copying and editing the `tuwunel-example.toml`. The `server_name` and `database_path` must be
 configured. **Most users deploy via docker or a distribution package and should follow the
-[appropriate guide](https://github.com/matrix-construct/tuwunel/tree/main/docs/deploying) instead.**
+[appropriate guide](https://matrix-construct.github.io/tuwunel/deploying.html) instead.**
 This is just a summary for the impatient. See the full
-[documentation](https://github.com/matrix-construct/tuwunel/blob/main/docs/).
+[documentation](https://matrix-construct.github.io/tuwunel/).
 
 > [!WARNING]
 > Avoid using a sub-domain for your `server_name`. You can always delegate later with a [`.well-known`](https://github.com/spantaleev/matrix-docker-ansible-deploy/blob/master/docs/configuring-well-known.md)
