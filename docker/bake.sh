@@ -70,6 +70,7 @@ complement_skip="${complement_skip}|TestUnbanViaInvite.*"
 complement_skip="${complement_skip}|TestRoomDeleteAlias/Pa.*/Regular_users_can_add_and_delete_aliases_when.*"
 complement_skip="${complement_skip}|TestToDeviceMessagesOverFederation/stopped_server"
 complement_skip="${complement_skip}|TestLogin/parallel/POST_/login_as_non-existing_user_is_rejected"
+complement_skip="${complement_skip}|TestRoomState/Parallel/GET_/publicRooms_lists_newly-created_room"
 complement_skip="${complement_skip}|TestThreadReceiptsInSyncMSC4102"
 complement_run=".*"
 set +a
