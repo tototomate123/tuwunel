@@ -65,7 +65,7 @@ jobs:
       !failure() && !cancelled()
       && inputs.machines
       && inputs.docker_repo != ''
-      && (github.ref == 'refs/heads/main' || contains(github.ref, 'refs/tags/'))
+      && (github.ref == 'refs/heads/main' || contains(github.ref, 'refs/tags/v'))
 
     name: Containers
     runs-on: ${{matrix.machine}}
@@ -115,8 +115,8 @@ jobs:
           acct: ${{github.actor}}
           repo: ${{github.repository}}
           docker_repo: ${{inputs.docker_repo}}
-          docker_tag_latest: ${{ contains(github.ref, 'refs/tags/') && !contains(github.ref, '-rc') }}
-          docker_tag_preview: ${{ contains(github.ref, 'refs/tags/') && contains(github.ref, '-rc') }}
+          docker_tag_latest: ${{ contains(github.ref, 'refs/tags/v') && !contains(github.ref, '-rc') }}
+          docker_tag_preview: ${{ contains(github.ref, 'refs/tags/v') && contains(github.ref, '-rc') }}
 
         run: |
           docker/bake.sh "${{matrix.bake_target}}"

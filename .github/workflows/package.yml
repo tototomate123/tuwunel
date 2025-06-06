@@ -117,7 +117,7 @@ jobs:
       && contains(fromJSON(inputs.cargo_profiles), fromJSON('["release"]')[0])
       && contains(fromJSON(inputs.rust_toolchains), fromJSON('["stable"]')[0])
 
-    name: Distro Pkgs
+    name: Distro Packages
     uses: ./.github/workflows/bake.yml
     with:
       bake_targets: '["pkg-deb", "pkg-rpm"]'
@@ -133,8 +133,8 @@ jobs:
       includes: ${{inputs.includes}}
       artifact: >
         {
-          "pkg-deb": {"dst": "tuwunel_1.0.0-1_amd64.deb"},
-          "pkg-rpm": {"dst": "tuwunel-1.0.0-1.x86_64.rpm"}
+          "pkg-deb": {"dst": "tuwunel.deb", "src": "tuwunel_1.0.0-1_amd64.deb"},
+          "pkg-rpm": {"dst": "tuwunel.rpm", "src": "tuwunel-1.0.0-1.x86_64.rpm"}
         }
 
   check_pkgs:
@@ -145,7 +145,7 @@ jobs:
       && contains(fromJSON(inputs.rust_toolchains), fromJSON('["stable"]')[0])
       && false
 
-    name: Check Pkgs
+    name: Check Packages
     needs: [pkgs]
     uses: ./.github/workflows/bake.yml
     with:

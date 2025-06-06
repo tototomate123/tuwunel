@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - "**"
+    tags:
+      - "v*"
   pull_request:
     branches:
       - "**"
@@ -95,6 +97,7 @@ jobs:
   lint:
     if: >
       !failure() && !cancelled()
+      && !contains(github.ref, 'refs/tags/v')
 
     name: Lint
     needs: [init] #needs: [init, deps]
@@ -122,6 +125,7 @@ jobs:
   test:
     if: >
       !failure() && !cancelled()
+      && !contains(github.ref, 'refs/tags/v')
 
     name: Test
     needs: [init, lint]
