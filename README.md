@@ -35,8 +35,9 @@ development. It is now maintained by full-time staff.
 - [Sourcecode](https://github.com/matrix-construct/tuwunel/) `git clone https://github.com/matrix-construct/tuwunel.git`
 - [DockerHub](https://hub.docker.com/r/jevolk/tuwunel) or `docker pull jevolk/tuwunel:latest`
 - [GHCR](https://github.com/matrix-construct/tuwunel/pkgs/container/tuwunel) or `docker pull ghcr.io/matrix-construct/tuwunel:latest`
-- Deb and RPM packages are available as [build artifacts](https://github.com/matrix-construct/tuwunel/actions?query=branch%3Amain) for now.
-- Arch package artifact is expected shortly. Nix package still needs some love.
+- Deb and RPM packages available as [releases](https://github.com/matrix-construct/tuwunel/releases) or [build artifacts](https://github.com/matrix-construct/tuwunel/actions?query=branch%3Amain).
+- Static binaries also available as [releases](https://github.com/matrix-construct/tuwunel/releases) or [build artifacts](https://github.com/matrix-construct/tuwunel/actions?query=branch%3Amain).
+- Arch package is expected shortly. Nix package still needs some love.
 
 **1.** [Configure](https://matrix-construct.github.io/tuwunel/configuration.html) by
 copying and editing the `tuwunel-example.toml`. The `server_name` and `database_path` must be
@@ -125,13 +126,16 @@ the main branch to get up and running, and we're obliged to ensure it's always v
 tagged releases are true releases. If you don't care to update often, find the latest `minor` version
 change rather than `patch`. We don't recommend simply following `major` version changes at this time.
 
-#### Tracking
+#### Container Tracking
 
 > [!IMPORTANT]
 > **We strongly advise tracking the `:latest` tag when automatically updating.**
 
-This gives us the necessary discretion to keep you on the appropriate stable version.
-We discourage tracking the main branch, as we want to update that more frequently moving forward.
+Tracking `:latest` gives us the necessary discretion to keep you on the appropriate stable version.
+We discourage tracking the main branch unless frequent restarts are acceptable. Alternatively,
+tracking the `:preview` tag provides the latest release-candidate becoming equivalent to `:latest`
+after a release. Tracking the `:preview` tag is a worthy alternative to the main branch, with
+turbulence limited to release-time.
 
 ### Getting Help & Support
 

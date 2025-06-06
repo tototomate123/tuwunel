@@ -7,7 +7,7 @@ description = "Tuwunel, a high performance successor to Conduit and Conduwuit"
 language = "en"
 multilingual = false
 src = "docs"
-title = "Tuwunel"
+title = "Tuwunel One"
 text-direction = "ltr"
 
 [build]
