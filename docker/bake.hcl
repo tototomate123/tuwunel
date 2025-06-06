@@ -226,8 +226,8 @@ group "lints" {
 
 group "tests" {
     targets = [
-        "tests-unit",
-        "tests-smoke",
+        "unit",
+        "smoke",
         "complement",
     ]
 }
@@ -324,11 +324,11 @@ target "complement-testee-valgrind" {
     dockerfile = "${docker_dir}/Dockerfile.complement"
     matrix = cargo_rust_feat_sys
     inherits = [
-        elem("smoketest-valgrind", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
+        elem("smoke-valgrind", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
         elem("complement-testee", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     ]
     contexts = {
-        input = elem("target:smoketest-valgrind", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+        input = elem("target:smoke-valgrind", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
         complement-tester = elem("target:complement-tester-valgrind", [sys_name, sys_version, sys_target])
     }
 }
@@ -361,7 +361,6 @@ target "complement-tester-valgrind" {
     tags = [
         elem_tag("complement-tester-valgrind", [sys_name, sys_version, sys_target], "latest"),
     ]
-    target = "complement-tester-valgrind"
     entitlements = ["network.host"]
     matrix = sys
     inherits = [
@@ -426,77 +425,75 @@ target "complement-config" {
 # Smoke tests
 #
 
-group "tests-smoke" {
+group "smoke" {
     targets = [
-        "smoketest-version",
-        "smoketest-startup",
-        #"smoketest-valgrind",
-        #"smoketest-perf",
+        "smoke-version",
+        "smoke-startup",
+        #"smoke-valgrind",
+        #"smoke-perf",
     ]
 }
 
-target "smoketest-valgrind" {
-    name = elem("smoketest-valgrind", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+target "smoke-valgrind" {
+    name = elem("smoke-valgrind", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     tags = [
-        elem_tag("smoketest-valgrind", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
+        elem_tag("smoke-valgrind", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
-    target = "smoketest-valgrind"
-    entitlements = ["security.insecure"]
+    target = "smoke-valgrind"
     matrix = cargo_rust_feat_sys
     inherits = [
-        elem("valgrind", [feat_set, sys_name, sys_version, sys_target]),
-        elem("smoketest", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+        elem("install-valgrind", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
+        elem("tests-smoke", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     ]
     contexts = {
-        valgrind = elem("target:valgrind", [feat_set, sys_name, sys_version, sys_target])
+        input = elem("target:install-valgrind", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     }
 }
 
-target "smoketest-perf" {
-    name = elem("smoketest-perf", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+target "smoke-perf" {
+    name = elem("smoke-perf", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     tags = [
-        elem_tag("smoketest-perf", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
+        elem_tag("smoke-perf", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
-    target = "smoketest-perf"
-    entitlements = ["security.insecure"]
+    target = "smoke-perf"
     matrix = cargo_rust_feat_sys
     inherits = [
-        elem("perf", [feat_set, sys_name, sys_version, sys_target]),
-        elem("smoketest", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+        elem("install-perf", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
+        elem("tests-smoke", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     ]
     contexts = {
-        perf = elem("target:valgrind", [feat_set, sys_name, sys_version, sys_target])
+        input = elem("target:install-perf", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     }
 }
 
-target "smoketest-startup" {
-    name = elem("smoketest-startup", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+target "smoke-startup" {
+    name = elem("smoke-startup", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     tags = [
-        elem_tag("smoketest-startup", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest")
+        elem_tag("smoke-startup", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest")
     ]
-    target = "smoketest-startup"
+    target = "smoke-startup"
     matrix = cargo_rust_feat_sys
     inherits = [
-        elem("smoketest", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+        elem("tests-smoke", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     ]
 }
 
-target "smoketest-version" {
-    name = elem("smoketest-version", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+target "smoke-version" {
+    name = elem("smoke-version", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     tags = [
-        elem_tag("smoketest-version", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
+        elem_tag("smoke-version", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
-    target = "smoketest-version"
+    target = "smoke-version"
     matrix = cargo_rust_feat_sys
     inherits = [
-        elem("smoketest", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+        elem("tests-smoke", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     ]
 }
 
-target "smoketest" {
-    name = elem("smoketest", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+target "tests-smoke" {
+    name = elem("tests-smoke", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     tags = [
-        elem_tag("smoketest", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
+        elem_tag("tests-smoke", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
     output = ["type=cacheonly,compression=zstd,mode=min,compression-level=${cache_compress_level}"]
     dockerfile = "${docker_dir}/Dockerfile.smoketest"
@@ -594,6 +591,37 @@ target "static" {
         FROM scratch AS install
         COPY --from=input /usr/bin/tuwunel /usr/bin/tuwunel
 EOF
+}
+
+target "install-valgrind" {
+    name = elem("install-valgrind", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+    tags = [
+        elem_tag("install-valgrind", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
+    ]
+    matrix = cargo_rust_feat_sys
+    inherits = [
+        elem("valgrind", [feat_set, sys_name, sys_version, sys_target]),
+        elem("install", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
+    ]
+    contexts = {
+        input = elem("target:valgrind", [feat_set, sys_name, sys_version, sys_target])
+        bins = elem("target:build-bins", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+    }
+}
+
+target "install-perf" {
+    name = elem("install-perf", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+    tags = [
+        elem_tag("install-perf", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
+    ]
+    matrix = cargo_rust_feat_sys
+    inherits = [
+        elem("perf", [feat_set, sys_name, sys_version, sys_target]),
+        elem("install", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
+    ]
+    contexts = {
+        input = elem("target:perf", [feat_set, sys_name, sys_version, sys_target])
+    }
 }
 
 target "install" {
@@ -742,10 +770,10 @@ target "deb" {
 # Unit tests
 #
 
-target "tests-unit" {
-    name = elem("tests-unit", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+target "unit" {
+    name = elem("unit", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     tags = [
-        elem_tag("tests-unit", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
+        elem_tag("unit", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
     target = "cargo"
     matrix = cargo_rust_feat_sys
@@ -1527,31 +1555,36 @@ sys = {
 
 target "perf" {
     description = "Base runtime environment with linux-perf installed."
-    name = elem("perf", [sys_name, sys_version, sys_target])
+    name = elem("perf", [feat_set, sys_name, sys_version, sys_target])
     tags = [
-        elem_tag("perf", [sys_name, sys_version, sys_target], "latest"),
+        elem_tag("perf", [feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
-    matrix = sys
+    matrix = feat_sys
     inherits = [
-        elem("base", [sys_name, sys_version, sys_target])
+        elem("runtime", [feat_set, sys_name, sys_version, sys_target])
     ]
     contexts = {
-        input = elem("target:base", [sys_name, sys_version, sys_target])
+        input = elem("target:runtime", [feat_set, sys_name, sys_version, sys_target])
     }
 }
 
 target "valgrind" {
     description = "Base runtime environment with valgrind installed."
-    name = elem("valgrind", [sys_name, sys_version, sys_target])
+    name = elem("valgrind", [feat_set, sys_name, sys_version, sys_target])
     tags = [
-        elem_tag("valgrind", [sys_name, sys_version, sys_target], "latest"),
+        elem_tag("valgrind", [feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
-    matrix = sys
+    matrix = feat_sys
     inherits = [
-        elem("base", [sys_name, sys_version, sys_target])
+        elem("runtime", [feat_set, sys_name, sys_version, sys_target])
     ]
     contexts = {
-        input = elem("target:base", [sys_name, sys_version, sys_target])
+        input = elem("target:runtime", [feat_set, sys_name, sys_version, sys_target])
+    }
+    args = {
+        packages = join(" ", [
+            "valgrind",
+        ])
     }
 }
 

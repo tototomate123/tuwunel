@@ -1,7 +1,7 @@
 # syntax = docker/dockerfile:1.11-labs
 
-FROM input AS smoketest-version
-
+FROM input AS smoke-version
+COPY --link --from=input . .
 RUN <<EOF
     set -eux
     tuwunel -V
@@ -10,8 +10,8 @@ RUN <<EOF
 EOF
 
 
-FROM input AS smoketest-startup
-
+FROM input AS smoke-startup
+COPY --link --from=input . .
 ENV TUWUNEL_LOG="info"
 ENV TUWUNEL_DATABASE_PATH="/tmp/smoketest.db"
 RUN <<EOF
@@ -25,18 +25,18 @@ RUN <<EOF
 EOF
 
 
-FROM input AS smoketest-valgrind
-
-WORKDIR /
-COPY --link --from=valgrind . .
-
+FROM input AS smoke-valgrind
+ARG leak_check="no"
+ARG undef_value_errors="no"
+COPY --link --from=input . .
 ENV TUWUNEL_LOG="info"
 ENV TUWUNEL_DATABASE_PATH="/tmp/smoketest.db"
 RUN <<EOF
     set -eux
+    ulimit -n 65535
     valgrind \
-        --leak-check=no \
-        --undef-value-errors=no \
+        --leak-check=${leak_check} \
+        --undef-value-errors=${undef_value_errors} \
         --exit-on-first-error=yes \
         --error-exitcode=1 \
         tuwunel \
@@ -48,11 +48,8 @@ RUN <<EOF
 EOF
 
 
-FROM input AS smoketest-perf
-
-WORKDIR /
-COPY --link --from=perf . .
-
+FROM input AS smoke-perf
+COPY --link --from=input . .
 ENV TUWUNEL_LOG="error"
 ENV TUWUNEL_DATABASE_PATH="/tmp/smoketest.db"
 RUN <<EOF
