@@ -120,8 +120,8 @@ jobs:
           acct: ${{github.actor}}
           repo: ${{github.repository}}
           docker_repo: ${{inputs.docker_repo}}
-          docker_tag_preview: ${{ contains(github.ref, 'refs/tags/v') }}
-          docker_tag_latest: ${{ contains(github.ref, 'refs/tags/v') && !contains(github.ref, '-rc') }}
+          docker_tag_preview: ${{ matrix.cargo_profile == 'release' && matrix.feat_set == 'all' && matrix.sys_target == 'x86_64-linux-gnu' && contains(github.ref, 'refs/tags/v') }}
+          docker_tag_latest: ${{ matrix.cargo_profile == 'release' && matrix.feat_set == 'all' && matrix.sys_target == 'x86_64-linux-gnu' && contains(github.ref, 'refs/tags/v') && !contains(github.ref, '-rc') }}
 
         run: |
           docker/bake.sh "${{matrix.bake_target}}"
