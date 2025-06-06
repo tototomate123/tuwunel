@@ -116,8 +116,11 @@ variable "package_last_modified" {
 }
 
 # Compression options
-variable "image_compress_level" {
+variable "zstd_image_compress_level" {
     default = 11
+}
+variable "gz_image_compress_level" {
+    default = 7
 }
 variable "cache_compress_level" {
     default = 7
@@ -270,7 +273,7 @@ target "github" {
         docker_tag_preview? "ghcr.io/${repo}:preview": "",
         docker_tag_latest? "ghcr.io/${repo}:latest": "",
     ]
-    output = ["type=registry,compression=zstd,mode=min,compression-level=${image_compress_level}"]
+    output = ["type=registry,compression=zstd,mode=min,compression-level=${zstd_image_compress_level}"]
     matrix = cargo_rust_feat_sys
     inherits = [
         elem("docker", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
@@ -284,7 +287,7 @@ target "dockerhub" {
         docker_tag_preview? "${docker_repo}:preview": "",
         docker_tag_latest? "${docker_repo}:latest": "",
     ]
-    output = ["type=registry,compression=zstd,mode=min,compression-level=${image_compress_level}"]
+    output = ["type=registry,compression=zstd,mode=min,compression-level=${zstd_image_compress_level}"]
     matrix = cargo_rust_feat_sys
     inherits = [
         elem("docker", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
@@ -375,7 +378,7 @@ target "complement-tester" {
         elem_tag("complement-tester", [sys_name, sys_version, sys_target], "latest"),
     ]
     target = "complement-tester"
-    output = ["type=docker,compression=zstd,mode=min,compression-level=${image_compress_level}"]
+    output = ["type=docker,compression=zstd,mode=min,compression-level=${zstd_image_compress_level}"]
     entitlements = ["network.host"]
     matrix = sys
     inherits = [
@@ -538,7 +541,7 @@ target "oci" {
     tags = [
         elem_tag("oci", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
-    output = ["type=oci,dest=tuwunel-oci.tar.zst,mode=min,compression=zstd,compression-level=${image_compress_level}"]
+    output = ["type=oci,dest=tuwunel-oci.tar.zst,mode=min,compression=zstd,compression-level=${zstd_image_compress_level}"]
     matrix = cargo_rust_feat_sys
     inherits = [
         elem("docker", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
@@ -550,6 +553,7 @@ target "docker" {
     tags = [
         elem_tag("docker", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
+    output = ["type=docker,compression=gzip,mode=min,compression-level=${gz_image_compress_level}"]
     matrix = cargo_rust_feat_sys
     inherits = [
         elem("static", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
@@ -565,9 +569,9 @@ target "docker" {
                 elem("target:install", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
         )
     }
-    target = "image"
     dockerfile-inline =<<EOF
-        FROM input AS image
+        FROM scratch AS install
+        COPY --from=input . .
         EXPOSE 8008 8448
         ENTRYPOINT ["tuwunel"]
 EOF
@@ -578,6 +582,7 @@ target "static" {
     tags = [
         elem_tag("static", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
+    output = ["type=docker,compression=zstd,mode=min,compression-level=${zstd_image_compress_level}"]
     matrix = cargo_rust_feat_sys
     inherits = [
         elem("install", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
@@ -585,9 +590,8 @@ target "static" {
     contexts = {
         input = elem("target:install", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
     }
-    target = "static"
     dockerfile-inline =<<EOF
-        FROM scratch AS static
+        FROM scratch AS install
         COPY --from=input /usr/bin/tuwunel /usr/bin/tuwunel
 EOF
 }
@@ -598,7 +602,7 @@ target "install" {
         elem_tag("install", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
     labels = install_labels
-    output = ["type=docker,compression=zstd,mode=min,compression-level=${image_compress_level}"]
+    output = ["type=docker,compression=zstd,mode=min,compression-level=${zstd_image_compress_level}"]
     cache_to = ["type=local,compression=zstd,mode=min,compression-level=${cache_compress_level}"]
     dockerfile = "${docker_dir}/Dockerfile.install"
     target = "install"
@@ -769,7 +773,7 @@ target "book" {
         elem_tag("book", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
     target = "book"
-    output = ["type=docker,compression=zstd,mode=min,compression-level=${image_compress_level}"]
+    output = ["type=docker,compression=zstd,mode=min,compression-level=${zstd_image_compress_level}"]
     matrix = cargo_rust_feat_sys
     inherits = [
         elem("deps-base", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
