@@ -16,6 +16,12 @@ variable "repo" {
 variable "docker_repo" {
     default = "${repo}"
 }
+variable "docker_tag_preview" {
+	default = false
+}
+variable "docker_tag_latest" {
+	default = false
+}
 
 variable "git_ref" {
     default = "${GITHUB_REF}"
@@ -261,8 +267,8 @@ target "github" {
     name = elem("github", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     tags = [
         "ghcr.io/${repo}:${git_ref_name}-${cargo_profile}-${feat_set}-${sys_target}",
-        (substr(git_ref, 0, 10) == "refs/tags/" && cargo_profile == "release" && feat_set == "all")?
-            "ghcr.io/${repo}:latest": "",
+        docker_tag_preview? "ghcr.io/${repo}:preview": "",
+        docker_tag_latest? "ghcr.io/${repo}:latest": "",
     ]
     output = ["type=registry,compression=zstd,mode=min,compression-level=${image_compress_level}"]
     matrix = cargo_rust_feat_sys
@@ -275,8 +281,8 @@ target "dockerhub" {
     name = elem("dockerhub", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     tags = [
         "${docker_repo}:${git_ref_name}-${cargo_profile}-${feat_set}-${sys_target}",
-        (substr(git_ref, 0, 10) == "refs/tags/" && cargo_profile == "release" && feat_set == "all")?
-            "${docker_repo}:latest": "",
+        docker_tag_preview? "${docker_repo}:preview": "",
+        docker_tag_latest? "${docker_repo}:latest": "",
     ]
     output = ["type=registry,compression=zstd,mode=min,compression-level=${image_compress_level}"]
     matrix = cargo_rust_feat_sys
