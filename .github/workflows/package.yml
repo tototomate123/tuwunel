@@ -96,7 +96,8 @@ jobs:
             "dst": "tuwunel.zst",
             "src": "/usr/bin/tuwunel",
             "mime": "application/zstd",
-            "zstd": 11
+            "zstd": 11,
+            "chmod": "a+x"
           }
         }
 

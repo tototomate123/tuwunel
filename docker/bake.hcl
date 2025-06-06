@@ -579,7 +579,7 @@ target "static" {
     tags = [
         elem_tag("static", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
-    output = ["type=docker,compression=zstd,mode=min,compression-level=${zstd_image_compress_level}"]
+    output = ["type=docker,compression=uncompressed,mode=min"]
     matrix = cargo_rust_feat_sys
     inherits = [
         elem("install", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
