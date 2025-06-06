@@ -35,9 +35,8 @@ development. It is now maintained by full-time staff.
 - [Sourcecode](https://github.com/matrix-construct/tuwunel/) `git clone https://github.com/matrix-construct/tuwunel.git`
 - [DockerHub](https://hub.docker.com/r/jevolk/tuwunel) or `docker pull jevolk/tuwunel:latest`
 - [GHCR](https://github.com/matrix-construct/tuwunel/pkgs/container/tuwunel) or `docker pull ghcr.io/matrix-construct/tuwunel:latest`
-- Deb and RPM packages are available and this will be updated with a link.
-- Arch Package is expected very soon and this will be updated.
-- Nix Package has not yet been updated but expect this soon.
+- Deb and RPM packages are available as [build artifacts](https://github.com/matrix-construct/tuwunel/actions?query=branch%3Amain) for now.
+- Arch package artifact is expected shortly. Nix package still needs some love.
 
 **1.** [Configure](https://matrix-construct.github.io/tuwunel/configuration.html) by
 copying and editing the `tuwunel-example.toml`. The `server_name` and `database_path` must be
@@ -89,7 +88,6 @@ granted server admin.
 > All derivatives of Conduit share the same linear database version without any awareness of other
 > forks. The database will permanently corrupt and we will not be able to help you.
 
-
 #### Migrating from conduwuit
 
 Migrating from conduwuit to Tuwunel _just works_. In technical parlance it is a "binary swap."
@@ -106,31 +104,19 @@ please open an issue immediately.
 
 ### Upgrading & Downgrading Tuwunel
 
-We strive to make moving between versions of Tuwunel safe and easy. There may be some startup
-delays during a significant update involving database schema changes. These are always crafted to
-handle any loss of power or partial completion. If you encounter a problem during startup after an
-update: don't panic, report the issue, try again a few times, or fallback to the last version you
-were using.
-
-Downgrading Tuwunel is always safe but often prevented by a guard. An error will indicate the
-downgrade is not possible and a newer version which does not error must be sought.
+We strive to make moving between versions of Tuwunel safe and easy. Downgrading Tuwunel is always
+safe but often prevented by a guard. An error will indicate the downgrade is not possible and a
+newer version which does not error must be sought.
 
 #### Versioning
 
 Tuwunel uses a semantic version tag in the format of `v<major>.<minor>.<patch>`. The `patch` value will
-always correspond to the number of commits from the last `minor` change. The `minor` value is changed
-at developer discretion, but has significance to users. The `major` value is changed to indicate
-significant milestones, but does not necessarily indicate any "breaking" change. Note that an irreversible
-database schema change may occur with only a `minor` version change, but these policies are not finalized,
-or very important for users right now.
+always correspond to the number of commits from the last `minor` change with significance to developers.
+The `minor` version is changed for fixes or features significant to users. The `major` value corresponds
+to significant feature evolutions, and does not indicate any "breaking change" nor connote stability.
 
 > [!IMPORTANT]
 > **Users should attempt to keep up to date with the latest minor version.**
-
-We currently do not have separate stable and unstable branches, but we reserve the possibility for
-exploring this model in the future. This would only occur between different `major`
-versions (i.e. `1.x.x` is stable and only receives fixes, while `2.x.x` receives new features). There
-are no concrete plans to move to this model at this time.
 
 #### Branches
 
@@ -152,10 +138,8 @@ We discourage tracking the main branch, as we want to update that more frequentl
 The official community will be found at [#tuwunel:tuwunel.chat](https://matrix.to/#/#tuwunel:tuwunel.chat).
 If this is currently inaccessible please be patient as it's still coming online at the time of
 the first release; we will have updates to this section. This is a fully moderated space to protect
-the wellbeing of our users and create a non-toxic work environment for staff. Users will not have
-permission to post by default. Additional access is granted on an as-needed/as-trusted basis.
-If you require assistance with anything that is not remedied by the documentation, please open
-an issue on github. If discussion is required we will grant access at that point.
+the wellbeing of our users and create a non-toxic work environment for staff. If you require assistance
+with anything that is not remedied by the documentation, don't hesitate to open an issue on github.
 
 If you are opposed to using github, or private discussion is required, or for any other reason,
 I would be happy to receive your DM at [@jason:tuwunel.me](https://matrix.to/#/@jason:tuwunel.me),
