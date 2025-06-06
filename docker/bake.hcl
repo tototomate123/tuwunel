@@ -631,7 +631,7 @@ target "install" {
     ]
     labels = install_labels
     output = ["type=docker,compression=zstd,mode=min,compression-level=${zstd_image_compress_level}"]
-    cache_to = ["type=local,compression=zstd,mode=min,compression-level=${cache_compress_level}"]
+    cache_to = ["type=local,compression=zstd,mode=max,compression-level=${cache_compress_level}"]
     dockerfile = "${docker_dir}/Dockerfile.install"
     target = "install"
     matrix = cargo_rust_feat_sys
@@ -1025,7 +1025,7 @@ target "cargo" {
     name = elem("cargo", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     target = "cargo"
     output = ["type=cacheonly,compression=zstd,mode=min,compression-level=${cache_compress_level}"]
-    cache_to = ["type=local,compression=zstd,mode=min,compression-level=${cache_compress_level}"]
+    cache_to = ["type=local,compression=zstd,mode=max,compression-level=${cache_compress_level}"]
     dockerfile = "${docker_dir}/Dockerfile.cargo"
     matrix = cargo_rust_feat_sys
     inherits = [
@@ -1128,7 +1128,7 @@ target "deps-base" {
     ]
     target = "deps"
     output = ["type=cacheonly,compression=zstd,mode=min,compression-level=${cache_compress_level}"]
-    cache_to = ["type=local,compression=zstd,mode=min,compression-level=${cache_compress_level}"]
+    cache_to = ["type=local,compression=zstd,mode=max,compression-level=${cache_compress_level}"]
     dockerfile = "${docker_dir}/Dockerfile.cargo.deps"
     matrix = cargo_rust_feat_sys
     inherits = [
@@ -1333,7 +1333,7 @@ target "ingredients" {
         elem_tag("ingredients", [rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
     target =  "ingredients"
-    cache_to = ["type=local,compression=zstd,mode=min"]
+    cache_to = ["type=local,compression=zstd,mode=max"]
     matrix = rust_feat_sys
     inherits = [
         elem("kitchen", [feat_set, sys_name, sys_version, sys_target]),
@@ -1657,7 +1657,7 @@ target "system" {
     ]
     target = "system"
     output = ["type=cacheonly,compression=zstd,mode=min,compression-level=${cache_compress_level}"]
-    cache_to = ["type=local,compression=zstd,mode=min,compression-level=${cache_compress_level}"]
+    cache_to = ["type=local,compression=zstd,mode=max,compression-level=${cache_compress_level}"]
     cache_from = ["type=local"]
     dockerfile = "${docker_dir}/Dockerfile.system"
     matrix = sys

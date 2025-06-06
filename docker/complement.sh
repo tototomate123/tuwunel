@@ -45,7 +45,7 @@ fi
 
 docker rm -f "$name" 2>/dev/null
 
-trap 'set +x; date; echo -e "\033[1;41;37mFAIL\033[0m"' ERR
+trap 'set +x; date; echo -e "\033[1;41;37mERROR\033[0m"' ERR
 
 if test "$CI" = "true"; then
 	arg="-d $arg"
@@ -58,8 +58,8 @@ fi
 
 echo -n "$cid" > "$name"
 
-trap 'docker container stop $cid; set +x; date; echo -e "\033[1;41;37mFAIL\033[0m"' INT
+trap 'docker container stop $cid; set +x; date; echo -e "\033[1;41;37mERROR\033[0m"' INT
 docker logs -f "$cid"
 docker wait "$cid" 2>/dev/null
 
-echo -e "\033[1;42;30mPASS\033[0m"
+echo -e "\033[1;42;30mACCEPT\033[0m"
