@@ -663,15 +663,9 @@ inherits = "release"
 debug = "full"
 strip = "none"
 
-[profile.release-high-perf]
-inherits = "release"
-lto = "fat"
-codegen-units = 1
-panic = "abort"
-
 # do not use without profile-rustflags enabled. uncomment ALL the sections for
-# profile.release-max-perf
-[profile.release-max-perf]
+# profile.release-native
+[profile.release-native]
 inherits = "release"
 strip = "symbols"
 lto = "fat"
@@ -688,8 +682,8 @@ lto = "fat"
 #	'-Ztime-llvm-passes',
 #]
 
-[profile.release-max-perf.build-override]
-inherits = "release-max-perf"
+[profile.release-native.build-override]
+inherits = "release-native"
 opt-level = 0
 codegen-units = 32
 #rustflags = [
@@ -698,8 +692,8 @@ codegen-units = 32
 #	'-Clink-arg=-Wl,--no-gc-sections',
 #]
 
-[profile.release-max-perf.package.tuwunel_macros]
-inherits = "release-max-perf.build-override"
+[profile.release-native.package.tuwunel_macros]
+inherits = "release-native.build-override"
 #rustflags = [
 #	'-Crelocation-model=pic',
 #	'-Ctarget-feature=-crt-static',

@@ -552,9 +552,9 @@ target "docker" {
     contexts = {
         input = (
             rust_toolchain == "stable"
-            || cargo_profile == "release-max-perf"
             || cargo_profile == "release"
-            || cargo_profile == "release-debuginfo"?
+            || cargo_profile == "release-debuginfo"
+            || cargo_profile == "release-native"?
                 elem("target:static", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]):
                 elem("target:install", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
         )
@@ -1127,7 +1127,7 @@ target "deps-base" {
         CARGO_PROFILE_RELEASE_DEBUGINFO_LTO = "off"
 
         CARGO_BUILD_RUSTFLAGS = (
-            cargo_profile == "release-max-perf"?
+            cargo_profile == "release-native"?
                 join(" ", [
                     join(" ", nightly_rustflags),
                     contains(split(",", cargo_feat_sets[feat_set]), "zstd_compression")?
