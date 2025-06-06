@@ -35,6 +35,9 @@ on:
         type: string
         default: '[]'
         description: Matrix inclusions
+      release_url:
+        type: string
+        description: For release assets
 
 jobs:
   book:
@@ -58,9 +61,14 @@ jobs:
       machines: ${{inputs.machines}}
       excludes: ${{inputs.excludes}}
       includes: ${{inputs.includes}}
+      release_url: ${{inputs.release_url}}
       artifact: >
         {
-          "book": {"dst": "book", "src": "/book", "pages": true},
+          "book": {
+            "dst": "book",
+            "src": "/book",
+            "pages": true
+          }
         }
 
   binary:
@@ -81,9 +89,15 @@ jobs:
       machines: ${{inputs.machines}}
       excludes: ${{inputs.excludes}}
       includes: ${{inputs.includes}}
+      release_url: ${{inputs.release_url}}
       artifact: >
         {
-          "static": {"dst": "tuwunel", "src": "/usr/bin/tuwunel" },
+          "static": {
+            "dst": "tuwunel.zst",
+            "src": "/usr/bin/tuwunel",
+            "mime": "application/zstd",
+            "zstd": 11
+          }
         }
 
   container:
@@ -104,10 +118,21 @@ jobs:
       machines: ${{inputs.machines}}
       excludes: ${{inputs.excludes}}
       includes: ${{inputs.includes}}
+      release_url: ${{inputs.release_url}}
       artifact: >
         {
-          "docker": {"dst": "tuwunel-docker.tar.gz", "img": true },
-          "oci": {"dst": "tuwunel-oci.tar.zst", "runner": true }
+          "docker": {
+            "dst": "tuwunel-docker.tar.gz",
+            "img": true,
+            "mime": "application/gzip",
+            "gzip": 7
+          },
+          "oci": {
+            "dst": "tuwunel-oci.tar.zst",
+            "runner": true,
+            "mime": "application/zstd",
+            "zstd": 11
+          }
         }
 
   pkgs:
@@ -131,10 +156,19 @@ jobs:
       machines: ${{inputs.machines}}
       excludes: ${{inputs.excludes}}
       includes: ${{inputs.includes}}
+      release_url: ${{inputs.release_url}}
       artifact: >
         {
-          "pkg-deb": {"dst": "tuwunel.deb", "src": "tuwunel_1.0.0-1_amd64.deb"},
-          "pkg-rpm": {"dst": "tuwunel.rpm", "src": "tuwunel-1.0.0-1.x86_64.rpm"}
+          "pkg-deb": {
+            "dst": "tuwunel.deb",
+            "src": "tuwunel_1.0.0-1_amd64.deb",
+            "mime": "application/vnd.debian.binary-package"
+          },
+          "pkg-rpm": {
+            "dst": "tuwunel.rpm",
+            "src": "tuwunel-1.0.0-1.x86_64.rpm",
+            "mime": "application/x-rpm"
+          }
         }
 
   check_pkgs:

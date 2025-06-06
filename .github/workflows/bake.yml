@@ -58,6 +58,9 @@ on:
         type: boolean
         default: false
         description: Fail-fast for the underlying matrix.
+      release_url:
+        type: string
+        description: Upload url for created release.
       artifact:
         type: string
         default: '{}'
@@ -177,6 +180,28 @@ jobs:
         mkdir -p "_artifact"
         mv "$src" "_artifact/$dst"
 
+    # Optionally compress extracted artifact
+    - name: Compress Artifact
+      if: >
+        !failure() && !cancelled()
+        && fromJSON(inputs.artifact)[matrix.bake_target].dst
+        && (fromJSON(inputs.artifact)[matrix.bake_target].gzip || fromJSON(inputs.artifact)[matrix.bake_target].zstd)
+
+      env:
+        dst: ${{ fromJSON(inputs.artifact)[matrix.bake_target].dst }}
+        gzlev: ${{ fromJSON(inputs.artifact)[matrix.bake_target].gzip }}
+        zstlev: ${{ fromJSON(inputs.artifact)[matrix.bake_target].zstd }}
+
+      run: |
+        if test -n "$gzlev"; then
+          mv "_artifact/$dst" "_artifact/foo"
+          gzip "-$gzlev" "_artifact/foo"
+          mv "_artifact/foo.gz" "_artifact/$dst"
+        elif test -n "$zstlev"; then
+          zstd "-$zstlev" "_artifact/$dst"
+          mv "_artifact/$dst.zst" "_artifact/$dst"
+        fi
+
     # Upload either artifact
     - name: Upload Artifact
       if: >
@@ -199,3 +224,21 @@ jobs:
       with:
         path: _artifact/${{fromJSON(inputs.artifact)[matrix.bake_target].dst}}
         name: github-pages
+
+    # Optionally upload artifact as release-artifact
+    - name: Upload Release Artifact
+      if: >
+        !failure() && !cancelled()
+        && fromJSON(inputs.artifact)[matrix.bake_target].dst
+        && fromJSON(inputs.artifact)[matrix.bake_target].mime
+        && contains(github.ref, 'refs/tags/v')
+        && inputs.release_url
+
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+      with:
+        upload_url: ${{inputs.release_url}}
+        asset_path: _artifact/${{fromJSON(inputs.artifact)[matrix.bake_target].dst}}
+        asset_name: ${{github.ref_name}}-${{matrix.cargo_profile}}-${{matrix.feat_set}}-${{fromJSON(inputs.artifact)[matrix.bake_target].dst}}
+        asset_content_type: ${{fromJSON(inputs.artifact)[matrix.bake_target].mime || 'application/octet-stream'}}

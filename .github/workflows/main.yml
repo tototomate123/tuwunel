@@ -38,6 +38,7 @@ jobs:
       sys_targets: ${{vars.SYS_TARGETS || env.default_sys_targets}}
       sys_versions: ${{vars.SYS_VERSIONS || env.default_sys_versions}}
       machines: ${{vars.MACHINES || env.default_machines}}
+      release_url: ${{steps.release.outputs.upload_url}}
 
     steps:
     - name: Initialize Builder
@@ -71,6 +72,22 @@ jobs:
           --buildkitd-config ./buildkitd.toml \
           --name "${GITHUB_ACTOR}" \
           --buildkitd-flags "--allow-insecure-entitlement network.host"
+
+    - if: >
+        !failure() && !cancelled()
+        && contains(github.ref, 'refs/tags/v')
+
+      id: release
+      name: Create Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+      with:
+        release_name: Release ${{github.ref_name}}
+        tag_name: ${{github.ref}}
+        body_path: NEWS.md
+        draft: ${{ contains(github.ref, '-draft') }}
+        prerelease: ${{ contains(github.ref, '-rc') }}
 
   ## commented due to https://github.com/orgs/community/discussions/18001
   #deps:
@@ -157,6 +174,7 @@ jobs:
     needs: [init, lint]
     uses: ./.github/workflows/package.yml
     with:
+      release_url: ${{needs.init.outputs.release_url}}
       cargo_profiles: ${{needs.init.outputs.cargo_profiles}}
       feat_sets: ${{needs.init.outputs.feat_sets}}
       rust_toolchains: ${{needs.init.outputs.rust_toolchains}}
@@ -189,6 +207,7 @@ jobs:
     uses: ./.github/workflows/publish.yml
     with:
       docker_repo: ${{vars.DOCKER_REPO}}
+      release_url: ${{needs.init.outputs.release_url}}
       cargo_profiles: ${{needs.init.outputs.cargo_profiles}}
       feat_sets: ${{needs.init.outputs.feat_sets}}
       rust_toolchains: ${{needs.init.outputs.rust_toolchains}}

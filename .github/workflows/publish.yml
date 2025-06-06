@@ -2,6 +2,9 @@ name: Publish
 
 on:
   workflow_call:
+    secrets:
+      ghcr_token:
+      dockerhub_token:
     inputs:
       cargo_profiles:
         type: string
@@ -38,16 +41,17 @@ on:
       docker_repo:
         type: string
         description: DockerHub Repository
-    secrets:
-      ghcr_token:
-      dockerhub_token:
+      release_url:
+        type: string
+        description: For release assets
 
 jobs:
   documents:
     if: >
       !failure() && !cancelled()
       && inputs.machines
-      && github.ref == 'refs/heads/main'
+      && (github.ref == 'refs/heads/main' || contains(github.ref, 'refs/tags/v'))
+      && !contains(github.ref, '-draft')
 
     name: Documents
     runs-on: self-hosted
@@ -66,6 +70,7 @@ jobs:
       && inputs.machines
       && inputs.docker_repo != ''
       && (github.ref == 'refs/heads/main' || contains(github.ref, 'refs/tags/v'))
+      && !contains(github.ref, '-draft')
 
     name: Containers
     runs-on: ${{matrix.machine}}
@@ -115,8 +120,8 @@ jobs:
           acct: ${{github.actor}}
           repo: ${{github.repository}}
           docker_repo: ${{inputs.docker_repo}}
+          docker_tag_preview: ${{ contains(github.ref, 'refs/tags/v') }}
           docker_tag_latest: ${{ contains(github.ref, 'refs/tags/v') && !contains(github.ref, '-rc') }}
-          docker_tag_preview: ${{ contains(github.ref, 'refs/tags/v') && contains(github.ref, '-rc') }}
 
         run: |
           docker/bake.sh "${{matrix.bake_target}}"
