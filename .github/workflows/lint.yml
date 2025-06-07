@@ -125,6 +125,28 @@ jobs:
       excludes: ${{inputs.excludes}}
       includes: ${{inputs.includes}}
 
+  check:
+    if: >
+      !failure() && !cancelled()
+      && contains(fromJSON(inputs.cargo_profiles), fromJSON('["test"]')[0])
+      && contains(fromJSON(inputs.feat_sets), fromJSON('["all"]')[0])
+      && contains(fromJSON(inputs.rust_toolchains), fromJSON('["nightly"]')[0])
+
+    name: Check
+    uses: ./.github/workflows/bake.yml
+    with:
+      bake_targets: '["check"]'
+      cargo_profiles: '["test"]'
+      feat_sets: '["all"]'
+      rust_toolchains: '["nightly"]'
+      sys_names: ${{inputs.sys_names}}
+      sys_versions: ${{inputs.sys_versions}}
+      rust_targets: ${{inputs.rust_targets}}
+      sys_targets: ${{inputs.sys_targets}}
+      machines: ${{inputs.machines}}
+      excludes: ${{inputs.excludes}}
+      includes: ${{inputs.includes}}
+
   clippy:
     if: >
       !failure() && !cancelled()
