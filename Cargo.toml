@@ -131,8 +131,9 @@ features = [
 	"usage",
 ]
 
-[workspace.dependencies.console-subscriber]
-version = "0.4"
+# Disabled until Axum updated. Remember to remove cfgs for tuwunel_disable.
+#[workspace.dependencies.console-subscriber]
+#version = "0.4"
 
 [workspace.dependencies.core_affinity]
 version = "0.8.1"

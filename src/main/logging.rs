@@ -117,7 +117,7 @@ pub(crate) fn init(
 	// compile-time and runtime conditions to elide it, each of those changing the
 	// subscriber's type.
 	let (console_enabled, console_disabled_reason) = tokio_console_enabled(config);
-	#[cfg(all(feature = "tokio_console", tokio_unstable))]
+	#[cfg(all(feature = "tokio_console", tokio_unstable, tuwunel_disable))]
 	if console_enabled {
 		let console_layer = console_subscriber::ConsoleLayer::builder()
 			.with_default_env()
@@ -139,7 +139,7 @@ pub(crate) fn init(
 }
 
 fn tokio_console_enabled(config: &Config) -> (bool, &'static str) {
-	if !cfg!(all(feature = "tokio_console", tokio_unstable)) {
+	if !cfg!(all(feature = "tokio_console", tokio_unstable, tuwunel_disable)) {
 		return (false, "");
 	}
 
