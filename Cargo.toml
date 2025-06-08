@@ -57,7 +57,7 @@ version = "2.3.1"
 version = "0.1.88"
 
 [workspace.dependencies.axum]
-version = "0.8.3"
+version = "0.8.4"
 default-features = false
 features = [
 	"form",
@@ -104,7 +104,7 @@ features = [
 version = "1.10.1"
 
 [workspace.dependencies.bytesize]
-version = "2.0"
+version = "2.0.1"
 
 [workspace.dependencies.cargo_toml]
 version = "0.22.1"
@@ -115,12 +115,12 @@ features = ["features"]
 version = "0.1"
 
 [workspace.dependencies.chrono]
-version = "0.4.38"
+version = "0.4.41"
 features = ["alloc", "std"]
 default-features = false
 
 [workspace.dependencies.clap]
-version = "4.5.35"
+version = "4.5.39"
 default-features = false
 features = [
 	"derive",
@@ -210,7 +210,7 @@ features = [
 ]
 
 [workspace.dependencies.image]
-version = "0.25.5"
+version = "0.25.6"
 default-features = false
 features = [
 	"jpeg",
@@ -235,14 +235,14 @@ features = ["sync", "tls-rustls"]
 version = "0.2.172"
 
 [workspace.dependencies.libloading]
-version = "0.8.6"
+version = "0.8.8"
 
 [workspace.dependencies.log]
 version = "0.4.27"
 default-features = false
 
 [workspace.dependencies.loole]
-version = "0.4.0"
+version = "0.4.1"
 
 [workspace.dependencies.lru-cache]
 version = "0.1.2"
@@ -417,7 +417,7 @@ version = "0.10.6"
 default-features = false
 
 [workspace.dependencies.sha2]
-version = "0.10.8"
+version = "0.10.9"
 default-features = false
 
 [workspace.dependencies.smallstr]
@@ -429,7 +429,7 @@ features = [
 ]
 
 [workspace.dependencies.smallvec]
-version = "1.14.0"
+version = "1.15.1"
 features = [
 	"const_generics",
 	"const_new",
@@ -482,7 +482,7 @@ features = [
 ]
 
 [workspace.dependencies.tokio]
-version = "1.44.2"
+version = "1.45.1"
 default-features = false
 features = [
 	"fs",
@@ -497,7 +497,7 @@ features = [
 ]
 
 [workspace.dependencies.tokio-metrics]
-version = "0.4.0"
+version = "0.4.2"
 
 [workspace.dependencies.toml]
 version = "0.8.23"
@@ -510,7 +510,7 @@ default-features = false
 features = ["util"]
 
 [workspace.dependencies.tower-http]
-version = "0.6.2"
+version = "0.6.6"
 default-features = false
 features = [
     "add-extension",
