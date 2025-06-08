@@ -834,7 +834,7 @@ target "docs" {
         elem("build", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
     ]
     contexts = {
-        input = (use_chef == "true"?
+        deps = (use_chef == "true"?
             elem("target:deps-build", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]):
             elem("target:ingredients", [rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
         )
@@ -857,7 +857,7 @@ target "build-bins" {
         elem("build", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
     ]
     contexts = {
-        input = (use_chef == "true"?
+        deps = (use_chef == "true"?
             elem("target:deps-build-bins", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]):
             elem("target:build", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
         )
@@ -879,7 +879,7 @@ target "build-tests" {
         elem("build", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
     ]
     contexts = {
-        input = (use_chef == "true"?
+        deps = (use_chef == "true"?
             elem("target:deps-build-tests", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]):
             elem("target:build", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
         )
@@ -901,7 +901,7 @@ target "build" {
         elem("cargo", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
     ]
     contexts = {
-        input = (use_chef == "true"?
+        deps = (use_chef == "true"?
             elem("target:deps-build", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]):
             elem("target:ingredients", [rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
         )
@@ -923,7 +923,7 @@ target "clippy" {
         elem("cargo", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
     ]
     contexts = {
-        input = (use_chef == "true"?
+        deps = (use_chef == "true"?
             elem("target:deps-clippy", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]):
             elem("target:ingredients", [rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
         )
@@ -945,7 +945,7 @@ target "check" {
         elem("cargo", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
     ]
     contexts = {
-        input = (use_chef == "true"?
+        deps = (use_chef == "true"?
             elem("target:deps-check", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]):
             elem("target:ingredients", [rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
         )
@@ -1029,14 +1029,20 @@ target "fmt" {
 
 target "cargo" {
     name = elem("cargo", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
-    target = "cargo"
     output = ["type=cacheonly,compression=zstd,mode=min,compression-level=${cache_compress_level}"]
     cache_to = ["type=local,compression=zstd,mode=max,compression-level=${cache_compress_level}"]
-    dockerfile = "${docker_dir}/Dockerfile.cargo"
     matrix = cargo_rust_feat_sys
     inherits = [
         elem("deps-base", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     ]
+	contexts = {
+        deps = elem("target:deps-base", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+	}
+    args = {
+        recipe_args = ""
+        cargo_args = ""
+        color_args = "--color=always"
+    }
 }
 
 #
@@ -1063,7 +1069,7 @@ target "deps-build-bins" {
         elem("deps-base", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     ]
     args = {
-        cook_args = "--bins"
+        cargo_cmd = "chef cook --bins"
     }
 }
 
@@ -1077,7 +1083,7 @@ target "deps-build-tests" {
         elem("deps-base", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     ]
     args = {
-        cook_args = (cargo_profile == "bench"? "--benches": "--tests")
+        cargo_cmd = (cargo_profile == "bench"? "chef cook --benches": "chef cook --tests")
     }
 }
 
@@ -1091,7 +1097,7 @@ target "deps-build" {
         elem("deps-base", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     ]
     args = {
-        cook_args = "--all-targets"
+        cargo_cmd = "chef cook --all-targets"
     }
 }
 
@@ -1105,7 +1111,7 @@ target "deps-clippy" {
         elem("deps-base", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     ]
     args = {
-        cook_args = "--all-targets --clippy"
+        cargo_cmd = "chef cook --all-targets --clippy"
     }
 }
 
@@ -1119,7 +1125,7 @@ target "deps-check" {
         elem("deps-base", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     ]
     args = {
-        cook_args = "--all-targets --check"
+        cargo_cmd = "chef cook --all-targets --check"
     }
 }
 
@@ -1132,22 +1138,26 @@ target "deps-base" {
     tags = [
         elem_tag("deps-base", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest")
     ]
-    target = "deps"
+    target = "cargo"
     output = ["type=cacheonly,compression=zstd,mode=min,compression-level=${cache_compress_level}"]
     cache_to = ["type=local,compression=zstd,mode=max,compression-level=${cache_compress_level}"]
-    dockerfile = "${docker_dir}/Dockerfile.cargo.deps"
+    dockerfile = "${docker_dir}/Dockerfile.cargo"
     matrix = cargo_rust_feat_sys
     inherits = [
+        elem("kitchen", [feat_set, sys_name, sys_version, sys_target]),
+        elem("rust", [rust_toolchain, rust_target, sys_name, sys_version, sys_target]),
         elem("recipe", [rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     ]
     contexts = {
-        input = elem("target:ingredients", [rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
-        recipe = elem("target:recipe", [rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+        input = elem("target:kitchen", [feat_set, sys_name, sys_version, sys_target])
+        deps = elem("target:preparing", [rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
         rocksdb = elem("target:rocksdb", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     }
     args = {
         cargo_profile = cargo_profile
-        cook_args = "--all-targets --no-build"
+        cargo_cmd = "chef cook --all-targets --no-build"
+        recipe_args = "--recipe-path=recipe.json"
+        color_args = ""
 
         # Base path
         CARGO_TARGET_DIR = "${cargo_tgt_dir_base}"
@@ -1322,6 +1332,7 @@ target "recipe" {
     ]
     contexts = {
         input = elem("target:preparing", [rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+        preparing = elem("target:preparing", [rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     }
 }
 
@@ -1337,6 +1348,7 @@ target "preparing" {
     ]
     contexts = {
         input = elem("target:ingredients", [rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+        ingredients = elem("target:ingredients", [rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     }
 }
 
@@ -1345,17 +1357,18 @@ target "ingredients" {
     tags = [
         elem_tag("ingredients", [rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
-    target =  "ingredients"
     cache_to = ["type=local,compression=zstd,mode=max"]
+    target =  "ingredients"
+    dockerfile = "${docker_dir}/Dockerfile.source"
     matrix = rust_feat_sys
     inherits = [
+        elem("source", [sys_name, sys_version, sys_target]),
         elem("kitchen", [feat_set, sys_name, sys_version, sys_target]),
         elem("rust", [rust_toolchain, rust_target, sys_name, sys_version, sys_target]),
-        elem("source", [sys_name, sys_version, sys_target]),
     ]
     contexts = {
-        rust = elem("target:rust", [rust_toolchain, rust_target, sys_name, sys_version, sys_target])
         input = elem("target:kitchen", [feat_set, sys_name, sys_version, sys_target])
+        rust = elem("target:rust", [rust_toolchain, rust_target, sys_name, sys_version, sys_target])
         source = elem("target:source", [sys_name, sys_version, sys_target])
     }
     args = {
