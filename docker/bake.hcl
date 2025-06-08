@@ -149,58 +149,64 @@ variable "git_checkout" {
     default = "HEAD"
 }
 
+#
+# Rustflags
+#
+
+rustflags = []
+
 nightly_rustflags = [
     "--cfg tokio_unstable",
     "--cfg tuwunel_bench",
     "--allow=unstable-features",
-    "-Zcrate-attr=feature(test)",
-    "-Zenforce-type-length-limit",
-    #"-Ztime-passes",
-    #"-Ztime-llvm-passes",
+    "-Z crate-attr=feature(test)",
+    "-Z enforce-type-length-limit",
+    #"-Z time-passes",
+    #"-Z time-llvm-passes",
 ]
 
 static_rustflags = [
-    "-Crelocation-model=static",
-    "-Ctarget-feature=+crt-static",
-    "-Clink-arg=--verbose",
-    "-Clink-arg=-Wl,--gc-sections",
-    "-Clink-arg=-L/usr/lib/gcc/x86_64-linux-gnu/14",     # FIXME
-    "-Clink-arg=-l:libstdc++.a",
-    "-Clink-arg=-l:libc.a",
-    "-Clink-arg=-l:libm.a",
+    "-C relocation-model=static",
+    "-C target-feature=+crt-static",
+    "-C link-arg=--verbose",
+    "-C link-arg=-Wl,--gc-sections",
+    "-C link-arg=-L/usr/lib/gcc/x86_64-linux-gnu/14",     # FIXME
+    "-C link-arg=-l:libstdc++.a",
+    "-C link-arg=-l:libc.a",
+    "-C link-arg=-l:libm.a",
 ]
 
 dynamic_rustflags = [
-    "-Crelocation-model=pic",
-    "-Ctarget-feature=-crt-static",
-    "-Clink-arg=--verbose",
-    "-Clink-arg=-Wl,--gc-sections",
-    "-Clink-arg=-Wl,--as-needed",
-    "-Clink-arg=-lstdc++",
-    "-Clink-arg=-lc",
-    "-Clink-arg=-lm",
+    "-C relocation-model=pic",
+    "-C target-feature=-crt-static",
+    "-C link-arg=--verbose",
+    "-C link-arg=-Wl,--gc-sections",
+    "-C link-arg=-Wl,--as-needed",
+    "-C link-arg=-lstdc++",
+    "-C link-arg=-lc",
+    "-C link-arg=-lm",
 ]
 
 static_nightly_rustflags = [
-    "-Ztls-model=local-exec",
+    "-Z tls-model=local-exec",
 ]
 
 rmp_rustflags = [
-    "-Ctarget-cpu=native",
-    "-Ztune-cpu=native",
-    "-Zinline-mir=true",
-    "-Zmir-opt-level=3",
+    "-C target-cpu=native",
+    "-Z tune-cpu=native",
+    "-Z inline-mir=true",
+    "-Z mir-opt-level=3",
 ]
 
 override_rustflags = [
-    "-Crelocation-model=pic",
-    "-Ctarget-feature=-crt-static",
-    "-Clink-arg=-Wl,--no-gc-sections",
+    "-C relocation-model=pic",
+    "-C target-feature=-crt-static",
+    "-C link-arg=-Wl,--no-gc-sections",
 ]
 
 macro_rustflags = [
-    "-Crelocation-model=pic",
-    "-Ctarget-feature=-crt-static",
+    "-C relocation-model=pic",
+    "-C target-feature=-crt-static",
 ]
 
 #
@@ -1167,11 +1173,12 @@ target "deps-base" {
         CARGO_BUILD_RUSTFLAGS = (
             cargo_profile == "release-native"?
                 join(" ", [
+                    join(" ", rustflags),
                     join(" ", nightly_rustflags),
                     contains(split(",", cargo_feat_sets[feat_set]), "zstd_compression")?
-                        "-Clink-arg=-l:libzstd.a": "",
+                        "-C link-arg=-l:libzstd.a": "",
                     contains(split(",", cargo_feat_sets[feat_set]), "io_uring")?
-                        "-Clink-arg=-l:liburing.a": "",
+                        "-C link-arg=-l:liburing.a": "",
                     join(" ", static_rustflags),
                     join(" ", static_nightly_rustflags),
                     join(" ", rmp_rustflags),
@@ -1179,44 +1186,50 @@ target "deps-base" {
 
             cargo_profile == "release" && rust_toolchain == "nightly"?
                 join(" ", [
+                    join(" ", rustflags),
                     join(" ", nightly_rustflags),
                     contains(split(",", cargo_feat_sets[feat_set]), "zstd_compression")?
-                        "-Clink-arg=-l:libzstd.a": "",
+                        "-C link-arg=-l:libzstd.a": "",
                     contains(split(",", cargo_feat_sets[feat_set]), "io_uring")?
-                        "-Clink-arg=-l:liburing.a": "",
+                        "-C link-arg=-l:liburing.a": "",
                     join(" ", static_rustflags),
                     join(" ", static_nightly_rustflags),
                 ]):
 
             cargo_profile == "release" || cargo_profile == "release-debuginfo"?
                 join(" ", [
+                    join(" ", rustflags),
                     contains(split(",", cargo_feat_sets[feat_set]), "zstd_compression")?
-                        "-Clink-arg=-l:libzstd.a": "",
+                        "-C link-arg=-l:libzstd.a": "",
                     contains(split(",", cargo_feat_sets[feat_set]), "io_uring")?
-                        "-Clink-arg=-l:liburing.a": "",
+                        "-C link-arg=-l:liburing.a": "",
                     join(" ", static_rustflags),
                 ]):
 
             rust_toolchain == "stable"?
                 join(" ", [
+                    join(" ", rustflags),
                     contains(split(",", cargo_feat_sets[feat_set]), "zstd_compression")?
-                        "-Clink-arg=-l:libzstd.a": "",
+                        "-C link-arg=-l:libzstd.a": "",
                     contains(split(",", cargo_feat_sets[feat_set]), "io_uring")?
-                        "-Clink-arg=-l:liburing.a": "",
+                        "-C link-arg=-l:liburing.a": "",
                     join(" ", static_rustflags),
                 ]):
 
             rust_toolchain == "nightly"?
                 join(" ", [
+                    join(" ", rustflags),
                     join(" ", nightly_rustflags),
                     contains(split(",", cargo_feat_sets[feat_set]), "zstd_compression")?
-                        "-Clink-arg=-lzstd": "",
+                        "-C link-arg=-lzstd": "",
                     contains(split(",", cargo_feat_sets[feat_set]), "io_uring")?
-                        "-Clink-arg=-luring": "",
+                        "-C link-arg=-luring": "",
                     join(" ", dynamic_rustflags),
                 ]):
 
-            join(" ", [])
+            join(" ", [
+                join(" ", rustflags),
+            ])
         )
     }
 }
