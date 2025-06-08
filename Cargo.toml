@@ -343,12 +343,12 @@ features = [
 ]
 
 [workspace.dependencies.rustls]
-version = "0.23.25"
+version = "0.23.27"
 default-features = false
 features = ["aws_lc_rs"]
 
 [workspace.dependencies.rustyline-async]
-version = "0.4.3"
+version = "0.4.6"
 default-features = false
 
 [workspace.dependencies.rust-rocksdb]
@@ -584,7 +584,7 @@ rev = "1e64095a8051a1adf0d1faa307f9f030889ec2aa"
 # https://github.com/girlbossceo/rustyline-async/commit/67d8c49aeac03a5ef4e818f663eaa94dd7bf339b
 [patch.crates-io.rustyline-async]
 git = "https://github.com/matrix-construct/rustyline-async"
-rev = "deaeb0694e2083f53d363b648da06e10fc13900c"
+rev = "ba743cae940659e95d7b8604bbd6fdd755171c8c"
 
 # adds LIFO queue scheduling; this should be updated with PR progress.
 [patch.crates-io.event-listener]
