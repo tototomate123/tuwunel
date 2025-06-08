@@ -1,6 +1,9 @@
 # syntax = docker/dockerfile:1.11-labs
 
 FROM input AS rocksdb-fetch
+ARG rocksdb_branch="tuwunel-changes"
+ARG rust_rocksdb_branch="conduwuit-changes"
+ARG librocksdb_submodule="librocksdb-sys/rocksdb"
 
 WORKDIR /
 COPY --link --from=input . .
@@ -10,12 +13,13 @@ COPY --link --from=recipe rocksdb.url .
 
 RUN <<EOF
     set -eux
-    submodule="librocksdb-sys/rocksdb"
-    url="$(cat rocksdb.url)"
+    rocksdb_url="$(cat rocksdb.url)"
     git clone \
         --depth 1 \
-        --recurse-submodules="${submodule}" \
-        "${url}" \
+        --single-branch \
+        --branch "${rust_rocksdb_branch}" \
+        "--recurse-submodules=${librocksdb_submodule}" \
+        "${rocksdb_url}" \
         /usr/src/rocksdb
 EOF
 

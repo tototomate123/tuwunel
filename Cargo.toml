@@ -354,7 +354,7 @@ default-features = false
 
 [workspace.dependencies.rust-rocksdb]
 git = "https://github.com/matrix-construct/rust-rocksdb"
-rev = "cca241c5ca48f7c7f5c1469294f11dc156dd987a"
+rev = "225a42519276e502205bdc845cebdb22d70ee245"
 default-features = false
 features = [
 	"multi-threaded-cf",
@@ -459,7 +459,7 @@ default-features = false
 
 [workspace.dependencies.tikv-jemallocator]
 git = "https://github.com/matrix-construct/jemallocator"
-rev = "82af58d6a13ddd5dcdc7d4e91eae3b63292995b8"
+rev = "03bed96afbbc898bef4d4f7d335c0519e3d1afad"
 default-features = false
 features = [
 	"background_threads_runtime_support",
@@ -468,13 +468,13 @@ features = [
 
 [workspace.dependencies.tikv-jemalloc-ctl]
 git = "https://github.com/matrix-construct/jemallocator"
-rev = "82af58d6a13ddd5dcdc7d4e91eae3b63292995b8"
+rev = "03bed96afbbc898bef4d4f7d335c0519e3d1afad"
 default-features = false
 features = ["use_std"]
 
 [workspace.dependencies.tikv-jemalloc-sys]
 git = "https://github.com/matrix-construct/jemallocator"
-rev = "82af58d6a13ddd5dcdc7d4e91eae3b63292995b8"
+rev = "03bed96afbbc898bef4d4f7d335c0519e3d1afad"
 default-features = false
 features = [
 	"background_threads_runtime_support",

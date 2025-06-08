@@ -91,6 +91,7 @@ RUN \
     package="rust-librocksdb-sys"
     cmd="cargo tree --manifest-path ${manifest} -f {r} -p ${package}"
     url="$(rustup run ${rust_toolchain} ${cmd} | head -n 1)"
+    url="https://github.com/matrix-construct/rust-rocksdb" #TODO fixme
     echo "$url" > rocksdb.url
 
     sha1sum recipe.json rocksdb.url
