@@ -77,9 +77,11 @@ pub(crate) fn init(
 			(None, None)
 		};
 
+		#[cfg(tuwunel_disable)]
 		let jaeger_filter = EnvFilter::try_new(&config.jaeger_filter)
 			.map_err(|e| err!(Config("jaeger_filter", "{e}.")))?;
 
+		#[cfg(tuwunel_disable)]
 		let jaeger_layer = config.allow_jaeger.then(|| {
 			opentelemetry::global::set_text_map_propagator(
 				opentelemetry_jaeger::Propagator::new(),
@@ -100,7 +102,10 @@ pub(crate) fn init(
 			Some(telemetry.with_filter(jaeger_reload_filter))
 		});
 
+		#[cfg(tuwunel_disable)]
 		let subscriber = subscriber.with(flame_layer).with(jaeger_layer);
+		let subscriber = subscriber.with(flame_layer);
+
 		(subscriber, flame_guard)
 	};
 

@@ -116,7 +116,7 @@ perf_measurements = [
 	"dep:tracing-flame",
 	"dep:tracing-opentelemetry",
 	"dep:opentelemetry_sdk",
-	"dep:opentelemetry-jaeger",
+	#"dep:opentelemetry-jaeger",
 	"tuwunel-core/perf_measurements",
 	"tuwunel-core/sentry_telemetry",
 ]
@@ -178,8 +178,8 @@ clap.workspace = true
 const-str.workspace = true
 ctor.workspace = true
 log.workspace = true
-opentelemetry-jaeger.optional = true
-opentelemetry-jaeger.workspace = true
+#opentelemetry-jaeger.optional = true
+#opentelemetry-jaeger.workspace = true
 opentelemetry.optional = true
 opentelemetry.workspace = true
 opentelemetry_sdk.optional = true
