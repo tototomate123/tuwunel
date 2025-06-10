@@ -39,10 +39,12 @@ name = "tuwunel"
 summary = """\
 High performance Matrix homeserver written in Rust"""
 require-sh = false
+post_install_script = "rpm/postinst"
 assets = [
 	{ source = "target/release/tuwunel", dest = "/usr/sbin/tuwunel", mode = "755" },
 	{ source = "README.md", dest = "/usr/share/doc/tuwunel/", mode = "644", doc = true },
 	{ source = "tuwunel-example.toml", dest = "/etc/tuwunel/tuwunel.toml", mode = "640", config = "noreplace" },
+	{ source = "rpm/tuwunel.service", dest = "/etc/systemd/system/", mode = "644" },
 ]
 
 [package.metadata.arch]

@@ -10,6 +10,7 @@
   - [Kubernetes](deploying/kubernetes.md)
   - [Arch Linux](deploying/arch-linux.md)
   - [Debian](deploying/debian.md)
+  - [Red Hat](deploying/redhat.md)
   - [FreeBSD](deploying/freebsd.md)
 - [TURN](turn.md)
 - [Appservices](appservices.md)
