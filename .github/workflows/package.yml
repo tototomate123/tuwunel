@@ -147,7 +147,7 @@ jobs:
     name: Distro Packages
     uses: ./.github/workflows/bake.yml
     with:
-      bake_targets: '["pkg-deb", "pkg-rpm"]'
+      bake_targets: '["deb", "rpm"]'
       cargo_profiles: '["release"]'
       feat_sets: '["all"]'
       rust_toolchains: '["stable"]'
@@ -161,12 +161,12 @@ jobs:
       release_url: ${{inputs.release_url}}
       artifact: >
         {
-          "pkg-deb": {
+          "deb": {
             "dst": "tuwunel.deb",
             "src": "tuwunel_1.0.0-1_amd64.deb",
             "mime": "application/vnd.debian.binary-package"
           },
-          "pkg-rpm": {
+          "rpm": {
             "dst": "tuwunel.rpm",
             "src": "tuwunel-1.0.0-1.x86_64.rpm",
             "mime": "application/x-rpm"
@@ -180,13 +180,12 @@ jobs:
       && contains(fromJSON(inputs.cargo_profiles), fromJSON('["release"]')[0])
       && contains(fromJSON(inputs.rust_toolchains), fromJSON('["stable"]')[0])
       && github.ref == 'refs/heads/main'
-      && false
 
     name: Check Packages
     needs: [pkgs]
     uses: ./.github/workflows/bake.yml
     with:
-      bake_targets: '["pkg-deb-install", "pkg-rpm-install"]'
+      bake_targets: '["deb-install", "rpm-install"]'
       cargo_profiles: '["release"]'
       feat_sets: '["all"]'
       rust_toolchains: '["stable"]'

@@ -1,6 +1,6 @@
 # syntax = docker/dockerfile:1.11-labs
 
-FROM input AS rpm
+FROM input AS build-rpm
 ARG sys_target
 ARG rust_toolchain
 ARG RUSTUP_HOME
@@ -50,20 +50,20 @@ RUN \
 EOF
 
 
-FROM scratch AS pkg-rpm
+FROM scratch AS rpm
 ARG pkg_dir
 
 COPY --link --from=input ${pkg_dir}/* .
 
 
-FROM input AS pkg-rpm-install
+FROM input AS rpm-install
 ARG pkg_dir
 
 WORKDIR /
 COPY --link --from=input . .
 
 WORKDIR ${pkg_dir}
-COPY --link --from=pkg-rpm . .
+COPY --link --from=rpm . .
 RUN <<EOF
 	set -eux
 	rpm -i --test *

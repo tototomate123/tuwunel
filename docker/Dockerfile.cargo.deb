@@ -1,6 +1,6 @@
 # syntax = docker/dockerfile:1.11-labs
 
-FROM input AS deb
+FROM input AS build-deb
 ARG sys_target
 ARG rust_target
 ARG rust_toolchain
@@ -60,20 +60,20 @@ RUN \
 EOF
 
 
-FROM scratch AS pkg-deb
+FROM scratch AS deb
 ARG pkg_dir
 
 COPY --from=input ${pkg_dir}/* .
 
 
-FROM input AS pkg-deb-install
+FROM input AS deb-install
 ARG pkg_dir
 
 WORKDIR /
 COPY --link --from=input . .
 
 WORKDIR ${pkg_dir}
-COPY --from=pkg-deb . .
+COPY --from=deb . .
 RUN <<EOF
 	set -eux
 	dpkg --info *
