@@ -45,6 +45,10 @@ assets = [
 	{ source = "tuwunel-example.toml", dest = "/etc/tuwunel/tuwunel.toml", mode = "640", config = "noreplace" },
 ]
 
+[package.metadata.arch]
+name = "tuwunel"
+pkgdesc = "High performance Matrix homeserver written in Rust"
+
 [features]
 default = [
 	"brotli_compression",

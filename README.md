@@ -35,9 +35,10 @@ development. It is now maintained by full-time staff.
 - [Sourcecode](https://github.com/matrix-construct/tuwunel/) `git clone https://github.com/matrix-construct/tuwunel.git`
 - [DockerHub](https://hub.docker.com/r/jevolk/tuwunel) or `docker pull jevolk/tuwunel:latest`
 - [GHCR](https://github.com/matrix-construct/tuwunel/pkgs/container/tuwunel) or `docker pull ghcr.io/matrix-construct/tuwunel:latest`
+- Static binaries available as [releases](https://github.com/matrix-construct/tuwunel/releases) or [build artifacts](https://github.com/matrix-construct/tuwunel/actions?query=branch%3Amain).
 - Deb and RPM packages available as [releases](https://github.com/matrix-construct/tuwunel/releases) or [build artifacts](https://github.com/matrix-construct/tuwunel/actions?query=branch%3Amain).
-- Static binaries also available as [releases](https://github.com/matrix-construct/tuwunel/releases) or [build artifacts](https://github.com/matrix-construct/tuwunel/actions?query=branch%3Amain).
-- Arch package is expected shortly. Nix package still needs some love.
+- Arch package available as [tuwunel](https://aur.archlinux.org/packages/tuwunel) or [tuwunel-git](https://aur.archlinux.org/packages/tuwunel-git).
+- Nix package still needs some love.
 
 **1.** [Configure](https://matrix-construct.github.io/tuwunel/configuration.html) by
 copying and editing the `tuwunel-example.toml`. The `server_name` and `database_path` must be

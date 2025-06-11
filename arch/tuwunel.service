@@ -59,7 +59,7 @@ StateDirectory=tuwunel
 RuntimeDirectory=tuwunel
 RuntimeDirectoryMode=0750
 
-Environment="CONDUWUIT_CONFIG=/etc/tuwunel/tuwunel.toml"
+Environment="TUWUNEL_CONFIG=/etc/tuwunel/tuwunel.toml"
 BindPaths=/var/lib/private/tuwunel:/var/lib/conduwuit
 BindPaths=/var/lib/private/tuwunel:/var/lib/private/conduwuit
 BindPaths=/var/lib/private/tuwunel:/var/lib/matrix-conduit
