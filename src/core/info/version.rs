@@ -9,6 +9,7 @@ use std::sync::OnceLock;
 
 static BRANDING: &str = "Tuwunel";
 static SEMANTIC: &str = env!("CARGO_PKG_VERSION");
+tuwunel_macros::git_describe!();
 
 static VERSION: OnceLock<String> = OnceLock::new();
 static USER_AGENT: OnceLock<String> = OnceLock::new();

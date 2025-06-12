@@ -1,3 +1,5 @@
+use std::process::Command;
+
 use proc_macro::TokenStream;
 use quote::quote;
 
@@ -23,6 +25,35 @@ pub(super) fn flags_capture(args: TokenStream) -> TokenStream {
 		fn _unset_rustc_flags() {
 			tuwunel_core::info::rustc::FLAGS.lock().expect("locked").remove(#crate_name);
 		}
+	};
+
+	ret.into()
+}
+
+pub(super) fn version(args: TokenStream) -> TokenStream {
+	let Some(_) = get_crate_name() else {
+		return args;
+	};
+
+	let rustc_path = std::env::args()
+		.next()
+		.expect("Path to rustc executable");
+
+	let version = Command::new(rustc_path)
+		.args(["-V"])
+		.output()
+		.map(|output| {
+			str::from_utf8(&output.stdout)
+				.map(str::trim)
+				.map(String::from)
+				.ok()
+		})
+		.ok()
+		.flatten()
+		.unwrap_or_default();
+
+	let ret = quote! {
+		static RUSTC_VERSION: &'static str = #version;
 	};
 
 	ret.into()

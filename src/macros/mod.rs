@@ -4,6 +4,7 @@ mod admin;
 mod cargo;
 mod config;
 mod debug;
+mod git;
 mod implement;
 mod refutable;
 mod rustc;
@@ -41,6 +42,9 @@ pub fn recursion_depth(args: TokenStream, input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn rustc_flags_capture(args: TokenStream) -> TokenStream { rustc::flags_capture(args) }
 
+#[proc_macro]
+pub fn rustc_version(args: TokenStream) -> TokenStream { rustc::version(args) }
+
 #[proc_macro_attribute]
 pub fn refutable(args: TokenStream, input: TokenStream) -> TokenStream {
 	attribute_macro::<ItemFn, _>(args, input, refutable::refutable)
@@ -55,6 +59,15 @@ pub fn implement(args: TokenStream, input: TokenStream) -> TokenStream {
 pub fn config_example_generator(args: TokenStream, input: TokenStream) -> TokenStream {
 	attribute_macro::<ItemStruct, _>(args, input, config::example_generator)
 }
+
+#[proc_macro]
+pub fn git_semantic(args: TokenStream) -> TokenStream { git::semantic(args) }
+
+#[proc_macro]
+pub fn git_commit(args: TokenStream) -> TokenStream { git::commit(args) }
+
+#[proc_macro]
+pub fn git_describe(args: TokenStream) -> TokenStream { git::describe(args) }
 
 fn attribute_macro<I, F>(args: TokenStream, input: TokenStream, func: F) -> TokenStream
 where
