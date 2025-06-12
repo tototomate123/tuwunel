@@ -62,7 +62,7 @@ so please be patient.
 		  all = true
 	EOF
 
-	BKD_FLAGS="--allow-insecure-entitlement netwok.host"
+	BKD_FLAGS="--allow-insecure-entitlement network.host"
 	docker buildx create \
 		--name owo \
 		--bootstrap \
