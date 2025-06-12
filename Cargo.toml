@@ -306,7 +306,7 @@ default-features = false
 
 [workspace.dependencies.ruma]
 git = "https://github.com/matrix-construct/ruma"
-rev = "a91c1b70fa3cc57fc87a6ce92d2c42a19124a666"
+rev = "3d082885f6532cc84ba65ebd2c3ff31b25a7022d"
 features = [
     "compat",
     "rand",

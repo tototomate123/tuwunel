@@ -10,6 +10,9 @@ use std::{
 
 use crate::utils::exchange;
 
+// Capture rustc version during compilation.
+tuwunel_macros::rustc_version! {}
+
 /// Raw capture of rustc flags used to build each crate in the project. Informed
 /// by rustc_flags_capture macro (one in each crate's mod.rs). This is
 /// done during static initialization which is why it's mutex-protected and pub.
@@ -22,6 +25,16 @@ static FEATURES: OnceLock<Vec<&'static str>> = OnceLock::new();
 
 /// List of features enabled for the project.
 pub fn features() -> &'static Vec<&'static str> { FEATURES.get_or_init(init_features) }
+
+/// Version of the rustc compiler used during build.
+#[inline]
+#[must_use]
+pub fn version() -> Option<&'static str> {
+	RUSTC_VERSION
+		.len()
+		.gt(&0)
+		.then_some(RUSTC_VERSION)
+}
 
 fn init_features() -> Vec<&'static str> {
 	let mut features = Vec::new();

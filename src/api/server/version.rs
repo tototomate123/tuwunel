@@ -13,6 +13,8 @@ pub(crate) async fn get_server_version_route(
 		server: Some(get_server_version::v1::Server {
 			name: Some(tuwunel_core::version::name().into()),
 			version: Some(tuwunel_core::version::version().into()),
+			compiler: tuwunel_core::info::rustc::version().map(Into::into),
+			..Default::default()
 		}),
 	})
 }
