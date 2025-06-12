@@ -17,8 +17,8 @@ pub type Buffer<const CAP: usize = DEF_STACK_CAP> = SmallVec<[Byte; CAP]>;
 pub type Slice = [Byte];
 pub type Byte = u8;
 
-pub const KEY_STACK_CAP: usize = 128;
-pub const VAL_STACK_CAP: usize = 512;
+pub const KEY_STACK_CAP: usize = 128 - 16;
+pub const VAL_STACK_CAP: usize = 512 - 16;
 pub const DEF_STACK_CAP: usize = KEY_STACK_CAP;
 
 #[inline]

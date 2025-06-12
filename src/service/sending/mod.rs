@@ -75,7 +75,7 @@ pub enum SendingEvent {
 pub type EduBuf = SmallVec<[u8; EDU_BUF_CAP]>;
 pub type EduVec = SmallVec<[EduBuf; EDU_VEC_CAP]>;
 
-const EDU_BUF_CAP: usize = 128;
+const EDU_BUF_CAP: usize = 128 - 16;
 const EDU_VEC_CAP: usize = 1;
 
 #[async_trait]
