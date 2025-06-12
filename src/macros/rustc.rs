@@ -1,11 +1,11 @@
 use proc_macro::TokenStream;
 use quote::quote;
 
+use crate::utils::get_crate_name;
+
 pub(super) fn flags_capture(args: TokenStream) -> TokenStream {
-	let cargo_crate_name = std::env::var("CARGO_CRATE_NAME");
-	let crate_name = match cargo_crate_name.as_ref() {
-		| Err(_) => return args,
-		| Ok(crate_name) => crate_name.trim_start_matches("tuwunel_"),
+	let Some(crate_name) = get_crate_name() else {
+		return args;
 	};
 
 	let flag = std::env::args().collect::<Vec<_>>();

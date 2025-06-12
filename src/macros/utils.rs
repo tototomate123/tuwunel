@@ -4,6 +4,18 @@ use syn::{Expr, ExprLit, Generics, Lit, Meta, MetaNameValue, parse_str};
 
 use crate::Result;
 
+pub(crate) fn get_crate_name() -> Option<String> {
+	let cargo_crate_name = std::env::var("CARGO_CRATE_NAME");
+	match cargo_crate_name.as_ref() {
+		| Err(_) => None,
+		| Ok(crate_name) => Some(
+			crate_name
+				.trim_start_matches("tuwunel_")
+				.to_owned(),
+		),
+	}
+}
+
 pub(crate) fn get_simple_settings(args: &[Meta]) -> HashMap<String, String> {
 	args.iter().fold(HashMap::new(), |mut map, arg| {
 		let Meta::NameValue(MetaNameValue { path, value, .. }) = arg else {
