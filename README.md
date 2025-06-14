@@ -146,10 +146,10 @@ the first release; we will have updates to this section. This is a fully moderat
 the wellbeing of our users and create a non-toxic work environment for staff. If you require assistance
 with anything that is not remedied by the documentation, don't hesitate to open an issue on github.
 
-If you are opposed to using github, or private discussion is required, or for any other reason,
-I would be happy to receive your DM at [@jason:tuwunel.me](https://matrix.to/#/@jason:tuwunel.me),
-you will not be bothering me and it would be my pleasure to help you anytime. As an emergency contact
-you can send an email to jasonzemos@gmail.com.
+If you are opposed to using github, or if private discussion is required such as for security
+disclosures, or for any other reason, I would be happy to receive your DM at
+[@jason:tuwunel.me](https://matrix.to/#/@jason:tuwunel.me). This will not be bothering me as it would
+be my pleasure to help you anytime. As an emergency contact you can send an email to jasonzemos@gmail.com.
 
 ##### Tuwunel Fanclub
 
