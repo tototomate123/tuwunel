@@ -38,21 +38,24 @@ cargo_feat_sets = {
     default = "brotli_compression,element_hacks,gzip_compression,io_uring,jemalloc,jemalloc_conf,media_thumbnail,release_max_log_level,systemd,url_preview,zstd_compression"
     all = "blurhashing,brotli_compression,tuwunel_mods,console,default,direct_tls,element_hacks,gzip_compression,hardened_malloc,io_uring,jemalloc,jemalloc_conf,jemalloc_prof,jemalloc_stats,ldap,media_thumbnail,perf_measurements,release_max_log_level,sentry_telemetry,systemd,tokio_console,url_preview,zstd_compression"
 }
-
 variable "cargo_features_always" {
     default = "direct_tls"
 }
-
 variable "feat_sets" {
     default = "[\"none\", \"default\", \"all\"]"
 }
+
 variable "cargo_profiles" {
     default = "[\"test\", \"release\"]"
 }
+
 variable "install_prefix" {
     default = "/usr"
 }
 
+variable "rust_msrv" {
+    default = "stable"
+}
 variable "rust_toolchains" {
     default = "[\"nightly\", \"stable\"]"
 }
@@ -1455,7 +1458,10 @@ target "rust" {
         input = elem("target:rustup", [rust_target, sys_name, sys_version, sys_target])
     }
     args = {
-        rust_toolchain = rust_toolchain
+        rust_toolchain = (rust_toolchain == "stable"?
+            rust_msrv: rust_toolchain
+        )
+
         rustup_components = join(" ", rustup_components)
         cargo_installs = join(" ", cargo_installs)
 
