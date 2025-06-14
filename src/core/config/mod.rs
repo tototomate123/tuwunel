@@ -1623,7 +1623,7 @@ pub struct Config {
 
 	/// Sentry.io crash/panic reporting, performance monitoring/metrics, etc.
 	/// This is NOT enabled by default. tuwunel's default Sentry reporting
-	/// endpoint domain is `o4506996327251968.ingest.us.sentry.io`.
+	/// endpoint domain is `o4509498990067712.ingest.us.sentry.io`.
 	#[serde(default)]
 	pub sentry: bool,
 
@@ -2312,7 +2312,13 @@ fn default_url_preview_max_spider_size() -> usize {
 
 fn default_new_user_displayname_suffix() -> String { "🎔".to_owned() }
 
-fn default_sentry_endpoint() -> Option<Url> { None }
+fn default_sentry_endpoint() -> Option<Url> {
+	let url = "https://8994b1762a6a95af9502a7900edabc4c@o4509498990067712.ingest.us.sentry.io/4509498993213440"
+		.try_into()
+		.expect("default sentry url is invalid");
+
+	Some(url)
+}
 
 fn default_sentry_traces_sample_rate() -> f32 { 0.15 }
 
