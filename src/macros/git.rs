@@ -1,4 +1,4 @@
-use std::process::Command;
+use std::{process::Command, str};
 
 use proc_macro::TokenStream;
 use quote::quote;
