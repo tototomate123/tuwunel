@@ -30,8 +30,8 @@ many targets to create many variations using the same Dockerfile.
 ### Getting started
 
 1. You will need to install docker buildx/buildkit and maybe a couple other related things.
-I would appreciate if you could contribute exact commands for your platform when you perform
-this step.
+
+	`apt-get install docker-buildx`
 
 2. You will need to create a builder. There are a few complications that must be explained here
 so please be patient.
