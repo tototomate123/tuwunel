@@ -5,6 +5,7 @@ ARG rust_target
 ARG CARGO_TARGET_DIR
 ARG cargo_target_profile
 ARG install_prefix
+ARG assert_linkage=""
 
 WORKDIR /
 COPY --link --from=input . .
@@ -14,6 +15,13 @@ ENV src_path="${CARGO_TARGET_DIR}/${rust_target}/${cargo_target_profile}/tuwunel
 ENV dst_path="${install_prefix}/bin/tuwunel"
 COPY --from=bins $src_path $dst_path
 RUN <<EOF
+    ret=$(ldd "${dst_path}")
+    if [ "$ret" = "0" ] && [ "$assert_linkage" = "static" ]; then
+        exit 1
+    elif [ "$ret" != "0" ] && [ "$assert_linkage" = "dynamic" ]; then
+        exit 1
+    fi
+
     set -eux
     ldd -v ${dst_path} || true
     du -h ${dst_path}
