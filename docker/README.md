@@ -14,7 +14,7 @@ variations while only paying the cost of rebuilding the last layer for each one.
 This directory is made up of three types of files:
 
 - Shell scripts are the user interface. Use this system through one of the shell scripts. The
-bake files can still be docker'ed directly but it's recomended to run the script.
+bake files can still be docker'ed directly but it's recommended to run the script.
 
 - The `.hcl` files specify the targets of the tree. This is all standard
 [docker bake](https://docs.docker.com/build/bake/reference/). All targets are ordered where each
@@ -84,7 +84,7 @@ cues from the primary user of this system, the [GitHub CI](https://github.com/ma
 5. Defeat the final boss by building and running complement to completion. This will involve
 building the targets for `complement-tester` and `complement-testee` using `bake.sh` and then
 invoking `complement.sh`. You can take cues again from another user of this in the
-[GitHub CI](https://github.com/matrix-construct/tuwunel/blob/main/.github/workflows/test.yml#L79).
+[GitHub CI](https://github.com/matrix-construct/tuwunel/blob/7e8c4c8883ca17de91c3323d329541342366ee0c/.github/workflows/test.yml#L140).
 
 ## Notes
 
