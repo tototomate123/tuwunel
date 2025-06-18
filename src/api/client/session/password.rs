@@ -65,6 +65,17 @@ pub(super) async fn password_login(
 	lowercased_user_id: &UserId,
 	password: &str,
 ) -> Result<OwnedUserId> {
+	// Restrict login to accounts only of type 'password', including untyped
+	// legacy accounts which are equivalent to 'password'.
+	if services
+		.users
+		.origin(user_id)
+		.await
+		.is_ok_and(|origin| origin != "password")
+	{
+		return Err!(Request(Forbidden("Account does not permit password login.")));
+	}
+
 	let (hash, user_id) = services
 		.users
 		.password_hash(user_id)
