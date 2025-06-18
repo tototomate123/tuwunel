@@ -7,11 +7,18 @@ use crate::{Result, err};
 #[inline]
 #[must_use]
 #[allow(clippy::as_conversions, clippy::cast_possible_truncation)]
-pub fn now_millis() -> u64 {
+pub fn now_millis() -> u64 { now().as_millis() as u64 }
+
+#[inline]
+#[must_use]
+pub fn now_secs() -> u64 { now().as_secs() }
+
+#[inline]
+#[must_use]
+pub fn now() -> Duration {
 	UNIX_EPOCH
 		.elapsed()
 		.expect("positive duration after epoch")
-		.as_millis() as u64
 }
 
 #[inline]
