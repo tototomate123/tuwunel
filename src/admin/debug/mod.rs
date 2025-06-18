@@ -234,6 +234,28 @@ pub(super) enum DebugCommand {
 		level: Option<i32>,
 	},
 
+	/// - Create a JWT token for login
+	CreateJwt {
+		/// Localpart of the user's MXID
+		user: String,
+
+		/// Set expiration time in seconds from now.
+		#[arg(long)]
+		exp_from_now: Option<u64>,
+
+		/// Set not-before time in seconds from now.
+		#[arg(long)]
+		nbf_from_now: Option<u64>,
+
+		/// Claim an issuer.
+		#[arg(long)]
+		issuer: Option<String>,
+
+		/// Claim an audience.
+		#[arg(long)]
+		audience: Option<String>,
+	},
+
 	/// - Developer test stubs
 	#[command(subcommand)]
 	#[allow(non_snake_case)]

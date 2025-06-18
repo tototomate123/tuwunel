@@ -1,4 +1,5 @@
 mod appservice;
+mod jwt;
 mod ldap;
 mod logout;
 mod password;
@@ -9,7 +10,10 @@ use axum_client_ip::InsecureClientIp;
 use ruma::api::client::session::{
 	get_login_types::{
 		self,
-		v3::{ApplicationServiceLoginType, LoginType, PasswordLoginType, TokenLoginType},
+		v3::{
+			ApplicationServiceLoginType, JwtLoginType, LoginType, PasswordLoginType,
+			TokenLoginType,
+		},
 	},
 	login::{
 		self,
@@ -39,6 +43,7 @@ pub(crate) async fn get_login_types_route(
 	Ok(get_login_types::v3::Response::new(vec![
 		LoginType::Password(PasswordLoginType::default()),
 		LoginType::ApplicationService(ApplicationServiceLoginType::default()),
+		LoginType::Jwt(JwtLoginType::default()),
 		LoginType::Token(TokenLoginType {
 			get_login_token: services.config.login_via_existing_session,
 		}),
@@ -69,6 +74,7 @@ pub(crate) async fn login_route(
 	let user_id = match &body.login_info {
 		| LoginInfo::Password(info) => password::handle_login(&services, &body, info).await?,
 		| LoginInfo::Token(info) => token::handle_login(&services, &body, info).await?,
+		| LoginInfo::Jwt(info) => jwt::handle_login(&services, &body, info).await?,
 		| LoginInfo::ApplicationService(info) =>
 			appservice::handle_login(&services, &body, info).await?,
 		| _ => {

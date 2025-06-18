@@ -2,6 +2,7 @@ use std::{
 	collections::HashMap,
 	fmt::Write,
 	iter::once,
+	str::FromStr,
 	time::{Instant, SystemTime},
 };
 
@@ -11,9 +12,10 @@ use ruma::{
 	OwnedRoomOrAliasId, OwnedServerName, RoomId, RoomVersionId,
 	api::federation::event::get_room_state, events::AnyStateEvent, serde::Raw,
 };
+use serde::Serialize;
 use tracing_subscriber::EnvFilter;
 use tuwunel_core::{
-	Err, Result, debug_error, err, info,
+	Err, Result, debug_error, err, info, jwt,
 	matrix::{
 		Event,
 		pdu::{PduEvent, PduId, RawPduId},
@@ -22,6 +24,7 @@ use tuwunel_core::{
 	utils::{
 		stream::{IterStream, ReadyExt},
 		string::EMPTY,
+		time::now_secs,
 	},
 	warn,
 };
@@ -974,4 +977,61 @@ pub(super) async fn trim_memory(&self) -> Result {
 	tuwunel_core::alloc::trim(None)?;
 
 	writeln!(self, "done").await
+}
+
+#[admin_command]
+pub(super) async fn create_jwt(
+	&self,
+	user: String,
+	exp_from_now: Option<u64>,
+	nbf_from_now: Option<u64>,
+	issuer: Option<String>,
+	audience: Option<String>,
+) -> Result {
+	use jwt::{Algorithm, EncodingKey, Header, encode};
+
+	#[derive(Serialize)]
+	struct Claim {
+		sub: String,
+		iss: String,
+		aud: String,
+		exp: usize,
+		nbf: usize,
+	}
+
+	let config = &self.services.config.jwt;
+	if config.format.as_str() != "HMAC" {
+		return Err!("This command only supports HMAC key format, not {}.", config.format);
+	}
+
+	let key = EncodingKey::from_secret(config.key.as_ref());
+	let alg = Algorithm::from_str(config.algorithm.as_str()).map_err(|e| {
+		err!(Config("jwt.algorithm", "JWT algorithm is not recognized or configured {e}"))
+	})?;
+
+	let header = Header { alg, ..Default::default() };
+	let claim = Claim {
+		sub: user,
+
+		iss: issuer.unwrap_or_default(),
+
+		aud: audience.unwrap_or_default(),
+
+		exp: exp_from_now
+			.and_then(|val| now_secs().checked_add(val))
+			.map(TryInto::try_into)
+			.and_then(Result::ok)
+			.unwrap_or(usize::MAX),
+
+		nbf: nbf_from_now
+			.and_then(|val| now_secs().checked_add(val))
+			.map(TryInto::try_into)
+			.and_then(Result::ok)
+			.unwrap_or(0),
+	};
+
+	encode(&header, &claim, &key)
+		.map_err(|e| err!("Failed to encode JWT: {e}"))
+		.map(async |token| self.write_str(&token).await)?
+		.await
 }

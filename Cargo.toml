@@ -225,6 +225,11 @@ version = "0.1.3"
 [workspace.dependencies.itertools]
 version = "0.14.0"
 
+[workspace.dependencies.jsonwebtoken]
+version = "9.3.1"
+default-features = false
+features = ["use_pem"]
+
 [workspace.dependencies.ldap3]
 git = "https://github.com/matrix-construct/ldap3"
 rev = "7d423314b9dbc66347284e38fc2b78c3d8f3d494"
@@ -306,7 +311,7 @@ default-features = false
 
 [workspace.dependencies.ruma]
 git = "https://github.com/matrix-construct/ruma"
-rev = "3d082885f6532cc84ba65ebd2c3ff31b25a7022d"
+rev = "0155c2b33233bec9dece79d5134a9574b347f4c1"
 features = [
     "compat",
     "rand",
