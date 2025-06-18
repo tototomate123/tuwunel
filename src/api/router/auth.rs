@@ -57,9 +57,13 @@ pub(super) async fn auth(
 	};
 
 	let token = if let Some(token) = token {
-		match services.appservice.find_from_token(token).await {
+		match services
+			.appservice
+			.find_from_access_token(token)
+			.await
+		{
 			| Some(reg_info) => Token::Appservice(Box::new(reg_info)),
-			| _ => match services.users.find_from_token(token).await {
+			| _ => match services.users.find_from_access_token(token).await {
 				| Ok((user_id, device_id)) => Token::User((user_id, device_id)),
 				| _ => Token::Invalid,
 			},

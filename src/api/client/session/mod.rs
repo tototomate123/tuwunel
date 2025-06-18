@@ -110,7 +110,7 @@ pub(crate) async fn login_route(
 	} else {
 		services
 			.users
-			.set_token(&user_id, &device_id, &access_token)
+			.set_access_token(&user_id, &device_id, &access_token)
 			.await?;
 	}
 

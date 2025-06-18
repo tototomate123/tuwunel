@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use futures::{Stream, StreamExt, TryFutureExt};
 use ruma::{
-	DeviceId, OwnedDeviceId, OwnedMxcUri, OwnedUserId, UserId,
+	OwnedMxcUri, OwnedUserId, UserId,
 	api::client::filter::FilterDefinition,
 	events::{GlobalAccountDataEventType, ignored_user_list::IgnoredUserListEvent},
 };
@@ -188,15 +188,6 @@ impl Service {
 	#[inline]
 	pub async fn count(&self) -> usize { self.db.userid_password.count().await }
 
-	/// Find out which user an access token belongs to.
-	pub async fn find_from_token(&self, token: &str) -> Result<(OwnedUserId, OwnedDeviceId)> {
-		self.db
-			.token_userdeviceid
-			.get(token)
-			.await
-			.deserialized()
-	}
-
 	/// Returns an iterator over all users on this homeserver (offered for
 	/// compatibility)
 	#[allow(
@@ -335,45 +326,6 @@ impl Service {
 		} else {
 			self.db.userid_blurhash.remove(user_id);
 		}
-	}
-
-	pub async fn get_token(&self, user_id: &UserId, device_id: &DeviceId) -> Result<String> {
-		let key = (user_id, device_id);
-		self.db
-			.userdeviceid_token
-			.qry(&key)
-			.await
-			.deserialized()
-	}
-
-	/// Replaces the access token of one device.
-	pub async fn set_token(&self, user_id: &UserId, device_id: &DeviceId, token: &str) -> Result {
-		let key = (user_id, device_id);
-		if self
-			.db
-			.userdeviceid_metadata
-			.qry(&key)
-			.await
-			.is_err()
-		{
-			return Err!(Database(error!(
-				?user_id,
-				?device_id,
-				"User does not exist or device has no metadata."
-			)));
-		}
-
-		// Remove old token
-		if let Ok(old_token) = self.db.userdeviceid_token.qry(&key).await {
-			self.db.token_userdeviceid.remove(&old_token);
-			// It will be removed from userdeviceid_token by the insert later
-		}
-
-		// Assign token to user device combination
-		self.db.userdeviceid_token.put_raw(key, token);
-		self.db.token_userdeviceid.raw_put(token, key);
-
-		Ok(())
 	}
 
 	/// Creates a new sync filter. Returns the filter id.

@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use futures::{Stream, StreamExt};
 use ruma::{
-	DeviceId, MilliSecondsSinceUnixEpoch, UserId, api::client::device::Device,
-	events::AnyToDeviceEvent, serde::Raw,
+	DeviceId, MilliSecondsSinceUnixEpoch, OwnedDeviceId, OwnedUserId, UserId,
+	api::client::device::Device, events::AnyToDeviceEvent, serde::Raw,
 };
 use serde_json::json;
 use tuwunel_core::{
@@ -38,7 +38,8 @@ pub async fn create_device(
 
 	increment(&self.db.userid_devicelistversion, user_id.as_bytes());
 	self.db.userdeviceid_metadata.put(key, Json(val));
-	self.set_token(user_id, device_id, token).await
+	self.set_access_token(user_id, device_id, token)
+		.await
 }
 
 /// Removes a device from a user.
@@ -86,6 +87,62 @@ pub fn all_device_ids<'a>(
 		.keys_prefix(&prefix)
 		.ignore_err()
 		.map(|(_, device_id): (Ignore, &DeviceId)| device_id)
+}
+
+/// Replaces the access token of one device.
+#[implement(super::Service)]
+pub async fn set_access_token(
+	&self,
+	user_id: &UserId,
+	device_id: &DeviceId,
+	token: &str,
+) -> Result {
+	let key = (user_id, device_id);
+	if self
+		.db
+		.userdeviceid_metadata
+		.qry(&key)
+		.await
+		.is_err()
+	{
+		return Err!(Database(error!(
+			?user_id,
+			?device_id,
+			"User does not exist or device has no metadata."
+		)));
+	}
+
+	// Remove old token
+	if let Ok(old_token) = self.db.userdeviceid_token.qry(&key).await {
+		self.db.token_userdeviceid.remove(&old_token);
+		// It will be removed from userdeviceid_token by the insert later
+	}
+
+	// Assign token to user device combination
+	self.db.userdeviceid_token.put_raw(key, token);
+	self.db.token_userdeviceid.raw_put(token, key);
+
+	Ok(())
+}
+
+/// Find out which user an access token belongs to.
+#[implement(super::Service)]
+pub async fn find_from_access_token(&self, token: &str) -> Result<(OwnedUserId, OwnedDeviceId)> {
+	self.db
+		.token_userdeviceid
+		.get(token)
+		.await
+		.deserialized()
+}
+
+#[implement(super::Service)]
+pub async fn get_access_token(&self, user_id: &UserId, device_id: &DeviceId) -> Result<String> {
+	let key = (user_id, device_id);
+	self.db
+		.userdeviceid_token
+		.qry(&key)
+		.await
+		.deserialized()
 }
 
 #[implement(super::Service)]

@@ -115,7 +115,7 @@ impl Service {
 			.map(|info| info.registration)
 	}
 
-	pub async fn find_from_token(&self, token: &str) -> Option<RegistrationInfo> {
+	pub async fn find_from_access_token(&self, token: &str) -> Option<RegistrationInfo> {
 		self.read()
 			.await
 			.values()
