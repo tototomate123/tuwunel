@@ -33,9 +33,16 @@ pub static malloc_conf: &[u8] = const_str::concat_bytes!(
 	0
 );
 
-#[cfg(all(feature = "jemalloc_conf", feature = "jemalloc_prof"))]
+#[cfg(all(
+	feature = "jemalloc_conf",
+	feature = "jemalloc_prof",
+	target_arch = "x86_64",
+))]
 const MALLOC_CONF_PROF: &str = ",prof_active:false";
-#[cfg(all(feature = "jemalloc_conf", not(feature = "jemalloc_prof")))]
+#[cfg(all(
+	feature = "jemalloc_conf",
+	any(not(feature = "jemalloc_prof"), not(target_arch = "x86_64")),
+))]
 const MALLOC_CONF_PROF: &str = "";
 
 #[global_allocator]
