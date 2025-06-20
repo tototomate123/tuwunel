@@ -281,7 +281,7 @@ target "ghcr_io" {
     tags = [
         "ghcr.io/${repo}:${git_ref_name}-${cargo_profile}-${feat_set}-${sys_target}",
     ]
-    output = ["type=registry,compression=gzip,mode=min,compression-level=${gz_image_compress_level}"]
+    output = ["type=registry,compression=zstd,mode=min,compression-level=${zstd_image_compress_level}"]
     matrix = cargo_rust_feat_sys
     inherits = [
         elem("docker", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
@@ -293,7 +293,7 @@ target "docker_io" {
     tags = [
         "docker.io/${docker_repo}:${git_ref_name}-${cargo_profile}-${feat_set}-${sys_target}",
     ]
-    output = ["type=registry,compression=gzip,mode=min,compression-level=${gz_image_compress_level}"]
+    output = ["type=registry,compression=zstd,mode=min,compression-level=${zstd_image_compress_level}"]
     matrix = cargo_rust_feat_sys
     inherits = [
         elem("docker", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
@@ -570,7 +570,7 @@ target "docker" {
     tags = [
         elem_tag("docker", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
-    output = ["type=docker,compression=gzip,mode=min,compression-level=${gz_image_compress_level}"]
+    output = ["type=docker,compression=zstd,mode=min,compression-level=${zstd_image_compress_level}"]
     matrix = cargo_rust_feat_sys
     inherits = [
         elem("static", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
@@ -587,7 +587,8 @@ target "docker" {
         )
     }
     dockerfile-inline =<<EOF
-        FROM input AS install
+        FROM scratch AS install
+        COPY --from=input . .
         EXPOSE 8008 8448
         ENTRYPOINT ["tuwunel"]
 EOF
@@ -650,7 +651,7 @@ target "install" {
     ]
     labels = install_labels
     annotations = install_annotations
-    output = ["type=docker,compression=uncompressed,mode=max"]
+    output = ["type=docker,compression=zstd,mode=max,compression-level=${zstd_image_compress_level}"]
     cache_to = ["type=local,compression=zstd,mode=max,compression-level=${cache_compress_level}"]
     dockerfile = "${docker_dir}/Dockerfile.install"
     target = "install"
