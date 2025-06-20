@@ -164,7 +164,7 @@ offer assistance so long as the room remains in minimally good standing.
 
 Tuwunel's theme is **empathy** in communication defined by the works of
 [Edith Stein](https://plato.stanford.edu/entries/stein/). Empathy is the basis for how we approach
-every message, and a reminder for how we should all conduct ourselves in every conversation.
+every message and our responsibility to the other in every conversation.
 
 <!-- ANCHOR_END: body -->
 
