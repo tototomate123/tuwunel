@@ -1,7 +1,11 @@
 mod namespace_regex;
 mod registration_info;
 
-use std::{collections::BTreeMap, iter::IntoIterator, sync::Arc};
+use std::{
+	collections::{BTreeMap, HashSet},
+	iter::IntoIterator,
+	sync::Arc,
+};
 
 use async_trait::async_trait;
 use futures::{Future, FutureExt, Stream, StreamExt, TryStreamExt};
@@ -47,6 +51,7 @@ impl crate::Service for Service {
 
 	async fn worker(self: Arc<Self>) -> Result {
 		self.init_registrations().await?;
+		self.check_registrations().await?;
 
 		Ok(())
 	}
@@ -86,6 +91,25 @@ impl Service {
 					.map_or(Ok(()), |_| Err!("Conflicting Appservice ID: {id:?}"))
 			})
 			.await
+	}
+
+	#[tracing::instrument(name = "check", skip(self))]
+	async fn check_registrations(&self) -> Result {
+		let regs = self.registration_info.read().await;
+
+		let num_as_tokens = regs
+			.values()
+			.map(|info| &info.registration.as_token)
+			.collect::<HashSet<_>>()
+			.len();
+
+		if num_as_tokens < regs.len() {
+			return Err!(
+				"Conflicting Appservice registrations: each must have a unique as_token."
+			);
+		}
+
+		Ok(())
 	}
 
 	/// Registers an appservice and returns the ID to the caller
