@@ -39,6 +39,10 @@ jobs:
       sys_versions: ${{vars.SYS_VERSIONS || env.default_sys_versions}}
       machines: ${{vars.MACHINES || env.default_machines}}
       release_url: ${{steps.release.outputs.upload_url}}
+      check_pkgs: ${{vars.CHECK_PKGS || 'false'}}
+      complement: ${{vars.COMPLEMENT || 'true'}}
+      complement_runner: 'het'
+      docker_repo: ${{vars.DOCKER_REPO}}
 
     strategy:
       fail-fast: true
@@ -149,7 +153,8 @@ jobs:
     needs: [init, lint]
     uses: ./.github/workflows/test.yml
     with:
-      complement: ${{fromJSON(vars.COMPLEMENT || 'true')}}
+      complement: ${{fromJSON(needs.init.outputs.complement)}}
+      complement_runner: ${{needs.init.outputs.complement_runner}}
       cargo_profiles: ${{needs.init.outputs.cargo_profiles}}
       feat_sets: ${{needs.init.outputs.feat_sets}}
       rust_toolchains: ${{needs.init.outputs.rust_toolchains}}
@@ -158,7 +163,6 @@ jobs:
       sys_targets: ${{needs.init.outputs.sys_targets}}
       sys_versions: ${{needs.init.outputs.sys_versions}}
       machines: ${{needs.init.outputs.machines}}
-      complement_runner: 'het'
       excludes: >
         [
           {"cargo_profile": "test", "rust_toolchain": "stable", "feat_set": "none"},
@@ -186,6 +190,7 @@ jobs:
     uses: ./.github/workflows/package.yml
     with:
       release_url: ${{needs.init.outputs.release_url}}
+      check_pkgs: ${{needs.init.outputs.check_pkgs}}
       cargo_profiles: ${{needs.init.outputs.cargo_profiles}}
       feat_sets: ${{needs.init.outputs.feat_sets}}
       rust_toolchains: ${{needs.init.outputs.rust_toolchains}}
@@ -224,7 +229,7 @@ jobs:
     needs: [init, test, package]
     uses: ./.github/workflows/publish.yml
     with:
-      docker_repo: ${{vars.DOCKER_REPO}}
+      docker_repo: ${{needs.init.outputs.docker_repo}}
       release_url: ${{needs.init.outputs.release_url}}
       cargo_profiles: ${{needs.init.outputs.cargo_profiles}}
       feat_sets: ${{needs.init.outputs.feat_sets}}

@@ -38,6 +38,9 @@ on:
       release_url:
         type: string
         description: For release assets
+      check_pkgs:
+        type: string
+        default: 'false'
 
 jobs:
   book:
@@ -179,7 +182,7 @@ jobs:
       && contains(fromJSON(inputs.feat_sets), fromJSON('["all"]')[0])
       && contains(fromJSON(inputs.cargo_profiles), fromJSON('["release"]')[0])
       && contains(fromJSON(inputs.rust_toolchains), fromJSON('["stable"]')[0])
-      && github.ref == 'refs/heads/main'
+      && fromJSON(inputs.check_pkgs)
 
     name: Check Packages
     needs: [pkgs]

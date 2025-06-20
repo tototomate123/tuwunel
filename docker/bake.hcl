@@ -16,11 +16,8 @@ variable "repo" {
 variable "docker_repo" {
     default = "${repo}"
 }
-variable "docker_tag_preview" {
-	default = false
-}
-variable "docker_tag_latest" {
-	default = false
+variable "docker_targets" {
+	default = "[\"local\"]"
 }
 
 variable "git_ref" {
@@ -279,28 +276,24 @@ group "publish" {
     ]
 }
 
-target "github" {
+target "ghcr_io" {
     name = elem("github", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     tags = [
         "ghcr.io/${repo}:${git_ref_name}-${cargo_profile}-${feat_set}-${sys_target}",
-        docker_tag_preview? "ghcr.io/${repo}:preview": "",
-        docker_tag_latest? "ghcr.io/${repo}:latest": "",
     ]
-    output = ["type=registry,compression=zstd,mode=min,compression-level=${zstd_image_compress_level}"]
+    output = ["type=registry,compression=gzip,mode=min,compression-level=${gz_image_compress_level}"]
     matrix = cargo_rust_feat_sys
     inherits = [
         elem("docker", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
     ]
 }
 
-target "dockerhub" {
+target "docker_io" {
     name = elem("dockerhub", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     tags = [
-        "${docker_repo}:${git_ref_name}-${cargo_profile}-${feat_set}-${sys_target}",
-        docker_tag_preview? "${docker_repo}:preview": "",
-        docker_tag_latest? "${docker_repo}:latest": "",
+        "docker.io/${docker_repo}:${git_ref_name}-${cargo_profile}-${feat_set}-${sys_target}",
     ]
-    output = ["type=registry,compression=zstd,mode=min,compression-level=${zstd_image_compress_level}"]
+    output = ["type=registry,compression=gzip,mode=min,compression-level=${gz_image_compress_level}"]
     matrix = cargo_rust_feat_sys
     inherits = [
         elem("docker", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
@@ -534,7 +527,7 @@ group "installs" {
 
 install_labels = {
     "org.opencontainers.image.authors" = "${package_authors}"
-    "org.opencontainers.image.created" ="${package_last_modified}"
+    "org.opencontainers.image.created" = "${package_last_modified}"
     "org.opencontainers.image.description" = "Matrix Chat Server in Rust"
     "org.opencontainers.image.documentation" = "https://github.com/matrix-construct/tuwunel/tree/main/docs/"
     "org.opencontainers.image.licenses" = "Apache-2.0"
@@ -545,6 +538,20 @@ install_labels = {
     "org.opencontainers.image.vendor" = "matrix-construct"
     "org.opencontainers.image.version" = "${package_version}"
 }
+
+install_annotations = [
+    "org.opencontainers.image.authors=${package_authors}",
+    "org.opencontainers.image.created=${package_last_modified}",
+    "org.opencontainers.image.description=Matrix Chat Server in Rust",
+    "org.opencontainers.image.documentation=https://github.com/matrix-construct/tuwunel/tree/main/docs/",
+    "org.opencontainers.image.licenses=Apache-2.0",
+    "org.opencontainers.image.revision=${package_revision}",
+    "org.opencontainers.image.source=https://github.com/matrix-construct/tuwunel",
+    "org.opencontainers.image.title=${package_name}",
+    "org.opencontainers.image.url=https://github.com/matrix-construct/tuwunel",
+    "org.opencontainers.image.vendor=matrix-construct",
+    "org.opencontainers.image.version=${package_version}",
+]
 
 target "oci" {
     name = elem("oci", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
@@ -580,8 +587,7 @@ target "docker" {
         )
     }
     dockerfile-inline =<<EOF
-        FROM scratch AS install
-        COPY --from=input . .
+        FROM input AS install
         EXPOSE 8008 8448
         ENTRYPOINT ["tuwunel"]
 EOF
@@ -643,7 +649,8 @@ target "install" {
         elem_tag("install", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
     labels = install_labels
-    output = ["type=docker,compression=zstd,mode=min,compression-level=${zstd_image_compress_level}"]
+    annotations = install_annotations
+    output = ["type=docker,compression=uncompressed,mode=max"]
     cache_to = ["type=local,compression=zstd,mode=max,compression-level=${cache_compress_level}"]
     dockerfile = "${docker_dir}/Dockerfile.install"
     target = "install"
@@ -1713,6 +1720,7 @@ target "system" {
     cache_to = ["type=local,compression=zstd,mode=max,compression-level=${cache_compress_level}"]
     cache_from = ["type=local"]
     dockerfile = "${docker_dir}/Dockerfile.system"
+    platforms = jsondecode(docker_targets)
     matrix = sys
     context = "."
     args = {
