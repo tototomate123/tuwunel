@@ -1778,3 +1778,56 @@
 # Bypass validation for diagnostic/debug use only.
 #
 #validate_signature = true
+
+[global.appservice.<ID>]
+
+# The URL for the application service.
+#
+# Optionally set to `null` if no traffic is required.
+#
+#url =
+
+# A unique token for application services to use to authenticate requests
+# to Homeservers.
+#
+#as_token =
+
+# A unique token for Homeservers to use to authenticate requests to
+# application services.
+#
+#hs_token =
+
+# The localpart of the user associated with the application service.
+#
+#sender_localpart =
+
+# Whether requests from masqueraded users are rate-limited.
+#
+# The sender is excluded.
+#
+#rate_limited = false
+
+# The external protocols which the application service provides (e.g.
+# IRC).
+#
+#protocols = []
+
+# Whether the application service wants to receive ephemeral data.
+#
+#receive_ephemeral = false
+
+# Whether the application service wants to do device management, as part
+# of MSC4190.
+#
+#device_management = false
+
+[[global.appservice.<ID>.<users|rooms|aliases>]]
+
+# Whether this application service has exclusive access to events within
+# this namespace.
+#
+#exclusive = false
+
+# A regular expression defining which values this namespace includes.
+#
+#regex =

@@ -25,7 +25,11 @@ use url::Url;
 
 use self::proxy::ProxyConfig;
 pub use self::{check::check, manager::Manager};
-use crate::{Result, err, error::Error, utils::sys};
+use crate::{
+	Result, err,
+	error::Error,
+	utils::{string::EMPTY, sys},
+};
 
 /// All the config options for tuwunel.
 #[allow(clippy::struct_excessive_bools)]
@@ -52,7 +56,8 @@ use crate::{Result, err, error::Error, utils::sys};
 ### For more information, see:
 ### https://tuwunel.chat/configuration.html
 "#,
-	ignore = "catchall well_known tls blurhashing allow_invalid_tls_certificates ldap jwt"
+	ignore = "catchall well_known tls blurhashing allow_invalid_tls_certificates ldap jwt \
+	          appservice"
 )]
 pub struct Config {
 	/// The server_name is the pretty name of this server. It is used as a
@@ -1818,6 +1823,10 @@ pub struct Config {
 	#[serde(default)]
 	pub jwt: JwtConfig,
 
+	// external structure; separate section
+	#[serde(default)]
+	pub appservice: BTreeMap<String, AppService>,
+
 	#[serde(flatten)]
 	#[allow(clippy::zero_sized_map_values)]
 	// this is a catchall, the map shouldn't be zero at runtime
@@ -2086,6 +2095,120 @@ pub struct JwtConfig {
 	/// default: true
 	#[serde(default = "true_fn")]
 	pub validate_signature: bool,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+#[config_example_generator(
+	filename = "tuwunel-example.toml",
+	section = "global.appservice.<ID>",
+	ignore = "id users aliases rooms"
+)]
+pub struct AppService {
+	#[serde(default)]
+	pub id: String,
+
+	/// The URL for the application service.
+	///
+	/// Optionally set to `null` if no traffic is required.
+	pub url: Option<String>,
+
+	/// A unique token for application services to use to authenticate requests
+	/// to Homeservers.
+	pub as_token: String,
+
+	/// A unique token for Homeservers to use to authenticate requests to
+	/// application services.
+	pub hs_token: String,
+
+	/// The localpart of the user associated with the application service.
+	pub sender_localpart: Option<String>,
+
+	/// Events which are sent from certain users.
+	#[serde(default)]
+	pub users: Vec<AppServiceNamespace>,
+
+	/// Events which are sent in rooms with certain room aliases.
+	#[serde(default)]
+	pub aliases: Vec<AppServiceNamespace>,
+
+	/// Events which are sent in rooms with certain room IDs.
+	#[serde(default)]
+	pub rooms: Vec<AppServiceNamespace>,
+
+	/// Whether requests from masqueraded users are rate-limited.
+	///
+	/// The sender is excluded.
+	#[serde(default)]
+	pub rate_limited: bool,
+
+	/// The external protocols which the application service provides (e.g.
+	/// IRC).
+	///
+	/// default: []
+	#[serde(default)]
+	pub protocols: Vec<String>,
+
+	/// Whether the application service wants to receive ephemeral data.
+	///
+	/// default: false
+	#[serde(default)]
+	pub receive_ephemeral: bool,
+
+	/// Whether the application service wants to do device management, as part
+	/// of MSC4190.
+	///
+	/// default: false
+	#[serde(default)]
+	pub device_management: bool,
+}
+
+impl From<AppService> for ruma::api::appservice::Registration {
+	fn from(conf: AppService) -> Self {
+		use ruma::api::appservice::Namespaces;
+
+		Self {
+			id: conf.id,
+			url: conf.url,
+			as_token: conf.as_token,
+			hs_token: conf.hs_token,
+			receive_ephemeral: conf.receive_ephemeral,
+			device_management: conf.device_management,
+			protocols: conf.protocols.into(),
+			rate_limited: conf.rate_limited.into(),
+			sender_localpart: conf
+				.sender_localpart
+				.unwrap_or_else(|| EMPTY.into()),
+			namespaces: Namespaces {
+				users: conf.users.into_iter().map(Into::into).collect(),
+				aliases: conf.aliases.into_iter().map(Into::into).collect(),
+				rooms: conf.rooms.into_iter().map(Into::into).collect(),
+			},
+		}
+	}
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+#[config_example_generator(
+	filename = "tuwunel-example.toml",
+	section = "[global.appservice.<ID>.<users|rooms|aliases>]"
+)]
+pub struct AppServiceNamespace {
+	/// Whether this application service has exclusive access to events within
+	/// this namespace.
+	#[serde(default)]
+	pub exclusive: bool,
+
+	/// A regular expression defining which values this namespace includes.
+	pub regex: String,
+}
+
+impl From<AppServiceNamespace> for ruma::api::appservice::Namespace {
+	fn from(conf: AppServiceNamespace) -> Self {
+		Self {
+			exclusive: conf.exclusive,
+			regex: conf.regex,
+		}
+	}
 }
 
 #[derive(Deserialize, Clone, Debug)]
