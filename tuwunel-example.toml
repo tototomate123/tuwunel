@@ -36,6 +36,23 @@
 #
 #server_name =
 
+# This is the only directory where tuwunel will save its data, including
+# media. Note: this was previously "/var/lib/matrix-conduit".
+#
+# YOU NEED TO EDIT THIS.
+#
+# example: "/var/lib/tuwunel"
+#
+#database_path =
+
+# Text which will be added to the end of the user's displayname upon
+# registration with a space before the text. In Conduit, this was the
+# lightning bolt emoji.
+#
+# To disable, set this to "" (an empty string).
+#
+#new_user_displayname_suffix = "💕"
+
 # The default address (IPv4 or IPv6) tuwunel will listen on.
 #
 # If you are using Docker or a container NAT networking setup, this must
@@ -75,15 +92,6 @@
 #
 #unix_socket_perms = 660
 
-# This is the only directory where tuwunel will save its data, including
-# media. Note: this was previously "/var/lib/matrix-conduit".
-#
-# YOU NEED TO EDIT THIS.
-#
-# example: "/var/lib/tuwunel"
-#
-#database_path =
-
 # tuwunel supports online database backups using RocksDB's Backup engine
 # API. To use this, set a database backup path that tuwunel can write
 # to.
@@ -99,14 +107,6 @@
 # "database_backup_path", before deleting the oldest one.
 #
 #database_backups_to_keep = 1
-
-# Text which will be added to the end of the user's displayname upon
-# registration with a space before the text. In Conduit, this was the
-# lightning bolt emoji.
-#
-# To disable, set this to "" (an empty string).
-#
-#new_user_displayname_suffix = "🎔"
 
 # Set this to any float value to multiply tuwunel's in-memory LRU caches
 # with such as "auth_chain_cache_capacity".

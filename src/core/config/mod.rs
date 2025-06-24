@@ -78,6 +78,24 @@ pub struct Config {
 	/// example: "girlboss.ceo"
 	pub server_name: OwnedServerName,
 
+	/// This is the only directory where tuwunel will save its data, including
+	/// media. Note: this was previously "/var/lib/matrix-conduit".
+	///
+	/// YOU NEED TO EDIT THIS.
+	///
+	/// example: "/var/lib/tuwunel"
+	pub database_path: PathBuf,
+
+	/// Text which will be added to the end of the user's displayname upon
+	/// registration with a space before the text. In Conduit, this was the
+	/// lightning bolt emoji.
+	///
+	/// To disable, set this to "" (an empty string).
+	///
+	/// default: "💕"
+	#[serde(default = "default_new_user_displayname_suffix")]
+	pub new_user_displayname_suffix: String,
+
 	#[allow(clippy::doc_link_with_quotes)]
 	/// The default address (IPv4 or IPv6) tuwunel will listen on.
 	///
@@ -127,14 +145,6 @@ pub struct Config {
 	#[serde(default = "default_unix_socket_perms")]
 	pub unix_socket_perms: u32,
 
-	/// This is the only directory where tuwunel will save its data, including
-	/// media. Note: this was previously "/var/lib/matrix-conduit".
-	///
-	/// YOU NEED TO EDIT THIS.
-	///
-	/// example: "/var/lib/tuwunel"
-	pub database_path: PathBuf,
-
 	/// tuwunel supports online database backups using RocksDB's Backup engine
 	/// API. To use this, set a database backup path that tuwunel can write
 	/// to.
@@ -151,16 +161,6 @@ pub struct Config {
 	/// default: 1
 	#[serde(default = "default_database_backups_to_keep")]
 	pub database_backups_to_keep: i16,
-
-	/// Text which will be added to the end of the user's displayname upon
-	/// registration with a space before the text. In Conduit, this was the
-	/// lightning bolt emoji.
-	///
-	/// To disable, set this to "" (an empty string).
-	///
-	/// default: "🎔"
-	#[serde(default = "default_new_user_displayname_suffix")]
-	pub new_user_displayname_suffix: String,
 
 	/// Set this to any float value to multiply tuwunel's in-memory LRU caches
 	/// with such as "auth_chain_cache_capacity".
@@ -2530,7 +2530,7 @@ fn default_url_preview_max_spider_size() -> usize {
 	256_000 // 256KB
 }
 
-fn default_new_user_displayname_suffix() -> String { "🎔".to_owned() }
+fn default_new_user_displayname_suffix() -> String { "💕".to_owned() }
 
 fn default_sentry_endpoint() -> Option<Url> {
 	let url = "https://8994b1762a6a95af9502a7900edabc4c@o4509498990067712.ingest.us.sentry.io/4509498993213440"
