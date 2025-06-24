@@ -24,6 +24,11 @@ brotli_compression = [
 	"tuwunel-service/brotli_compression",
 	"tower-http/compression-br",
 ]
+bzip2_compression = [
+	"tuwunel-admin/bzip2_compression",
+	"tuwunel-api/bzip2_compression",
+	"tuwunel-service/bzip2_compression",
+]
 direct_tls = [
 	"axum-server/tls-rustls",
 	"dep:rustls",
@@ -40,7 +45,6 @@ io_uring = [
 	"tuwunel-admin/io_uring",
 	"tuwunel-api/io_uring",
 	"tuwunel-service/io_uring",
-	"tuwunel-api/io_uring",
 ]
 jemalloc = [
 	"tuwunel-admin/jemalloc",
@@ -65,6 +69,11 @@ jemalloc_stats = [
 	"tuwunel-api/jemalloc_stats",
 	"tuwunel-core/jemalloc_stats",
 	"tuwunel-service/jemalloc_stats",
+]
+lz4_compression = [
+	"tuwunel-admin/lz4_compression",
+	"tuwunel-api/lz4_compression",
+	"tuwunel-service/lz4_compression",
 ]
 release_max_log_level = [
 	"tuwunel-admin/release_max_log_level",

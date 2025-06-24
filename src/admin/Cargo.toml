@@ -22,6 +22,11 @@ brotli_compression = [
 	"tuwunel-core/brotli_compression",
 	"tuwunel-service/brotli_compression",
 ]
+bzip2_compression = [
+	"tuwunel-api/bzip2_compression",
+	"tuwunel-database/bzip2_compression",
+	"tuwunel-service/bzip2_compression",
+]
 gzip_compression = [
 	"tuwunel-api/gzip_compression",
 	"tuwunel-core/gzip_compression",
@@ -55,6 +60,11 @@ jemalloc_stats = [
 	"tuwunel-core/jemalloc_stats",
 	"tuwunel-database/jemalloc_stats",
 	"tuwunel-service/jemalloc_stats",
+]
+lz4_compression = [
+	"tuwunel-api/lz4_compression",
+	"tuwunel-database/lz4_compression",
+	"tuwunel-service/lz4_compression",
 ]
 release_max_log_level = [
 	"tuwunel-api/release_max_log_level",

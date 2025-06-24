@@ -22,6 +22,9 @@ brotli_compression = [
 	"tuwunel-service/brotli_compression",
 	"reqwest/brotli",
 ]
+bzip2_compression = [
+	"tuwunel-service/bzip2_compression",
+]
 element_hacks = [
 	"tuwunel-service/element_hacks",
 ]
@@ -51,6 +54,9 @@ jemalloc_stats = [
 ]
 ldap = [
 	"tuwunel-service/ldap",
+]
+lz4_compression = [
+	"tuwunel-service/lz4_compression",
 ]
 release_max_log_level = [
 	"tuwunel-core/release_max_log_level",

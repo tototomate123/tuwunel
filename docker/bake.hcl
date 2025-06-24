@@ -33,7 +33,7 @@ variable "git_ref_name" {
 cargo_feat_sets = {
     none = ""
     default = "brotli_compression,element_hacks,gzip_compression,io_uring,jemalloc,jemalloc_conf,media_thumbnail,release_max_log_level,systemd,url_preview,zstd_compression"
-    all = "blurhashing,brotli_compression,tuwunel_mods,console,default,direct_tls,element_hacks,gzip_compression,hardened_malloc,io_uring,jemalloc,jemalloc_conf,jemalloc_prof,jemalloc_stats,ldap,media_thumbnail,perf_measurements,release_max_log_level,sentry_telemetry,systemd,tokio_console,url_preview,zstd_compression"
+    all = "blurhashing,brotli_compression,bzip2_compression,tuwunel_mods,console,default,direct_tls,element_hacks,gzip_compression,hardened_malloc,io_uring,jemalloc,jemalloc_conf,jemalloc_prof,jemalloc_stats,ldap,lz4_compression,media_thumbnail,perf_measurements,release_max_log_level,sentry_telemetry,systemd,tokio_console,url_preview,zstd_compression"
 }
 variable "cargo_features_always" {
     default = "direct_tls"
@@ -1204,6 +1204,10 @@ target "deps-base" {
                     join(" ", static_nightly_rustflags),
                     join(" ", native_rustflags),
                     "-C link-arg=-L/usr/lib/gcc/${sys_target}/14", #FIXME
+                    contains(split(",", cargo_feat_sets[feat_set]), "bzip2_compression")?
+                        "-C link-arg=-l:libbz2.a": "",
+                    contains(split(",", cargo_feat_sets[feat_set]), "lz4_compression")?
+                        "-C link-arg=-l:liblz4.a": "",
                     contains(split(",", cargo_feat_sets[feat_set]), "zstd_compression")?
                         "-C link-arg=-l:libzstd.a": "",
                     contains(split(",", cargo_feat_sets[feat_set]), "io_uring")?
@@ -1220,6 +1224,10 @@ target "deps-base" {
                     join(" ", static_rustflags),
                     join(" ", static_nightly_rustflags),
                     "-C link-arg=-L/usr/lib/gcc/${sys_target}/14", #FIXME
+                    contains(split(",", cargo_feat_sets[feat_set]), "bzip2_compression")?
+                        "-C link-arg=-l:libbz2.a": "",
+                    contains(split(",", cargo_feat_sets[feat_set]), "lz4_compression")?
+                        "-C link-arg=-l:liblz4.a": "",
                     contains(split(",", cargo_feat_sets[feat_set]), "zstd_compression")?
                         "-C link-arg=-l:libzstd.a": "",
                     contains(split(",", cargo_feat_sets[feat_set]), "io_uring")?
@@ -1234,6 +1242,10 @@ target "deps-base" {
                     join(" ", rustflags),
                     join(" ", static_rustflags),
                     "-C link-arg=-L/usr/lib/gcc/${sys_target}/14", #FIXME
+                    contains(split(",", cargo_feat_sets[feat_set]), "bzip2_compression")?
+                        "-C link-arg=-l:libbz2.a": "",
+                    contains(split(",", cargo_feat_sets[feat_set]), "lz4_compression")?
+                        "-C link-arg=-l:liblz4.a": "",
                     contains(split(",", cargo_feat_sets[feat_set]), "zstd_compression")?
                         "-C link-arg=-l:libzstd.a": "",
                     contains(split(",", cargo_feat_sets[feat_set]), "io_uring")?
@@ -1248,6 +1260,10 @@ target "deps-base" {
                     join(" ", rustflags),
                     join(" ", static_rustflags),
                     "-C link-arg=-L/usr/lib/gcc/${sys_target}/14", #FIXME
+                    contains(split(",", cargo_feat_sets[feat_set]), "bzip2_compression")?
+                        "-C link-arg=-l:libbz2.a": "",
+                    contains(split(",", cargo_feat_sets[feat_set]), "lz4_compression")?
+                        "-C link-arg=-l:liblz4.a": "",
                     contains(split(",", cargo_feat_sets[feat_set]), "zstd_compression")?
                         "-C link-arg=-l:libzstd.a": "",
                     contains(split(",", cargo_feat_sets[feat_set]), "io_uring")?
@@ -1262,6 +1278,10 @@ target "deps-base" {
                     join(" ", rustflags),
                     join(" ", nightly_rustflags),
                     join(" ", dynamic_rustflags),
+                    contains(split(",", cargo_feat_sets[feat_set]), "bzip2_compression")?
+                        "-C link-arg=-lbz2": "",
+                    contains(split(",", cargo_feat_sets[feat_set]), "lz4_compression")?
+                        "-C link-arg=-llz4": "",
                     contains(split(",", cargo_feat_sets[feat_set]), "zstd_compression")?
                         "-C link-arg=-lzstd": "",
                     contains(split(",", cargo_feat_sets[feat_set]), "io_uring")?
@@ -1311,6 +1331,8 @@ target "rocksdb-build" {
         input = elem("target:kitchen", [feat_set, sys_name, sys_version, sys_target])
     }
     args = {
+        rocksdb_bz2 = contains(split(",", cargo_feat_sets[feat_set]), "bzip2_compression")? 1: 0
+        rocksdb_lz4 = contains(split(",", cargo_feat_sets[feat_set]), "lz4_compression")? 1: 0
         rocksdb_zstd = contains(split(",", cargo_feat_sets[feat_set]), "zstd_compression")? 1: 0
         rocksdb_jemalloc = contains(split(",", cargo_feat_sets[feat_set]), "jemalloc")? 1: 0
         rocksdb_iouring = contains(split(",", cargo_feat_sets[feat_set]), "io_uring")? 1: 0
@@ -1544,6 +1566,7 @@ kitchen_packages = [
     "cmake",
     "curl",
     "git",
+    "gzip",
     "libc6-dev",
     "libssl-dev",
     "make",
@@ -1567,10 +1590,12 @@ target "kitchen" {
     }
     args = {
         packages = join(" ", [
-            contains(split(",", cargo_feat_sets[feat_set]), "io_uring")? "liburing-dev": "",
-            contains(split(",", cargo_feat_sets[feat_set]), "zstd_compression")? "libzstd-dev": "",
-            contains(split(",", cargo_feat_sets[feat_set]), "jemalloc")? "libjemalloc-dev": "",
+            contains(split(",", cargo_feat_sets[feat_set]), "bzip2_compression")? "libbz2-dev": "",
             contains(split(",", cargo_feat_sets[feat_set]), "hardened_malloc")? "g++": "",
+            contains(split(",", cargo_feat_sets[feat_set]), "io_uring")? "liburing-dev": "",
+            contains(split(",", cargo_feat_sets[feat_set]), "jemalloc")? "libjemalloc-dev": "",
+            contains(split(",", cargo_feat_sets[feat_set]), "lz4_compression")? "liblz4-dev": "",
+            contains(split(",", cargo_feat_sets[feat_set]), "zstd_compression")? "libzstd-dev": "",
         ])
     }
 }
@@ -1670,18 +1695,18 @@ target "runtime" {
     }
     args = {
         packages = join(" ", [
+            contains(split(",", cargo_feat_sets[feat_set]), "bzip2_compression")? "bzip2": "",
             contains(split(",", cargo_feat_sets[feat_set]), "io_uring")? "liburing2": "",
-            contains(split(",", cargo_feat_sets[feat_set]), "zstd_compression")? "libzstd1": "",
             contains(split(",", cargo_feat_sets[feat_set]), "jemalloc")? "libjemalloc2": "",
+            contains(split(",", cargo_feat_sets[feat_set]), "lz4_compression")? "liblz4-1": "",
+            contains(split(",", cargo_feat_sets[feat_set]), "zstd_compression")? "libzstd1": "",
         ])
     }
 }
 
 base_pkgs = [
     "adduser",
-    "bzip2",
     "ca-certificates",
-    "gzip",
 ]
 
 target "base" {

@@ -25,6 +25,9 @@ brotli_compression = [
 	"tuwunel-core/brotli_compression",
 	"reqwest/brotli",
 ]
+bzip2_compression = [
+    "tuwunel-database/bzip2_compression",
+]
 console = [
 	"dep:rustyline-async",
 	"dep:termimad",
@@ -55,6 +58,9 @@ jemalloc_stats = [
 ]
 ldap = [
 	"dep:ldap3",
+]
+lz4_compression = [
+	"tuwunel-database/lz4_compression",
 ]
 media_thumbnail = [
 	"dep:image",

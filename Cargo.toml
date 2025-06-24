@@ -362,11 +362,11 @@ git = "https://github.com/matrix-construct/rust-rocksdb"
 rev = "225a42519276e502205bdc845cebdb22d70ee245"
 default-features = false
 features = [
+	"bzip2",
+	"lz4",
 	"multi-threaded-cf",
 	"mt_static",
-	"lz4",
 	"zstd",
-	"bzip2",
 ]
 
 [workspace.dependencies.sanitize-filename]
