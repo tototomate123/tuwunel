@@ -68,6 +68,10 @@ pub fn check(config: &Config) -> Result {
 		return Err!(Config("port", "No ports were specified to listen on"));
 	}
 
+	if !config.listening {
+		warn!("Configuration item `listening` is set to `false`. Cannot hear anyone.");
+	}
+
 	if config.unix_socket_path.is_none() {
 		config.get_bind_addrs().iter().for_each(|addr| {
 			use std::path::Path;
