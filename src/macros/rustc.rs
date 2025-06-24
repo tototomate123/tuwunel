@@ -35,21 +35,20 @@ pub(super) fn version(args: TokenStream) -> TokenStream {
 		return args;
 	};
 
-	let rustc_path = std::env::args()
-		.next()
-		.expect("Path to rustc executable");
-
-	let version = Command::new(rustc_path)
-		.args(["-V"])
-		.output()
-		.map(|output| {
+	let rustc_path = std::env::args().next();
+	let version = rustc_path
+		.and_then(|rustc_path| {
+			Command::new(rustc_path)
+				.args(["-V"])
+				.output()
+				.ok()
+		})
+		.and_then(|output| {
 			str::from_utf8(&output.stdout)
 				.map(str::trim)
 				.map(String::from)
 				.ok()
 		})
-		.ok()
-		.flatten()
 		.unwrap_or_default();
 
 	let ret = quote! {
