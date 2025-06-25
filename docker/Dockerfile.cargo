@@ -1,7 +1,7 @@
 # syntax = docker/dockerfile:1.11-labs
 
 FROM input AS cargo
-ARG sys_target
+ARG sys_triple
 ARG rust_target
 ARG rust_toolchain
 ARG RUST_HOME
@@ -38,7 +38,7 @@ COPY --link --from=input . .
 COPY --link --from=rust ${RUST_HOME} ${RUST_HOME}
 COPY --link --from=deps /usr/src/tuwunel /usr/src/tuwunel
 
-WORKDIR /usr/lib/${sys_target}
+WORKDIR /usr/lib/${sys_triple}
 COPY --link --from=rocksdb . .
 
 WORKDIR /usr/src/tuwunel

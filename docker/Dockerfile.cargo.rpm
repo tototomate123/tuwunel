@@ -1,7 +1,6 @@
 # syntax = docker/dockerfile:1.11-labs
 
 FROM input AS build-rpm
-ARG sys_target
 ARG rust_toolchain
 ARG RUSTUP_HOME
 ARG CARGO_HOME

@@ -18,7 +18,6 @@ EOF
 
 
 FROM input AS ingredients
-ARG sys_target
 ARG rust_target
 ARG rust_toolchain
 ARG RUST_HOME

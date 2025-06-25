@@ -14,9 +14,8 @@ default_feat_sets='["all"]'
 default_rust_toolchains='["nightly"]'
 default_rust_targets='["x86_64-unknown-linux-gnu"]'
 default_sys_names='["debian"]'
-default_sys_targets='["x86_64-linux-gnu"]'
 default_sys_versions='["testing-slim"]'
-default_docker_targets='["local"]'
+default_sys_targets='["x86_64-v1-linux-gnu"]'
 
 if test ! -z "$cargo_profile"; then
     env_cargo_profiles="[\"${cargo_profile}\"]"
@@ -46,10 +45,6 @@ if test ! -z "$sys_version"; then
     env_sys_versions="[\"${sys_version}\"]"
 fi
 
-if test ! -z "$docker_target"; then
-    env_docker_targets="[\"${docker_target}\"]"
-fi
-
 set -a
 bake_target="${bake_target:-$@}"
 cargo_profiles="${env_cargo_profiles:-$default_cargo_profiles}"
@@ -59,7 +54,6 @@ rust_toolchains="${env_rust_toolchains:-$default_rust_toolchains}"
 sys_names="${env_sys_names:-$default_sys_names}"
 sys_targets="${env_sys_targets:-$default_sys_targets}"
 sys_versions="${env_sys_versions:-$default_sys_versions}"
-docker_targets="${env_docker_targets:-$default_docker_targets}"
 
 docker_dir="$PWD/$BASEDIR"
 builder_name="${GITHUB_ACTOR:-owo}"

@@ -49,7 +49,7 @@ jobs:
   documents:
     if: >
       !failure() && !cancelled()
-      && contains(fromJSON(inputs.machines), fromJSON('["X64"]')[0])
+      && contains(fromJSON(inputs.sys_targets), fromJSON('["X64"]')[0])
       && (github.ref == 'refs/heads/main' || contains(github.ref, 'refs/tags/v'))
       && !contains(github.ref, '-draft')
 
@@ -70,7 +70,6 @@ jobs:
       && inputs.machines
       && inputs.docker_repo != ''
       && (github.ref == 'refs/heads/main' || contains(github.ref, 'refs/tags/v'))
-      && !contains(github.ref, '-draft')
 
     name: Containers
     runs-on: ${{matrix.machine}}
@@ -135,8 +134,7 @@ jobs:
       && contains(fromJSON(inputs.cargo_profiles), fromJSON('["release"]')[0])
       && contains(fromJSON(inputs.feat_sets), fromJSON('["all"]')[0])
       && contains(fromJSON(inputs.rust_toolchains), fromJSON('["stable"]')[0])
-      && contains(github.ref, 'refs/tags/v')
-      && !contains(github.ref, '-draft')
+      && (github.ref == 'refs/heads/main' || contains(github.ref, 'refs/tags/v'))
 
     name: Bundles
     needs: [containers]
@@ -172,9 +170,36 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.dockerhub_token }}
 
+      - name: Release Branch
+        if: >
+          !failure() && !cancelled()
+          && github.ref == 'refs/heads/main'
+
+        env:
+          acct: ${{github.actor}}
+          ghcr_repo: ${{github.repository}}
+          docker_repo: ${{inputs.docker_repo}}
+          registry: ${{matrix.bake_target}}
+          cargo_profile: ${{matrix.cargo_profile}}
+          feat_set: ${{matrix.feat_set}}
+          sys_target: ${{matrix.sys_target}}
+          ref_name: ${{github.ref_name}}
+
+        run: |
+          registry="$(echo -n $registry | sed s/_/./)"
+          if test "$registry" = "ghcr.io"; then
+            repo="$ghcr_repo"
+          else
+            repo="$docker_repo"
+          fi
+
+          docker manifest create "${registry}/${repo}:${ref_name}" \
+            --amend "${registry}/${repo}:${ref_name}-${cargo_profile}-${feat_set}-${sys_target}"
+
       - name: Release Preview
         if: >
           !failure() && !cancelled()
+          && contains(github.ref, 'refs/tags/v')
           && !contains(github.ref, '-draft')
 
         env:
@@ -201,6 +226,7 @@ jobs:
       - name: Release Latest
         if: >
           !failure() && !cancelled()
+          && contains(github.ref, 'refs/tags/v')
           && !contains(github.ref, '-draft')
           && !contains(github.ref, '-rc')
 
@@ -230,7 +256,7 @@ jobs:
       !failure() && !cancelled()
       && inputs.machines
       && inputs.docker_repo != ''
-      && contains(github.ref, 'refs/tags/v')
+      && (github.ref == 'refs/heads/main' || contains(github.ref, 'refs/tags/v'))
 
     name: Delivery
     needs: [bundles, documents]
@@ -251,9 +277,24 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.dockerhub_token }}
 
+      - name: Push Branch
+        if: >
+          !failure() && !cancelled()
+          && github.ref == 'refs/heads/main'
+
+        env:
+          ref_name: ${{github.ref_name}}
+          ghcr_repo: ${{github.repository}}
+          docker_repo: ${{inputs.docker_repo}}
+
+        run: |
+          docker manifest push -p "ghcr.io/${ghcr_repo}:${ref_name}"
+          docker manifest push -p "docker.io/${docker_repo}:${ref_name}"
+
       - name: Push Preview
         if: >
           !failure() && !cancelled()
+          && contains(github.ref, 'refs/tags/v')
           && !contains(github.ref, '-draft')
 
         env:
@@ -267,6 +308,7 @@ jobs:
       - name: Push Latest
         if: >
           !failure() && !cancelled()
+          && contains(github.ref, 'refs/tags/v')
           && !contains(github.ref, '-draft')
           && !contains(github.ref, '-rc')
 

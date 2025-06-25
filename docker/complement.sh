@@ -12,7 +12,7 @@ default_feat_set="all"
 default_rust_toolchain="nightly"
 default_rust_target="x86_64-unknown-linux-gnu"
 default_sys_name="debian"
-default_sys_target="x86_64-linux-gnu"
+default_sys_target="x86_64-v1-linux-gnu"
 default_sys_version="testing-slim"
 
 set -a

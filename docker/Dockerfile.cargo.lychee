@@ -1,7 +1,6 @@
 # syntax = docker/dockerfile:1.11-labs
 
 FROM input AS lychee
-ARG sys_target
 ARG rust_toolchain="nightly"
 ARG RUSTUP_HOME
 ARG CARGO_HOME

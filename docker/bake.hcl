@@ -16,9 +16,6 @@ variable "repo" {
 variable "docker_repo" {
     default = "${repo}"
 }
-variable "docker_targets" {
-	default = "[\"local\"]"
-}
 
 variable "git_ref" {
     default = "${GITHUB_REF}"
@@ -60,19 +57,19 @@ variable "rust_targets" {
     default = "[\"x86_64-unknown-linux-gnu\"]"
 }
 
-variable "sys_targets" {
-    default = "[\"x86_64-linux-gnu\"]"
+variable "sys_names" {
+    default = "[\"debian\"]"
 }
 variable "sys_versions" {
     default = "[\"testing-slim\"]"
 }
-variable "sys_names" {
-    default = "[\"debian\"]"
+variable "sys_targets" {
+    default = "[\"x86_64-v1-linux-gnu\"]"
 }
 
 # RocksDB options
 variable "rocksdb_portable" {
-    default = 1
+    default = "1"
 }
 variable "rocksdb_opt_level" {
     default = "3"
@@ -1203,7 +1200,7 @@ target "deps-base" {
                     join(" ", static_rustflags),
                     join(" ", static_nightly_rustflags),
                     join(" ", native_rustflags),
-                    "-C link-arg=-L/usr/lib/gcc/${sys_target}/14", #FIXME
+                    "-C link-arg=-L/usr/lib/gcc/${sys_target_triple(sys_target)}/14", #FIXME
                     contains(split(",", cargo_feat_sets[feat_set]), "bzip2_compression")?
                         "-C link-arg=-l:libbz2.a": "",
                     contains(split(",", cargo_feat_sets[feat_set]), "lz4_compression")?
@@ -1213,7 +1210,7 @@ target "deps-base" {
                     contains(split(",", cargo_feat_sets[feat_set]), "io_uring")?
                         "-C link-arg=-l:liburing.a": "",
                     join(" ", static_libs),
-                    sys_target == "aarch64-linux-gnu"?
+                    sys_target_triple(sys_target) == "aarch64-linux-gnu"?
                         "-C link-arg=-l:libgcc.a": "",
                 ]):
 
@@ -1223,7 +1220,9 @@ target "deps-base" {
                     join(" ", nightly_rustflags),
                     join(" ", static_rustflags),
                     join(" ", static_nightly_rustflags),
-                    "-C link-arg=-L/usr/lib/gcc/${sys_target}/14", #FIXME
+                    sys_target_triple(sys_target) == "x86_64-linux-gnu"?
+                        "-C target-cpu=${sys_target_isa(sys_target)}": "",
+                    "-C link-arg=-L/usr/lib/gcc/${sys_target_triple(sys_target)}/14", #FIXME
                     contains(split(",", cargo_feat_sets[feat_set]), "bzip2_compression")?
                         "-C link-arg=-l:libbz2.a": "",
                     contains(split(",", cargo_feat_sets[feat_set]), "lz4_compression")?
@@ -1233,7 +1232,7 @@ target "deps-base" {
                     contains(split(",", cargo_feat_sets[feat_set]), "io_uring")?
                         "-C link-arg=-l:liburing.a": "",
                     join(" ", static_libs),
-                    sys_target == "aarch64-linux-gnu"?
+                    sys_target_triple(sys_target) == "aarch64-linux-gnu"?
                         "-C link-arg=-l:libgcc.a": "",
                 ]):
 
@@ -1241,7 +1240,9 @@ target "deps-base" {
                 join(" ", [
                     join(" ", rustflags),
                     join(" ", static_rustflags),
-                    "-C link-arg=-L/usr/lib/gcc/${sys_target}/14", #FIXME
+                    sys_target_triple(sys_target) == "x86_64-linux-gnu"?
+                        "-C target-cpu=${sys_target_isa(sys_target)}": "",
+                    "-C link-arg=-L/usr/lib/gcc/${sys_target_triple(sys_target)}/14", #FIXME
                     contains(split(",", cargo_feat_sets[feat_set]), "bzip2_compression")?
                         "-C link-arg=-l:libbz2.a": "",
                     contains(split(",", cargo_feat_sets[feat_set]), "lz4_compression")?
@@ -1251,7 +1252,7 @@ target "deps-base" {
                     contains(split(",", cargo_feat_sets[feat_set]), "io_uring")?
                         "-C link-arg=-l:liburing.a": "",
                     join(" ", static_libs),
-                    sys_target == "aarch64-linux-gnu"?
+                    sys_target_triple(sys_target) == "aarch64-linux-gnu"?
                         "-C link-arg=-l:libgcc.a": "",
                 ]):
 
@@ -1259,7 +1260,9 @@ target "deps-base" {
                 join(" ", [
                     join(" ", rustflags),
                     join(" ", static_rustflags),
-                    "-C link-arg=-L/usr/lib/gcc/${sys_target}/14", #FIXME
+                    sys_target_triple(sys_target) == "x86_64-linux-gnu"?
+                        "-C target-cpu=${sys_target_isa(sys_target)}": "",
+                    "-C link-arg=-L/usr/lib/gcc/${sys_target_triple(sys_target)}/14", #FIXME
                     contains(split(",", cargo_feat_sets[feat_set]), "bzip2_compression")?
                         "-C link-arg=-l:libbz2.a": "",
                     contains(split(",", cargo_feat_sets[feat_set]), "lz4_compression")?
@@ -1269,7 +1272,7 @@ target "deps-base" {
                     contains(split(",", cargo_feat_sets[feat_set]), "io_uring")?
                         "-C link-arg=-l:liburing.a": "",
                     join(" ", static_libs),
-                    sys_target == "aarch64-linux-gnu"?
+                    sys_target_triple(sys_target) == "aarch64-linux-gnu"?
                         "-C link-arg=-l:libgcc.a": "",
                 ]):
 
@@ -1278,6 +1281,8 @@ target "deps-base" {
                     join(" ", rustflags),
                     join(" ", nightly_rustflags),
                     join(" ", dynamic_rustflags),
+                    sys_target_triple(sys_target) == "x86_64-linux-gnu"?
+                        "-C target-cpu=${sys_target_isa(sys_target)}": "",
                     contains(split(",", cargo_feat_sets[feat_set]), "bzip2_compression")?
                         "-C link-arg=-lbz2": "",
                     contains(split(",", cargo_feat_sets[feat_set]), "lz4_compression")?
@@ -1336,10 +1341,27 @@ target "rocksdb-build" {
         rocksdb_zstd = contains(split(",", cargo_feat_sets[feat_set]), "zstd_compression")? 1: 0
         rocksdb_jemalloc = contains(split(",", cargo_feat_sets[feat_set]), "jemalloc")? 1: 0
         rocksdb_iouring = contains(split(",", cargo_feat_sets[feat_set]), "io_uring")? 1: 0
-        rocksdb_portable = cargo_profile == "release_max_perf"? 0: rocksdb_portable
-        rocksdb_build_type = rocksdb_build_type
-        rocksdb_opt_level = rocksdb_opt_level
         rocksdb_shared = 0
+        rocksdb_opt_level = rocksdb_opt_level
+        rocksdb_build_type = rocksdb_build_type
+        rocksdb_cxx_flags = (
+            cargo_profile == "release-native" && sys_target_triple(sys_target) == "aarch64-linux-gnu"?
+                "-ftls-model=local-exec -mno-outline-atomics":
+            cargo_profile == "release-native"?
+                "-ftls-model=local-exec":
+            sys_target_triple(sys_target) == "aarch64-linux-gnu"?
+                "-ftls-model=initial-exec -mno-outline-atomics":
+            sys_target_triple(sys_target) == "x86_64-linux-gnu" && sys_target != "x86_64-v1-linux-gnu"?
+                "-ftls-model=initial-exec -mpclmul":
+                "-ftls-model=initial-exec"
+        )
+        rocksdb_portable = (
+            cargo_profile == "release-native"?
+                "0":
+            sys_target_triple(sys_target) == "x86_64-linux-gnu"?
+                "${sys_target_isa(sys_target)}":
+                rocksdb_portable
+        )
     }
 }
 
@@ -1435,8 +1457,8 @@ target "ingredients" {
                 "--all-features": "--no-default-features"
         )
         RUST_BACKTRACE = "full"
-        ROCKSDB_LIB_DIR="/usr/lib/${sys_target}"
-        JEMALLOC_OVERRIDE="/usr/lib/${sys_target}/libjemalloc.a"
+        ROCKSDB_LIB_DIR="/usr/lib/${sys_target_triple(sys_target)}"
+        JEMALLOC_OVERRIDE="/usr/lib/${sys_target_triple(sys_target)}/libjemalloc.a"
         ZSTD_SYS_USE_PKG_CONFIG = (
             contains(split(",", cargo_feat_sets[feat_set]), "zstd_compression")? 1: 0
         )
@@ -1517,8 +1539,8 @@ target "rust" {
         cargo_installs = join(" ", cargo_installs)
 
         CARGO_TERM_VERBOSE = CARGO_TERM_VERBOSE
-        RUSTUP_HOME = "/opt/rust/rustup/${sys_name}/${sys_target}"
-        CARGO_HOME = "/opt/rust/cargo/${sys_name}/${sys_target}"
+        RUSTUP_HOME = "/opt/rust/rustup/${sys_name}/${sys_target_triple(sys_target)}"
+        CARGO_HOME = "/opt/rust/cargo/${sys_name}/${sys_target_triple(sys_target)}"
     }
 }
 
@@ -1725,8 +1747,8 @@ target "base" {
     }
     args = {
         DEBIAN_FRONTEND="noninteractive"
-        var_lib_apt = "/var/lib/apt/${sys_name}/${sys_version}/${sys_target}"
-        var_cache = "/var/cache/${sys_name}/${sys_version}/${sys_target}"
+        var_lib_apt = "/var/lib/apt/${sys_name}/${sys_version}/${sys_target_triple(sys_target)}"
+        var_cache = "/var/cache/${sys_name}/${sys_version}/${sys_target_triple(sys_target)}"
         packages = join(" ", base_pkgs)
     }
 }
@@ -1746,13 +1768,21 @@ target "system" {
     cache_to = ["type=local,compression=zstd,mode=max,compression-level=${cache_compress_level}"]
     cache_from = ["type=local"]
     dockerfile = "${docker_dir}/Dockerfile.system"
-    platforms = jsondecode(docker_targets)
-    matrix = sys
     context = "."
+    matrix = sys
+    platforms = (
+        sys_target_triple(sys_target) == "x86_64-linux-gnu"?
+            ["linux/amd64/${sys_target_ver(sys_target)}"]:
+        sys_target_triple(sys_target) == "aarch64-linux-gnu"?
+            ["linux/arm64"]:
+            ["local"]
+    )
     args = {
         sys_name = sys_name
         sys_version = sys_version
         sys_target = sys_target
+        sys_triple = sys_target_triple(sys_target)
+        sys_isa = sys_target_isa(sys_target)
     }
 }
 
@@ -1760,6 +1790,33 @@ target "system" {
 #
 # Utils
 #
+
+function "sys_target_isa" {
+    params = [sys_target]
+    result = (
+        sys_target_ver(sys_target) != "v1"?
+            join("-",
+            [
+                replace(split("-", sys_target)[0], "_", "-"),
+                sys_target_ver(sys_target)
+            ]):
+            replace(split("-", sys_target)[0], "_", "-")
+    )
+}
+
+function "sys_target_triple" {
+    params = [sys_target]
+    result = join("-", [
+        split("-", sys_target)[0],
+        split("-", sys_target)[2],
+        split("-", sys_target)[3],
+    ])
+}
+
+function "sys_target_ver" {
+    params = [sys_target]
+    result = split("-", sys_target)[1]
+}
 
 function "elem_tag" {
     params = [prefix, matrix, tag]
