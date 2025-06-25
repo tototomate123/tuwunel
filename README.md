@@ -47,7 +47,7 @@ configured. **Most users deploy via docker or a distribution package and should 
 This is just a summary for the impatient. See the full
 [documentation](https://matrix-construct.github.io/tuwunel/).
 
-> [!WARNING]
+> [!TIP]
 > Avoid using a sub-domain for your `server_name`. You can always delegate later with a [`.well-known`](https://github.com/spantaleev/matrix-docker-ansible-deploy/blob/master/docs/configuring-well-known.md)
 > file, but you can never change your `server_name`.
 
