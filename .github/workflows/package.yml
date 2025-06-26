@@ -38,6 +38,9 @@ on:
       release_url:
         type: string
         description: For release assets
+      build_pkgs:
+        type: string
+        default: 'true'
       check_pkgs:
         type: string
         default: 'false'
@@ -147,7 +150,7 @@ jobs:
       && contains(fromJSON(inputs.feat_sets), fromJSON('["all"]')[0])
       && contains(fromJSON(inputs.cargo_profiles), fromJSON('["release"]')[0])
       && contains(fromJSON(inputs.rust_toolchains), fromJSON('["stable"]')[0])
-      && (github.ref == 'refs/heads/main' || contains(github.ref, 'refs/tags/v'))
+      && fromJSON(inputs.build_pkgs)
 
     name: Distro Packages
     uses: ./.github/workflows/bake.yml

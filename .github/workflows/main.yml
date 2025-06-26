@@ -38,18 +38,21 @@ jobs:
       sys_targets: ${{vars.SYS_TARGETS || env.default_sys_targets}}
       sys_versions: ${{vars.SYS_VERSIONS || env.default_sys_versions}}
       machines: ${{vars.MACHINES || env.default_machines}}
-      release_url: ${{steps.release.outputs.upload_url}}
+      package: ${{vars.PACKAGE || !contains(github.ref, 'refs/pull/')}}
+      publish: ${{vars.PUBLISH || !contains(github.ref, 'refs/pull/')}}
+      build_pkgs: ${{vars.BUILD_PKGS || github.ref == 'refs/heads/main' || contains(github.ref, 'tags/v')}}
       check_pkgs: ${{vars.CHECK_PKGS || 'false'}}
       complement: ${{vars.COMPLEMENT || 'true'}}
       complement_runner: 'het'
       docker_repo: ${{vars.DOCKER_REPO}}
+      release_url: ${{steps.release.outputs.upload_url}}
 
     strategy:
       fail-fast: true
       matrix:
-        runner: ${{fromJSON(vars.RUNNERS)}}
-        machine: ${{fromJSON(vars.MACHINES)}}
-        exclude: ${{fromJSON(vars.RUNNERS_EXCLUDES)}}
+        runner: ${{fromJSON(vars.RUNNERS || '["het"]')}}
+        machine: ${{fromJSON(vars.MACHINES || '["X64"]')}}
+        exclude: ${{fromJSON(vars.RUNNERS_EXCLUDES || '[]')}}
 
     steps:
     - name: Initialize Builder
@@ -202,6 +205,7 @@ jobs:
   package:
     if: >
       !failure() && !cancelled()
+      && needs.init.outputs.package
 
     name: Package
     needs: [init, lint]
@@ -209,6 +213,7 @@ jobs:
     with:
       release_url: ${{needs.init.outputs.release_url}}
       check_pkgs: ${{needs.init.outputs.check_pkgs}}
+      build_pkgs: ${{needs.init.outputs.build_pkgs}}
       cargo_profiles: ${{needs.init.outputs.cargo_profiles}}
       feat_sets: ${{needs.init.outputs.feat_sets}}
       rust_toolchains: ${{needs.init.outputs.rust_toolchains}}
@@ -249,6 +254,7 @@ jobs:
   publish:
     if: >
       !failure() && !cancelled()
+      && needs.init.outputs.publish
 
     name: Publish
     needs: [init, test, package]
