@@ -1,6 +1,7 @@
 #![cfg(feature = "ldap")]
 
-use itertools::Itertools;
+use std::collections::HashMap;
+
 use ldap3::{LdapConnAsync, Scope, SearchEntry};
 use ruma::UserId;
 use tuwunel_core::{Result, debug, err, error, implement, result::LogErr, trace};
@@ -56,7 +57,7 @@ pub async fn search_ldap(&self, user_id: &UserId) -> Result<Vec<(String, bool)>>
 		.inspect(|(entries, result)| trace!(?entries, ?result, "LDAP Search"))
 		.map_err(|e| err!(Ldap(error!(?attr, ?user_filter, "LDAP search error: {e}"))))?;
 
-	let mut dns = entries
+	let mut dns: HashMap<String, bool> = entries
 		.into_iter()
 		.filter_map(|entry| {
 			let search_entry = SearchEntry::construct(entry);
@@ -69,7 +70,7 @@ pub async fn search_ldap(&self, user_id: &UserId) -> Result<Vec<(String, bool)>>
 				.any(|ids| ids.contains(&localpart) || ids.contains(&lowercased_localpart))
 				.then_some((search_entry.dn, false))
 		})
-		.collect_vec();
+		.collect();
 
 	if !config.admin_filter.is_empty() {
 		let admin_base_dn = if config.admin_base_dn.is_empty() {
@@ -91,22 +92,17 @@ pub async fn search_ldap(&self, user_id: &UserId) -> Result<Vec<(String, bool)>>
 				err!(Ldap(error!(?attr, ?admin_filter, "Ldap admin search error: {e}")))
 			})?;
 
-		let mut admin_dns = admin_entries
-			.into_iter()
-			.filter_map(|entry| {
-				let search_entry = SearchEntry::construct(entry);
-				debug!(?search_entry, "LDAP search entry");
-				search_entry
-					.attrs
-					.get(&config.uid_attribute)
-					.into_iter()
-					.chain(search_entry.attrs.get(&config.name_attribute))
-					.any(|ids| ids.contains(&localpart) || ids.contains(&lowercased_localpart))
-					.then_some((search_entry.dn, true))
-			})
-			.collect_vec();
-
-		dns.append(&mut admin_dns);
+		dns.extend(admin_entries.into_iter().filter_map(|entry| {
+			let search_entry = SearchEntry::construct(entry);
+			debug!(?search_entry, "LDAP search entry");
+			search_entry
+				.attrs
+				.get(&config.uid_attribute)
+				.into_iter()
+				.chain(search_entry.attrs.get(&config.name_attribute))
+				.any(|ids| ids.contains(&localpart) || ids.contains(&lowercased_localpart))
+				.then_some((search_entry.dn, true))
+		}));
 	}
 
 	ldap.unbind()
@@ -115,7 +111,7 @@ pub async fn search_ldap(&self, user_id: &UserId) -> Result<Vec<(String, bool)>>
 
 	driver.await.log_err().ok();
 
-	Ok(dns)
+	Ok(dns.drain().collect())
 }
 
 #[implement(super::Service)]
