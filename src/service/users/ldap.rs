@@ -71,7 +71,7 @@ pub async fn search_ldap(&self, user_id: &UserId) -> Result<Vec<(String, bool)>>
 		})
 		.collect_vec();
 
-	if !config.admin_base_dn.is_empty() {
+	if !config.admin_filter.is_empty() {
 		let admin_base_dn = if config.admin_base_dn.is_empty() {
 			&config.base_dn
 		} else {
