@@ -88,7 +88,7 @@ pub async fn search_ldap(&self, user_id: &UserId) -> Result<Vec<(String, bool)>>
 			.and_then(ldap3::SearchResult::success)
 			.inspect(|(entries, result)| trace!(?entries, ?result, "LDAP Admin Search"))
 			.map_err(|e| {
-				err!(Ldap(error!(?attr, ?user_filter, "Ldap admin search error: {e}")))
+				err!(Ldap(error!(?attr, ?admin_filter, "Ldap admin search error: {e}")))
 			})?;
 
 		let mut admin_dns = admin_entries
