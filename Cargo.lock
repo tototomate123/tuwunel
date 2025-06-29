@@ -4903,7 +4903,6 @@ dependencies = [
  "ipaddress",
  "itertools 0.14.0",
  "jsonwebtoken",
- "ldap3",
  "libc",
  "libloading",
  "log",

@@ -79,7 +79,6 @@ http.workspace = true
 ipaddress.workspace = true
 itertools.workspace = true
 jsonwebtoken.workspace = true
-ldap3.workspace = true
 libc.workspace = true
 libloading.workspace = true
 libloading.optional = true
