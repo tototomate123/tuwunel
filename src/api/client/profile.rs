@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use axum::extract::State;
 use futures::{
-	StreamExt, TryStreamExt,
+	FutureExt, StreamExt, TryStreamExt,
 	future::{join, join3, join4},
 };
 use ruma::{
@@ -368,7 +368,9 @@ pub async fn update_displayname(
 		.collect()
 		.await;
 
-	update_all_rooms(services, all_joined_rooms, user_id).await;
+	update_all_rooms(services, all_joined_rooms, user_id)
+		.boxed()
+		.await;
 }
 
 pub async fn update_avatar_url(
@@ -421,10 +423,12 @@ pub async fn update_avatar_url(
 		.collect()
 		.await;
 
-	update_all_rooms(services, all_joined_rooms, user_id).await;
+	update_all_rooms(services, all_joined_rooms, user_id)
+		.boxed()
+		.await;
 }
 
-pub async fn update_all_rooms(
+async fn update_all_rooms(
 	services: &Services,
 	all_joined_rooms: Vec<(PduBuilder, &OwnedRoomId)>,
 	user_id: &UserId,

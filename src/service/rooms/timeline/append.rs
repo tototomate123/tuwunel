@@ -7,12 +7,11 @@ use futures::StreamExt;
 use ruma::{
 	CanonicalJsonObject, CanonicalJsonValue, EventId, OwnedUserId, RoomId, RoomVersionId, UserId,
 	events::{
-		GlobalAccountDataEventType, StateEventType, TimelineEventType,
+		GlobalAccountDataEventType, TimelineEventType,
 		push_rules::PushRulesEvent,
 		room::{
 			encrypted::Relation,
 			member::{MembershipState, RoomMemberEventContent},
-			power_levels::RoomPowerLevelsEventContent,
 			redaction::RoomRedactionEventContent,
 		},
 	},
@@ -186,14 +185,6 @@ where
 
 	drop(insert_lock);
 
-	// See if the event matches any known pushers via power level
-	let power_levels: RoomPowerLevelsEventContent = self
-		.services
-		.state_accessor
-		.room_state_get_content(pdu.room_id(), &StateEventType::RoomPowerLevels, "")
-		.await
-		.unwrap_or_default();
-
 	// Don't notify the sender of their own events, and dont send from ignored users
 	let mut push_target: HashSet<_> = self
 		.services
@@ -244,6 +235,12 @@ where
 
 		let mut highlight = false;
 		let mut notify = false;
+
+		let power_levels = self
+			.services
+			.state_accessor
+			.get_power_levels(pdu.room_id())
+			.await?;
 
 		for action in self
 			.services

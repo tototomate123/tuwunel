@@ -118,6 +118,8 @@ pub enum Error {
 	Mxc(#[from] ruma::MxcUriError),
 	#[error(transparent)]
 	Mxid(#[from] ruma::IdParseError),
+	#[error(transparent)]
+	PowerLevels(#[from] ruma::events::room::power_levels::PowerLevelsError),
 	#[error("from {0}: {1}")]
 	Redaction(ruma::OwnedServerName, ruma::canonical_json::RedactionError),
 	#[error("{0}: {1}")]
@@ -126,8 +128,6 @@ pub enum Error {
 	Ruma(#[from] ruma::api::client::error::Error),
 	#[error(transparent)]
 	Signatures(#[from] ruma::signatures::Error),
-	#[error(transparent)]
-	StateRes(#[from] crate::state_res::Error),
 	#[error("uiaa")]
 	Uiaa(ruma::api::client::uiaa::UiaaInfo),
 

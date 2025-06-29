@@ -721,6 +721,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "console"
+version = "0.15.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "054ccb5b10f9f2cbf51eb355ca1d05c2d279ce1804688d0db74b4733a5aeafd8"
+dependencies = [
+ "encode_unicode",
+ "libc",
+ "once_cell",
+ "windows-sys 0.59.0",
+]
+
+[[package]]
 name = "const-oid"
 version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1142,6 +1154,12 @@ checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
 dependencies = [
  "serde",
 ]
+
+[[package]]
+name = "encode_unicode"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "34aa73646ffb006b8f5147f3dc182bd4bcb190227ce861fc4a4844bf8e3cb2c0"
 
 [[package]]
 name = "enum-as-inner"
@@ -1988,6 +2006,18 @@ name = "inlinable_string"
 version = "0.1.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c8fae54786f62fb2918dcfae3d568594e50eb9b5c25bf04371af6fe7516452fb"
+
+[[package]]
+name = "insta"
+version = "1.43.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "154934ea70c58054b556dd430b99a98c2a7ff5309ac9891597e339b5c28f4371"
+dependencies = [
+ "console",
+ "once_cell",
+ "serde",
+ "similar",
+]
 
 [[package]]
 name = "interpolate_name"
@@ -3439,8 +3469,8 @@ dependencies = [
 
 [[package]]
 name = "ruma"
-version = "0.10.1"
-source = "git+https://github.com/matrix-construct/ruma?rev=0155c2b33233bec9dece79d5134a9574b347f4c1#0155c2b33233bec9dece79d5134a9574b347f4c1"
+version = "0.12.6"
+source = "git+https://github.com/matrix-construct/ruma?rev=3d3acddfcf96891f1203ca3c36d8f41932ede50f#3d3acddfcf96891f1203ca3c36d8f41932ede50f"
 dependencies = [
  "assign",
  "js_int",
@@ -3451,7 +3481,6 @@ dependencies = [
  "ruma-events",
  "ruma-federation-api",
  "ruma-identifiers-validation",
- "ruma-identity-service-api",
  "ruma-push-gateway-api",
  "ruma-signatures",
  "web-time",
@@ -3459,8 +3488,8 @@ dependencies = [
 
 [[package]]
 name = "ruma-appservice-api"
-version = "0.10.0"
-source = "git+https://github.com/matrix-construct/ruma?rev=0155c2b33233bec9dece79d5134a9574b347f4c1#0155c2b33233bec9dece79d5134a9574b347f4c1"
+version = "0.12.2"
+source = "git+https://github.com/matrix-construct/ruma?rev=3d3acddfcf96891f1203ca3c36d8f41932ede50f#3d3acddfcf96891f1203ca3c36d8f41932ede50f"
 dependencies = [
  "js_int",
  "ruma-common",
@@ -3471,8 +3500,8 @@ dependencies = [
 
 [[package]]
 name = "ruma-client-api"
-version = "0.18.0"
-source = "git+https://github.com/matrix-construct/ruma?rev=0155c2b33233bec9dece79d5134a9574b347f4c1#0155c2b33233bec9dece79d5134a9574b347f4c1"
+version = "0.20.4"
+source = "git+https://github.com/matrix-construct/ruma?rev=3d3acddfcf96891f1203ca3c36d8f41932ede50f#3d3acddfcf96891f1203ca3c36d8f41932ede50f"
 dependencies = [
  "as_variant",
  "assign",
@@ -3494,8 +3523,8 @@ dependencies = [
 
 [[package]]
 name = "ruma-common"
-version = "0.13.0"
-source = "git+https://github.com/matrix-construct/ruma?rev=0155c2b33233bec9dece79d5134a9574b347f4c1#0155c2b33233bec9dece79d5134a9574b347f4c1"
+version = "0.15.4"
+source = "git+https://github.com/matrix-construct/ruma?rev=3d3acddfcf96891f1203ca3c36d8f41932ede50f#3d3acddfcf96891f1203ca3c36d8f41932ede50f"
 dependencies = [
  "as_variant",
  "base64",
@@ -3522,12 +3551,13 @@ dependencies = [
  "uuid",
  "web-time",
  "wildmatch",
+ "zeroize",
 ]
 
 [[package]]
 name = "ruma-events"
-version = "0.28.1"
-source = "git+https://github.com/matrix-construct/ruma?rev=0155c2b33233bec9dece79d5134a9574b347f4c1#0155c2b33233bec9dece79d5134a9574b347f4c1"
+version = "0.30.5"
+source = "git+https://github.com/matrix-construct/ruma?rev=3d3acddfcf96891f1203ca3c36d8f41932ede50f#3d3acddfcf96891f1203ca3c36d8f41932ede50f"
 dependencies = [
  "as_variant",
  "indexmap",
@@ -3547,12 +3577,13 @@ dependencies = [
  "url",
  "web-time",
  "wildmatch",
+ "zeroize",
 ]
 
 [[package]]
 name = "ruma-federation-api"
-version = "0.9.0"
-source = "git+https://github.com/matrix-construct/ruma?rev=0155c2b33233bec9dece79d5134a9574b347f4c1#0155c2b33233bec9dece79d5134a9574b347f4c1"
+version = "0.11.2"
+source = "git+https://github.com/matrix-construct/ruma?rev=3d3acddfcf96891f1203ca3c36d8f41932ede50f#3d3acddfcf96891f1203ca3c36d8f41932ede50f"
 dependencies = [
  "bytes",
  "headers",
@@ -3573,27 +3604,17 @@ dependencies = [
 
 [[package]]
 name = "ruma-identifiers-validation"
-version = "0.9.5"
-source = "git+https://github.com/matrix-construct/ruma?rev=0155c2b33233bec9dece79d5134a9574b347f4c1#0155c2b33233bec9dece79d5134a9574b347f4c1"
+version = "0.10.1"
+source = "git+https://github.com/matrix-construct/ruma?rev=3d3acddfcf96891f1203ca3c36d8f41932ede50f#3d3acddfcf96891f1203ca3c36d8f41932ede50f"
 dependencies = [
  "js_int",
  "thiserror 2.0.12",
 ]
 
 [[package]]
-name = "ruma-identity-service-api"
-version = "0.9.0"
-source = "git+https://github.com/matrix-construct/ruma?rev=0155c2b33233bec9dece79d5134a9574b347f4c1#0155c2b33233bec9dece79d5134a9574b347f4c1"
-dependencies = [
- "js_int",
- "ruma-common",
- "serde",
-]
-
-[[package]]
 name = "ruma-macros"
-version = "0.13.0"
-source = "git+https://github.com/matrix-construct/ruma?rev=0155c2b33233bec9dece79d5134a9574b347f4c1#0155c2b33233bec9dece79d5134a9574b347f4c1"
+version = "0.15.2"
+source = "git+https://github.com/matrix-construct/ruma?rev=3d3acddfcf96891f1203ca3c36d8f41932ede50f#3d3acddfcf96891f1203ca3c36d8f41932ede50f"
 dependencies = [
  "cfg-if",
  "proc-macro-crate",
@@ -3607,8 +3628,8 @@ dependencies = [
 
 [[package]]
 name = "ruma-push-gateway-api"
-version = "0.9.0"
-source = "git+https://github.com/matrix-construct/ruma?rev=0155c2b33233bec9dece79d5134a9574b347f4c1#0155c2b33233bec9dece79d5134a9574b347f4c1"
+version = "0.11.0"
+source = "git+https://github.com/matrix-construct/ruma?rev=3d3acddfcf96891f1203ca3c36d8f41932ede50f#3d3acddfcf96891f1203ca3c36d8f41932ede50f"
 dependencies = [
  "js_int",
  "ruma-common",
@@ -3619,8 +3640,8 @@ dependencies = [
 
 [[package]]
 name = "ruma-signatures"
-version = "0.15.0"
-source = "git+https://github.com/matrix-construct/ruma?rev=0155c2b33233bec9dece79d5134a9574b347f4c1#0155c2b33233bec9dece79d5134a9574b347f4c1"
+version = "0.17.1"
+source = "git+https://github.com/matrix-construct/ruma?rev=3d3acddfcf96891f1203ca3c36d8f41932ede50f#3d3acddfcf96891f1203ca3c36d8f41932ede50f"
 dependencies = [
  "base64",
  "ed25519-dalek",
@@ -4205,6 +4226,12 @@ checksum = "95890f873bec569a0362c235787f3aca6e1e887302ba4840839bcc6459c42da6"
 dependencies = [
  "quote",
 ]
+
+[[package]]
+name = "similar"
+version = "2.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbbb5d9659141646ae647b42fe094daf6c6192d1620870b449d9557f748b2daa"
 
 [[package]]
 name = "simple_asn1"
@@ -4977,6 +5004,7 @@ dependencies = [
  "hardened_malloc-rs",
  "http",
  "http-body-util",
+ "insta",
  "ipaddress",
  "itertools 0.14.0",
  "jsonwebtoken",
@@ -4996,6 +5024,7 @@ dependencies = [
  "serde_json",
  "serde_regex",
  "serde_yaml",
+ "similar",
  "smallstr",
  "smallvec",
  "thiserror 2.0.12",

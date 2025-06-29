@@ -6,6 +6,7 @@ mod user_can;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use futures::{FutureExt, TryFutureExt, future::try_join};
 use ruma::{
 	EventEncryptionAlgorithm, JsOption, OwnedRoomAliasId, RoomId, UserId,
 	events::{
@@ -20,12 +21,16 @@ use ruma::{
 			join_rules::{JoinRule, RoomJoinRulesEventContent},
 			member::RoomMemberEventContent,
 			name::RoomNameEventContent,
+			power_levels::{RoomPowerLevels, RoomPowerLevelsEventContent},
 			topic::RoomTopicEventContent,
 		},
 	},
 	room::RoomType,
 };
-use tuwunel_core::{Result, err};
+use tuwunel_core::{
+	Result, err,
+	matrix::{Event, room_version, state_res::events::RoomCreateEvent},
+};
 use tuwunel_database::Map;
 
 use crate::{Dep, rooms};
@@ -69,6 +74,31 @@ impl crate::Service for Service {
 }
 
 impl Service {
+	/// Gets the effective power levels of a room, regardless of if there is an
+	/// `m.rooms.power_levels` state.
+	pub async fn get_power_levels(&self, room_id: &RoomId) -> Result<RoomPowerLevels> {
+		let create = self.get_create(room_id);
+		let power_levels = self
+			.room_state_get_content(room_id, &StateEventType::RoomPowerLevels, "")
+			.map_ok(|c: RoomPowerLevelsEventContent| c)
+			.map(Result::ok)
+			.map(Ok);
+
+		let (create, power_levels) = try_join(create, power_levels).await?;
+
+		let room_version = create.room_version()?;
+		let rules = room_version::rules(&room_version)?;
+		let creators = create.creators(&rules.authorization)?;
+
+		Ok(RoomPowerLevels::new(power_levels.into(), &rules.authorization, creators))
+	}
+
+	pub async fn get_create(&self, room_id: &RoomId) -> Result<RoomCreateEvent<impl Event>> {
+		self.room_state_get(room_id, &StateEventType::RoomCreate, "")
+			.await
+			.map(RoomCreateEvent::new)
+	}
+
 	pub async fn get_name(&self, room_id: &RoomId) -> Result<String> {
 		self.room_state_get_content(room_id, &StateEventType::RoomName, "")
 			.await

@@ -8,7 +8,10 @@ use ruma::{
 	RoomVersionId, UserId,
 	api::{
 		client::knock::knock_room,
-		federation::{self},
+		federation::{
+			membership::RawStrippedState,
+			{self},
+		},
 	},
 	canonical_json::to_canonical_value,
 	events::{
@@ -17,7 +20,7 @@ use ruma::{
 	},
 };
 use tuwunel_core::{
-	Err, Result, debug, debug_info, debug_warn, err, info,
+	Err, Result, debug, debug_info, debug_warn, err, extract_variant, info,
 	matrix::{
 		event::{Event, gen_event_id},
 		pdu::{PduBuilder, PduEvent},
@@ -346,7 +349,7 @@ async fn knock_room_helper_local(
 	let knock_event = knock_event_stub;
 
 	info!("Asking {remote_server} for send_knock in room {room_id}");
-	let send_knock_request = federation::knock::send_knock::v1::Request {
+	let send_knock_request = federation::membership::create_knock_event::v1::Request {
 		room_id: room_id.to_owned(),
 		event_id: event_id.clone(),
 		pdu: services
@@ -384,7 +387,13 @@ async fn knock_room_helper_local(
 				.get_content::<RoomMemberEventContent>()
 				.expect("we just created this"),
 			sender_user,
-			Some(send_knock_response.knock_room_state),
+			Some(
+				send_knock_response
+					.knock_room_state
+					.into_iter()
+					.filter_map(|s| extract_variant!(s, RawStrippedState::Stripped))
+					.collect(),
+			),
 			None,
 			false,
 		)
@@ -477,7 +486,7 @@ async fn knock_room_helper_remote(
 	let knock_event = knock_event_stub;
 
 	info!("Asking {remote_server} for send_knock in room {room_id}");
-	let send_knock_request = federation::knock::send_knock::v1::Request {
+	let send_knock_request = federation::membership::create_knock_event::v1::Request {
 		room_id: room_id.to_owned(),
 		event_id: event_id.clone(),
 		pdu: services
@@ -507,7 +516,14 @@ async fn knock_room_helper_remote(
 	let state = send_knock_response
 		.knock_room_state
 		.iter()
-		.map(|event| serde_json::from_str::<CanonicalJsonObject>(event.clone().into_json().get()))
+		.map(|event| {
+			serde_json::from_str::<CanonicalJsonObject>(
+				extract_variant!(event.clone(), RawStrippedState::Stripped)
+					.expect("Raw<AnyStrippedStateEvent>")
+					.json()
+					.get(),
+			)
+		})
 		.filter_map(Result::ok);
 
 	let mut state_map: HashMap<u64, OwnedEventId> = HashMap::new();
@@ -594,7 +610,13 @@ async fn knock_room_helper_remote(
 				.get_content::<RoomMemberEventContent>()
 				.expect("we just created this"),
 			sender_user,
-			Some(send_knock_response.knock_room_state),
+			Some(
+				send_knock_response
+					.knock_room_state
+					.into_iter()
+					.filter_map(|s| extract_variant!(s, RawStrippedState::Stripped))
+					.collect(),
+			),
 			None,
 			false,
 		)
@@ -628,7 +650,7 @@ async fn make_knock_request(
 	sender_user: &UserId,
 	room_id: &RoomId,
 	servers: &[OwnedServerName],
-) -> Result<(federation::knock::create_knock_event_template::v1::Response, OwnedServerName)> {
+) -> Result<(federation::membership::prepare_knock_event::v1::Response, OwnedServerName)> {
 	let mut make_knock_response_and_server =
 		Err!(BadServerResponse("No server available to assist in knocking."));
 
@@ -645,7 +667,7 @@ async fn make_knock_request(
 			.sending
 			.send_federation_request(
 				remote_server,
-				federation::knock::create_knock_event_template::v1::Request {
+				federation::membership::prepare_knock_event::v1::Request {
 					room_id: room_id.to_owned(),
 					user_id: sender_user.to_owned(),
 					ver: services

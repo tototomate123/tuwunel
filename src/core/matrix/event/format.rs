@@ -1,8 +1,8 @@
 use ruma::{
 	events::{
-		AnyMessageLikeEvent, AnyStateEvent, AnyStrippedStateEvent, AnySyncStateEvent,
-		AnySyncTimelineEvent, AnyTimelineEvent, StateEvent, room::member::RoomMemberEventContent,
-		space::child::HierarchySpaceChildEvent,
+		AnyMessageLikeEvent, AnyStateEvent, AnyStrippedStateEvent, AnySyncMessageLikeEvent,
+		AnySyncStateEvent, AnySyncTimelineEvent, AnyTimelineEvent, StateEvent,
+		room::member::RoomMemberEventContent, space::child::HierarchySpaceChildEvent,
 	},
 	serde::Raw,
 };
@@ -88,6 +88,36 @@ impl<'a, E: Event> From<Ref<'a, E>> for Raw<AnyMessageLikeEvent> {
 			"event_id": event.event_id(),
 			"origin_server_ts": event.origin_server_ts(),
 			"room_id": event.room_id(),
+			"sender": event.sender(),
+			"type": event.kind(),
+		});
+
+		if let Some(redacts) = &redacts {
+			json["redacts"] = json!(redacts);
+		}
+		if let Some(state_key) = event.state_key() {
+			json["state_key"] = json!(state_key);
+		}
+		if let Some(unsigned) = event.unsigned() {
+			json["unsigned"] = json!(unsigned);
+		}
+
+		serde_json::from_value(json).expect("Failed to serialize Event value")
+	}
+}
+
+impl<E: Event> From<Owned<E>> for Raw<AnySyncMessageLikeEvent> {
+	fn from(event: Owned<E>) -> Self { Ref(&event.0).into() }
+}
+
+impl<'a, E: Event> From<Ref<'a, E>> for Raw<AnySyncMessageLikeEvent> {
+	fn from(event: Ref<'a, E>) -> Self {
+		let event = event.0;
+		let (redacts, content) = redact::copy(event);
+		let mut json = json!({
+			"content": content,
+			"event_id": event.event_id(),
+			"origin_server_ts": event.origin_server_ts(),
 			"sender": event.sender(),
 			"type": event.kind(),
 		});

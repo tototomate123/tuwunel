@@ -2,7 +2,7 @@ use axum::extract::State;
 use futures::{FutureExt, TryFutureExt, TryStreamExt};
 use ruma::{
 	OwnedEventId, RoomId, UserId,
-	api::client::state::{get_state_events, get_state_events_for_key, send_state_event},
+	api::client::state::{get_state_event_for_key, get_state_events, send_state_event},
 	events::{
 		AnyStateEventContent, StateEventType,
 		room::{
@@ -107,8 +107,8 @@ pub(crate) async fn get_state_events_route(
 ///   readable
 pub(crate) async fn get_state_events_for_key_route(
 	State(services): State<crate::State>,
-	body: Ruma<get_state_events_for_key::v3::Request>,
-) -> Result<get_state_events_for_key::v3::Response> {
+	body: Ruma<get_state_event_for_key::v3::Request>,
+) -> Result<get_state_event_for_key::v3::Response> {
 	let sender_user = body.sender_user();
 
 	if !services
@@ -140,7 +140,7 @@ pub(crate) async fn get_state_events_for_key_route(
 		.as_ref()
 		.is_some_and(|f| f.to_lowercase().eq("event"));
 
-	Ok(get_state_events_for_key::v3::Response {
+	Ok(get_state_event_for_key::v3::Response {
 		content: event_format.or(|| event.get_content_as_value()),
 		event: event_format.then(|| {
 			json!({
@@ -167,8 +167,8 @@ pub(crate) async fn get_state_events_for_key_route(
 ///   readable
 pub(crate) async fn get_state_events_for_empty_key_route(
 	State(services): State<crate::State>,
-	body: Ruma<get_state_events_for_key::v3::Request>,
-) -> Result<RumaResponse<get_state_events_for_key::v3::Response>> {
+	body: Ruma<get_state_event_for_key::v3::Request>,
+) -> Result<RumaResponse<get_state_event_for_key::v3::Response>> {
 	get_state_events_for_key_route(State(services), body)
 		.await
 		.map(RumaResponse)
@@ -222,7 +222,7 @@ async fn allowed_to_send_state_event(
 		| StateEventType::RoomServerAcl => {
 			// prevents common ACL paw-guns as ACL management is difficult and prone to
 			// irreversible mistakes
-			match json.deserialize_as::<RoomServerAclEventContent>() {
+			match json.deserialize_as_unchecked::<RoomServerAclEventContent>() {
 				| Ok(acl_content) => {
 					if acl_content.allow_is_empty() {
 						return Err!(Request(BadJson(debug_warn!(
@@ -282,7 +282,7 @@ async fn allowed_to_send_state_event(
 			// admin room is a sensitive room, it should not ever be made public
 			if let Ok(admin_room_id) = services.admin.get_admin_room().await {
 				if admin_room_id == room_id {
-					match json.deserialize_as::<RoomJoinRulesEventContent>() {
+					match json.deserialize_as_unchecked::<RoomJoinRulesEventContent>() {
 						| Ok(join_rule) =>
 							if join_rule.join_rule == JoinRule::Public {
 								return Err!(Request(Forbidden(
@@ -301,7 +301,7 @@ async fn allowed_to_send_state_event(
 		| StateEventType::RoomHistoryVisibility => {
 			// admin room is a sensitive room, it should not ever be made world readable
 			if let Ok(admin_room_id) = services.admin.get_admin_room().await {
-				match json.deserialize_as::<RoomHistoryVisibilityEventContent>() {
+				match json.deserialize_as_unchecked::<RoomHistoryVisibilityEventContent>() {
 					| Ok(visibility_content) => {
 						if admin_room_id == room_id
 							&& visibility_content.history_visibility
@@ -322,7 +322,7 @@ async fn allowed_to_send_state_event(
 			}
 		},
 		| StateEventType::RoomCanonicalAlias => {
-			match json.deserialize_as::<RoomCanonicalAliasEventContent>() {
+			match json.deserialize_as_unchecked::<RoomCanonicalAliasEventContent>() {
 				| Ok(canonical_alias_content) => {
 					let mut aliases = canonical_alias_content.alt_aliases.clone();
 
@@ -354,52 +354,53 @@ async fn allowed_to_send_state_event(
 				},
 			}
 		},
-		| StateEventType::RoomMember => match json.deserialize_as::<RoomMemberEventContent>() {
-			| Ok(membership_content) => {
-				let Ok(_state_key) = UserId::parse(state_key) else {
-					return Err!(Request(BadJson(
-						"Membership event has invalid or non-existent state key"
-					)));
-				};
-
-				if let Some(authorising_user) =
-					membership_content.join_authorized_via_users_server
-				{
-					if membership_content.membership != MembershipState::Join {
+		| StateEventType::RoomMember =>
+			match json.deserialize_as_unchecked::<RoomMemberEventContent>() {
+				| Ok(membership_content) => {
+					let Ok(_state_key) = UserId::parse(state_key) else {
 						return Err!(Request(BadJson(
-							"join_authorised_via_users_server is only for member joins"
+							"Membership event has invalid or non-existent state key"
 						)));
-					}
+					};
 
-					if !services.globals.user_is_local(&authorising_user) {
-						return Err!(Request(InvalidParam(
-							"Authorising user {authorising_user} does not belong to this \
-							 homeserver"
-						)));
-					}
+					if let Some(authorising_user) =
+						membership_content.join_authorized_via_users_server
+					{
+						if membership_content.membership != MembershipState::Join {
+							return Err!(Request(BadJson(
+								"join_authorised_via_users_server is only for member joins"
+							)));
+						}
 
-					services
-						.rooms
-						.state_cache
-						.is_joined(&authorising_user, room_id)
-						.map(is_false!())
-						.map(BoolExt::into_result)
-						.map_err(|()| {
-							err!(Request(InvalidParam(
-								"Authorising user {authorising_user} is not in the room. They \
-								 cannot authorise the join."
-							)))
-						})
-						.await?;
-				}
+						if !services.globals.user_is_local(&authorising_user) {
+							return Err!(Request(InvalidParam(
+								"Authorising user {authorising_user} does not belong to this \
+								 homeserver"
+							)));
+						}
+
+						services
+							.rooms
+							.state_cache
+							.is_joined(&authorising_user, room_id)
+							.map(is_false!())
+							.map(BoolExt::into_result)
+							.map_err(|()| {
+								err!(Request(InvalidParam(
+									"Authorising user {authorising_user} is not in the room. \
+									 They cannot authorise the join."
+								)))
+							})
+							.await?;
+					}
+				},
+				| Err(e) => {
+					return Err!(Request(BadJson(
+						"Membership content must have a valid JSON body with at least a valid \
+						 membership state: {e}"
+					)));
+				},
 			},
-			| Err(e) => {
-				return Err!(Request(BadJson(
-					"Membership content must have a valid JSON body with at least a valid \
-					 membership state: {e}"
-				)));
-			},
-		},
 		| _ => (),
 	}
 

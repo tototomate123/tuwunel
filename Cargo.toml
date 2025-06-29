@@ -219,6 +219,12 @@ features = [
 	"webp",
 ]
 
+[workspace.dependencies.insta]
+version = "1.43.1"
+features = [
+	"json",
+]
+
 [workspace.dependencies.ipaddress]
 version = "0.1"
 
@@ -311,20 +317,18 @@ default-features = false
 
 [workspace.dependencies.ruma]
 git = "https://github.com/matrix-construct/ruma"
-rev = "0155c2b33233bec9dece79d5134a9574b347f4c1"
+rev = "3d3acddfcf96891f1203ca3c36d8f41932ede50f"
 features = [
-    "compat",
+    "__compat",
     "rand",
     "appservice-api-c",
     "client-api",
     "federation-api",
     "markdown",
     "push-gateway-api-c",
-    "unstable-exhaustive-types",
     "ring-compat",
     "compat-upload-signatures",
     "identifiers-validation",
-    "unstable-unspecified",
     "unstable-msc2448",
     "unstable-msc2666",
     "unstable-msc2867",
@@ -332,10 +336,8 @@ features = [
     "unstable-msc3026",
     "unstable-msc3061",
     "unstable-msc3245",
-    "unstable-msc3266",
     "unstable-msc3381", # polls
     "unstable-msc3489", # beacon / live location
-    "unstable-msc3575",
     "unstable-msc3930", # polls push rules
     "unstable-msc4075",
     "unstable-msc4095",
@@ -343,9 +345,9 @@ features = [
     "unstable-msc4125",
     "unstable-msc4186",
     "unstable-msc4203", # sending to-device events to appservices 
-    "unstable-msc4210", # remove legacy mentions
+    "unstable-msc4311",
     "unstable-extensible-events",
-    "unstable-pdu",
+    "unstable-hydra",
 ]
 
 [workspace.dependencies.rustls]
@@ -424,6 +426,9 @@ default-features = false
 [workspace.dependencies.sha2]
 version = "0.10"
 default-features = false
+
+[workspace.dependencies.similar]
+version = "2.7.0"
 
 [workspace.dependencies.smallstr]
 version = "0.3"

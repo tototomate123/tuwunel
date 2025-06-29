@@ -119,10 +119,10 @@ where
 		// This return value is the key used for sorting events,
 		// events are then sorted by power level, time,
 		// and lexically by event_id.
-		Ok((int!(0), MilliSecondsSinceUnixEpoch(origin_server_ts)))
+		Ok((int!(0).into(), MilliSecondsSinceUnixEpoch(origin_server_ts)))
 	};
 
-	let sorted = state_res::lexicographical_topological_sort(&graph, &event_fetch)
+	let sorted = state_res::topological_sort(&graph, &event_fetch)
 		.await
 		.map_err(|e| err!(Database(error!("Error sorting prev events: {e}"))))?;
 

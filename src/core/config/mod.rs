@@ -665,20 +665,33 @@ pub struct Config {
 	pub allow_room_creation: bool,
 
 	/// Set to false to disable users from joining or creating room versions
-	/// that aren't officially supported by tuwunel.
+	/// that aren't officially supported by tuwunel. Unstable room versions may
+	/// have flawed specifications or our implementation may be non-conforming.
+	/// Correct operation may not be guaranteed, but incorrect operation may be
+	/// tolerable and unnoticed.
 	///
-	/// tuwunel officially supports room versions 6 - 11.
+	/// tuwunel officially supports room versions 6+. tuwunel has slightly
+	/// experimental (though works fine in practice) support for versions 3 - 5.
 	///
-	/// tuwunel has slightly experimental (though works fine in practice)
-	/// support for versions 3 - 5.
+	/// default: true
 	#[serde(default = "true_fn")]
 	pub allow_unstable_room_versions: bool,
 
+	/// Set to true to enable experimental room versions.
+	///
+	/// Unlike unstable room versions these versions are either under
+	/// development, protype spec-changes, or somehow present a serious risk to
+	/// the server's operation or database corruption. This is for developer use
+	/// only.
+	#[serde(default)]
+	pub allow_experimental_room_versions: bool,
+
 	/// Default room version tuwunel will create rooms with.
 	///
-	/// Per spec, room version 11 is the default.
-	///
-	/// default: 11
+	/// The default is prescribed by the spec, but may be selected by developer
+	/// recommendation. To prevent stale documentation we no longer list it
+	/// here. It is only advised to override this if you know what you are
+	/// doing, and by doing so, updates with new versions are precluded.
 	#[serde(default = "default_default_room_version")]
 	pub default_room_version: RoomVersionId,
 
@@ -1884,6 +1897,30 @@ pub struct Config {
 	/// using this.
 	#[serde(default)]
 	pub allow_invalid_tls_certificates: bool,
+
+	/// Backport state-reset security fixes to all room versions.
+	///
+	/// This option applies the State Resolution 2.1 mitigation developed during
+	/// project Hydra for room version 12 to all prior State Resolution 2.0 room
+	/// versions (all room versions supported by this server). These mitigations
+	/// increase resilience to state-resets without any new definition of
+	/// correctness; therefor it is safe to set this to true for existing rooms.
+	///
+	/// Furthermore, state-reset attacks are not consistent as they result in
+	/// rooms without any single consensus, therefor it is unnecessary to set
+	/// this to false to match other servers which set this to false or simply
+	/// lack support; even if replicating the post-reset state suffered by other
+	/// servers is somehow desired.
+	///
+	/// This option exists for developer and debug use, and as a failsafe in
+	/// lieu of hardcoding it.
+	///
+	/// This currently defaults to false as a matter of development until
+	/// real-world testing can shake out any implementation issues rather than
+	/// jeopardize existing rooms, but otherwise will default to true at the
+	/// next point release or patch.
+	#[serde(default)]
+	pub hydra_backports: bool,
 
 	// external structure; separate section
 	#[serde(default)]

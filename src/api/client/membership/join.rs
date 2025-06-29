@@ -25,10 +25,9 @@ use ruma::{
 use tuwunel_core::{
 	Err, Result, debug, debug_info, debug_warn, err, error, info,
 	matrix::{
-		StateKey,
 		event::{gen_event_id, gen_event_id_canonical_json},
 		pdu::{PduBuilder, PduEvent},
-		state_res,
+		room_version, state_res,
 	},
 	result::FlatOk,
 	trace,
@@ -551,7 +550,13 @@ async fn join_room_by_id_helper_remote(
 		})
 		.ready_filter_map(Result::ok)
 		.fold(HashMap::new(), async |mut state, (event_id, value)| {
-			let pdu = match PduEvent::from_id_val(&event_id, value.clone()) {
+			let pdu = if value["type"] == "m.room.create" {
+				PduEvent::from_rid_val(room_id, &event_id, value.clone())
+			} else {
+				PduEvent::from_id_val(&event_id, value.clone())
+			};
+
+			let pdu = match pdu {
 				| Ok(pdu) => pdu,
 				| Err(e) => {
 					debug_warn!("Invalid PDU in send_join response: {e:?}: {value:#?}");
@@ -604,36 +609,26 @@ async fn join_room_by_id_helper_remote(
 	drop(cork);
 
 	debug!("Running send_join auth check");
-	let fetch_state = &state;
-	let state_fetch = |k: StateEventType, s: StateKey| async move {
-		let shortstatekey = services
-			.rooms
-			.short
-			.get_shortstatekey(&k, &s)
-			.await
-			.ok()?;
-
-		let event_id = fetch_state.get(&shortstatekey)?;
-		services
-			.rooms
-			.timeline
-			.get_pdu(event_id)
-			.await
-			.ok()
-	};
-
-	let auth_check = state_res::event_auth::auth_check(
-		&state_res::RoomVersion::new(&room_version_id)?,
+	state_res::auth_check(
+		&room_version::rules(&room_version_id)?,
 		&parsed_join_pdu,
-		None, // TODO: third party invite
-		|k, s| state_fetch(k.clone(), s.into()),
-	)
-	.await
-	.map_err(|e| err!(Request(Forbidden(warn!("Auth check failed: {e:?}")))))?;
+		&async |event_id| services.rooms.timeline.get_pdu(&event_id).await,
+		&async |event_type, state_key| {
+			let shortstatekey = services
+				.rooms
+				.short
+				.get_shortstatekey(&event_type, state_key.as_str())
+				.await?;
 
-	if !auth_check {
-		return Err!(Request(Forbidden("Auth check failed")));
-	}
+			let event_id = state.get(&shortstatekey).ok_or_else(|| {
+				err!(Request(NotFound("Missing fetch_state {shortstatekey:?}")))
+			})?;
+
+			services.rooms.timeline.get_pdu(event_id).await
+		},
+	)
+	.boxed()
+	.await?;
 
 	info!("Compressing state from send_join");
 	let compressed: CompressedState = services

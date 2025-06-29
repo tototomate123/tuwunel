@@ -35,6 +35,15 @@ pub async fn build_and_append_pdu(
 		.create_hash_and_sign_event(pdu_builder, sender, room_id, state_lock)
 		.await?;
 
+	//TODO: Use proper room version here
+	if *pdu.kind() == TimelineEventType::RoomCreate && pdu.room_id().server_name().is_none() {
+		let _short_id = self
+			.services
+			.short
+			.get_or_create_shortroomid(pdu.room_id())
+			.await;
+	}
+
 	if self
 		.services
 		.admin

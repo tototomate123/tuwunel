@@ -146,7 +146,7 @@ pub(crate) async fn set_profile_key_route(
 		)));
 	}
 
-	let Some(profile_key_value) = body.kv_pair.get(&body.key_name) else {
+	let Some(profile_key_value) = body.kv_pair.get(&body.key) else {
 		return Err!(Request(BadJson(
 			"The key does not match the URL field key, or JSON body is empty (use DELETE)"
 		)));
@@ -164,7 +164,7 @@ pub(crate) async fn set_profile_key_route(
 		return Err!(Request(BadJson("Key names cannot be longer than 128 bytes")));
 	}
 
-	if body.key_name == "displayname" {
+	if body.key == "displayname" {
 		let all_joined_rooms: Vec<OwnedRoomId> = services
 			.rooms
 			.state_cache
@@ -180,7 +180,7 @@ pub(crate) async fn set_profile_key_route(
 			&all_joined_rooms,
 		)
 		.await;
-	} else if body.key_name == "avatar_url" {
+	} else if body.key == "avatar_url" {
 		let mxc = ruma::OwnedMxcUri::from(profile_key_value.to_string());
 
 		let all_joined_rooms: Vec<OwnedRoomId> = services
@@ -193,11 +193,9 @@ pub(crate) async fn set_profile_key_route(
 
 		update_avatar_url(&services, &body.user_id, Some(mxc), None, &all_joined_rooms).await;
 	} else {
-		services.users.set_profile_key(
-			&body.user_id,
-			&body.key_name,
-			Some(profile_key_value.clone()),
-		);
+		services
+			.users
+			.set_profile_key(&body.user_id, &body.key, Some(profile_key_value.clone()));
 	}
 
 	if services.config.allow_local_presence {
@@ -233,7 +231,7 @@ pub(crate) async fn delete_profile_key_route(
 		)));
 	}
 
-	if body.key_name == "displayname" {
+	if body.key == "displayname" {
 		let all_joined_rooms: Vec<OwnedRoomId> = services
 			.rooms
 			.state_cache
@@ -243,7 +241,7 @@ pub(crate) async fn delete_profile_key_route(
 			.await;
 
 		update_displayname(&services, &body.user_id, None, &all_joined_rooms).await;
-	} else if body.key_name == "avatar_url" {
+	} else if body.key == "avatar_url" {
 		let all_joined_rooms: Vec<OwnedRoomId> = services
 			.rooms
 			.state_cache
@@ -256,7 +254,7 @@ pub(crate) async fn delete_profile_key_route(
 	} else {
 		services
 			.users
-			.set_profile_key(&body.user_id, &body.key_name, None);
+			.set_profile_key(&body.user_id, &body.key, None);
 	}
 
 	if services.config.allow_local_presence {
@@ -379,14 +377,12 @@ pub(crate) async fn get_profile_key_route(
 				.users
 				.set_timezone(&body.user_id, response.tz.clone());
 
-			match response.custom_profile_fields.get(&body.key_name) {
+			match response.custom_profile_fields.get(&body.key) {
 				| Some(value) => {
-					profile_key_value.insert(body.key_name.clone(), value.clone());
-					services.users.set_profile_key(
-						&body.user_id,
-						&body.key_name,
-						Some(value.clone()),
-					);
+					profile_key_value.insert(body.key.clone(), value.clone());
+					services
+						.users
+						.set_profile_key(&body.user_id, &body.key, Some(value.clone()));
 				},
 				| _ => {
 					return Err!(Request(NotFound("The requested profile key does not exist.")));
@@ -409,11 +405,11 @@ pub(crate) async fn get_profile_key_route(
 
 	match services
 		.users
-		.profile_key(&body.user_id, &body.key_name)
+		.profile_key(&body.user_id, &body.key)
 		.await
 	{
 		| Ok(value) => {
-			profile_key_value.insert(body.key_name.clone(), value);
+			profile_key_value.insert(body.key.clone(), value);
 		},
 		| _ => {
 			return Err!(Request(NotFound("The requested profile key does not exist.")));

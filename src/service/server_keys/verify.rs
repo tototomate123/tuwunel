@@ -2,7 +2,7 @@ use ruma::{
 	CanonicalJsonObject, CanonicalJsonValue, OwnedEventId, RoomVersionId, signatures::Verified,
 };
 use serde_json::value::RawValue as RawJsonValue;
-use tuwunel_core::{Err, Result, implement, matrix::event::gen_event_id_canonical_json};
+use tuwunel_core::{Err, Result, err, implement, matrix::event::gen_event_id_canonical_json};
 
 #[implement(super::Service)]
 pub async fn validate_and_add_event_id(
@@ -32,8 +32,14 @@ pub async fn validate_and_add_event_id_no_fetch(
 	room_version: &RoomVersionId,
 ) -> Result<(OwnedEventId, CanonicalJsonObject)> {
 	let (event_id, mut value) = gen_event_id_canonical_json(pdu, room_version)?;
+	let room_version_rules = room_version.rules().ok_or_else(|| {
+		err!(Request(UnsupportedRoomVersion(
+			"Cannot verify event for unknown room version {room_version:?}."
+		)))
+	})?;
+
 	if !self
-		.required_keys_exist(&value, room_version)
+		.required_keys_exist(&value, &room_version_rules)
 		.await
 	{
 		return Err!(BadServerResponse(debug_warn!(
@@ -62,8 +68,17 @@ pub async fn verify_event(
 	room_version: Option<&RoomVersionId>,
 ) -> Result<Verified> {
 	let room_version = room_version.unwrap_or(&RoomVersionId::V11);
-	let keys = self.get_event_keys(event, room_version).await?;
-	ruma::signatures::verify_event(&keys, event, room_version).map_err(Into::into)
+	let room_version_rules = room_version.rules().ok_or_else(|| {
+		err!(Request(UnsupportedRoomVersion(
+			"Cannot verify event for unknown room version {room_version:?}."
+		)))
+	})?;
+
+	let event_keys = self
+		.get_event_keys(event, &room_version_rules)
+		.await?;
+
+	ruma::signatures::verify_event(&event_keys, event, &room_version_rules).map_err(Into::into)
 }
 
 #[implement(super::Service)]
@@ -73,6 +88,15 @@ pub async fn verify_json(
 	room_version: Option<&RoomVersionId>,
 ) -> Result {
 	let room_version = room_version.unwrap_or(&RoomVersionId::V11);
-	let keys = self.get_event_keys(event, room_version).await?;
-	ruma::signatures::verify_json(&keys, event.clone()).map_err(Into::into)
+	let room_version_rules = room_version.rules().ok_or_else(|| {
+		err!(Request(UnsupportedRoomVersion(
+			"Cannot verify json for unknown room version {room_version:?}."
+		)))
+	})?;
+
+	let event_keys = self
+		.get_event_keys(event, &room_version_rules)
+		.await?;
+
+	ruma::signatures::verify_json(&event_keys, event).map_err(Into::into)
 }

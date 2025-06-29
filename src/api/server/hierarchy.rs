@@ -64,17 +64,18 @@ pub(crate) async fn get_hierarchy_route(
 					})
 					.unzip()
 					.map(|(children, inaccessible_children): (Vec<_>, Vec<_>)| {
-						(
-							children
-								.into_iter()
-								.flatten()
-								.map(Into::into)
-								.collect(),
-							inaccessible_children
-								.into_iter()
-								.flatten()
-								.collect(),
-						)
+						let children = children
+							.into_iter()
+							.flatten()
+							.map(|parent| parent.summary)
+							.collect();
+
+						let inaccessible_children = inaccessible_children
+							.into_iter()
+							.flatten()
+							.collect();
+
+						(children, inaccessible_children)
 					})
 					.await;
 

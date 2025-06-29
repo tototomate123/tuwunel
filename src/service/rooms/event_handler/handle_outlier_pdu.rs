@@ -1,17 +1,16 @@
 use std::collections::{HashMap, hash_map};
 
-use futures::future::ready;
 use ruma::{
 	CanonicalJsonObject, CanonicalJsonValue, EventId, RoomId, RoomVersionId, ServerName,
-	events::StateEventType,
+	events::{StateEventType, TimelineEventType},
 };
 use tuwunel_core::{
 	Err, Result, debug, debug_info, err, implement,
-	matrix::{Event, PduEvent},
+	matrix::{Event, PduEvent, event::TypeExt, room_version},
 	state_res, trace, warn,
 };
 
-use super::{check_room_id, to_room_version};
+use super::check_room_id;
 
 #[implement(super::Service)]
 pub(super) async fn handle_outlier_pdu(
@@ -40,7 +39,13 @@ pub(super) async fn handle_outlier_pdu(
 		| Ok(ruma::signatures::Verified::Signatures) => {
 			// Redact
 			debug_info!("Calculated hash does not match (redaction): {event_id}");
-			let Ok(obj) = ruma::canonical_json::redact(pdu_json, room_version, None) else {
+			let Some(rules) = room_version.rules() else {
+				return Err!(Request(UnsupportedRoomVersion(
+					"Cannot redact event for unknown room version {room_version:?}."
+				)));
+			};
+
+			let Ok(obj) = ruma::canonical_json::redact(pdu_json, &rules.redaction, None) else {
 				return Err!(Request(InvalidParam("Redaction failed")));
 			};
 
@@ -62,8 +67,7 @@ pub(super) async fn handle_outlier_pdu(
 
 	// Now that we have checked the signature and hashes we can add the eventID and
 	// convert to our PduEvent type
-	pdu_json
-		.insert("event_id".to_owned(), CanonicalJsonValue::String(event_id.as_str().to_owned()));
+	pdu_json.insert("event_id".to_owned(), CanonicalJsonValue::String(event_id.to_string()));
 
 	let event = serde_json::from_value::<PduEvent>(serde_json::to_value(&pdu_json)?)
 		.map_err(|e| err!(Request(BadJson(debug_warn!("Event is not a valid PDU: {e}")))))?;
@@ -83,16 +87,28 @@ pub(super) async fn handle_outlier_pdu(
 	// 6. Reject "due to auth events" if the event doesn't pass auth based on the
 	//    auth events
 	debug!("Checking based on auth events");
+
+	let room_rules = room_version::rules(room_version)?;
+	let is_create = *event.kind() == TimelineEventType::RoomCreate;
+	let is_hydra = room_rules
+		.authorization
+		.room_create_event_id_as_room_id;
+
+	let hydra_create_id = (is_hydra && !is_create).then_some(event.room_id().as_event_id()?);
+	let auth_event_ids = event
+		.auth_events()
+		.map(ToOwned::to_owned)
+		.chain(hydra_create_id.into_iter());
+
 	// Build map of auth events
-	let mut auth_events = HashMap::with_capacity(event.auth_events().count());
-	for id in event.auth_events() {
-		let Ok(auth_event) = self.services.timeline.get_pdu(id).await else {
+	let mut auth_events = HashMap::with_capacity(event.auth_events().count().saturating_add(1));
+	for id in auth_event_ids {
+		let Ok(auth_event) = self.services.timeline.get_pdu(&id).await else {
 			warn!("Could not find auth event {id}");
 			continue;
 		};
 
 		check_room_id(room_id, &auth_event)?;
-
 		match auth_events.entry((
 			auth_event.kind.to_string().into(),
 			auth_event
@@ -119,23 +135,19 @@ pub(super) async fn handle_outlier_pdu(
 		return Err!(Request(InvalidParam("Incoming event refers to wrong create event.")));
 	}
 
-	let state_fetch = |ty: &StateEventType, sk: &str| {
-		let key = (ty.to_owned(), sk.into());
-		ready(auth_events.get(&key).map(ToOwned::to_owned))
-	};
-
-	let auth_check = state_res::event_auth::auth_check(
-		&to_room_version(room_version),
+	state_res::auth_check(
+		&room_rules,
 		&event,
-		None, // TODO: third party invite
-		state_fetch,
+		&async |event_id| self.event_fetch(&event_id).await,
+		&async |event_type, state_key| {
+			auth_events
+				.get(&event_type.with_state_key(state_key.as_str()))
+				.map(ToOwned::to_owned)
+				.ok_or_else(|| err!(Request(NotFound("state not found"))))
+		},
 	)
 	.await
 	.map_err(|e| err!(Request(Forbidden("Auth check failed: {e:?}"))))?;
-
-	if !auth_check {
-		return Err!(Request(Forbidden("Auth check failed")));
-	}
 
 	trace!("Validation successful.");
 

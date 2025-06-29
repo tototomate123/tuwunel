@@ -3,12 +3,15 @@ use axum_client_ip::InsecureClientIp;
 use base64::{Engine as _, engine::general_purpose};
 use ruma::{
 	CanonicalJsonValue, OwnedUserId, UserId,
-	api::{client::error::ErrorKind, federation::membership::create_invite},
+	api::{
+		client::error::ErrorKind,
+		federation::membership::{RawStrippedState, create_invite},
+	},
 	events::room::member::{MembershipState, RoomMemberEventContent},
 	serde::JsonObject,
 };
 use tuwunel_core::{
-	Err, Error, Result, err,
+	Err, Error, Result, err, extract_variant,
 	matrix::{Event, PduEvent, event::gen_event_id},
 	utils,
 	utils::hash::sha256,
@@ -119,7 +122,12 @@ pub(crate) async fn create_invite_route(
 		return Err!(Request(Forbidden("This server does not allow room invites.")));
 	}
 
-	let mut invite_state = body.invite_room_state.clone();
+	let mut invite_state: Vec<_> = body
+		.invite_room_state
+		.clone()
+		.into_iter()
+		.filter_map(|s| extract_variant!(s, RawStrippedState::Stripped))
+		.collect();
 
 	let mut event: JsonObject = serde_json::from_str(body.event.get())
 		.map_err(|e| err!(Request(BadJson("Invalid invite event PDU: {e}"))))?;

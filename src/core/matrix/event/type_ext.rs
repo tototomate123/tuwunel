@@ -21,12 +21,12 @@ impl TypeExt for &StateEventType {
 
 impl TypeExt for TimelineEventType {
 	fn with_state_key(self, state_key: impl Into<StateKey>) -> (StateEventType, StateKey) {
-		(self.into(), state_key.into())
+		(self.to_cow_str().into(), state_key.into())
 	}
 }
 
 impl TypeExt for &TimelineEventType {
 	fn with_state_key(self, state_key: impl Into<StateKey>) -> (StateEventType, StateKey) {
-		(self.clone().into(), state_key.into())
+		(self.to_cow_str().into(), state_key.into())
 	}
 }

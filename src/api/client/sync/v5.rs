@@ -13,7 +13,10 @@ use futures::{
 };
 use ruma::{
 	DeviceId, OwnedEventId, OwnedRoomId, RoomId, UInt, UserId,
-	api::client::sync::sync_events::{self, DeviceLists, UnreadNotificationsCount},
+	api::client::sync::sync_events::{
+		self, DeviceLists, StrippedState, UnreadNotificationsCount,
+		v5::request::ExtensionRoomConfig,
+	},
 	directory::RoomTypeFilter,
 	events::{
 		AnyRawAccountDataEvent, AnySyncEphemeralRoomEvent, StateEventType, TimelineEventType,
@@ -647,7 +650,11 @@ where
 			name: room_name.or(hero_name),
 			initial: Some(roomsince == &0),
 			is_dm: None,
-			invite_state,
+			invite_state: invite_state.map(|s| {
+				s.into_iter()
+					.map(Raw::cast::<StrippedState>)
+					.collect()
+			}),
 			unread_notifications: UnreadNotificationsCount {
 				highlight_count: Some(
 					services
@@ -727,7 +734,10 @@ async fn collect_account_data(
 		.await;
 
 	if let Some(rooms) = &body.extensions.account_data.rooms {
-		for room in rooms {
+		for room in rooms
+			.iter()
+			.filter_map(|erc| extract_variant!(erc, ExtensionRoomConfig::Room))
+		{
 			account_data.rooms.insert(
 				room.clone(),
 				services

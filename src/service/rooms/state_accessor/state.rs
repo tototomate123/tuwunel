@@ -321,7 +321,9 @@ pub fn state_full(
 	shortstatehash: ShortStateHash,
 ) -> impl Stream<Item = ((StateEventType, StateKey), impl Event)> + Send + '_ {
 	self.state_full_pdus(shortstatehash)
-		.ready_filter_map(|pdu| Some(((pdu.kind().clone().into(), pdu.state_key()?.into()), pdu)))
+		.ready_filter_map(|pdu| {
+			Some(((pdu.kind().to_cow_str().into(), pdu.state_key()?.into()), pdu))
+		})
 }
 
 #[implement(super::Service)]

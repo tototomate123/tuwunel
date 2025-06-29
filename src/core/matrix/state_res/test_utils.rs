@@ -1,37 +1,53 @@
 use std::{
 	borrow::Borrow,
-	collections::{BTreeMap, HashMap, HashSet},
-	sync::atomic::{AtomicU64, Ordering::SeqCst},
+	collections::{HashMap, HashSet},
+	pin::Pin,
+	slice,
+	sync::{
+		Arc,
+		atomic::{AtomicU64, Ordering::SeqCst},
+	},
 };
 
-use futures::future::ready;
 use ruma::{
-	EventId, MilliSecondsSinceUnixEpoch, OwnedEventId, RoomId, RoomVersionId, ServerSignatures,
-	UserId, event_id,
+	EventId, MilliSecondsSinceUnixEpoch, OwnedEventId, RoomId, UserId, event_id,
 	events::{
-		TimelineEventType,
+		StateEventType, TimelineEventType,
 		room::{
 			join_rules::{JoinRule, RoomJoinRulesEventContent},
 			member::{MembershipState, RoomMemberEventContent},
 		},
 	},
-	int, room_id, uint, user_id,
+	int, room_id,
+	room_version_rules::{AuthorizationRules, RoomVersionRules},
+	uint, user_id,
 };
 use serde_json::{
 	json,
 	value::{RawValue as RawJsonValue, to_raw_value as to_raw_json_value},
 };
 
-use super::auth_types_for_event;
+use super::{AuthSet, StateMap, auth_types_for_event, events::RoomCreateEvent};
 use crate::{
-	Result, info,
-	matrix::{Event, EventTypeExt, Pdu, StateMap, pdu::EventHash},
+	Error, Result, err, info,
+	matrix::{Event, EventHash, EventTypeExt, PduEvent, StateKey},
+	utils::stream::IterStream,
 };
 
 static SERVER_TIMESTAMP: AtomicU64 = AtomicU64::new(0);
 
-pub(crate) async fn do_check(
-	events: &[Pdu],
+pub(super) fn not_found() -> Error { err!(Request(NotFound("Test event not found"))) }
+
+pub(super) fn event_not_found(event_id: &EventId) -> Error {
+	err!(Request(NotFound("Test event not found: {event_id:?}")))
+}
+
+pub(super) fn state_not_found(ty: &StateEventType, sk: &str) -> Error {
+	err!(Request(NotFound("Test state not found: ({ty:?},{sk:?})")))
+}
+
+pub(super) async fn do_check(
+	events: &[PduEvent],
 	edges: Vec<Vec<OwnedEventId>>,
 	expected_state_ids: Vec<OwnedEventId>,
 ) {
@@ -79,35 +95,32 @@ pub(crate) async fn do_check(
 		}
 	}
 
-	// event_id -> Pdu
-	let mut event_map: HashMap<OwnedEventId, Pdu> = HashMap::new();
+	// event_id -> PduEvent
+	let mut event_map: HashMap<OwnedEventId, PduEvent> = HashMap::new();
 	// event_id -> StateMap<OwnedEventId>
 	let mut state_at_event: HashMap<OwnedEventId, StateMap<OwnedEventId>> = HashMap::new();
 
 	// Resolve the current state and add it to the state_at_event map then continue
 	// on in "time"
-	for node in super::lexicographical_topological_sort(&graph, &|_id| async {
-		Ok((int!(0), MilliSecondsSinceUnixEpoch(uint!(0))))
+	for node in super::topological_sort(&graph, &async |_id| {
+		Ok((int!(0).into(), MilliSecondsSinceUnixEpoch(uint!(0))))
 	})
 	.await
 	.unwrap()
 	{
-		let fake_event = fake_event_map.get(&node).unwrap();
+		let fake_event = &fake_event_map[&node];
 		let event_id = fake_event.event_id().to_owned();
 
-		let prev_events = graph.get(&node).unwrap();
+		let prev_events = &graph[&node];
 
 		let state_before: StateMap<OwnedEventId> = if prev_events.is_empty() {
-			HashMap::new()
+			StateMap::new()
 		} else if prev_events.len() == 1 {
-			state_at_event
-				.get(prev_events.iter().next().unwrap())
-				.unwrap()
-				.clone()
+			state_at_event[prev_events.iter().next().unwrap()].clone()
 		} else {
 			let state_sets = prev_events
 				.iter()
-				.filter_map(|k| state_at_event.get(k))
+				.filter_map(|k| state_at_event.get(k).cloned())
 				.collect::<Vec<_>>();
 
 			info!(
@@ -121,21 +134,27 @@ pub(crate) async fn do_check(
 					.collect::<Vec<_>>()
 			);
 
-			let auth_chain_sets: Vec<_> = state_sets
+			let auth_chain_sets = state_sets
 				.iter()
 				.map(|map| {
 					store
 						.auth_event_ids(room_id(), map.values().cloned().collect())
 						.unwrap()
 				})
-				.collect();
+				.collect::<Vec<_>>();
 
-			let event_map = &event_map;
-			let fetch = |id: OwnedEventId| ready(event_map.get(&id).cloned());
-			let exists = |id: OwnedEventId| ready(event_map.get(&id).is_some());
-			let resolved =
-				super::resolve(&RoomVersionId::V6, state_sets, &auth_chain_sets, &fetch, &exists)
-					.await;
+			let state_sets = state_sets.into_iter().stream();
+
+			let rules = RoomVersionRules::V6;
+			let resolved = super::resolve(
+				&rules,
+				state_sets,
+				auth_chain_sets.into_iter().stream(),
+				&async |id| event_map.get(&id).cloned().ok_or_else(not_found),
+				&async |id| event_map.contains_key(&id),
+				false,
+			)
+			.await;
 
 			match resolved {
 				| Ok(state) => state,
@@ -147,13 +166,15 @@ pub(crate) async fn do_check(
 
 		let ty = fake_event.event_type();
 		let key = fake_event.state_key().unwrap();
-		state_after.insert(ty.with_state_key(key), event_id.to_owned());
+		state_after.insert(ty.with_state_key(key), event_id.clone());
 
 		let auth_types = auth_types_for_event(
 			fake_event.event_type(),
 			fake_event.sender(),
 			fake_event.state_key(),
 			fake_event.content(),
+			&AuthorizationRules::V6,
+			false,
 		)
 		.unwrap();
 
@@ -183,7 +204,7 @@ pub(crate) async fn do_check(
 		store.0.insert(ev_id.to_owned(), event.clone());
 
 		state_at_event.insert(node, state_after);
-		event_map.insert(event_id.to_owned(), store.0.get(ev_id).unwrap().clone());
+		event_map.insert(event_id.clone(), store.0[ev_id].clone());
 	}
 
 	let mut expected_state = StateMap::new();
@@ -228,24 +249,23 @@ pub(crate) async fn do_check(
 }
 
 #[allow(clippy::exhaustive_structs)]
-pub(crate) struct TestStore<E: Event>(pub(crate) HashMap<OwnedEventId, E>);
+pub(super) struct TestStore(pub(super) HashMap<OwnedEventId, PduEvent>);
 
-impl<E: Event + Clone> TestStore<E> {
-	pub(crate) fn get_event(&self, _: &RoomId, event_id: &EventId) -> Result<E> {
+impl TestStore {
+	pub(super) fn get_event(&self, _: &RoomId, event_id: &EventId) -> Result<PduEvent> {
 		self.0
 			.get(event_id)
 			.cloned()
-			.ok_or_else(|| super::Error::NotFound(format!("{event_id} not found")))
-			.map_err(Into::into)
+			.ok_or_else(|| event_not_found(event_id))
 	}
 
 	/// Returns a Vec of the related auth events to the given `event`.
-	pub(crate) fn auth_event_ids(
+	pub(super) fn auth_event_ids(
 		&self,
 		room_id: &RoomId,
 		event_ids: Vec<OwnedEventId>,
-	) -> Result<HashSet<OwnedEventId>> {
-		let mut result = HashSet::new();
+	) -> Result<AuthSet<OwnedEventId>> {
+		let mut result = AuthSet::new();
 		let mut stack = event_ids;
 
 		// DFS for auth event chain
@@ -267,8 +287,8 @@ impl<E: Event + Clone> TestStore<E> {
 
 // A StateStore implementation for testing
 #[allow(clippy::type_complexity)]
-impl TestStore<Pdu> {
-	pub(crate) fn set_up(
+impl TestStore {
+	pub(super) fn set_up(
 		&mut self,
 	) -> (StateMap<OwnedEventId>, StateMap<OwnedEventId>, StateMap<OwnedEventId>) {
 		let create_event = to_pdu_event::<&EventId>(
@@ -289,8 +309,8 @@ impl TestStore<Pdu> {
 			TimelineEventType::RoomMember,
 			Some(alice().as_str()),
 			member_content_join(),
-			&[cre.clone()],
-			&[cre.clone()],
+			slice::from_ref(&cre),
+			slice::from_ref(&cre),
 		);
 		self.0
 			.insert(alice_mem.event_id().to_owned(), alice_mem.clone());
@@ -370,7 +390,7 @@ impl TestStore<Pdu> {
 	}
 }
 
-pub(crate) fn event_id(id: &str) -> OwnedEventId {
+pub(super) fn event_id(id: &str) -> OwnedEventId {
 	if id.contains('$') {
 		return id.try_into().unwrap();
 	}
@@ -378,33 +398,35 @@ pub(crate) fn event_id(id: &str) -> OwnedEventId {
 	format!("${id}:foo").try_into().unwrap()
 }
 
-pub(crate) fn alice() -> &'static UserId { user_id!("@alice:foo") }
+pub(super) fn alice() -> &'static UserId { user_id!("@alice:foo") }
 
-pub(crate) fn bob() -> &'static UserId { user_id!("@bob:foo") }
+pub(super) fn bob() -> &'static UserId { user_id!("@bob:foo") }
 
-pub(crate) fn charlie() -> &'static UserId { user_id!("@charlie:foo") }
+pub(super) fn charlie() -> &'static UserId { user_id!("@charlie:foo") }
 
-pub(crate) fn ella() -> &'static UserId { user_id!("@ella:foo") }
+pub(super) fn ella() -> &'static UserId { user_id!("@ella:foo") }
 
-pub(crate) fn zara() -> &'static UserId { user_id!("@zara:foo") }
+pub(super) fn zara() -> &'static UserId { user_id!("@zara:foo") }
 
-pub(crate) fn room_id() -> &'static RoomId { room_id!("!test:foo") }
+pub(super) fn room_id() -> &'static RoomId { room_id!("!test:foo") }
 
-pub(crate) fn member_content_ban() -> Box<RawJsonValue> {
+pub(crate) fn hydra_room_id() -> &'static RoomId { room_id!("!CREATE") }
+
+pub(super) fn member_content_ban() -> Box<RawJsonValue> {
 	to_raw_json_value(&RoomMemberEventContent::new(MembershipState::Ban)).unwrap()
 }
 
-pub(crate) fn member_content_join() -> Box<RawJsonValue> {
+pub(super) fn member_content_join() -> Box<RawJsonValue> {
 	to_raw_json_value(&RoomMemberEventContent::new(MembershipState::Join)).unwrap()
 }
 
-pub(crate) fn to_init_pdu_event(
+pub(super) fn to_init_pdu_event(
 	id: &str,
 	sender: &UserId,
 	ev_type: TimelineEventType,
 	state_key: Option<&str>,
 	content: Box<RawJsonValue>,
-) -> Pdu {
+) -> PduEvent {
 	let ts = SERVER_TIMESTAMP.fetch_add(1, SeqCst);
 	let id = if id.contains('$') {
 		id.to_owned()
@@ -412,15 +434,16 @@ pub(crate) fn to_init_pdu_event(
 		format!("${id}:foo")
 	};
 
-	Pdu {
+	let state_key = state_key.map(ToOwned::to_owned);
+	PduEvent {
 		event_id: id.try_into().unwrap(),
 		room_id: room_id().to_owned(),
 		sender: sender.to_owned(),
+		origin: None,
 		origin_server_ts: ts.try_into().unwrap(),
 		state_key: state_key.map(Into::into),
 		kind: ev_type,
 		content,
-		origin: None,
 		redacts: None,
 		unsigned: None,
 		auth_events: vec![],
@@ -428,10 +451,11 @@ pub(crate) fn to_init_pdu_event(
 		depth: uint!(0),
 		hashes: EventHash::default(),
 		signatures: None,
+		rejected: false,
 	}
 }
 
-pub(crate) fn to_pdu_event<S>(
+pub(super) fn to_pdu_event<S>(
 	id: &str,
 	sender: &UserId,
 	ev_type: TimelineEventType,
@@ -439,7 +463,7 @@ pub(crate) fn to_pdu_event<S>(
 	content: Box<RawJsonValue>,
 	auth_events: &[S],
 	prev_events: &[S],
-) -> Pdu
+) -> PduEvent
 where
 	S: AsRef<str>,
 {
@@ -460,15 +484,16 @@ where
 		.map(event_id)
 		.collect::<Vec<_>>();
 
-	Pdu {
+	let state_key = state_key.map(ToOwned::to_owned);
+	PduEvent {
 		event_id: id.try_into().unwrap(),
 		room_id: room_id().to_owned(),
 		sender: sender.to_owned(),
+		origin: None,
 		origin_server_ts: ts.try_into().unwrap(),
 		state_key: state_key.map(Into::into),
 		kind: ev_type,
 		content,
-		origin: None,
 		redacts: None,
 		unsigned: None,
 		auth_events,
@@ -476,12 +501,153 @@ where
 		depth: uint!(0),
 		hashes: EventHash::default(),
 		signatures: None,
+		rejected: false,
+	}
+}
+
+/// Same as `to_pdu_event()`, but uses the default m.room.create event ID to
+/// generate the room ID.
+pub(super) fn to_hydra_pdu_event<S>(
+	id: &str,
+	sender: &UserId,
+	ev_type: TimelineEventType,
+	state_key: Option<&str>,
+	content: Box<RawJsonValue>,
+	auth_events: &[S],
+	prev_events: &[S],
+) -> PduEvent
+where
+	S: AsRef<str>,
+{
+	fn event_id(id: &str) -> OwnedEventId {
+		if id.contains('$') {
+			id.try_into().unwrap()
+		} else {
+			format!("${id}").try_into().unwrap()
+		}
+	}
+
+	let ts = SERVER_TIMESTAMP.fetch_add(1, SeqCst);
+	let auth_events = auth_events
+		.iter()
+		.map(AsRef::as_ref)
+		.map(event_id)
+		.collect::<Vec<_>>();
+	let prev_events = prev_events
+		.iter()
+		.map(AsRef::as_ref)
+		.map(event_id)
+		.collect::<Vec<_>>();
+
+	let state_key = state_key.map(ToOwned::to_owned);
+	PduEvent {
+		event_id: event_id(id),
+		room_id: hydra_room_id().to_owned(),
+		sender: sender.to_owned(),
+		origin: None,
+		origin_server_ts: ts.try_into().unwrap(),
+		state_key: state_key.map(Into::into),
+		kind: ev_type,
+		content,
+		redacts: None,
+		unsigned: None,
+		auth_events,
+		prev_events,
+		depth: uint!(0),
+		hashes: EventHash::default(),
+		signatures: None,
+		rejected: false,
+	}
+}
+
+pub(super) fn room_redaction_pdu_event<S>(
+	id: &str,
+	sender: &UserId,
+	redacts: OwnedEventId,
+	content: Box<RawJsonValue>,
+	auth_events: &[S],
+	prev_events: &[S],
+) -> PduEvent
+where
+	S: AsRef<str>,
+{
+	let ts = SERVER_TIMESTAMP.fetch_add(1, SeqCst);
+	let id = if id.contains('$') {
+		id.to_owned()
+	} else {
+		format!("${id}:foo")
+	};
+	let auth_events = auth_events
+		.iter()
+		.map(AsRef::as_ref)
+		.map(event_id)
+		.collect::<Vec<_>>();
+	let prev_events = prev_events
+		.iter()
+		.map(AsRef::as_ref)
+		.map(event_id)
+		.collect::<Vec<_>>();
+
+	PduEvent {
+		event_id: id.try_into().unwrap(),
+		room_id: room_id().to_owned(),
+		sender: sender.to_owned(),
+		origin: None,
+		origin_server_ts: ts.try_into().unwrap(),
+		state_key: None,
+		kind: TimelineEventType::RoomRedaction,
+		content,
+		redacts: Some(redacts),
+		unsigned: None,
+		auth_events,
+		prev_events,
+		depth: uint!(0),
+		hashes: EventHash::default(),
+		signatures: None,
+		rejected: false,
+	}
+}
+
+pub(super) fn room_create_hydra_pdu_event(
+	id: &str,
+	sender: &UserId,
+	content: Box<RawJsonValue>,
+) -> PduEvent {
+	let ts = SERVER_TIMESTAMP.fetch_add(1, SeqCst);
+	let eid = if id.contains('$') {
+		id.to_owned()
+	} else {
+		format!("${id}")
+	};
+	let rid = if id.contains('!') {
+		id.to_owned()
+	} else {
+		format!("!{id}")
+	};
+
+	PduEvent {
+		event_id: eid.try_into().unwrap(),
+		room_id: rid.try_into().unwrap(),
+		sender: sender.to_owned(),
+		origin: None,
+		origin_server_ts: ts.try_into().unwrap(),
+		state_key: Some(StateKey::new()),
+		kind: TimelineEventType::RoomCreate,
+		content,
+		redacts: None,
+		unsigned: None,
+		auth_events: vec![],
+		prev_events: vec![],
+		depth: uint!(0),
+		hashes: EventHash::default(),
+		signatures: None,
+		rejected: false,
 	}
 }
 
 // all graphs start with these input events
 #[allow(non_snake_case)]
-pub(crate) fn INITIAL_EVENTS() -> HashMap<OwnedEventId, Pdu> {
+pub(super) fn INITIAL_EVENTS() -> HashMap<OwnedEventId, PduEvent> {
 	vec![
 		to_pdu_event::<&EventId>(
 			"CREATE",
@@ -561,9 +727,88 @@ pub(crate) fn INITIAL_EVENTS() -> HashMap<OwnedEventId, Pdu> {
 	.collect()
 }
 
+/// Batch of initial events to use for incoming events from room version
+/// `org.matrix.hydra.11` onwards.
+#[allow(non_snake_case)]
+pub(super) fn INITIAL_HYDRA_EVENTS() -> HashMap<OwnedEventId, PduEvent> {
+	vec![
+		room_create_hydra_pdu_event(
+			"CREATE",
+			alice(),
+			to_raw_json_value(&json!({ "room_version": "org.matrix.hydra.11" })).unwrap(),
+		),
+		to_hydra_pdu_event(
+			"IMA",
+			alice(),
+			TimelineEventType::RoomMember,
+			Some(alice().as_str()),
+			member_content_join(),
+			&["CREATE"],
+			&["CREATE"],
+		),
+		to_hydra_pdu_event(
+			"IPOWER",
+			alice(),
+			TimelineEventType::RoomPowerLevels,
+			Some(""),
+			to_raw_json_value(&json!({})).unwrap(),
+			&["CREATE", "IMA"],
+			&["IMA"],
+		),
+		to_hydra_pdu_event(
+			"IJR",
+			alice(),
+			TimelineEventType::RoomJoinRules,
+			Some(""),
+			to_raw_json_value(&RoomJoinRulesEventContent::new(JoinRule::Public)).unwrap(),
+			&["CREATE", "IMA", "IPOWER"],
+			&["IPOWER"],
+		),
+		to_hydra_pdu_event(
+			"IMB",
+			bob(),
+			TimelineEventType::RoomMember,
+			Some(bob().as_str()),
+			member_content_join(),
+			&["CREATE", "IJR", "IPOWER"],
+			&["IJR"],
+		),
+		to_hydra_pdu_event(
+			"IMC",
+			charlie(),
+			TimelineEventType::RoomMember,
+			Some(charlie().as_str()),
+			member_content_join(),
+			&["CREATE", "IJR", "IPOWER"],
+			&["IMB"],
+		),
+		to_hydra_pdu_event::<&EventId>(
+			"START",
+			charlie(),
+			TimelineEventType::RoomMessage,
+			Some("dummy"),
+			to_raw_json_value(&json!({})).unwrap(),
+			&[],
+			&[],
+		),
+		to_hydra_pdu_event::<&EventId>(
+			"END",
+			charlie(),
+			TimelineEventType::RoomMessage,
+			Some("dummy"),
+			to_raw_json_value(&json!({})).unwrap(),
+			&[],
+			&[],
+		),
+	]
+	.into_iter()
+	.map(|ev| (ev.event_id().to_owned(), ev))
+	.collect()
+}
+
 // all graphs start with these input events
 #[allow(non_snake_case)]
-pub(crate) fn INITIAL_EVENTS_CREATE_ROOM() -> HashMap<OwnedEventId, Pdu> {
+pub(super) fn INITIAL_EVENTS_CREATE_ROOM() -> HashMap<OwnedEventId, PduEvent> {
 	vec![to_pdu_event::<&EventId>(
 		"CREATE",
 		alice(),
@@ -579,9 +824,99 @@ pub(crate) fn INITIAL_EVENTS_CREATE_ROOM() -> HashMap<OwnedEventId, Pdu> {
 }
 
 #[allow(non_snake_case)]
-pub(crate) fn INITIAL_EDGES() -> Vec<OwnedEventId> {
+pub(super) fn INITIAL_EDGES() -> Vec<OwnedEventId> {
 	vec!["START", "IMC", "IMB", "IJR", "IPOWER", "IMA", "CREATE"]
 		.into_iter()
 		.map(event_id)
 		.collect::<Vec<_>>()
+}
+
+pub(super) fn init_subscriber() -> tracing::dispatcher::DefaultGuard {
+	tracing::subscriber::set_default(
+		tracing_subscriber::fmt()
+			.with_test_writer()
+			.finish(),
+	)
+}
+
+/// Wrapper around a state map.
+pub(super) struct TestStateMap(HashMap<StateEventType, HashMap<String, PduEvent>>);
+
+impl TestStateMap {
+	/// Construct a `TestStateMap` from the given event map.
+	pub(super) fn new(events: &HashMap<OwnedEventId, PduEvent>) -> Arc<Self> {
+		let mut state_map: HashMap<StateEventType, HashMap<String, PduEvent>> = HashMap::new();
+
+		for event in events.values() {
+			let event_type = StateEventType::from(event.event_type().to_string());
+
+			state_map
+				.entry(event_type)
+				.or_default()
+				.insert(event.state_key().unwrap().to_owned(), event.clone());
+		}
+
+		Arc::new(Self(state_map))
+	}
+
+	/// Get the event with the given event type and state key.
+	pub(super) fn get(
+		self: &Arc<Self>,
+		event_type: &StateEventType,
+		state_key: &str,
+	) -> Result<PduEvent> {
+		self.0
+			.get(event_type)
+			.ok_or_else(|| state_not_found(event_type, state_key))?
+			.get(state_key)
+			.cloned()
+			.ok_or_else(|| state_not_found(event_type, state_key))
+	}
+
+	/// A function to get a state event from this map.
+	pub(super) fn fetch_state_fn(
+		self: &Arc<Self>,
+	) -> impl Fn(StateEventType, StateKey) -> Pin<Box<dyn Future<Output = Result<PduEvent>> + Send>>
+	{
+		move |event_type: StateEventType, state_key: StateKey| {
+			let s = self.clone();
+			Box::pin(async move { s.get(&event_type, state_key.as_str()) })
+		}
+	}
+
+	/// The `m.room.create` event contained in this map.
+	///
+	/// Panics if there is no `m.room.create` event in this map.
+	pub(super) fn room_create_event(self: &Arc<Self>) -> RoomCreateEvent<PduEvent> {
+		RoomCreateEvent::new(self.get(&StateEventType::RoomCreate, "").unwrap())
+	}
+}
+
+/// Create an `m.room.third_party_invite` event with the given sender.
+pub(super) fn room_third_party_invite(sender: &UserId) -> PduEvent {
+	let content = json!({
+		"display_name": "o...@g...",
+		"key_validity_url": "https://identity.local/_matrix/identity/v2/pubkey/isvalid",
+		"public_key": "Gb9ECWmEzf6FQbrBZ9w7lshQhqowtrbLDFw4rXAxZuE",
+		"public_keys": [
+			{
+				"key_validity_url": "https://identity.local/_matrix/identity/v2/pubkey/isvalid",
+				"public_key": "Gb9ECWmEzf6FQbrBZ9w7lshQhqowtrbLDFw4rXAxZuE"
+			},
+			{
+				"key_validity_url": "https://identity.local/_matrix/identity/v2/pubkey/ephemeral/isvalid",
+				"public_key": "Kxdvv7lo0O6JVI7yimFgmYPfpLGnctcpYjuypP5zx/c"
+			}
+		]
+	});
+
+	to_pdu_event(
+		"THIRDPARTY",
+		sender,
+		TimelineEventType::RoomThirdPartyInvite,
+		Some("somerandomtoken"),
+		to_raw_json_value(&content).unwrap(),
+		&["CREATE", "IJR", "IPOWER"],
+		&["IPOWER"],
+	)
 }

@@ -67,12 +67,43 @@ pub struct Pdu {
 	// BTreeMap<Box<ServerName>, BTreeMap<ServerSigningKeyId, String>>
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub signatures: Option<Box<RawJsonValue>>,
+
+	//TODO: https://spec.matrix.org/v1.14/rooms/v11/#rejected-events
+	#[cfg(test)]
+	#[serde(default, skip_serializing)]
+	pub rejected: bool,
 }
+
+/// The [maximum size allowed] for a PDU.
+/// [maximum size allowed]: https://spec.matrix.org/latest/client-server-api/#size-limits
+pub const MAX_PDU_BYTES: usize = 65_535;
+
+/// The [maximum length allowed] for the `prev_events` array of a PDU.
+/// [maximum length allowed]: https://spec.matrix.org/latest/rooms/v1/#event-format
+pub const MAX_PREV_EVENTS: usize = 20;
+
+/// The [maximum length allowed] for the `auth_events` array of a PDU.
+/// [maximum length allowed]: https://spec.matrix.org/latest/rooms/v1/#event-format
+pub const MAX_AUTH_EVENTS: usize = 10;
 
 impl Pdu {
 	pub fn from_id_val(event_id: &EventId, mut json: CanonicalJsonObject) -> Result<Self> {
 		let event_id = CanonicalJsonValue::String(event_id.into());
 		json.insert("event_id".into(), event_id);
+		serde_json::to_value(json)
+			.and_then(serde_json::from_value)
+			.map_err(Into::into)
+	}
+
+	pub fn from_rid_val(
+		room_id: &RoomId,
+		event_id: &EventId,
+		mut json: CanonicalJsonObject,
+	) -> Result<Self> {
+		let event_id = CanonicalJsonValue::String(event_id.into());
+		let room_id = CanonicalJsonValue::String(room_id.into());
+		json.insert("event_id".into(), event_id);
+		json.insert("room_id".into(), room_id);
 		serde_json::to_value(json)
 			.and_then(serde_json::from_value)
 			.map_err(Into::into)
@@ -86,6 +117,13 @@ where
 	#[inline]
 	fn auth_events(&self) -> impl DoubleEndedIterator<Item = &EventId> + Clone + Send + '_ {
 		self.auth_events.iter().map(AsRef::as_ref)
+	}
+
+	#[inline]
+	fn auth_events_into(
+		self,
+	) -> impl IntoIterator<IntoIter = impl Iterator<Item = OwnedEventId>> + Send {
+		self.auth_events.into_iter()
 	}
 
 	#[inline]
@@ -106,6 +144,14 @@ where
 
 	#[inline]
 	fn redacts(&self) -> Option<&EventId> { self.redacts.as_deref() }
+
+	#[cfg(test)]
+	#[inline]
+	fn rejected(&self) -> bool { self.rejected }
+
+	#[cfg(not(test))]
+	#[inline]
+	fn rejected(&self) -> bool { false }
 
 	#[inline]
 	fn room_id(&self) -> &RoomId { &self.room_id }
@@ -145,6 +191,13 @@ where
 	}
 
 	#[inline]
+	fn auth_events_into(
+		self,
+	) -> impl IntoIterator<IntoIter = impl Iterator<Item = OwnedEventId>> + Send {
+		self.auth_events.iter().map(ToOwned::to_owned)
+	}
+
+	#[inline]
 	fn content(&self) -> &RawJsonValue { &self.content }
 
 	#[inline]
@@ -162,6 +215,14 @@ where
 
 	#[inline]
 	fn redacts(&self) -> Option<&EventId> { self.redacts.as_deref() }
+
+	#[cfg(test)]
+	#[inline]
+	fn rejected(&self) -> bool { self.rejected }
+
+	#[cfg(not(test))]
+	#[inline]
+	fn rejected(&self) -> bool { false }
 
 	#[inline]
 	fn room_id(&self) -> &RoomId { &self.room_id }

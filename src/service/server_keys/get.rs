@@ -1,8 +1,8 @@
 use std::borrow::Borrow;
 
 use ruma::{
-	CanonicalJsonObject, RoomVersionId, ServerName, ServerSigningKeyId,
-	api::federation::discovery::VerifyKey,
+	CanonicalJsonObject, ServerName, ServerSigningKeyId, api::federation::discovery::VerifyKey,
+	room_version_rules::RoomVersionRules,
 };
 use tuwunel_core::{Err, Result, implement};
 
@@ -12,11 +12,11 @@ use super::{PubKeyMap, PubKeys, extract_key};
 pub async fn get_event_keys(
 	&self,
 	object: &CanonicalJsonObject,
-	version: &RoomVersionId,
+	version: &RoomVersionRules,
 ) -> Result<PubKeyMap> {
 	use ruma::signatures::required_keys;
 
-	let required = match required_keys(object, version) {
+	let required = match required_keys(object, &version.signatures) {
 		| Ok(required) => required,
 		| Err(e) => {
 			return Err!(BadServerResponse("Failed to determine keys required to verify: {e}"));

@@ -7,8 +7,9 @@ use ruma::{
 	events::room::member::{MembershipState, RoomMemberEventContent},
 };
 use tuwunel_core::{
-	Err, Result, debug_error, err, info,
+	Err, Result, err,
 	matrix::{event::gen_event_id_canonical_json, pdu::PduBuilder},
+	warn,
 };
 use tuwunel_service::Services;
 
@@ -27,8 +28,8 @@ pub(crate) async fn invite_user_route(
 	let sender_user = body.sender_user();
 
 	if !services.users.is_admin(sender_user).await && services.config.block_non_admin_invites {
-		debug_error!(
-			"User {sender_user} is not an admin and attempted to send an invite to room {}",
+		warn!(
+			"{sender_user} is not an admin and attempted to send an invite to {}",
 			&body.room_id
 		);
 		return Err!(Request(Forbidden("Invites are not allowed on this server.")));
@@ -104,10 +105,7 @@ pub(crate) async fn invite_helper(
 	is_direct: bool,
 ) -> Result {
 	if !services.users.is_admin(sender_user).await && services.config.block_non_admin_invites {
-		info!(
-			"User {sender_user} is not an admin and attempted to send an invite to room \
-			 {room_id}"
-		);
+		warn!("{sender_user} is not an admin and attempted to send an invite to {room_id}");
 		return Err!(Request(Forbidden("Invites are not allowed on this server.")));
 	}
 
@@ -156,7 +154,10 @@ pub(crate) async fn invite_helper(
 					.sending
 					.convert_to_outgoing_federation_event(pdu_json.clone())
 					.await,
-				invite_room_state,
+				invite_room_state: invite_room_state
+					.into_iter()
+					.map(Into::into)
+					.collect(),
 				via: services
 					.rooms
 					.state_cache

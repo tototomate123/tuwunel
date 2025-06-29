@@ -4,11 +4,14 @@ use futures::{
 };
 use ruma::{CanonicalJsonObject, EventId, RoomId, ServerName, UserId, events::StateEventType};
 use tuwunel_core::{
-	Err, Result, debug, debug::INFO_SPAN_LEVEL, err, implement, matrix::Event,
-	utils::stream::IterStream, warn,
+	Err, Result, debug,
+	debug::INFO_SPAN_LEVEL,
+	err, implement,
+	matrix::{Event, room_version},
+	utils::stream::IterStream,
+	warn,
 };
 
-use super::get_room_version_id;
 use crate::rooms::timeline::RawPduId;
 
 /// When receiving an event one needs to:
@@ -47,7 +50,7 @@ use crate::rooms::timeline::RawPduId;
 	ret(Debug),
 )]
 pub async fn handle_incoming_pdu<'a>(
-	&self,
+	&'a self,
 	origin: &'a ServerName,
 	room_id: &'a RoomId,
 	event_id: &'a EventId,
@@ -107,11 +110,10 @@ pub async fn handle_incoming_pdu<'a>(
 		return Err!(Request(Forbidden("Federation of this room is disabled by this server.")));
 	}
 
-	let room_version = get_room_version_id(create_event)?;
+	let room_version = room_version::from_create_event(create_event)?;
 
 	let (incoming_pdu, val) = self
 		.handle_outlier_pdu(origin, room_id, event_id, pdu, &room_version, false)
-		.boxed()
 		.await?;
 
 	// 8. if not timeline event: stop

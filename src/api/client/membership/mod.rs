@@ -70,15 +70,16 @@ pub(crate) async fn banned_room_check(
 
 	if let Some(room_id) = room_id {
 		if services.rooms.metadata.is_banned(room_id).await
-			|| services
-				.config
-				.forbidden_remote_server_names
-				.is_match(
-					room_id
-						.server_name()
-						.expect("legacy room mxid")
-						.host(),
-				) {
+			|| (room_id.server_name().is_some()
+				&& services
+					.config
+					.forbidden_remote_server_names
+					.is_match(
+						room_id
+							.server_name()
+							.expect("legacy room mxid")
+							.host(),
+					)) {
 			warn!(
 				"User {user_id} who is not an admin attempted to send an invite for or \
 				 attempted to join a banned room or banned room server name: {room_id}"

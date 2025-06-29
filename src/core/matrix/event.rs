@@ -4,6 +4,7 @@ mod format;
 mod id;
 mod redact;
 mod relation;
+pub mod state_key;
 mod type_ext;
 mod unsigned;
 
@@ -16,12 +17,23 @@ use ruma::{
 use serde::Deserialize;
 use serde_json::{Value as JsonValue, value::RawValue as RawJsonValue};
 
-pub use self::{filter::Matches, id::*, relation::RelationTypeEqual, type_ext::TypeExt};
-use super::{pdu::Pdu, state_key::StateKey};
+pub use self::{
+	filter::Matches,
+	id::*,
+	relation::RelationTypeEqual,
+	state_key::{StateKey, TypeStateKey},
+	type_ext::TypeExt,
+};
+use super::pdu::Pdu;
 use crate::{Result, utils};
 
 /// Abstraction of a PDU so users can have their own PDU types.
 pub trait Event: Clone + Debug + Send + Sync {
+	#[inline]
+	fn is_type_and_state_key(&self, kind: &TimelineEventType, state_key: &str) -> bool {
+		self.kind() == kind && self.state_key() == Some(state_key)
+	}
+
 	/// Serialize into a Ruma JSON format, consuming.
 	#[inline]
 	fn into_format<T>(self) -> T
@@ -152,6 +164,11 @@ pub trait Event: Clone + Debug + Send + Sync {
 	/// All the authenticating events for this event.
 	fn auth_events(&self) -> impl DoubleEndedIterator<Item = &EventId> + Clone + Send + '_;
 
+	/// All the authenticating events for this event.
+	fn auth_events_into(
+		self,
+	) -> impl IntoIterator<IntoIter = impl Iterator<Item = OwnedEventId>> + Send;
+
 	/// The event's content.
 	fn content(&self) -> &RawJsonValue;
 
@@ -166,6 +183,9 @@ pub trait Event: Clone + Debug + Send + Sync {
 
 	/// If this event is a redaction event this is the event it redacts.
 	fn redacts(&self) -> Option<&EventId>;
+
+	/// see: https://spec.matrix.org/v1.14/rooms/v11/#rejected-events
+	fn rejected(&self) -> bool;
 
 	/// The `RoomId` of this event.
 	fn room_id(&self) -> &RoomId;

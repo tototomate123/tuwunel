@@ -119,7 +119,9 @@ hardened_malloc-rs.workspace = true
 hardened_malloc-rs.optional = true
 
 [dev-dependencies]
+insta.workspace = true
 maplit.workspace = true
+similar.workspace = true
 
 [lints]
 workspace = true

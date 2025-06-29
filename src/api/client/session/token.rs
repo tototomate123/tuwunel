@@ -56,10 +56,7 @@ pub(crate) async fn login_token_route(
 
 	let mut uiaainfo = uiaa::UiaaInfo {
 		flows: vec![password_flow],
-		completed: Vec::new(),
-		params: Box::default(),
-		session: None,
-		auth_error: None,
+		..Default::default()
 	};
 
 	match &body.auth {

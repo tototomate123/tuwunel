@@ -534,10 +534,10 @@ async fn fix_referencedevents_missing_sep(services: &Services) -> Result {
 }
 
 async fn fix_readreceiptid_readreceipt_duplicates(services: &Services) -> Result {
-	use ruma::identifiers_validation::MAX_BYTES;
+	use ruma::identifiers_validation::ID_MAX_BYTES;
 	use tuwunel_core::arrayvec::ArrayString;
 
-	type ArrayId = ArrayString<MAX_BYTES>;
+	type ArrayId = ArrayString<ID_MAX_BYTES>;
 	type Key<'a> = (&'a RoomId, u64, &'a UserId);
 
 	warn!("Fixing undeleted entries in readreceiptid_readreceipt...");

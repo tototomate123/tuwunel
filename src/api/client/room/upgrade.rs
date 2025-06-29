@@ -4,7 +4,7 @@ use axum::extract::State;
 use futures::StreamExt;
 use ruma::{
 	CanonicalJsonObject, RoomId, RoomVersionId,
-	api::client::{error::ErrorKind, room::upgrade_room},
+	api::client::room::upgrade_room,
 	events::{
 		StateEventType, TimelineEventType,
 		room::{
@@ -14,11 +14,12 @@ use ruma::{
 		},
 	},
 	int,
+	room_version_rules::RoomIdFormatVersion,
 };
 use serde_json::{json, value::to_raw_value};
 use tuwunel_core::{
-	Err, Error, Result, err,
-	matrix::{Event, StateKey, pdu::PduBuilder},
+	Err, Result, err,
+	matrix::{Event, StateKey, pdu::PduBuilder, room_version},
 };
 
 use crate::Ruma;
@@ -61,14 +62,23 @@ pub(crate) async fn upgrade_room_route(
 		.server
 		.supported_room_version(&body.new_version)
 	{
-		return Err(Error::BadRequest(
-			ErrorKind::UnsupportedRoomVersion,
+		return Err!(Request(UnsupportedRoomVersion(
 			"This server does not support that room version.",
-		));
+		)));
 	}
 
+	if matches!(body.new_version, RoomVersionId::V12) {
+		return Err!(Request(UnsupportedRoomVersion(
+			"Upgrading to version 12 is still under development.",
+		)));
+	}
+
+	let room_version_rules = room_version::rules(&body.new_version)?;
+	let room_id_format = &room_version_rules.room_id_format;
+	assert!(*room_id_format == RoomIdFormatVersion::V1, "TODO");
+
 	// Create a replacement room
-	let replacement_room = RoomId::new(services.globals.server_name());
+	let replacement_room = RoomId::new_v1(services.globals.server_name());
 
 	let _short_id = services
 		.rooms

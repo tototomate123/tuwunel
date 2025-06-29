@@ -9,9 +9,10 @@ use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
 use futures::StreamExt;
 use ruma::{
-	CanonicalJsonObject, MilliSecondsSinceUnixEpoch, OwnedServerSigningKeyId, RoomVersionId,
-	ServerName, ServerSigningKeyId,
+	CanonicalJsonObject, MilliSecondsSinceUnixEpoch, OwnedServerSigningKeyId, ServerName,
+	ServerSigningKeyId,
 	api::federation::discovery::{ServerSigningKeys, VerifyKey},
+	room_version_rules::RoomVersionRules,
 	serde::Raw,
 	signatures::{Ed25519KeyPair, PublicKeyMap, PublicKeySet},
 };
@@ -109,6 +110,7 @@ async fn add_signing_keys(&self, new_keys: ServerSigningKeys) {
 	keys.verify_keys.extend(new_keys.verify_keys);
 	keys.old_verify_keys
 		.extend(new_keys.old_verify_keys);
+
 	self.db
 		.server_signingkeys
 		.raw_put(origin, Json(&keys));
@@ -118,11 +120,11 @@ async fn add_signing_keys(&self, new_keys: ServerSigningKeys) {
 pub async fn required_keys_exist(
 	&self,
 	object: &CanonicalJsonObject,
-	version: &RoomVersionId,
+	rules: &RoomVersionRules,
 ) -> bool {
 	use ruma::signatures::required_keys;
 
-	let Ok(required_keys) = required_keys(object, version) else {
+	let Ok(required_keys) = required_keys(object, &rules.signatures) else {
 		return false;
 	};
 
@@ -191,6 +193,7 @@ pub async fn signing_keys_for(&self, origin: &ServerName) -> Result<ServerSignin
 fn minimum_valid_ts(&self) -> MilliSecondsSinceUnixEpoch {
 	let timepoint =
 		timepoint_from_now(self.minimum_valid).expect("SystemTime should not overflow");
+
 	MilliSecondsSinceUnixEpoch::from_system_time(timepoint).expect("UInt should not overflow")
 }
 

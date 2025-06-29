@@ -3,7 +3,8 @@ use std::{fmt::Debug, mem};
 use bytes::BytesMut;
 use reqwest::Client;
 use ruma::api::{
-	IncomingResponse, MatrixVersion, OutgoingRequest, SendAccessToken, appservice::Registration,
+	IncomingResponse, MatrixVersion, OutgoingRequest, SendAccessToken, SupportedVersions,
+	appservice::Registration,
 };
 use tuwunel_core::{Err, Result, debug_error, err, trace, utils, warn};
 
@@ -20,6 +21,10 @@ where
 	T: OutgoingRequest + Debug + Send,
 {
 	const VERSIONS: [MatrixVersion; 1] = [MatrixVersion::V1_7];
+	let supported = SupportedVersions {
+		versions: VERSIONS.into(),
+		features: Default::default(),
+	};
 
 	let Some(dest) = registration.url else {
 		return Ok(None);
@@ -36,7 +41,7 @@ where
 		.try_into_http_request::<BytesMut>(
 			&dest,
 			SendAccessToken::IfRequired(hs_token),
-			&VERSIONS,
+			&supported,
 		)
 		.map_err(|e| {
 			err!(BadServerResponse(
@@ -76,6 +81,7 @@ where
 	let mut http_response_builder = http::Response::builder()
 		.status(status)
 		.version(response.version());
+
 	mem::swap(
 		response.headers_mut(),
 		http_response_builder

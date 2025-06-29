@@ -41,10 +41,7 @@ impl From<Error> for UiaaResponse {
 			message: error.message(),
 		};
 
-		Self::MatrixError(ruma::api::client::error::Error {
-			status_code: error.status_code(),
-			body,
-		})
+		Self::MatrixError(ruma::api::client::error::Error::new(error.status_code(), body))
 	}
 }
 

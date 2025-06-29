@@ -12,7 +12,7 @@ use ruma::{
 		federation::space::{SpaceHierarchyParentSummary, get_hierarchy},
 	},
 	events::room::member::MembershipState,
-	space::SpaceRoomJoinRule::{self, *},
+	room::{JoinRuleSummary, RoomSummary},
 };
 use tuwunel_core::{
 	Err, Result, debug_warn, trace,
@@ -34,8 +34,8 @@ use crate::{Ruma, RumaResponse};
 pub(crate) async fn get_room_summary_legacy(
 	State(services): State<crate::State>,
 	InsecureClientIp(client): InsecureClientIp,
-	body: Ruma<get_summary::msc3266::Request>,
-) -> Result<RumaResponse<get_summary::msc3266::Response>> {
+	body: Ruma<get_summary::v1::Request>,
+) -> Result<RumaResponse<get_summary::v1::Response>> {
 	get_room_summary(State(services), InsecureClientIp(client), body)
 		.boxed()
 		.await
@@ -51,8 +51,8 @@ pub(crate) async fn get_room_summary_legacy(
 pub(crate) async fn get_room_summary(
 	State(services): State<crate::State>,
 	InsecureClientIp(client): InsecureClientIp,
-	body: Ruma<get_summary::msc3266::Request>,
-) -> Result<get_summary::msc3266::Response> {
+	body: Ruma<get_summary::v1::Request>,
+) -> Result<get_summary::v1::Response> {
 	let (room_id, servers) = services
 		.rooms
 		.alias
@@ -73,7 +73,7 @@ async fn room_summary_response(
 	room_id: &RoomId,
 	servers: &[OwnedServerName],
 	sender_user: Option<&UserId>,
-) -> Result<get_summary::msc3266::Response> {
+) -> Result<get_summary::v1::Response> {
 	if services
 		.rooms
 		.state_cache
@@ -85,23 +85,12 @@ async fn room_summary_response(
 			.await;
 	}
 
-	let room =
-		remote_room_summary_hierarchy_response(services, room_id, servers, sender_user).await?;
+	let summary = remote_room_summary_hierarchy_response(services, room_id, servers, sender_user)
+		.await?
+		.summary;
 
-	Ok(get_summary::msc3266::Response {
-		room_id: room_id.to_owned(),
-		canonical_alias: room.canonical_alias,
-		avatar_url: room.avatar_url,
-		guest_can_join: room.guest_can_join,
-		name: room.name,
-		num_joined_members: room.num_joined_members,
-		topic: room.topic,
-		world_readable: room.world_readable,
-		join_rule: room.join_rule,
-		room_type: room.room_type,
-		room_version: room.room_version,
-		encryption: room.encryption,
-		allowed_room_ids: room.allowed_room_ids,
+	Ok(get_summary::v1::Response {
+		summary,
 		membership: sender_user
 			.is_some()
 			.then_some(MembershipState::Leave),
@@ -112,7 +101,7 @@ async fn local_room_summary_response(
 	services: &Services,
 	room_id: &RoomId,
 	sender_user: Option<&UserId>,
-) -> Result<get_summary::msc3266::Response> {
+) -> Result<get_summary::v1::Response> {
 	trace!(?sender_user, "Sending local room summary response for {room_id:?}");
 	let join_rule = services
 		.rooms
@@ -139,7 +128,7 @@ async fn local_room_summary_response(
 		&join_rule.clone().into(),
 		guest_can_join,
 		world_readable,
-		join_rule.allowed_rooms(),
+		join_rule.allowed_room_ids(),
 		sender_user,
 	)
 	.await?;
@@ -224,24 +213,22 @@ async fn local_room_summary_response(
 		membership,
 	);
 
-	Ok(get_summary::msc3266::Response {
-		room_id: room_id.to_owned(),
-		canonical_alias,
-		avatar_url,
-		guest_can_join,
-		name,
-		num_joined_members: num_joined_members.try_into().unwrap_or_default(),
-		topic,
-		world_readable,
-		room_type,
-		room_version,
-		encryption,
+	Ok(get_summary::v1::Response {
+		summary: RoomSummary {
+			room_id: room_id.to_owned(),
+			canonical_alias,
+			avatar_url,
+			guest_can_join,
+			name,
+			num_joined_members: num_joined_members.try_into().unwrap_or_default(),
+			topic,
+			world_readable,
+			room_type,
+			room_version,
+			encryption,
+			join_rule: join_rule.into(),
+		},
 		membership,
-		allowed_room_ids: join_rule
-			.allowed_rooms()
-			.map(Into::into)
-			.collect(),
-		join_rule: join_rule.into(),
 	})
 }
 
@@ -277,10 +264,11 @@ async fn remote_room_summary_hierarchy_response(
 	while let Some(Ok(response)) = requests.next().await {
 		trace!("{response:?}");
 		let room = response.room.clone();
-		if room.room_id != room_id {
+		let summary = &room.summary;
+		if summary.room_id != room_id {
 			debug_warn!(
 				"Room ID {} returned does not belong to the requested room ID {}",
-				room.room_id,
+				summary.room_id,
 				room_id
 			);
 			continue;
@@ -289,10 +277,10 @@ async fn remote_room_summary_hierarchy_response(
 		return user_can_see_summary(
 			services,
 			room_id,
-			&room.join_rule,
-			room.guest_can_join,
-			room.world_readable,
-			room.allowed_room_ids.iter().map(AsRef::as_ref),
+			&summary.join_rule,
+			summary.guest_can_join,
+			summary.world_readable,
+			summary.join_rule.allowed_room_ids(),
 			sender_user,
 		)
 		.await
@@ -308,7 +296,7 @@ async fn remote_room_summary_hierarchy_response(
 async fn user_can_see_summary<'a, I>(
 	services: &Services,
 	room_id: &RoomId,
-	join_rule: &SpaceRoomJoinRule,
+	join_rule: &JoinRuleSummary,
 	guest_can_join: bool,
 	world_readable: bool,
 	allowed_room_ids: I,
@@ -317,17 +305,23 @@ async fn user_can_see_summary<'a, I>(
 where
 	I: Iterator<Item = &'a RoomId> + Send,
 {
-	let is_public_room = matches!(join_rule, Public | Knock | KnockRestricted);
+	let is_public_room = matches!(
+		join_rule,
+		JoinRuleSummary::Public | JoinRuleSummary::Knock | JoinRuleSummary::KnockRestricted(_)
+	);
+
 	match sender_user {
 		| Some(sender_user) => {
 			let user_can_see_state_events = services
 				.rooms
 				.state_accessor
 				.user_can_see_state_events(sender_user, room_id);
+
 			let is_guest = services
 				.users
 				.is_deactivated(sender_user)
 				.unwrap_or(false);
+
 			let user_in_allowed_restricted_room = allowed_room_ids.stream().any(|room| {
 				services
 					.rooms

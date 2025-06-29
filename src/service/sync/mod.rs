@@ -119,7 +119,8 @@ impl Service {
 					&mut list.room_details.required_state,
 					&cached_list.room_details.required_state,
 				);
-				some_or_sticky(&mut list.include_heroes, cached_list.include_heroes);
+
+				//some_or_sticky(&mut list.include_heroes, cached_list.include_heroes);
 
 				match (&mut list.filters, cached_list.filters.clone()) {
 					| (Some(filters), Some(cached_filters)) => {

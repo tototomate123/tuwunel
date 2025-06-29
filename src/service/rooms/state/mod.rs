@@ -1,21 +1,21 @@
 use std::{collections::HashMap, fmt::Write, iter::once, sync::Arc};
 
 use async_trait::async_trait;
-use futures::{
-	FutureExt, Stream, StreamExt, TryFutureExt, TryStreamExt, future::join_all, pin_mut,
-};
+use futures::{FutureExt, Stream, StreamExt, TryStreamExt, future::join_all, pin_mut};
 use ruma::{
 	EventId, OwnedEventId, OwnedRoomId, RoomId, RoomVersionId, UserId,
 	events::{
 		AnyStrippedStateEvent, StateEventType, TimelineEventType,
-		room::{create::RoomCreateEventContent, member::RoomMemberEventContent},
+		room::member::RoomMemberEventContent,
 	},
+	room_version_rules::AuthorizationRules,
 	serde::Raw,
 };
 use tuwunel_core::{
 	Event, PduEvent, Result, err,
-	result::FlatOk,
-	state_res::{self, StateMap},
+	matrix::{RoomVersionRules, StateKey, TypeStateKey, room_version},
+	result::{AndThenRef, FlatOk},
+	state_res::{StateMap, auth_types_for_event},
 	utils::{
 		IterStream, MutexMap, MutexMapGuard, ReadyExt, calculate_hash,
 		stream::{BroadbandExt, TryIgnore},
@@ -27,7 +27,7 @@ use tuwunel_database::{Deserialized, Ignore, Interfix, Map};
 use crate::{
 	Dep, globals, rooms,
 	rooms::{
-		short::{ShortEventId, ShortStateHash},
+		short::{ShortEventId, ShortStateHash, ShortStateKey},
 		state_compressor::{CompressedState, parse_compressed_state_event},
 	},
 };
@@ -355,11 +355,91 @@ impl Service {
 		}
 	}
 
-	#[tracing::instrument(skip_all, level = "trace")]
-	pub async fn summary_stripped<Pdu>(&self, event: &Pdu) -> Vec<Raw<AnyStrippedStateEvent>>
+	/// Set the state hash to a new version, but does not update state_cache.
+	#[tracing::instrument(skip(self, _mutex_lock), level = "debug")]
+	pub fn set_room_state(
+		&self,
+		room_id: &RoomId,
+		shortstatehash: u64,
+		// Take mutex guard to make sure users get the room state mutex
+		_mutex_lock: &RoomMutexGuard,
+	) {
+		const BUFSIZE: usize = size_of::<u64>();
+
+		self.db
+			.roomid_shortstatehash
+			.raw_aput::<BUFSIZE, _, _>(room_id, shortstatehash);
+	}
+
+	/// This fetches auth events from the current state.
+	#[allow(clippy::too_many_arguments)]
+	#[tracing::instrument(skip(self, content), level = "debug")]
+	pub async fn get_auth_events(
+		&self,
+		room_id: &RoomId,
+		kind: &TimelineEventType,
+		sender: &UserId,
+		state_key: Option<&str>,
+		content: &serde_json::value::RawValue,
+		auth_rules: &AuthorizationRules,
+		include_create: bool,
+	) -> Result<StateMap<PduEvent>>
 	where
-		Pdu: Event,
+		StateEventType: Send + Sync,
+		StateKey: Send + Sync,
 	{
+		let Ok(shortstatehash) = self.get_room_shortstatehash(room_id).await else {
+			return Ok(StateMap::new());
+		};
+
+		let sauthevents: HashMap<ShortStateKey, TypeStateKey> =
+			auth_types_for_event(kind, sender, state_key, content, auth_rules, include_create)?
+				.into_iter()
+				.stream()
+				.broad_filter_map(async |(event_type, state_key): TypeStateKey| {
+					self.services
+						.short
+						.get_shortstatekey(&event_type, &state_key)
+						.await
+						.map(move |sstatekey| (sstatekey, (event_type, state_key)))
+						.ok()
+				})
+				.collect()
+				.await;
+
+		self.services
+			.state_accessor
+			.state_full_shortids(shortstatehash)
+			.ready_filter_map(Result::ok)
+			.ready_filter_map(|(shortstatekey, shorteventid)| {
+				sauthevents
+					.get(&shortstatekey)
+					.map(move |(ty, sk)| ((ty, sk), shorteventid))
+			})
+			.unzip()
+			.map(|(state_keys, event_ids): (Vec<_>, Vec<_>)| {
+				self.services
+					.short
+					.multi_get_eventid_from_short(event_ids.into_iter().stream())
+					.zip(state_keys.into_iter().stream())
+			})
+			.flatten_stream()
+			.ready_filter_map(|(event_id, (ty, sk))| Some(((ty, sk), event_id.ok()?)))
+			.broad_filter_map(async |((ty, sk), event_id): ((&_, &_), OwnedEventId)| {
+				let pdu = self.services.timeline.get_pdu(&event_id).await;
+
+				Some(((ty.clone(), sk.clone()), pdu.ok()?))
+			})
+			.collect()
+			.map(Ok)
+			.await
+	}
+
+	#[tracing::instrument(skip_all, level = "debug")]
+	pub async fn summary_stripped<Pdu: Event>(
+		&self,
+		event: &Pdu,
+	) -> Vec<Raw<AnyStrippedStateEvent>> {
 		let cells = [
 			(&StateEventType::RoomCreate, ""),
 			(&StateEventType::RoomJoinRules, ""),
@@ -386,20 +466,12 @@ impl Service {
 			.collect()
 	}
 
-	/// Set the state hash to a new version, but does not update state_cache.
-	#[tracing::instrument(skip(self, _mutex_lock), level = "debug")]
-	pub fn set_room_state(
-		&self,
-		room_id: &RoomId,
-		shortstatehash: u64,
-		// Take mutex guard to make sure users get the room state mutex
-		_mutex_lock: &RoomMutexGuard,
-	) {
-		const BUFSIZE: usize = size_of::<u64>();
-
-		self.db
-			.roomid_shortstatehash
-			.raw_aput::<BUFSIZE, _, _>(room_id, shortstatehash);
+	/// Returns the room's version rules
+	#[inline]
+	pub async fn get_room_version_rules(&self, room_id: &RoomId) -> Result<RoomVersionRules> {
+		self.get_room_version(room_id)
+			.await
+			.and_then_ref(room_version::rules)
 	}
 
 	/// Returns the room's version.
@@ -413,7 +485,9 @@ impl Service {
 			.state_accessor
 			.room_state_get_content(room_id, &StateEventType::RoomCreate, "")
 			.await
-			.map(|content: RoomCreateEventContent| content.room_version)
+			.as_ref()
+			.map(room_version::from_create_content)
+			.cloned()
 			.map_err(|e| err!(Request(NotFound("No create event found: {e:?}"))))
 	}
 
@@ -468,65 +542,5 @@ impl Service {
 			let key = (room_id, event_id);
 			self.db.roomid_pduleaves.put_raw(key, event_id);
 		}
-	}
-
-	/// This fetches auth events from the current state.
-	#[tracing::instrument(skip(self, content), level = "trace")]
-	pub async fn get_auth_events(
-		&self,
-		room_id: &RoomId,
-		kind: &TimelineEventType,
-		sender: &UserId,
-		state_key: Option<&str>,
-		content: &serde_json::value::RawValue,
-	) -> Result<StateMap<PduEvent>> {
-		let Ok(shortstatehash) = self.get_room_shortstatehash(room_id).await else {
-			return Ok(HashMap::new());
-		};
-
-		let auth_types = state_res::auth_types_for_event(kind, sender, state_key, content)?;
-
-		let sauthevents: HashMap<_, _> = auth_types
-			.iter()
-			.stream()
-			.broad_filter_map(|(event_type, state_key)| {
-				self.services
-					.short
-					.get_shortstatekey(event_type, state_key)
-					.map_ok(move |ssk| (ssk, (event_type, state_key)))
-					.map(Result::ok)
-			})
-			.collect()
-			.await;
-
-		let (state_keys, event_ids): (Vec<_>, Vec<_>) = self
-			.services
-			.state_accessor
-			.state_full_shortids(shortstatehash)
-			.ready_filter_map(Result::ok)
-			.ready_filter_map(|(shortstatekey, shorteventid)| {
-				sauthevents
-					.get(&shortstatekey)
-					.map(|(ty, sk)| ((ty, sk), shorteventid))
-			})
-			.unzip()
-			.await;
-
-		self.services
-			.short
-			.multi_get_eventid_from_short(event_ids.into_iter().stream())
-			.zip(state_keys.into_iter().stream())
-			.ready_filter_map(|(event_id, (ty, sk))| Some(((ty, sk), event_id.ok()?)))
-			.broad_filter_map(|((ty, sk), event_id): (_, OwnedEventId)| async move {
-				self.services
-					.timeline
-					.get_pdu(&event_id)
-					.await
-					.map(move |pdu| (((*ty).clone(), (*sk).clone()), pdu))
-					.ok()
-			})
-			.collect()
-			.map(Ok)
-			.await
 	}
 }

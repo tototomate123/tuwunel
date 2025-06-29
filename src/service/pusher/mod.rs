@@ -6,17 +6,14 @@ use ipaddress::IPAddress;
 use ruma::{
 	DeviceId, OwnedDeviceId, RoomId, UInt, UserId,
 	api::{
-		IncomingResponse, MatrixVersion, OutgoingRequest, SendAccessToken,
+		IncomingResponse, MatrixVersion, OutgoingRequest, SendAccessToken, SupportedVersions,
 		client::push::{Pusher, PusherKind, set_pusher},
 		push_gateway::send_event_notification::{
 			self,
 			v1::{Device, Notification, NotificationCounts, NotificationPriority},
 		},
 	},
-	events::{
-		AnySyncTimelineEvent, StateEventType, TimelineEventType,
-		room::power_levels::RoomPowerLevelsEventContent,
-	},
+	events::{AnySyncTimelineEvent, TimelineEventType, room::power_levels::RoomPowerLevels},
 	push::{
 		Action, PushConditionPowerLevelsCtx, PushConditionRoomCtx, PushFormat, Ruleset, Tweak,
 	},
@@ -202,12 +199,16 @@ impl Service {
 		T: OutgoingRequest + Debug + Send,
 	{
 		const VERSIONS: [MatrixVersion; 1] = [MatrixVersion::V1_0];
+		let supported = SupportedVersions {
+			versions: VERSIONS.into(),
+			features: Default::default(),
+		};
 
 		let dest = dest.replace(self.services.globals.notification_push_path(), "");
 		trace!("Push gateway destination: {dest}");
 
 		let http_request = request
-			.try_into_http_request::<BytesMut>(&dest, SendAccessToken::IfRequired(""), &VERSIONS)
+			.try_into_http_request::<BytesMut>(&dest, SendAccessToken::IfRequired(""), &supported)
 			.map_err(|e| {
 				err!(BadServerResponse(warn!(
 					"Failed to find destination {dest} for push gateway: {e}"
@@ -301,13 +302,11 @@ impl Service {
 		let mut notify = None;
 		let mut tweaks = Vec::new();
 
-		let power_levels: RoomPowerLevelsEventContent = self
+		let power_levels: RoomPowerLevels = self
 			.services
 			.state_accessor
-			.room_state_get(event.room_id(), &StateEventType::RoomPowerLevels, "")
-			.await
-			.and_then(|event| event.get_content())
-			.unwrap_or_default();
+			.get_power_levels(event.room_id())
+			.await?;
 
 		let serialized = event.to_format();
 		for action in self
@@ -346,7 +345,7 @@ impl Service {
 		&self,
 		user: &UserId,
 		ruleset: &'a Ruleset,
-		power_levels: &RoomPowerLevelsEventContent,
+		power_levels: &RoomPowerLevels,
 		pdu: &Raw<AnySyncTimelineEvent>,
 		room_id: &RoomId,
 	) -> &'a [Action] {
@@ -354,6 +353,7 @@ impl Service {
 			users: power_levels.users.clone(),
 			users_default: power_levels.users_default,
 			notifications: power_levels.notifications.clone(),
+			rules: power_levels.rules.clone(),
 		};
 
 		let room_joined_count = self
@@ -380,7 +380,7 @@ impl Service {
 			power_levels: Some(power_levels),
 		};
 
-		ruleset.get_actions(pdu, &ctx)
+		ruleset.get_actions(pdu, &ctx).await
 	}
 
 	#[tracing::instrument(skip(self, unread, pusher, tweaks, event))]

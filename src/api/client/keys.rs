@@ -3,7 +3,8 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use axum::extract::State;
 use futures::{StreamExt, stream::FuturesUnordered};
 use ruma::{
-	OneTimeKeyAlgorithm, OwnedDeviceId, OwnedUserId, UserId,
+	CanonicalJsonObject, CanonicalJsonValue, OneTimeKeyAlgorithm, OwnedDeviceId, OwnedUserId,
+	UserId,
 	api::{
 		client::{
 			error::ErrorKind,
@@ -162,10 +163,7 @@ pub(crate) async fn upload_signing_keys_route(
 	// UIAA
 	let mut uiaainfo = UiaaInfo {
 		flows: vec![AuthFlow { stages: vec![AuthType::Password] }],
-		completed: Vec::new(),
-		params: Box::default(),
-		session: None,
-		auth_error: None,
+		..Default::default()
 	};
 
 	match check_for_new_keys(
@@ -599,18 +597,19 @@ fn add_unsigned_device_display_name(
 	include_display_names: bool,
 ) -> Result {
 	if let Some(display_name) = metadata.display_name {
-		let mut object = keys.deserialize_as::<serde_json::Map<String, serde_json::Value>>()?;
+		let mut object = keys.deserialize_as_unchecked::<CanonicalJsonObject>()?;
 
 		let unsigned = object
-			.entry("unsigned")
-			.or_insert_with(|| json!({}));
-		if let serde_json::Value::Object(unsigned_object) = unsigned {
+			.entry("unsigned".into())
+			.or_insert_with(CanonicalJsonValue::default);
+
+		if let CanonicalJsonValue::Object(unsigned_object) = unsigned {
 			if include_display_names {
 				unsigned_object.insert("device_display_name".to_owned(), display_name.into());
 			} else {
 				unsigned_object.insert(
 					"device_display_name".to_owned(),
-					Some(metadata.device_id.as_str().to_owned()).into(),
+					CanonicalJsonValue::String(metadata.device_id.as_str().to_owned()),
 				);
 			}
 		}

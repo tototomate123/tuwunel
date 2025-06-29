@@ -3,7 +3,7 @@ use futures::FutureExt;
 use ruma::{
 	OwnedServerName, OwnedUserId,
 	RoomVersionId::*,
-	api::federation::knock::send_knock,
+	api::federation::membership::create_knock_event,
 	events::{
 		StateEventType,
 		room::member::{MembershipState, RoomMemberEventContent},
@@ -23,8 +23,8 @@ use crate::Ruma;
 /// Submits a signed knock event.
 pub(crate) async fn create_knock_event_v1_route(
 	State(services): State<crate::State>,
-	body: Ruma<send_knock::v1::Request>,
-) -> Result<send_knock::v1::Response> {
+	body: Ruma<create_knock_event::v1::Request>,
+) -> Result<create_knock_event::v1::Response> {
 	if services
 		.config
 		.forbidden_remote_server_names
@@ -189,7 +189,14 @@ pub(crate) async fn create_knock_event_v1_route(
 		.send_pdu_room(&body.room_id, &pdu_id)
 		.await?;
 
-	let knock_room_state = services.rooms.state.summary_stripped(&pdu).await;
-
-	Ok(send_knock::v1::Response { knock_room_state })
+	Ok(create_knock_event::v1::Response {
+		knock_room_state: services
+			.rooms
+			.state
+			.summary_stripped(&pdu)
+			.await
+			.into_iter()
+			.map(Into::into)
+			.collect(),
+	})
 }

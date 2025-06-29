@@ -19,12 +19,9 @@ use std::{
 };
 
 use async_trait::async_trait;
-use ruma::{
-	EventId, OwnedEventId, OwnedRoomId, RoomId, RoomVersionId,
-	events::room::create::RoomCreateEventContent,
-};
+use ruma::{EventId, OwnedRoomId, RoomId};
 use tuwunel_core::{
-	Err, Result, RoomVersion, Server, implement,
+	Err, Result, Server, implement,
 	matrix::{Event, PduEvent},
 	utils::{MutexMap, continue_exponential_backoff},
 };
@@ -126,17 +123,13 @@ fn is_backed_off(&self, event_id: &EventId, range: Range<Duration>) -> bool {
 }
 
 #[implement(Service)]
-async fn event_exists(&self, event_id: OwnedEventId) -> bool {
-	self.services.timeline.pdu_exists(&event_id).await
+async fn event_exists(&self, event_id: &EventId) -> bool {
+	self.services.timeline.pdu_exists(event_id).await
 }
 
 #[implement(Service)]
-async fn event_fetch(&self, event_id: OwnedEventId) -> Option<PduEvent> {
-	self.services
-		.timeline
-		.get_pdu(&event_id)
-		.await
-		.ok()
+async fn event_fetch(&self, event_id: &EventId) -> Result<PduEvent> {
+	self.services.timeline.get_pdu(event_id).await
 }
 
 fn check_room_id<Pdu: Event>(room_id: &RoomId, pdu: &Pdu) -> Result {
@@ -150,16 +143,4 @@ fn check_room_id<Pdu: Event>(room_id: &RoomId, pdu: &Pdu) -> Result {
 	}
 
 	Ok(())
-}
-
-fn get_room_version_id<Pdu: Event>(create_event: &Pdu) -> Result<RoomVersionId> {
-	let content: RoomCreateEventContent = create_event.get_content()?;
-	let room_version = content.room_version;
-
-	Ok(room_version)
-}
-
-#[inline]
-fn to_room_version(room_version_id: &RoomVersionId) -> RoomVersion {
-	RoomVersion::new(room_version_id).expect("room version is supported")
 }

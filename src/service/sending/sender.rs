@@ -16,8 +16,8 @@ use futures::{
 	stream::FuturesUnordered,
 };
 use ruma::{
-	CanonicalJsonObject, MilliSecondsSinceUnixEpoch, OwnedRoomId, OwnedServerName, OwnedUserId,
-	RoomId, RoomVersionId, ServerName, UInt,
+	CanonicalJsonObject, CanonicalJsonValue, MilliSecondsSinceUnixEpoch, OwnedRoomId,
+	OwnedServerName, OwnedUserId, RoomId, ServerName, UInt,
 	api::{
 		appservice::event::push_events::v1::EphemeralData,
 		federation::transactions::{
@@ -39,7 +39,8 @@ use ruma::{
 };
 use serde_json::value::{RawValue as RawJsonValue, to_raw_value};
 use tuwunel_core::{
-	Error, Event, Result, debug, err, error,
+	Error, Event, Result, debug, err, error, implement,
+	matrix::room_version,
 	result::LogErr,
 	trace,
 	utils::{
@@ -720,7 +721,7 @@ impl Service {
 				.filter(|event| matches!(event, SendingEvent::Pdu(_)))
 				.count(),
 		);
-		let mut edu_jsons: Vec<EphemeralData> = Vec::with_capacity(
+		let mut edu_jsons: Vec<Raw<EphemeralData>> = Vec::with_capacity(
 			events
 				.iter()
 				.filter(|event| matches!(event, SendingEvent::Edu(_)))
@@ -740,7 +741,9 @@ impl Service {
 				},
 				| SendingEvent::Edu(edu) =>
 					if appservice.receive_ephemeral {
-						if let Ok(edu) = serde_json::from_slice(edu) {
+						if let Ok(edu) =
+							serde_json::from_slice(edu).and_then(|edu| Raw::new(&edu))
+						{
 							edu_jsons.push(edu);
 						}
 					},
@@ -749,7 +752,7 @@ impl Service {
 		}
 
 		let txn_hash = calculate_hash(events.iter().filter_map(|e| match e {
-			| SendingEvent::Edu(b) => Some(&**b),
+			| SendingEvent::Edu(b) => Some(b.as_ref()),
 			| SendingEvent::Pdu(b) => Some(b.as_ref()),
 			| SendingEvent::Flush => None,
 		}));
@@ -763,8 +766,8 @@ impl Service {
 			client,
 			appservice,
 			ruma::api::appservice::event::push_events::v1::Request {
-				events: pdu_jsons,
 				txn_id: txn_id.into(),
+				events: pdu_jsons,
 				ephemeral: edu_jsons,
 				to_device: Vec::new(), // TODO
 			},
@@ -933,47 +936,59 @@ impl Service {
 			| Ok(_) => Ok(Destination::Federation(server)),
 		}
 	}
+}
 
-	/// This does not return a full `Pdu` it is only to satisfy ruma's types.
-	pub async fn convert_to_outgoing_federation_event(
-		&self,
-		mut pdu_json: CanonicalJsonObject,
-	) -> Box<RawJsonValue> {
-		if let Some(unsigned) = pdu_json
-			.get_mut("unsigned")
-			.and_then(|val| val.as_object_mut())
-		{
-			unsigned.remove("transaction_id");
-		}
+/// This does not return a full `Pdu` it is only to satisfy ruma's types.
+#[implement(Service)]
+pub async fn convert_to_outgoing_federation_event(
+	&self,
+	mut pdu_json: CanonicalJsonObject,
+) -> Box<RawJsonValue> {
+	self.strip_outgoing_federation_event(&mut pdu_json)
+		.await;
 
-		// room v3 and above removed the "event_id" field from remote PDU format
-		if let Some(room_id) = pdu_json
-			.get("room_id")
-			.and_then(|val| RoomId::parse(val.as_str()?).ok())
-		{
-			match self
-				.services
-				.state
-				.get_room_version(room_id)
-				.await
-			{
-				| Ok(room_version_id) => match room_version_id {
-					| RoomVersionId::V1 | RoomVersionId::V2 => {},
-					| _ => _ = pdu_json.remove("event_id"),
-				},
-				| Err(_) => _ = pdu_json.remove("event_id"),
-			}
-		} else {
-			pdu_json.remove("event_id");
-		}
+	to_raw_value(&pdu_json).expect("CanonicalJson is valid serde_json::Value")
+}
 
-		// TODO: another option would be to convert it to a canonical string to validate
-		// size and return a Result<Raw<...>>
-		// serde_json::from_str::<Raw<_>>(
-		//     ruma::serde::to_canonical_json_string(pdu_json).expect("CanonicalJson is
-		// valid serde_json::Value"), )
-		// .expect("Raw::from_value always works")
+#[implement(Service)]
+async fn strip_outgoing_federation_event(&self, pdu_json: &mut CanonicalJsonObject) {
+	if let Some(unsigned) = pdu_json
+		.get_mut("unsigned")
+		.and_then(|val| val.as_object_mut())
+	{
+		unsigned.remove("transaction_id");
+	}
 
-		to_raw_value(&pdu_json).expect("CanonicalJson is valid serde_json::Value")
+	let Some(room_id) = pdu_json
+		.get("room_id")
+		.and_then(CanonicalJsonValue::as_str)
+		.map(RoomId::parse)
+		.transpose()
+		.ok()
+		.flatten()
+	else {
+		return;
+	};
+
+	let Ok(room_rules) = self
+		.services
+		.state
+		.get_room_version(room_id)
+		.await
+		.and_then(|ref ver| room_version::rules(ver))
+	else {
+		pdu_json.remove("event_id");
+		return;
+	};
+
+	if !room_rules.event_format.require_event_id {
+		pdu_json.remove("event_id");
+	}
+
+	if !room_rules
+		.event_format
+		.require_room_create_room_id
+	{
+		pdu_json.remove("room_id");
 	}
 }

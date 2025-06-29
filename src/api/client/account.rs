@@ -11,10 +11,7 @@ use ruma::{
 		},
 		uiaa::{AuthFlow, AuthType, UiaaInfo},
 	},
-	events::{
-		StateEventType,
-		room::power_levels::{RoomPowerLevels, RoomPowerLevelsEventContent},
-	},
+	events::{StateEventType, room::power_levels::RoomPowerLevelsEventContent},
 };
 use tuwunel_core::{
 	Err, Error, Result, err, info,
@@ -60,10 +57,7 @@ pub(crate) async fn change_password_route(
 
 	let mut uiaainfo = UiaaInfo {
 		flows: vec![AuthFlow { stages: vec![AuthType::Password] }],
-		completed: Vec::new(),
-		params: Box::default(),
-		session: None,
-		auth_error: None,
+		..Default::default()
 	};
 
 	match &body.auth {
@@ -189,10 +183,7 @@ pub(crate) async fn deactivate_route(
 
 	let mut uiaainfo = UiaaInfo {
 		flows: vec![AuthFlow { stages: vec![AuthType::Password] }],
-		completed: Vec::new(),
-		params: Box::default(),
-		session: None,
-		auth_error: None,
+		..Default::default()
 	};
 
 	match &body.auth {
@@ -331,21 +322,18 @@ pub async fn full_user_deactivate(
 		let room_power_levels = services
 			.rooms
 			.state_accessor
-			.room_state_get_content::<RoomPowerLevelsEventContent>(
-				room_id,
-				&StateEventType::RoomPowerLevels,
-				"",
-			)
+			.get_power_levels(room_id)
 			.await
 			.ok();
 
-		let user_can_demote_self =
-			room_power_levels
-				.as_ref()
-				.is_some_and(|power_levels_content| {
-					RoomPowerLevels::from(power_levels_content.clone())
-						.user_can_change_user_power_level(user_id, user_id)
-				}) || services
+		let user_can_change_self = room_power_levels
+			.as_ref()
+			.is_some_and(|power_levels| {
+				power_levels.user_can_change_user_power_level(user_id, user_id)
+			});
+
+		let user_can_demote_self = user_can_change_self
+			|| services
 				.rooms
 				.state_accessor
 				.room_state_get(room_id, &StateEventType::RoomCreate, "")
@@ -353,7 +341,11 @@ pub async fn full_user_deactivate(
 				.is_ok_and(|event| event.sender() == user_id);
 
 		if user_can_demote_self {
-			let mut power_levels_content = room_power_levels.unwrap_or_default();
+			let mut power_levels_content: RoomPowerLevelsEventContent = room_power_levels
+				.map(TryInto::try_into)
+				.transpose()?
+				.unwrap_or_default();
+
 			power_levels_content.users.remove(user_id);
 
 			// ignore errors so deactivation doesn't fail

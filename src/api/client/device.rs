@@ -145,10 +145,7 @@ pub(crate) async fn delete_device_route(
 	// UIAA
 	let mut uiaainfo = UiaaInfo {
 		flows: vec![AuthFlow { stages: vec![AuthType::Password] }],
-		completed: Vec::new(),
-		params: Box::default(),
-		session: None,
-		auth_error: None,
+		..Default::default()
 	};
 
 	match &body.auth {
@@ -224,10 +221,7 @@ pub(crate) async fn delete_devices_route(
 	// UIAA
 	let mut uiaainfo = UiaaInfo {
 		flows: vec![AuthFlow { stages: vec![AuthType::Password] }],
-		completed: Vec::new(),
-		params: Box::default(),
-		session: None,
-		auth_error: None,
+		..Default::default()
 	};
 
 	match &body.auth {

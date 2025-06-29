@@ -1,12 +1,9 @@
 use axum::{Json, extract::State, response::IntoResponse};
-use ruma::api::client::{
-	discovery::{
-		discover_homeserver::{self, HomeserverInfo, SlidingSyncProxyInfo},
-		discover_support::{self, Contact},
-	},
-	error::ErrorKind,
+use ruma::api::client::discovery::{
+	discover_homeserver::{self, HomeserverInfo},
+	discover_support::{self, Contact},
 };
-use tuwunel_core::{Error, Result};
+use tuwunel_core::{Err, Result};
 
 use crate::Ruma;
 
@@ -19,13 +16,12 @@ pub(crate) async fn well_known_client(
 ) -> Result<discover_homeserver::Response> {
 	let client_url = match services.server.config.well_known.client.as_ref() {
 		| Some(url) => url.to_string(),
-		| None => return Err(Error::BadRequest(ErrorKind::NotFound, "Not found.")),
+		| None => return Err!(Request(NotFound("Not found."))),
 	};
 
 	Ok(discover_homeserver::Response {
-		homeserver: HomeserverInfo { base_url: client_url.clone() },
+		homeserver: HomeserverInfo { base_url: client_url },
 		identity_server: None,
-		sliding_sync_proxy: Some(SlidingSyncProxyInfo { url: client_url }),
 		tile_server: None,
 	})
 }
@@ -54,7 +50,7 @@ pub(crate) async fn well_known_support(
 
 	// support page or role must be either defined for this to be valid
 	if support_page.is_none() && role.is_none() {
-		return Err(Error::BadRequest(ErrorKind::NotFound, "Not found."));
+		return Err!(Request(NotFound("Not found.")));
 	}
 
 	let email_address = services
@@ -63,6 +59,7 @@ pub(crate) async fn well_known_support(
 		.well_known
 		.support_email
 		.clone();
+
 	let matrix_id = services
 		.server
 		.config
@@ -72,7 +69,7 @@ pub(crate) async fn well_known_support(
 
 	// if a role is specified, an email address or matrix id is required
 	if role.is_some() && (email_address.is_none() && matrix_id.is_none()) {
-		return Err(Error::BadRequest(ErrorKind::NotFound, "Not found."));
+		return Err!(Request(NotFound("Not found.")));
 	}
 
 	// TODO: support defining multiple contacts in the config
@@ -86,7 +83,7 @@ pub(crate) async fn well_known_support(
 
 	// support page or role+contacts must be either defined for this to be valid
 	if contacts.is_empty() && support_page.is_none() {
-		return Err(Error::BadRequest(ErrorKind::NotFound, "Not found."));
+		return Err!(Request(NotFound("Not found.")));
 	}
 
 	Ok(discover_support::Response { contacts, support_page })
@@ -103,7 +100,7 @@ pub(crate) async fn syncv3_client_server_json(
 		| Some(url) => url.to_string(),
 		| None => match services.server.config.well_known.server.as_ref() {
 			| Some(url) => url.to_string(),
-			| None => return Err(Error::BadRequest(ErrorKind::NotFound, "Not found.")),
+			| None => return Err!(Request(NotFound("Not found."))),
 		},
 	};
 

@@ -16,18 +16,15 @@ use ruma::{
 		},
 		federation,
 	},
-	directory::{Filter, PublicRoomJoinRule, PublicRoomsChunk, RoomNetwork, RoomTypeFilter},
+	directory::{Filter, PublicRoomsChunk, RoomNetwork, RoomTypeFilter},
 	events::{
 		StateEventType,
-		room::{
-			join_rules::{JoinRule, RoomJoinRulesEventContent},
-			power_levels::{RoomPowerLevels, RoomPowerLevelsEventContent},
-		},
+		room::join_rules::{JoinRule, RoomJoinRulesEventContent},
 	},
 	uint,
 };
 use tuwunel_core::{
-	Err, Result, err, info,
+	Err, Result, err, info, is_true,
 	matrix::Event,
 	utils::{
 		TryFutureExtExt,
@@ -51,7 +48,7 @@ pub(crate) async fn get_public_rooms_filtered_route(
 	InsecureClientIp(client): InsecureClientIp,
 	body: Ruma<get_public_rooms_filtered::v3::Request>,
 ) -> Result<get_public_rooms_filtered::v3::Response> {
-	check_banned(&services, body.server.as_deref())?;
+	check_server_banned(&services, body.server.as_deref())?;
 
 	let response = get_public_rooms_filtered_helper(
 		&services,
@@ -80,7 +77,7 @@ pub(crate) async fn get_public_rooms_route(
 	InsecureClientIp(client): InsecureClientIp,
 	body: Ruma<get_public_rooms::v3::Request>,
 ) -> Result<get_public_rooms::v3::Response> {
-	check_banned(&services, body.server.as_deref())?;
+	check_server_banned(&services, body.server.as_deref())?;
 
 	let response = get_public_rooms_filtered_helper(
 		&services,
@@ -393,15 +390,11 @@ async fn user_can_publish_room(
 	match services
 		.rooms
 		.state_accessor
-		.room_state_get(room_id, &StateEventType::RoomPowerLevels, "")
+		.get_power_levels(room_id)
 		.await
 	{
-		| Ok(event) => serde_json::from_str(event.content().get())
-			.map_err(|_| err!(Database("Invalid event content for m.room.power_levels")))
-			.map(|content: RoomPowerLevelsEventContent| {
-				RoomPowerLevels::from(content)
-					.user_can_send_state(user_id, StateEventType::RoomHistoryVisibility)
-			}),
+		| Ok(power_levels) =>
+			Ok(power_levels.user_can_send_state(user_id, StateEventType::RoomHistoryVisibility)),
 		| _ => {
 			match services
 				.rooms
@@ -453,7 +446,7 @@ async fn public_rooms_chunk(services: &Services, room_id: OwnedRoomId) -> Public
 		.state_accessor
 		.room_state_get_content(&room_id, &StateEventType::RoomJoinRules, "")
 		.map_ok(|c: RoomJoinRulesEventContent| match c.join_rule {
-			| JoinRule::Public => PublicRoomJoinRule::Public,
+			| JoinRule::Public => "public".into(),
 			| JoinRule::Knock => "knock".into(),
 			| JoinRule::KnockRestricted(_) => "knock_restricted".into(),
 			| _ => "invite".into(),
@@ -497,24 +490,25 @@ async fn public_rooms_chunk(services: &Services, room_id: OwnedRoomId) -> Public
 	}
 }
 
-fn check_banned(services: &Services, server: Option<&ServerName>) -> Result {
+fn check_server_banned(services: &Services, server: Option<&ServerName>) -> Result {
 	let Some(server) = server else {
 		return Ok(());
 	};
 
-	let forbidden_remote_directory = services
-		.config
-		.forbidden_remote_room_directory_server_names
-		.is_match(server.host());
+	let conditions = [
+		services
+			.config
+			.forbidden_remote_room_directory_server_names
+			.is_match(server.host()),
+		services
+			.config
+			.forbidden_remote_server_names
+			.is_match(server.host()),
+	];
 
-	let forbidden_remote_server = services
-		.config
-		.forbidden_remote_server_names
-		.is_match(server.host());
-
-	if forbidden_remote_directory || forbidden_remote_server {
-		Err!(Request(Forbidden("Server is banned on this homeserver.")))
-	} else {
-		Ok(())
+	if conditions.iter().any(is_true!()) {
+		return Err!(Request(Forbidden("Server is banned on this homeserver.")));
 	}
+
+	Ok(())
 }

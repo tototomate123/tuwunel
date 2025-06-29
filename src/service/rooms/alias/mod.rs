@@ -2,13 +2,10 @@ mod remote;
 
 use std::sync::Arc;
 
-use futures::{Stream, StreamExt, TryFutureExt};
+use futures::{Stream, StreamExt};
 use ruma::{
 	OwnedRoomId, OwnedServerName, OwnedUserId, RoomAliasId, RoomId, RoomOrAliasId, UserId,
-	events::{
-		StateEventType,
-		room::power_levels::{RoomPowerLevels, RoomPowerLevelsEventContent},
-	},
+	events::StateEventType,
 };
 use tuwunel_core::{
 	Err, Result, Server, err,
@@ -225,12 +222,7 @@ impl Service {
 		if let Ok(power_levels) = self
 			.services
 			.state_accessor
-			.room_state_get_content::<RoomPowerLevelsEventContent>(
-				&room_id,
-				&StateEventType::RoomPowerLevels,
-				"",
-			)
-			.map_ok(RoomPowerLevels::from)
+			.get_power_levels(&room_id)
 			.await
 		{
 			return Ok(

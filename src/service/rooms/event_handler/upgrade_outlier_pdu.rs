@@ -1,18 +1,18 @@
 use std::{borrow::Borrow, iter::once, sync::Arc, time::Instant};
 
-use futures::{FutureExt, StreamExt, future::ready};
+use futures::{FutureExt, StreamExt};
 use ruma::{
-	CanonicalJsonObject, EventId, RoomId, RoomVersionId, ServerName, events::StateEventType,
+	CanonicalJsonObject, EventId, OwnedEventId, RoomId, RoomVersionId, ServerName,
+	events::StateEventType,
 };
 use tuwunel_core::{
 	Err, Result, debug, debug_info, err, implement, is_equal_to,
-	matrix::{Event, EventTypeExt, PduEvent, StateKey, state_res},
+	matrix::{Event, EventTypeExt, PduEvent, StateKey, room_version, state_res},
 	trace,
 	utils::stream::{BroadbandExt, ReadyExt},
 	warn,
 };
 
-use super::to_room_version;
 use crate::rooms::{
 	state_compressor::{CompressedState, HashSetCompressStateEvent},
 	timeline::RawPduId,
@@ -50,6 +50,7 @@ pub(super) async fn upgrade_outlier_to_timeline_pdu(
 
 	debug!("Upgrading to timeline pdu");
 	let timer = Instant::now();
+	let room_rules = room_version::rules(room_version)?;
 
 	// 10. Fetch missing state and auth chain events by calling /state_ids at
 	//     backwards extremities doing all the checks in this list starting at 1.
@@ -77,35 +78,26 @@ pub(super) async fn upgrade_outlier_to_timeline_pdu(
 
 	debug!("Performing auth check");
 	// 11. Check the auth of the event passes based on the state of the event
-	let state_fetch_state = &state_at_incoming_event;
-	let state_fetch = |k: StateEventType, s: StateKey| async move {
+	let state_fetch = async |k: StateEventType, s: StateKey| {
 		let shortstatekey = self
 			.services
 			.short
-			.get_shortstatekey(&k, &s)
-			.await
-			.ok()?;
+			.get_shortstatekey(&k, s.as_str())
+			.await?;
 
-		let event_id = state_fetch_state.get(&shortstatekey)?;
-		self.services
-			.timeline
-			.get_pdu(event_id)
-			.await
-			.ok()
+		let event_id = state_at_incoming_event
+			.get(&shortstatekey)
+			.ok_or_else(|| {
+				err!(Request(NotFound(
+					"shortstatekey {shortstatekey:?} not found for ({k:?},{s:?})"
+				)))
+			})?;
+
+		self.services.timeline.get_pdu(event_id).await
 	};
 
-	let auth_check = state_res::event_auth::auth_check(
-		&to_room_version(room_version),
-		&incoming_pdu,
-		None, // TODO: third party invite
-		|ty, sk| state_fetch(ty.clone(), sk.into()),
-	)
-	.await
-	.map_err(|e| err!(Request(Forbidden("Auth check failed: {e:?}"))))?;
-
-	if !auth_check {
-		return Err!(Request(Forbidden("Event has failed auth check with state at the event.")));
-	}
+	let event_fetch = async |event_id: OwnedEventId| self.event_fetch(&event_id).await;
+	state_res::auth_check(&room_rules, &incoming_pdu, &event_fetch, &state_fetch).await?;
 
 	debug!("Gathering auth events");
 	let auth_events = self
@@ -117,29 +109,25 @@ pub(super) async fn upgrade_outlier_to_timeline_pdu(
 			incoming_pdu.sender(),
 			incoming_pdu.state_key(),
 			incoming_pdu.content(),
+			&room_rules.authorization,
+			true,
 		)
 		.await?;
 
-	let state_fetch = |k: &StateEventType, s: &str| {
-		let key = k.with_state_key(s);
-		ready(auth_events.get(&key).map(ToOwned::to_owned))
+	let state_fetch = async |k: StateEventType, s: StateKey| {
+		auth_events
+			.get(&k.with_state_key(s.as_str()))
+			.map(ToOwned::to_owned)
+			.ok_or_else(|| err!(Request(NotFound("state event not found"))))
 	};
 
-	let auth_check = state_res::event_auth::auth_check(
-		&to_room_version(room_version),
-		&incoming_pdu,
-		None, // third-party invite
-		state_fetch,
-	)
-	.await
-	.map_err(|e| err!(Request(Forbidden("Auth check failed: {e:?}"))))?;
+	state_res::auth_check(&room_rules, &incoming_pdu, &event_fetch, &state_fetch).await?;
 
 	// Soft fail check before doing state res
 	debug!("Performing soft-fail check");
-	let soft_fail = match (auth_check, incoming_pdu.redacts_id(room_version)) {
-		| (false, _) => true,
-		| (true, None) => false,
-		| (true, Some(redact_id)) =>
+	let soft_fail = match incoming_pdu.redacts_id(room_version) {
+		| None => false,
+		| Some(redact_id) =>
 			!self
 				.services
 				.state_accessor
@@ -224,11 +212,13 @@ pub(super) async fn upgrade_outlier_to_timeline_pdu(
 			.services
 			.state_compressor
 			.save_state(room_id, new_room_state)
+			.boxed()
 			.await?;
 
 		self.services
 			.state
 			.force_state(room_id, shortstatehash, added, removed, &state_lock)
+			.boxed()
 			.await?;
 	}
 

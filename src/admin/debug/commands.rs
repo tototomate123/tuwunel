@@ -87,9 +87,12 @@ pub(super) async fn parse_pdu(&self) -> Result {
 	}
 
 	let string = self.body[1..self.body.len().saturating_sub(1)].join("\n");
+	let rules = RoomVersionId::V6
+		.rules()
+		.expect("rules for V6 rooms");
 	match serde_json::from_str(&string) {
 		| Err(e) => return Err!("Invalid json in command body: {e}"),
-		| Ok(value) => match ruma::signatures::reference_hash(&value, &RoomVersionId::V6) {
+		| Ok(value) => match ruma::signatures::reference_hash(&value, &rules) {
 			| Err(e) => return Err!("Could not parse PDU JSON: {e:?}"),
 			| Ok(hash) => {
 				let event_id = OwnedEventId::parse(format!("${hash}"));
@@ -252,7 +255,6 @@ pub(super) async fn get_remote_pdu(
 		.sending
 		.send_federation_request(&server, ruma::api::federation::event::get_event::v1::Request {
 			event_id: event_id.clone(),
-			include_unredacted_content: None,
 		})
 		.await
 	{

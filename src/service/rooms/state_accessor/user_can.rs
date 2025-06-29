@@ -5,7 +5,6 @@ use ruma::{
 		room::{
 			history_visibility::{HistoryVisibility, RoomHistoryVisibilityEventContent},
 			member::{MembershipState, RoomMemberEventContent},
-			power_levels::{RoomPowerLevels, RoomPowerLevelsEventContent},
 		},
 	},
 };
@@ -44,28 +43,18 @@ pub async fn user_can_redact(
 		)));
 	}
 
-	match self
-		.room_state_get_content::<RoomPowerLevelsEventContent>(
-			room_id,
-			&StateEventType::RoomPowerLevels,
-			"",
-		)
-		.await
-	{
-		| Ok(pl_event_content) => {
-			let pl_event: RoomPowerLevels = pl_event_content.into();
-			Ok(pl_event.user_can_redact_event_of_other(sender)
-				|| pl_event.user_can_redact_own_event(sender)
-					&& match redacting_event {
-						| Ok(redacting_event) =>
-							if federation {
-								redacting_event.sender().server_name() == sender.server_name()
-							} else {
-								redacting_event.sender() == sender
-							},
-						| _ => false,
-					})
-		},
+	match self.get_power_levels(room_id).await {
+		| Ok(power_levels) => Ok(power_levels.user_can_redact_event_of_other(sender)
+			|| power_levels.user_can_redact_own_event(sender)
+				&& match redacting_event {
+					| Ok(redacting_event) =>
+						if federation {
+							redacting_event.sender().server_name() == sender.server_name()
+						} else {
+							redacting_event.sender() == sender
+						},
+					| _ => false,
+				}),
 		| _ => {
 			// Falling back on m.room.create to judge power level
 			match self

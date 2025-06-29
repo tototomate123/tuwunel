@@ -316,7 +316,7 @@ pub(crate) async fn register_route(
 				stages: vec![AuthType::RegistrationToken],
 			}],
 			completed: Vec::new(),
-			params: Box::default(),
+			params: Default::default(),
 			session: None,
 			auth_error: None,
 		};
@@ -326,7 +326,7 @@ pub(crate) async fn register_route(
 		uiaainfo = UiaaInfo {
 			flows: vec![AuthFlow { stages: vec![AuthType::Dummy] }],
 			completed: Vec::new(),
-			params: Box::default(),
+			params: Default::default(),
 			session: None,
 			auth_error: None,
 		};
@@ -523,7 +523,11 @@ pub(crate) async fn register_route(
 			.await
 			.is_ok_and(is_equal_to!(1))
 	{
-		services.admin.make_user_admin(&user_id).await?;
+		services
+			.admin
+			.make_user_admin(&user_id)
+			.boxed()
+			.await?;
 		warn!("Granting {user_id} admin privileges as the first user");
 	}
 

@@ -10,7 +10,13 @@ pub fn redact(&mut self, room_version_id: &RoomVersionId, reason: JsonValue) -> 
 	let mut content = serde_json::from_str(self.content.get())
 		.map_err(|e| err!(Request(BadJson("Failed to deserialize content into type: {e}"))))?;
 
-	redact_content_in_place(&mut content, room_version_id, self.kind.to_string())
+	let room_version_rules = room_version_id.rules().ok_or_else(|| {
+		err!(Request(UnsupportedRoomVersion(
+			"Cannot redact event for unknown room version {room_version_id:?}."
+		)))
+	})?;
+
+	redact_content_in_place(&mut content, &room_version_rules.redaction, self.kind.to_string())
 		.map_err(|e| Error::Redaction(self.sender.server_name().to_owned(), e))?;
 
 	let reason = serde_json::to_value(reason).expect("Failed to preserialize reason");

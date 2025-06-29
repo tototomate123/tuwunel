@@ -14,11 +14,11 @@ use ruma::{
 	api::client::{
 		filter::FilterDefinition,
 		sync::sync_events::{
-			self, DeviceLists, UnreadNotificationsCount,
+			self, DeviceLists, StrippedState, UnreadNotificationsCount,
 			v3::{
 				Ephemeral, Filter, GlobalAccountData, InviteState, InvitedRoom, JoinedRoom,
 				KnockState, KnockedRoom, LeftRoom, Presence, RoomAccountData, RoomSummary, Rooms,
-				State as RoomState, Timeline, ToDevice,
+				State as RoomState, StateEvents, Timeline, ToDevice,
 			},
 		},
 		uiaa::UiaaResponse,
@@ -295,7 +295,12 @@ async fn build_sync_events(
 			}
 
 			let invited_room = InvitedRoom {
-				invite_state: InviteState { events: invite_state },
+				invite_state: InviteState {
+					events: invite_state
+						.into_iter()
+						.map(Raw::cast::<StrippedState>)
+						.collect(),
+				},
 			};
 
 			invited_rooms.insert(room_id, invited_room);
@@ -320,7 +325,12 @@ async fn build_sync_events(
 			}
 
 			let knocked_room = KnockedRoom {
-				knock_state: KnockState { events: knock_state },
+				knock_state: KnockState {
+					events: knock_state
+						.into_iter()
+						.map(Raw::cast::<StrippedState>)
+						.collect(),
+				},
 			};
 
 			knocked_rooms.insert(room_id, knocked_room);
@@ -540,7 +550,7 @@ async fn handle_left_room(
 				prev_batch: Some(next_batch.to_string()),
 				events: Vec::new(),
 			},
-			state: RoomState { events: vec![event.into_format()] },
+			state: RoomState::Before(StateEvents { events: vec![event.into_format()] }),
 		}));
 	}
 
@@ -635,7 +645,7 @@ async fn handle_left_room(
 			prev_batch: Some(next_batch.to_string()),
 			events: Vec::new(), // and so we dont need to set this to empty vec
 		},
-		state: RoomState { events: left_state_events },
+		state: RoomState::Before(StateEvents { events: left_state_events }),
 	}))
 }
 
@@ -1042,7 +1052,7 @@ async fn load_joined_room(
 	let joined_room = JoinedRoom {
 		account_data: RoomAccountData { events: account_data_events },
 		ephemeral: Ephemeral { events: edus },
-		state: RoomState { events: state_events },
+		state: RoomState::Before(StateEvents { events: state_events }),
 		summary: RoomSummary {
 			joined_member_count: joined_member_count.map(ruma_from_u64),
 			invited_member_count: invited_member_count.map(ruma_from_u64),

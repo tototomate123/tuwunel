@@ -354,6 +354,7 @@ pub(crate) async fn create_join_event_v2_route(
 		create_join_event(&services, body.origin(), &body.room_id, &body.pdu)
 			.boxed()
 			.await?;
+
 	let room_state = create_join_event::v2::RoomState {
 		members_omitted: false,
 		auth_chain,

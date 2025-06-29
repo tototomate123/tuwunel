@@ -1,3 +1,4 @@
+use futures::FutureExt;
 use ruma::{OwnedUserId, UserId};
 use tuwunel_core::{Err, Result, debug};
 use tuwunel_service::Services;
@@ -63,6 +64,7 @@ pub(super) async fn ldap_login(
 		services
 			.admin
 			.make_user_admin(lowercased_user_id)
+			.boxed()
 			.await?;
 	} else if !is_ldap_admin && is_tuwunel_admin {
 		services

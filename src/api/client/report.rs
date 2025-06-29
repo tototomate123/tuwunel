@@ -15,6 +15,8 @@ use tuwunel_service::Services;
 
 use crate::Ruma;
 
+const REASON_MAX_LEN: usize = 750;
+
 /// # `POST /_matrix/client/v3/rooms/{roomId}/report`
 ///
 /// Reports an abusive room to homeserver admins
@@ -29,18 +31,13 @@ pub(crate) async fn report_room_route(
 
 	info!(
 		"Received room report by user {sender_user} for room {} with reason: \"{}\"",
-		body.room_id,
-		body.reason.as_deref().unwrap_or("")
+		body.room_id, body.reason,
 	);
 
-	if body
-		.reason
-		.as_ref()
-		.is_some_and(|s| s.len() > 750)
-	{
-		return Err!(Request(
-			InvalidParam("Reason too long, should be 750 characters or fewer",)
-		));
+	if body.reason.len().gt(&REASON_MAX_LEN) {
+		return Err!(Request(InvalidParam(
+			"Reason too long, should be {REASON_MAX_LEN} characters or fewer"
+		)));
 	}
 
 	delay_response().await;
@@ -64,7 +61,7 @@ pub(crate) async fn report_room_route(
 			"@room Room report received from {} -\n\nRoom ID: {}\n\nReport Reason: {}",
 			sender_user.to_owned(),
 			body.room_id,
-			body.reason.as_deref().unwrap_or("")
+			body.reason,
 		)))
 		.await
 		.ok();

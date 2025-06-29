@@ -1,18 +1,18 @@
+#![cfg_attr(not(tuwunel_bench), allow(unused_imports, dead_code))]
+
 #[cfg(tuwunel_bench)]
 extern crate test;
 
 use std::{
 	borrow::Borrow,
-	collections::{HashMap, HashSet},
+	collections::HashMap,
 	sync::atomic::{AtomicU64, Ordering::SeqCst},
 };
 
-use futures::{future, future::ready};
-use maplit::{btreemap, hashmap, hashset};
 use ruma::{
-	EventId, MilliSecondsSinceUnixEpoch, OwnedEventId, RoomId, RoomVersionId, Signatures, UserId,
+	EventId, MilliSecondsSinceUnixEpoch, OwnedEventId, RoomId, RoomVersionId, UserId,
 	events::{
-		StateEventType, TimelineEventType,
+		TimelineEventType,
 		room::{
 			join_rules::{JoinRule, RoomJoinRulesEventContent},
 			member::{MembershipState, RoomMemberEventContent},
@@ -25,9 +25,11 @@ use serde_json::{
 	value::{RawValue as RawJsonValue, to_raw_value as to_raw_json_value},
 };
 
+use super::{AuthSet, StateMap, test_utils::not_found};
 use crate::{
-	matrix::{Event, Pdu, pdu::EventHash},
-	state_res::{self as state_res, Error, Result, StateMap},
+	Result,
+	matrix::{Event, EventHash, PduEvent, event::TypeExt},
+	utils::stream::IterStream,
 };
 
 static SERVER_TIMESTAMP: AtomicU64 = AtomicU64::new(0);
@@ -35,6 +37,12 @@ static SERVER_TIMESTAMP: AtomicU64 = AtomicU64::new(0);
 #[cfg(tuwunel_bench)]
 #[cfg_attr(tuwunel_bench, bench)]
 fn lexico_topo_sort(c: &mut test::Bencher) {
+	use maplit::{hashmap, hashset};
+
+	let rt = tokio::runtime::Builder::new_current_thread()
+		.build()
+		.unwrap();
+
 	let graph = hashmap! {
 		event_id("l") => hashset![event_id("o")],
 		event_id("m") => hashset![event_id("n"), event_id("o")],
@@ -43,9 +51,12 @@ fn lexico_topo_sort(c: &mut test::Bencher) {
 		event_id("p") => hashset![event_id("o")],
 	};
 
-	c.iter(|| {
-		let _ = state_res::lexicographical_topological_sort(&graph, &|_| {
-			future::ok((int!(0), MilliSecondsSinceUnixEpoch(uint!(0))))
+	c.iter(move || {
+		rt.block_on(async {
+			_ = super::topological_sort(&graph, &async |_id| {
+				Ok((int!(0).into(), MilliSecondsSinceUnixEpoch(uint!(0))))
+			})
+			.await;
 		});
 	});
 }
@@ -53,43 +64,56 @@ fn lexico_topo_sort(c: &mut test::Bencher) {
 #[cfg(tuwunel_bench)]
 #[cfg_attr(tuwunel_bench, bench)]
 fn resolution_shallow_auth_chain(c: &mut test::Bencher) {
-	let mut store = TestStore(hashmap! {});
+	let rt = tokio::runtime::Builder::new_current_thread()
+		.build()
+		.unwrap();
+
+	let mut store = TestStore(maplit::hashmap! {});
 
 	// build up the DAG
 	let (state_at_bob, state_at_charlie, _) = store.set_up();
 
-	c.iter(|| async {
-		let ev_map = store.0.clone();
-		let state_sets = [&state_at_bob, &state_at_charlie];
-		let fetch = |id: OwnedEventId| ready(ev_map.get(&id).map(ToOwned::to_owned));
-		let exists = |id: OwnedEventId| ready(ev_map.get(&id).is_some());
-		let auth_chain_sets: Vec<HashSet<_>> = state_sets
-			.iter()
-			.map(|map| {
-				store
-					.auth_event_ids(room_id(), map.values().cloned().collect())
-					.unwrap()
-			})
-			.collect();
+	let rules = RoomVersionId::V6.rules().unwrap();
+	let ev_map = store.0.clone();
+	let state_sets = [state_at_bob, state_at_charlie];
+	let auth_chains = state_sets
+		.iter()
+		.map(|map| {
+			store
+				.auth_event_ids(room_id(), map.values().cloned().collect())
+				.unwrap()
+		})
+		.collect::<Vec<_>>();
 
-		let _ = match state_res::resolve(
-			&RoomVersionId::V6,
-			state_sets.into_iter(),
-			&auth_chain_sets,
-			&fetch,
-			&exists,
+	let func = async || {
+		if let Err(e) = super::resolve(
+			&rules,
+			state_sets.clone().into_iter().stream(),
+			auth_chains.clone().into_iter().stream(),
+			&async |id| ev_map.get(&id).cloned().ok_or_else(not_found),
+			&async |id| ev_map.contains_key(&id),
+			false,
 		)
 		.await
 		{
-			| Ok(state) => state,
-			| Err(e) => panic!("{e}"),
-		};
+			panic!("{e}")
+		}
+	};
+
+	c.iter(move || {
+		rt.block_on(async {
+			func().await;
+		});
 	});
 }
 
 #[cfg(tuwunel_bench)]
 #[cfg_attr(tuwunel_bench, bench)]
 fn resolve_deeper_event_set(c: &mut test::Bencher) {
+	let rt = tokio::runtime::Builder::new_current_thread()
+		.build()
+		.unwrap();
+
 	let mut inner = INITIAL_EVENTS();
 	let ban = BAN_STATE_SET();
 
@@ -97,66 +121,73 @@ fn resolve_deeper_event_set(c: &mut test::Bencher) {
 	let store = TestStore(inner.clone());
 
 	let state_set_a = [
-		inner.get(&event_id("CREATE")).unwrap(),
-		inner.get(&event_id("IJR")).unwrap(),
-		inner.get(&event_id("IMA")).unwrap(),
-		inner.get(&event_id("IMB")).unwrap(),
-		inner.get(&event_id("IMC")).unwrap(),
-		inner.get(&event_id("MB")).unwrap(),
-		inner.get(&event_id("PA")).unwrap(),
+		&inner[&event_id("CREATE")],
+		&inner[&event_id("IJR")],
+		&inner[&event_id("IMA")],
+		&inner[&event_id("IMB")],
+		&inner[&event_id("IMC")],
+		&inner[&event_id("MB")],
+		&inner[&event_id("PA")],
 	]
 	.iter()
 	.map(|ev| {
 		(
-			(ev.event_type().clone().into(), ev.state_key().unwrap().into()),
+			ev.event_type()
+				.with_state_key(ev.state_key().unwrap()),
 			ev.event_id().to_owned(),
 		)
 	})
 	.collect::<StateMap<_>>();
 
 	let state_set_b = [
-		inner.get(&event_id("CREATE")).unwrap(),
-		inner.get(&event_id("IJR")).unwrap(),
-		inner.get(&event_id("IMA")).unwrap(),
-		inner.get(&event_id("IMB")).unwrap(),
-		inner.get(&event_id("IMC")).unwrap(),
-		inner.get(&event_id("IME")).unwrap(),
-		inner.get(&event_id("PA")).unwrap(),
+		&inner[&event_id("CREATE")],
+		&inner[&event_id("IJR")],
+		&inner[&event_id("IMA")],
+		&inner[&event_id("IMB")],
+		&inner[&event_id("IMC")],
+		&inner[&event_id("IME")],
+		&inner[&event_id("PA")],
 	]
 	.iter()
 	.map(|ev| {
 		(
-			(ev.event_type().clone().into(), ev.state_key().unwrap().into()),
+			ev.event_type()
+				.with_state_key(ev.state_key().unwrap()),
 			ev.event_id().to_owned(),
 		)
 	})
 	.collect::<StateMap<_>>();
 
-	c.iter(|| async {
-		let state_sets = [&state_set_a, &state_set_b];
-		let auth_chain_sets: Vec<HashSet<_>> = state_sets
-			.iter()
-			.map(|map| {
-				store
-					.auth_event_ids(room_id(), map.values().cloned().collect())
-					.unwrap()
-			})
-			.collect();
+	let rules = RoomVersionId::V6.rules().unwrap();
+	let state_sets = [state_set_a, state_set_b];
+	let auth_chains = state_sets
+		.iter()
+		.map(|map| {
+			store
+				.auth_event_ids(room_id(), map.values().cloned().collect())
+				.unwrap()
+		})
+		.collect::<Vec<_>>();
 
-		let fetch = |id: OwnedEventId| ready(inner.get(&id).map(ToOwned::to_owned));
-		let exists = |id: OwnedEventId| ready(inner.get(&id).is_some());
-		let _ = match state_res::resolve(
-			&RoomVersionId::V6,
-			state_sets.into_iter(),
-			&auth_chain_sets,
-			&fetch,
-			&exists,
+	let func = async || {
+		if let Err(e) = super::resolve(
+			&rules,
+			state_sets.clone().into_iter().stream(),
+			auth_chains.clone().into_iter().stream(),
+			&async |id| inner.get(&id).cloned().ok_or_else(not_found),
+			&async |id| inner.contains_key(&id),
+			false,
 		)
 		.await
 		{
-			| Ok(state) => state,
-			| Err(_) => panic!("resolution failed during benchmarking"),
-		};
+			panic!("{e}")
+		}
+	};
+
+	c.iter(move || {
+		rt.block_on(async {
+			func().await;
+		});
 	});
 }
 
@@ -168,12 +199,12 @@ fn resolve_deeper_event_set(c: &mut test::Bencher) {
 struct TestStore<E: Event>(HashMap<OwnedEventId, E>);
 
 #[allow(unused)]
-impl<E: Event + Clone> TestStore<E> {
+impl<E: Event> TestStore<E> {
 	fn get_event(&self, room_id: &RoomId, event_id: &EventId) -> Result<E> {
 		self.0
 			.get(event_id)
 			.cloned()
-			.ok_or_else(|| Error::NotFound(format!("{} not found", event_id)))
+			.ok_or_else(not_found)
 	}
 
 	/// Returns the events that correspond to the `event_ids` sorted in the same
@@ -191,13 +222,12 @@ impl<E: Event + Clone> TestStore<E> {
 		&self,
 		room_id: &RoomId,
 		event_ids: Vec<OwnedEventId>,
-	) -> Result<HashSet<OwnedEventId>> {
-		let mut result = HashSet::new();
+	) -> Result<AuthSet<OwnedEventId>> {
+		let mut result = AuthSet::new();
 		let mut stack = event_ids;
 
 		// DFS for auth event chain
-		while !stack.is_empty() {
-			let ev_id = stack.pop().unwrap();
+		while let Some(ev_id) = stack.pop() {
 			if result.contains(&ev_id) {
 				continue;
 			}
@@ -226,7 +256,8 @@ impl<E: Event + Clone> TestStore<E> {
 			let chain = self
 				.auth_event_ids(room_id, ids)?
 				.into_iter()
-				.collect::<HashSet<_>>();
+				.collect::<AuthSet<_>>();
+
 			auth_chain_sets.push(chain);
 		}
 
@@ -234,7 +265,7 @@ impl<E: Event + Clone> TestStore<E> {
 			let common = auth_chain_sets
 				.iter()
 				.skip(1)
-				.fold(first, |a, b| a.intersection(b).cloned().collect::<HashSet<_>>());
+				.fold(first, |a, b| a.intersection(b).cloned().collect::<AuthSet<_>>());
 
 			Ok(auth_chain_sets
 				.into_iter()
@@ -247,7 +278,7 @@ impl<E: Event + Clone> TestStore<E> {
 	}
 }
 
-impl TestStore<Pdu> {
+impl TestStore<PduEvent> {
 	#[allow(clippy::type_complexity)]
 	fn set_up(
 		&mut self,
@@ -261,8 +292,9 @@ impl TestStore<Pdu> {
 			&[],
 			&[],
 		);
-		let cre = create_event.event_id().to_owned();
-		self.0.insert(cre.clone(), create_event.clone());
+		let cre = create_event.event_id();
+		self.0
+			.insert(cre.to_owned(), create_event.clone());
 
 		let alice_mem = to_pdu_event(
 			"IMA",
@@ -270,8 +302,8 @@ impl TestStore<Pdu> {
 			TimelineEventType::RoomMember,
 			Some(alice().to_string().as_str()),
 			member_content_join(),
-			&[cre.clone()],
-			&[cre.clone()],
+			&[cre.to_owned()],
+			&[cre.to_owned()],
 		);
 		self.0
 			.insert(alice_mem.event_id().to_owned(), alice_mem.clone());
@@ -282,7 +314,7 @@ impl TestStore<Pdu> {
 			TimelineEventType::RoomJoinRules,
 			Some(""),
 			to_raw_json_value(&RoomJoinRulesEventContent::new(JoinRule::Public)).unwrap(),
-			&[cre.clone(), alice_mem.event_id().to_owned()],
+			&[cre.to_owned(), alice_mem.event_id().to_owned()],
 			&[alice_mem.event_id().to_owned()],
 		);
 		self.0
@@ -296,7 +328,7 @@ impl TestStore<Pdu> {
 			TimelineEventType::RoomMember,
 			Some(bob().to_string().as_str()),
 			member_content_join(),
-			&[cre.clone(), join_rules.event_id().to_owned()],
+			&[cre.to_owned(), join_rules.event_id().to_owned()],
 			&[join_rules.event_id().to_owned()],
 		);
 		self.0
@@ -308,7 +340,7 @@ impl TestStore<Pdu> {
 			TimelineEventType::RoomMember,
 			Some(charlie().to_string().as_str()),
 			member_content_join(),
-			&[cre, join_rules.event_id().to_owned()],
+			&[cre.to_owned(), join_rules.event_id().to_owned()],
 			&[join_rules.event_id().to_owned()],
 		);
 		self.0
@@ -316,30 +348,33 @@ impl TestStore<Pdu> {
 
 		let state_at_bob = [&create_event, &alice_mem, &join_rules, &bob_mem]
 			.iter()
-			.map(|ev| {
+			.map(|e| {
 				(
-					(ev.event_type().clone().into(), ev.state_key().unwrap().into()),
-					ev.event_id().to_owned(),
+					e.event_type()
+						.with_state_key(e.state_key().unwrap()),
+					e.event_id().to_owned(),
 				)
 			})
 			.collect::<StateMap<_>>();
 
 		let state_at_charlie = [&create_event, &alice_mem, &join_rules, &charlie_mem]
 			.iter()
-			.map(|ev| {
+			.map(|e| {
 				(
-					(ev.event_type().clone().into(), ev.state_key().unwrap().into()),
-					ev.event_id().to_owned(),
+					e.event_type()
+						.with_state_key(e.state_key().unwrap()),
+					e.event_id().to_owned(),
 				)
 			})
 			.collect::<StateMap<_>>();
 
 		let expected = [&create_event, &alice_mem, &join_rules, &bob_mem, &charlie_mem]
 			.iter()
-			.map(|ev| {
+			.map(|e| {
 				(
-					(ev.event_type().clone().into(), ev.state_key().unwrap().into()),
-					ev.event_id().to_owned(),
+					e.event_type()
+						.with_state_key(e.state_key().unwrap()),
+					e.event_id().to_owned(),
 				)
 			})
 			.collect::<StateMap<_>>();
@@ -352,7 +387,7 @@ fn event_id(id: &str) -> OwnedEventId {
 	if id.contains('$') {
 		return id.try_into().unwrap();
 	}
-	format!("${}:foo", id).try_into().unwrap()
+	format!("${id}:foo").try_into().unwrap()
 }
 
 fn alice() -> &'static UserId { user_id!("@alice:foo") }
@@ -381,7 +416,7 @@ fn to_pdu_event<S>(
 	content: Box<RawJsonValue>,
 	auth_events: &[S],
 	prev_events: &[S],
-) -> Pdu
+) -> PduEvent
 where
 	S: AsRef<str>,
 {
@@ -391,28 +426,31 @@ where
 	let id = if id.contains('$') {
 		id.to_owned()
 	} else {
-		format!("${}:foo", id)
+		format!("${id}:foo")
 	};
+
 	let auth_events = auth_events
 		.iter()
 		.map(AsRef::as_ref)
 		.map(event_id)
 		.collect::<Vec<_>>();
+
 	let prev_events = prev_events
 		.iter()
 		.map(AsRef::as_ref)
 		.map(event_id)
 		.collect::<Vec<_>>();
 
-	Pdu {
+	let state_key = state_key.map(ToOwned::to_owned);
+	PduEvent {
 		event_id: id.try_into().unwrap(),
 		room_id: room_id().to_owned(),
 		sender: sender.to_owned(),
+		origin: None,
 		origin_server_ts: ts.try_into().unwrap(),
 		state_key: state_key.map(Into::into),
 		kind: ev_type,
 		content,
-		origin: None,
 		redacts: None,
 		unsigned: None,
 		auth_events,
@@ -420,12 +458,14 @@ where
 		depth: uint!(0),
 		hashes: EventHash::default(),
 		signatures: None,
+		#[cfg(test)]
+		rejected: false,
 	}
 }
 
 // all graphs start with these input events
 #[allow(non_snake_case)]
-fn INITIAL_EVENTS() -> HashMap<OwnedEventId, Pdu> {
+fn INITIAL_EVENTS() -> HashMap<OwnedEventId, PduEvent> {
 	vec![
 		to_pdu_event::<&EventId>(
 			"CREATE",
@@ -507,7 +547,7 @@ fn INITIAL_EVENTS() -> HashMap<OwnedEventId, Pdu> {
 
 // all graphs start with these input events
 #[allow(non_snake_case)]
-fn BAN_STATE_SET() -> HashMap<OwnedEventId, Pdu> {
+fn BAN_STATE_SET() -> HashMap<OwnedEventId, PduEvent> {
 	vec![
 		to_pdu_event(
 			"PA",

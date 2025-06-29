@@ -140,10 +140,7 @@ async fn fetch_auth_chain(
 		let Ok(res) = self
 			.services
 			.sending
-			.send_federation_request(origin, get_event::v1::Request {
-				event_id: next_id.clone(),
-				include_unredacted_content: None,
-			})
+			.send_federation_request(origin, get_event::v1::Request { event_id: next_id.clone() })
 			.await
 			.inspect_err(|e| debug_error!("Failed to fetch event {next_id}: {e}"))
 		else {

@@ -69,7 +69,10 @@ pub(super) async fn auth(
 	json_body: Option<&CanonicalJsonValue>,
 	metadata: &Metadata,
 ) -> Result<Auth> {
-	use AuthScheme::{AccessToken, AccessTokenOptional, AppserviceToken, ServerSignatures};
+	use AuthScheme::{
+		AccessToken, AccessTokenOptional, AppserviceToken, AppserviceTokenOptional,
+		ServerSignatures,
+	};
 	use Error::BadRequest;
 	use ErrorKind::UnknownToken;
 	use Token::{Appservice, Expired, Invalid, User};
@@ -129,7 +132,7 @@ pub(super) async fn auth(
 
 		| (AccessToken, Appservice(info)) => Ok(auth_appservice(services, request, info).await?),
 
-		| (AccessToken, Token::None) => match metadata {
+		| (AccessToken | AppserviceToken, Token::None) => match metadata {
 			| &get_turn_server_info::v3::Request::METADATA
 				if services.server.config.turn_allow_guests =>
 				Ok(Auth::default()),
@@ -137,22 +140,25 @@ pub(super) async fn auth(
 			| _ => Err!(Request(MissingToken("Missing access token."))),
 		},
 
-		| (AccessToken | AccessTokenOptional | AuthScheme::None, User(user)) => Ok(Auth {
+		| (
+			AccessToken | AccessTokenOptional | AppserviceTokenOptional | AuthScheme::None,
+			User(user),
+		) => Ok(Auth {
 			sender_user: Some(user.0),
 			sender_device: Some(user.1),
 			_expires_at: user.2,
 			..Auth::default()
 		}),
 
-		//TODO: add AppserviceTokenOptional
-		| (AccessTokenOptional | AppserviceToken | AuthScheme::None, Appservice(info)) =>
-			Ok(Auth {
-				appservice_info: Some(*info),
-				..Auth::default()
-			}),
+		| (
+			AccessTokenOptional | AppserviceTokenOptional | AppserviceToken | AuthScheme::None,
+			Appservice(info),
+		) => Ok(Auth {
+			appservice_info: Some(*info),
+			..Auth::default()
+		}),
 
-		//TODO: add AppserviceTokenOptional
-		| (AccessTokenOptional | AppserviceToken | AuthScheme::None, Token::None) =>
+		| (AccessTokenOptional | AppserviceTokenOptional | AuthScheme::None, Token::None) =>
 			Ok(Auth::default()),
 	}
 }
@@ -306,7 +312,7 @@ async fn auth_server(
 
 	let keys: PubKeys = [(x_matrix.key.to_string(), key.key)].into();
 	let keys: PubKeyMap = [(origin.as_str().into(), keys)].into();
-	if let Err(e) = ruma::signatures::verify_json(&keys, authorization) {
+	if let Err(e) = ruma::signatures::verify_json(&keys, &authorization) {
 		debug_error!("Failed to verify federation request from {origin}: {e}");
 		if request.parts.uri.to_string().contains('@') {
 			warn!(

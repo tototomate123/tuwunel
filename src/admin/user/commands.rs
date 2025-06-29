@@ -195,6 +195,7 @@ pub(super) async fn create_user(&self, username: String, password: Option<String
 			self.services
 				.admin
 				.make_user_admin(&user_id)
+				.boxed()
 				.await?;
 			warn!("Granting {user_id} admin privileges as the first user");
 		}
@@ -725,32 +726,38 @@ pub(super) async fn force_demote(&self, user_id: String, room_id: OwnedRoomOrAli
 		.lock(&room_id)
 		.await;
 
-	let room_power_levels: Option<RoomPowerLevelsEventContent> = self
+	let room_power_levels: Option<RoomPowerLevels> = self
 		.services
 		.rooms
 		.state_accessor
-		.room_state_get_content(&room_id, &StateEventType::RoomPowerLevels, "")
+		.get_power_levels(&room_id)
 		.await
 		.ok();
 
-	let user_can_demote_self = room_power_levels
+	let user_can_change_self = room_power_levels
 		.as_ref()
-		.is_some_and(|power_levels_content| {
-			RoomPowerLevels::from(power_levels_content.clone())
-				.user_can_change_user_power_level(&user_id, &user_id)
-		}) || self
-		.services
-		.rooms
-		.state_accessor
-		.room_state_get(&room_id, &StateEventType::RoomCreate, "")
-		.await
-		.is_ok_and(|event| event.sender() == user_id);
+		.is_some_and(|power_levels| {
+			power_levels.user_can_change_user_power_level(&user_id, &user_id)
+		});
+
+	let user_can_demote_self = user_can_change_self
+		|| self
+			.services
+			.rooms
+			.state_accessor
+			.room_state_get(&room_id, &StateEventType::RoomCreate, "")
+			.await
+			.is_ok_and(|event| event.sender() == user_id);
 
 	if !user_can_demote_self {
-		return Err!("User is not allowed to modify their own power levels in the room.",);
+		return Err!("User is not allowed to modify their own power levels in the room.");
 	}
 
-	let mut power_levels_content = room_power_levels.unwrap_or_default();
+	let mut power_levels_content: RoomPowerLevelsEventContent = room_power_levels
+		.map(TryInto::try_into)
+		.transpose()?
+		.unwrap_or_default();
+
 	power_levels_content.users.remove(&user_id);
 
 	let event_id = self
@@ -783,6 +790,7 @@ pub(super) async fn make_user_admin(&self, user_id: String) -> Result {
 	self.services
 		.admin
 		.make_user_admin(&user_id)
+		.boxed()
 		.await?;
 
 	self.write_str(&format!("{user_id} has been granted admin privileges.",))

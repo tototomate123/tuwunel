@@ -1,14 +1,11 @@
-use std::{
-	borrow::Borrow,
-	collections::{HashMap, HashSet},
-	sync::Arc,
-};
+use std::{borrow::Borrow, collections::HashMap, sync::Arc};
 
-use futures::{FutureExt, StreamExt, TryFutureExt, TryStreamExt, future::try_join};
+use futures::{FutureExt, Stream, StreamExt, TryFutureExt, TryStreamExt};
 use ruma::{OwnedEventId, RoomId, RoomVersionId};
 use tuwunel_core::{
-	Error, Result, err, implement,
-	state_res::{self, StateMap},
+	Result, err, implement,
+	matrix::room_version,
+	state_res::{self, AuthSet, StateMap},
 	trace,
 	utils::stream::{IterStream, ReadyExt, TryWidebandExt, WidebandExt},
 };
@@ -47,9 +44,9 @@ pub async fn resolve_state(
 			self.services
 				.auth_chain
 				.event_ids_iter(room_id, state.values().map(Borrow::borrow))
-				.try_collect()
+				.try_collect::<AuthSet<OwnedEventId>>()
 		})
-		.try_collect::<Vec<HashSet<OwnedEventId>>>();
+		.ready_filter_map(Result::ok);
 
 	let fork_states = fork_states
 		.iter()
@@ -62,17 +59,12 @@ pub async fn resolve_state(
 				.multi_get_statekey_from_short(shortstatekeys)
 				.zip(event_ids)
 				.ready_filter_map(|(ty_sk, id)| Some((ty_sk.ok()?, id)))
-				.collect()
-		})
-		.map(Ok::<_, Error>)
-		.try_collect::<Vec<StateMap<OwnedEventId>>>();
-
-	let (fork_states, auth_chain_sets) = try_join(fork_states, auth_chain_sets).await?;
+				.collect::<StateMap<OwnedEventId>>()
+		});
 
 	trace!("Resolving state");
 	let state = self
-		.state_resolution(room_version_id, fork_states.iter(), &auth_chain_sets)
-		.boxed()
+		.state_resolution(room_version_id, fork_states, auth_chain_sets)
 		.await?;
 
 	trace!("State resolution done.");
@@ -104,19 +96,24 @@ pub async fn resolve_state(
 }
 
 #[implement(super::Service)]
-#[tracing::instrument(name = "ruma", level = "debug", skip_all)]
-pub async fn state_resolution<'a, StateSets>(
-	&'a self,
-	room_version: &'a RoomVersionId,
+pub(super) async fn state_resolution<StateSets, AuthSets>(
+	&self,
+	room_version: &RoomVersionId,
 	state_sets: StateSets,
-	auth_chain_sets: &'a [HashSet<OwnedEventId>],
+	auth_chains: AuthSets,
 ) -> Result<StateMap<OwnedEventId>>
 where
-	StateSets: Iterator<Item = &'a StateMap<OwnedEventId>> + Clone + Send,
+	StateSets: Stream<Item = StateMap<OwnedEventId>> + Send,
+	AuthSets: Stream<Item = AuthSet<OwnedEventId>> + Send,
 {
-	let event_fetch = |event_id| self.event_fetch(event_id);
-	let event_exists = |event_id| self.event_exists(event_id);
-	state_res::resolve(room_version, state_sets, auth_chain_sets, &event_fetch, &event_exists)
-		.map_err(|e| err!(error!("State resolution failed: {e:?}")))
-		.await
+	state_res::resolve(
+		&room_version::rules(room_version)?,
+		state_sets,
+		auth_chains,
+		&async |event_id: OwnedEventId| self.event_fetch(&event_id).await,
+		&async |event_id: OwnedEventId| self.event_exists(&event_id).await,
+		self.services.server.config.hydra_backports,
+	)
+	.map_err(|e| err!(error!("State resolution failed: {e:?}")))
+	.await
 }

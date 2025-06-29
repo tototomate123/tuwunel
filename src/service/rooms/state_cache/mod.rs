@@ -405,7 +405,7 @@ pub fn rooms_invited<'a>(
 		.stream_prefix(&prefix)
 		.ignore_err()
 		.map(|((_, room_id), state): KeyVal<'_>| (room_id.to_owned(), state))
-		.map(|(room_id, state)| Ok((room_id, state.deserialize_as()?)))
+		.map(|(room_id, state)| Ok((room_id, state.deserialize_as_unchecked()?)))
 		.ignore_err()
 }
 
@@ -425,7 +425,7 @@ pub fn rooms_knocked<'a>(
 		.stream_prefix(&prefix)
 		.ignore_err()
 		.map(|((_, room_id), state): KeyVal<'_>| (room_id.to_owned(), state))
-		.map(|(room_id, state)| Ok((room_id, state.deserialize_as()?)))
+		.map(|(room_id, state)| Ok((room_id, state.deserialize_as_unchecked()?)))
 		.ignore_err()
 }
 
@@ -442,7 +442,9 @@ pub async fn invite_state(
 		.qry(&key)
 		.await
 		.deserialized()
-		.and_then(|val: Raw<Vec<AnyStrippedStateEvent>>| val.deserialize_as().map_err(Into::into))
+		.and_then(|val: Raw<Vec<AnyStrippedStateEvent>>| {
+			val.deserialize_as_unchecked().map_err(Into::into)
+		})
 }
 
 #[implement(Service)]
@@ -458,7 +460,9 @@ pub async fn knock_state(
 		.qry(&key)
 		.await
 		.deserialized()
-		.and_then(|val: Raw<Vec<AnyStrippedStateEvent>>| val.deserialize_as().map_err(Into::into))
+		.and_then(|val: Raw<Vec<AnyStrippedStateEvent>>| {
+			val.deserialize_as_unchecked().map_err(Into::into)
+		})
 }
 
 #[implement(Service)]
@@ -474,7 +478,9 @@ pub async fn left_state(
 		.qry(&key)
 		.await
 		.deserialized()
-		.and_then(|val: Raw<Vec<AnyStrippedStateEvent>>| val.deserialize_as().map_err(Into::into))
+		.and_then(|val: Raw<Vec<AnyStrippedStateEvent>>| {
+			val.deserialize_as_unchecked().map_err(Into::into)
+		})
 }
 
 /// Returns an iterator over all rooms a user left.
@@ -493,7 +499,7 @@ pub fn rooms_left<'a>(
 		.stream_prefix(&prefix)
 		.ignore_err()
 		.map(|((_, room_id), state): KeyVal<'_>| (room_id.to_owned(), state))
-		.map(|(room_id, state)| Ok((room_id, state.deserialize_as()?)))
+		.map(|(room_id, state)| Ok((room_id, state.deserialize_as_unchecked()?)))
 		.ignore_err()
 }
 

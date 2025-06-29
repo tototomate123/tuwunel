@@ -2,7 +2,7 @@ use RoomVersionId::*;
 use axum::extract::State;
 use ruma::{
 	RoomVersionId,
-	api::{client::error::ErrorKind, federation::knock::create_knock_event_template},
+	api::{client::error::ErrorKind, federation::membership::prepare_knock_event},
 	events::room::member::{MembershipState, RoomMemberEventContent},
 };
 use serde_json::value::to_raw_value;
@@ -15,8 +15,8 @@ use crate::Ruma;
 /// Creates a knock template.
 pub(crate) async fn create_knock_event_template_route(
 	State(services): State<crate::State>,
-	body: Ruma<create_knock_event_template::v1::Request>,
-) -> Result<create_knock_event_template::v1::Response> {
+	body: Ruma<prepare_knock_event::v1::Request>,
+) -> Result<prepare_knock_event::v1::Response> {
 	if !services
 		.rooms
 		.metadata
@@ -124,7 +124,7 @@ pub(crate) async fn create_knock_event_template_route(
 	// room v3 and above removed the "event_id" field from remote PDU format
 	super::maybe_strip_event_id(&mut pdu_json, &room_version_id)?;
 
-	Ok(create_knock_event_template::v1::Response {
+	Ok(prepare_knock_event::v1::Response {
 		room_version: room_version_id,
 		event: to_raw_value(&pdu_json).expect("CanonicalJson can be serialized to JSON"),
 	})

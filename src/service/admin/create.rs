@@ -13,7 +13,7 @@ use ruma::{
 		name::RoomNameEventContent,
 		power_levels::RoomPowerLevelsEventContent,
 		preview_url::RoomPreviewUrlsEventContent,
-		topic::RoomTopicEventContent,
+		topic::{RoomTopicEventContent, TopicContentBlock},
 	},
 };
 use tuwunel_core::{Result, pdu::PduBuilder};
@@ -41,8 +41,8 @@ pub async fn create_server_user(services: &Services) -> Result {
 /// Users in this room are considered admins by tuwunel, and the room can be
 /// used to issue admin commands by talking to the server user inside it.
 pub async fn create_admin_room(services: &Services) -> Result {
-	let room_id = RoomId::new(services.globals.server_name());
-	let room_version = &services.config.default_room_version;
+	let room_id = RoomId::new_v1(services.globals.server_name());
+	let room_version = RoomVersionId::V11;
 
 	let _short_id = services
 		.rooms
@@ -183,6 +183,7 @@ pub async fn create_admin_room(services: &Services) -> Result {
 		.timeline
 		.build_and_append_pdu(
 			PduBuilder::state(String::new(), &RoomTopicEventContent {
+				topic_block: TopicContentBlock::default(),
 				topic: format!("Manage {} | Run commands prefixed with `!admin` | Run `!admin -h` for help | Documentation: https://github.com/matrix-construct/tuwunel/", services.config.server_name),
 			}),
 			server_user,

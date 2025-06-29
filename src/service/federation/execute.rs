@@ -8,7 +8,8 @@ use ruma::{
 	CanonicalJsonObject, CanonicalJsonValue, ServerName, ServerSigningKeyId,
 	api::{
 		EndpointError, IncomingResponse, MatrixVersion, OutgoingRequest, SendAccessToken,
-		client::error::Error as RumaError, federation::authentication::XMatrix,
+		SupportedVersions, client::error::Error as RumaError,
+		federation::authentication::XMatrix,
 	},
 	serde::Base64,
 };
@@ -79,6 +80,7 @@ where
 		.resolver
 		.get_actual_dest(dest)
 		.await?;
+
 	let request = into_http_request::<T>(&actual, request)?;
 	let request = self.prepare(dest, request)?;
 	self.perform::<T>(dest, &actual, request, client)
@@ -298,9 +300,13 @@ where
 {
 	const VERSIONS: [MatrixVersion; 1] = [MatrixVersion::V1_11];
 	const SATIR: SendAccessToken<'_> = SendAccessToken::IfRequired(EMPTY);
+	let supported = SupportedVersions {
+		versions: VERSIONS.into(),
+		features: Default::default(),
+	};
 
 	let http_request = request
-		.try_into_http_request::<Vec<u8>>(actual.string().as_str(), SATIR, &VERSIONS)
+		.try_into_http_request::<Vec<u8>>(actual.string().as_str(), SATIR, &supported)
 		.map_err(|e| err!(BadServerResponse("Invalid destination: {e:?}")))?;
 
 	Ok(http_request)

@@ -1,21 +1,26 @@
 use std::cmp;
 
-use futures::{StreamExt, TryStreamExt, future, future::ready};
+use futures::{StreamExt, TryStreamExt};
 use ruma::{
-	CanonicalJsonObject, CanonicalJsonValue, OwnedEventId, RoomId, RoomVersionId, UserId,
-	canonical_json::to_canonical_value,
+	CanonicalJsonObject, CanonicalJsonValue, MilliSecondsSinceUnixEpoch, OwnedEventId,
+	OwnedRoomId, RoomId, RoomVersionId, UserId,
 	events::{StateEventType, TimelineEventType, room::create::RoomCreateEventContent},
+	room_version_rules::RoomIdFormatVersion,
 	uint,
 };
 use serde_json::value::to_raw_value;
 use tuwunel_core::{
 	Err, Error, Result, err, implement,
 	matrix::{
-		event::{Event, gen_event_id},
+		event::{Event, StateKey, TypeExt, gen_event_id},
 		pdu::{EventHash, PduBuilder, PduEvent},
-		state_res::{self, RoomVersion},
+		room_version,
+		state_res::{self},
 	},
-	utils::{self, IterStream, ReadyExt, stream::TryIgnore},
+	utils::{
+		IterStream, ReadyExt, TryReadyExt, millis_since_unix_epoch, stream::TryIgnore,
+		to_canonical_object,
+	},
 };
 
 use super::RoomMutexGuard;
@@ -48,7 +53,7 @@ pub async fn create_hash_and_sign_event(
 		.await;
 
 	// If there was no create event yet, assume we are creating a room
-	let room_version_id = self
+	let (room_version, version_rules) = self
 		.services
 		.state
 		.get_room_version(room_id)
@@ -63,14 +68,23 @@ pub async fn create_hash_and_sign_event(
 					room_id.to_owned(),
 				))
 			}
+		})
+		.and_then(|room_version| {
+			Ok((room_version.clone(), room_version::rules(&room_version)?))
 		})?;
-
-	let room_version = RoomVersion::new(&room_version_id).expect("room version is supported");
 
 	let auth_events = self
 		.services
 		.state
-		.get_auth_events(room_id, &event_type, sender, state_key.as_deref(), &content)
+		.get_auth_events(
+			room_id,
+			&event_type,
+			sender,
+			state_key.as_deref(),
+			&content,
+			&version_rules.authorization,
+			true,
+		)
 		.await?;
 
 	// Our depth is the maximum depth of prev_events + 1
@@ -79,7 +93,7 @@ pub async fn create_hash_and_sign_event(
 		.stream()
 		.map(Ok)
 		.and_then(|event_id| self.get_pdu(event_id))
-		.and_then(|pdu| future::ok(pdu.depth))
+		.ready_and_then(|pdu| Ok(pdu.depth))
 		.ignore_err()
 		.ready_fold(uint!(0), cmp::max)
 		.await
@@ -100,26 +114,25 @@ pub async fn create_hash_and_sign_event(
 		}
 	}
 
-	let unsigned = if unsigned.is_empty() {
-		None
-	} else {
-		Some(to_raw_value(&unsigned)?)
-	};
+	let unsigned = unsigned
+		.is_empty()
+		.eq(&false)
+		.then_some(to_raw_value(&unsigned)?);
 
-	let origin_server_ts = timestamp.map_or_else(
-		|| {
-			utils::millis_since_unix_epoch()
+	let origin_server_ts = timestamp
+		.as_ref()
+		.map(MilliSecondsSinceUnixEpoch::get)
+		.unwrap_or_else(|| {
+			millis_since_unix_epoch()
 				.try_into()
-				.expect("timestamp to UInt")
-		},
-		|ts| ts.get(),
-	);
+				.expect("u64 to UInt")
+		});
 
 	let mut pdu = PduEvent {
-		event_id: ruma::event_id!("$thiswillbefilledinlater").into(),
+		event_id: ruma::event_id!("$thiswillbereplaced").into(),
 		room_id: room_id.to_owned(),
 		sender: sender.to_owned(),
-		origin: None,
+		origin: Some(self.services.globals.server_name().to_owned()),
 		origin_server_ts,
 		kind: event_type,
 		content,
@@ -132,55 +145,57 @@ pub async fn create_hash_and_sign_event(
 		prev_events,
 		auth_events: auth_events
 			.values()
+			.filter(|pdu| {
+				version_rules
+					.event_format
+					.allow_room_create_in_auth_events
+					|| *pdu.kind() != TimelineEventType::RoomCreate
+			})
 			.map(|pdu| pdu.event_id.clone())
 			.collect(),
 	};
 
-	let auth_fetch = |k: &StateEventType, s: &str| {
-		let key = (k.clone(), s.into());
-		ready(auth_events.get(&key).map(ToOwned::to_owned))
+	let auth_fetch = async |k: StateEventType, s: StateKey| {
+		auth_events
+			.get(&k.with_state_key(s.as_str()))
+			.map(ToOwned::to_owned)
+			.ok_or_else(|| err!(Request(NotFound("Missing auth events"))))
 	};
 
-	let auth_check = state_res::auth_check(
-		&room_version,
+	state_res::auth_check(
+		&version_rules,
 		&pdu,
-		None, // TODO: third_party_invite
-		auth_fetch,
+		&async |event_id: OwnedEventId| self.get_pdu(&event_id).await,
+		&auth_fetch,
 	)
-	.await
-	.map_err(|e| err!(Request(Forbidden(warn!("Auth check failed: {e:?}")))))?;
-
-	if !auth_check {
-		return Err!(Request(Forbidden("Event is not authorized.")));
-	}
+	.await?;
 
 	// Hash and sign
-	let mut pdu_json = utils::to_canonical_object(&pdu).map_err(|e| {
+	let mut pdu_json = to_canonical_object(&pdu).map_err(|e| {
 		err!(Request(BadJson(warn!("Failed to convert PDU to canonical JSON: {e}"))))
 	})?;
 
 	// room v3 and above removed the "event_id" field from remote PDU format
-	match room_version_id {
-		| RoomVersionId::V1 | RoomVersionId::V2 => {},
-		| _ => {
-			pdu_json.remove("event_id");
-		},
+	if !matches!(room_version, RoomVersionId::V1 | RoomVersionId::V2) {
+		pdu_json.remove("event_id");
 	}
 
-	// Add origin because synapse likes that (and it's required in the spec)
-	pdu_json.insert(
-		"origin".to_owned(),
-		to_canonical_value(self.services.globals.server_name())
-			.expect("server name is a valid CanonicalJsonValue"),
-	);
+	// room v12 and above removed the placeholder "room_id" field from m.room.create
+	if matches!(version_rules.room_id_format, RoomIdFormatVersion::V2)
+		&& pdu.kind == TimelineEventType::RoomCreate
+	{
+		pdu_json.remove("room_id");
+	}
 
 	if let Err(e) = self
 		.services
 		.server_keys
-		.hash_and_sign_event(&mut pdu_json, &room_version_id)
+		.hash_and_sign_event(&mut pdu_json, &room_version)
 	{
+		use ruma::signatures::Error::PduSize;
+
 		return match e {
-			| Error::Signatures(ruma::signatures::Error::PduSize) => {
+			| Error::Signatures(PduSize) => {
 				Err!(Request(TooLarge("Message/PDU is too long (exceeds 65535 bytes)")))
 			},
 			| _ => Err!(Request(Unknown(warn!("Signing event failed: {e}")))),
@@ -188,9 +203,16 @@ pub async fn create_hash_and_sign_event(
 	}
 
 	// Generate event id
-	pdu.event_id = gen_event_id(&pdu_json, &room_version_id)?;
-
+	pdu.event_id = gen_event_id(&pdu_json, &room_version)?;
 	pdu_json.insert("event_id".into(), CanonicalJsonValue::String(pdu.event_id.clone().into()));
+
+	// Room id is event id for V12+
+	if matches!(version_rules.room_id_format, RoomIdFormatVersion::V2)
+		&& pdu.kind == TimelineEventType::RoomCreate
+	{
+		pdu.room_id = OwnedRoomId::from_parts('!', pdu.event_id.localpart(), None)?;
+		pdu_json.insert("room_id".into(), CanonicalJsonValue::String(pdu.room_id.clone().into()));
+	}
 
 	// Generate short event id
 	let _shorteventid = self

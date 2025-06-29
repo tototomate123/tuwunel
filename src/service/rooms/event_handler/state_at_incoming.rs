@@ -1,15 +1,17 @@
 use std::{
-	borrow::Borrow,
-	collections::{HashMap, HashSet},
-	iter::Iterator,
+	collections::HashMap,
+	iter::{Iterator, once},
 };
 
-use futures::{FutureExt, StreamExt, TryFutureExt, TryStreamExt, future::try_join};
+use futures::{
+	FutureExt, StreamExt, TryFutureExt, TryStreamExt,
+	future::{OptionFuture, try_join},
+};
 use ruma::{OwnedEventId, RoomId, RoomVersionId};
 use tuwunel_core::{
-	Result, err, implement,
-	matrix::{Event, StateMap},
-	trace,
+	Result, apply, err, implement,
+	matrix::{Event, StateMap, state_res::AuthSet},
+	ref_at, trace,
 	utils::stream::{BroadbandExt, IterStream, ReadyExt, TryBroadbandExt, TryWidebandExt},
 };
 
@@ -60,14 +62,16 @@ where
 
 	let (prev_event, mut state) = try_join(prev_event, state).await?;
 
-	if let Some(state_key) = prev_event.state_key {
+	if let Some(state_key) = prev_event.state_key() {
+		let prev_event_type = prev_event.event_type().to_cow_str().into();
+
 		let shortstatekey = self
 			.services
 			.short
-			.get_or_create_shortstatekey(&prev_event.kind.into(), &state_key)
+			.get_or_create_shortstatekey(&prev_event_type, state_key)
 			.await;
 
-		state.insert(shortstatekey, prev_event.event_id);
+		state.insert(shortstatekey, prev_event.event_id().into());
 		// Now it's the state after the pdu
 	}
 
@@ -113,26 +117,28 @@ where
 	};
 
 	trace!("Calculating fork states...");
-	let (fork_states, auth_chain_sets): (Vec<StateMap<_>>, Vec<HashSet<_>>) =
-		extremity_sstatehashes
-			.into_iter()
-			.try_stream()
-			.wide_and_then(|(sstatehash, prev_event)| {
-				self.state_at_incoming_fork(room_id, sstatehash, prev_event)
-			})
-			.try_collect()
-			.map_ok(Vec::into_iter)
-			.map_ok(Iterator::unzip)
-			.await?;
+	let (fork_states, auth_chain_sets) = extremity_sstatehashes
+		.into_iter()
+		.try_stream()
+		.wide_and_then(|(sstatehash, prev_event)| {
+			self.state_at_incoming_fork(room_id, sstatehash, prev_event)
+		})
+		.try_collect()
+		.map_ok(Vec::into_iter)
+		.map_ok(Iterator::unzip)
+		.map_ok(apply!(2, Vec::into_iter))
+		.map_ok(apply!(2, IterStream::stream))
+		.await?;
 
+	trace!("Resolving state");
 	let Ok(new_state) = self
-		.state_resolution(room_version_id, fork_states.iter(), &auth_chain_sets)
-		.boxed()
+		.state_resolution(room_version_id, fork_states, auth_chain_sets)
 		.await
 	else {
 		return Ok(None);
 	};
 
+	trace!("State resolution done.");
 	new_state
 		.into_iter()
 		.stream()
@@ -150,41 +156,55 @@ where
 }
 
 #[implement(super::Service)]
+#[tracing::instrument(
+	name = "fork",
+	level = "debug",
+	skip_all,
+	fields(
+		?sstatehash,
+		prev_event = ?prev_event.event_id(),
+	)
+)]
 async fn state_at_incoming_fork<Pdu>(
 	&self,
 	room_id: &RoomId,
 	sstatehash: ShortStateHash,
 	prev_event: Pdu,
-) -> Result<(StateMap<OwnedEventId>, HashSet<OwnedEventId>)>
+) -> Result<(StateMap<OwnedEventId>, AuthSet<OwnedEventId>)>
 where
 	Pdu: Event,
 {
-	let mut leaf_state: HashMap<_, _> = self
+	let leaf: OptionFuture<_> = prev_event
+		.state_key()
+		.map(async |state_key| {
+			self.services
+				.short
+				.get_or_create_shortstatekey(&prev_event.kind().to_cow_str().into(), state_key)
+				.map(|shortstatekey| once((shortstatekey, prev_event.event_id().to_owned())))
+				.await
+		})
+		.into();
+
+	let leaf_state_after_event: Vec<_> = self
 		.services
 		.state_accessor
 		.state_full_ids(sstatehash)
+		.chain(leaf.await.into_iter().flatten().stream())
 		.collect()
 		.await;
 
-	if let Some(state_key) = prev_event.state_key() {
-		let shortstatekey = self
-			.services
-			.short
-			.get_or_create_shortstatekey(&prev_event.kind().to_string().into(), state_key)
-			.await;
-
-		let event_id = prev_event.event_id();
-		leaf_state.insert(shortstatekey, event_id.to_owned());
-		// Now it's the state after the pdu
-	}
+	let starting_events = leaf_state_after_event
+		.iter()
+		.map(ref_at!(1))
+		.map(AsRef::as_ref);
 
 	let auth_chain = self
 		.services
 		.auth_chain
-		.event_ids_iter(room_id, leaf_state.values().map(Borrow::borrow))
+		.event_ids_iter(room_id, starting_events)
 		.try_collect();
 
-	let fork_state = leaf_state
+	let fork_state = leaf_state_after_event
 		.iter()
 		.stream()
 		.broad_then(|(k, id)| {
