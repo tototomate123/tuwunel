@@ -88,13 +88,20 @@ impl Data {
 	}
 
 	/// Returns the json of a pdu.
+	pub(super) async fn get_outlier_pdu_json(
+		&self,
+		event_id: &EventId,
+	) -> Result<CanonicalJsonObject> {
+		self.eventid_outlierpdu
+			.get(event_id)
+			.await
+			.deserialized()
+	}
+
+	/// Returns the json of a pdu.
 	pub(super) async fn get_pdu_json(&self, event_id: &EventId) -> Result<CanonicalJsonObject> {
 		let accepted = self.get_non_outlier_pdu_json(event_id).boxed();
-		let outlier = self
-			.eventid_outlierpdu
-			.get(event_id)
-			.map(Deserialized::deserialized)
-			.boxed();
+		let outlier = self.get_outlier_pdu_json(event_id).boxed();
 
 		select_ok([accepted, outlier]).await.map(at!(0))
 	}
@@ -136,13 +143,19 @@ impl Data {
 	/// Returns the pdu.
 	///
 	/// Checks the `eventid_outlierpdu` Tree if not found in the timeline.
+	pub(super) async fn get_outlier_pdu(&self, event_id: &EventId) -> Result<PduEvent> {
+		self.eventid_outlierpdu
+			.get(event_id)
+			.await
+			.deserialized()
+	}
+
+	/// Returns the pdu.
+	///
+	/// Checks the `eventid_outlierpdu` Tree if not found in the timeline.
 	pub(super) async fn get_pdu(&self, event_id: &EventId) -> Result<PduEvent> {
 		let accepted = self.get_non_outlier_pdu(event_id).boxed();
-		let outlier = self
-			.eventid_outlierpdu
-			.get(event_id)
-			.map(Deserialized::deserialized)
-			.boxed();
+		let outlier = self.get_outlier_pdu(event_id).boxed();
 
 		select_ok([accepted, outlier]).await.map(at!(0))
 	}
