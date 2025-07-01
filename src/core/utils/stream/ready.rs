@@ -32,6 +32,13 @@ where
 		F: Fn(&Item) -> bool + Send + 'a,
 		Item: Send;
 
+	fn ready_find_map<'a, F, U>(self, f: F) -> impl Future<Output = Option<U>> + Send
+	where
+		Self: Send + Unpin + 'a,
+		F: Fn(Item) -> Option<U> + Send + 'a,
+		Item: Send,
+		U: Send;
+
 	fn ready_filter<'a, F>(
 		self,
 		f: F,
@@ -125,6 +132,20 @@ where
 		Item: Send,
 	{
 		self.ready_filter(f)
+			.take(1)
+			.into_future()
+			.map(|(curr, _next)| curr)
+	}
+
+	#[inline]
+	fn ready_find_map<'a, F, U>(self, f: F) -> impl Future<Output = Option<U>> + Send
+	where
+		Self: Send + Unpin + 'a,
+		F: Fn(Item) -> Option<U> + Send + 'a,
+		Item: Send,
+		U: Send,
+	{
+		self.ready_filter_map(f)
 			.take(1)
 			.into_future()
 			.map(|(curr, _next)| curr)
