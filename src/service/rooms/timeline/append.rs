@@ -374,7 +374,8 @@ where
 				{
 					self.services
 						.admin
-						.command(body, Some((pdu.event_id()).into()))?;
+						.command(body, Some((pdu.event_id()).into()))
+						.await?;
 				}
 			}
 		},
