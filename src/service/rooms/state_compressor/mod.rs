@@ -460,6 +460,7 @@ pub async fn save_state(
 }
 
 #[implement(Service)]
+#[allow(clippy::manual_is_multiple_of)]
 #[tracing::instrument(skip(self), level = "debug", name = "get")]
 async fn get_statediff(&self, shortstatehash: ShortStateHash) -> Result<StateDiff> {
 	const BUFSIZE: usize = size_of::<ShortStateHash>();
