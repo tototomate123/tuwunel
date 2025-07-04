@@ -15,7 +15,7 @@
 ### For more information, see:
 ### https://tuwunel.chat/configuration.html
 
-[global]
+#[global]
 
 # The server_name is the pretty name of this server. It is used as a
 # suffix for user and room IDs/aliases.
@@ -1557,7 +1557,7 @@
 #
 #config_reload_signal = true
 
-[global.tls]
+#[global.tls]
 
 # Path to a valid TLS certificate file.
 #
@@ -1575,7 +1575,7 @@
 #
 #dual_protocol = false
 
-[global.well_known]
+#[global.well_known]
 
 # The server URL that the client well-known file will serve. This should
 # not contain a port, and should just be a valid HTTPS URL.
@@ -1608,7 +1608,7 @@
 #
 #support_mxid =
 
-[global.blurhashing]
+#[global.blurhashing]
 
 # blurhashing x component, 4 is recommended by https://blurha.sh/
 #
@@ -1626,7 +1626,7 @@
 #
 #blurhash_max_raw_size = 33554432
 
-[global.ldap]
+#[global.ldap]
 
 # Whether to enable LDAP login.
 #
@@ -1713,7 +1713,7 @@
 #
 #admin_filter = false
 
-[global.jwt]
+#[global.jwt]
 
 # Enable JWT logins
 #
@@ -1779,7 +1779,7 @@
 #
 #validate_signature = true
 
-[global.appservice.<ID>]
+#[global.appservice.<ID>]
 
 # The URL for the application service.
 #
@@ -1821,7 +1821,7 @@
 #
 #device_management = false
 
-[[global.appservice.<ID>.<users|rooms|aliases>]]
+#[[global.appservice.<ID>.<users|rooms|aliases>]]
 
 # Whether this application service has exclusive access to events within
 # this namespace.

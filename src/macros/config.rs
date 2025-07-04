@@ -73,7 +73,7 @@ fn generate_example(input: &ItemStruct, args: &[Meta], write: bool) -> Result<To
 				.expect("written to config file");
 		}
 
-		file.write_fmt(format_args!("\n[{section}]\n"))
+		file.write_fmt(format_args!("\n#[{section}]\n"))
 			.expect("written to config file");
 	}
 
