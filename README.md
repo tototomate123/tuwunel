@@ -1,4 +1,4 @@
-# Tuwunel <sup>💕</sup>
+# Tuwunel<sup>💕</sup>
 
 ![GitHub License](https://img.shields.io/github/license/matrix-construct/tuwunel?style=flat&color=%238A2BE2)
 ![GitHub Created At](https://img.shields.io/github/created-at/matrix-construct/tuwunel?style=flat&color=%238A2BE2)
@@ -160,7 +160,7 @@ and not all project staff will be present there. There will be at least some pre
 offer assistance so long as the room remains in minimally good standing.
 
 
-## Tuwunel <sup>💕</sup>
+## Tuwunel<sup>💕</sup>
 
 Tuwunel's theme is **empathy** in communication defined by the works of
 [Edith Stein](https://plato.stanford.edu/entries/stein/). Empathy is the basis for how we approach

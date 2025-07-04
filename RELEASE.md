@@ -1,25 +1,27 @@
-# Tuwunel 1.1.0
+# Tuwunel 1.2.0
 
-June 19, 2025
+July 3, 2025
 
-All dependencies have been fully upgraded for the first time since the conduwuit transition. RocksDB is now synchronized to 10.2.1-tuwunel for all builders. The Nix build itself has now been fully migrated from conduwuit; special thanks to @wkordalski for making this happen. Thanks to @Askhalion for opening a NixOS package request which you can [vote for here](https://github.com/NixOS/nixpkgs/issues/415469). An [Arch package](https://aur.archlinux.org/packages/tuwunel) has also been created in the AUR courtesy of @drrossum in addition to the transitional package setup by @Kimiblock which we failed to acknowledge during the first release. The RPM package now has systemd and proper installation added thanks to a report by @alythemonk.
+Appservices can now be declared in the config file. Thanks to @teidesu for this idea. Each appservice can be configured using a TOML section. For example `[global.appservice.mautrix-telegram]` will create an appservice identified as mautrix-telegram. The configuration is similar to the standard Matrix registration.yaml. The appservice will be inactive when commented out. Thanks to @obioma for helping to get the TOML syntax right.
 
-ARMv8 builds are now supported and bundled with this release. Thanks to @zaninime and @clement-escolano for reminding us.
-
-JSON Web Token logins are now supported. This feature was commissioned and made public by an enterprise sponsor. The type `org.matrix.login.jwt` is now recognized.
+Optimized builds are now available with this release. Multi-platform docker images are available for these optimized builds for everyone using the special-tags like `:latest`, `:preview` or `:main`. The performance boost will be automatic for most users. The standalone binaries, Deb and RPM packages are also built with optimized variants. **Please note the naming scheme has changed and links may be different.**
 
 ### New Features
 
-- JWT login support.
+- Declarative Appservices.
 
-### Follow-up Features
-
-- aarch64 build and packages.
-- NixOS build support. (thanks @wkordalski and @coolGi69)
-- Dependency upgrades, including Axum 0.8. (thanks @dasha_uwu)
-- RPM package systemd and proper installation scripts.
+- Optimized packages & Multi-platform docker images.
 
 ### Bug Fixes
 
-- Changing passwords for pre-migration users was precluded by an error.
-Special thanks to @teidesu for making a superb report about this.
+- Special thanks to @orhtej2 for fixing several bugs with LDAP login related to the admin feature. An `admin_base_dn` issue was fixed in https://github.com/matrix-construct/tuwunel/pull/92 and an admin filter issue in https://github.com/matrix-construct/tuwunel/pull/93.
+
+- We owe a lot of gratitude to the effort of @meovary150 for figuring out that using the same `as_token` for more than one appservice can cause obscure bugs. Configurations are now checked to prevent this.
+
+- Thanks to @SKFE396 for reporting that LZ4 support for RocksDB was missing from the built release packages and images. This has now been added back.
+
+- Thanks to @syobocat for debugging a compile error on FreeBSD where our proc-macros were provided empty values for `std::env::args()`.
+
+- Thanks to @k3-cat and @periodic for identifying compression-related issues for the OCI images which failed to load in Podman.
+
+- Thanks to @dasha_uwu for perhaps the third week in a row now, this time for pointing out that `ldap3` was being included as a default Cargo dependency. It's now been properly isolated under its feature-gate.
