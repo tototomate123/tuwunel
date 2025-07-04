@@ -2114,10 +2114,16 @@ pub struct AppService {
 
 	/// A unique token for application services to use to authenticate requests
 	/// to Homeservers.
+	///
+	/// default:
+	/// display: sensitive
 	pub as_token: String,
 
 	/// A unique token for Homeservers to use to authenticate requests to
 	/// application services.
+	///
+	/// default:
+	/// display: sensitive
 	pub hs_token: String,
 
 	/// The localpart of the user associated with the application service.
