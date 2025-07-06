@@ -876,6 +876,11 @@ unknown_lints = "allow"
 # mismatched_lifetime_syntaxes but it actually has not.
 renamed_and_removed_lints = "allow"
 
+# nightly has a new lint that conflicts with our BoolExt trait at
+# src/core/utils/bool.rs:68:48
+# <https://github.com/rust-lang/rust/issues/142748>
+unstable_name_collisions = "allow"                                   # TODO
+
 #######################################
 #
 # Clippy lints
