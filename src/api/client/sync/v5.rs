@@ -560,29 +560,40 @@ where
 			.collect()
 			.await;
 
-		// Heroes
-		let heroes: Vec<_> = services
+		let room_name = services
 			.rooms
-			.state_cache
-			.room_members(room_id)
-			.ready_filter(|member| *member != sender_user)
-			.filter_map(|user_id| {
-				services
-					.rooms
-					.state_accessor
-					.get_member(room_id, user_id)
-					.map_ok(|memberevent| sync_events::v5::response::Hero {
-						user_id: user_id.into(),
-						name: memberevent.displayname,
-						avatar: memberevent.avatar_url,
-					})
-					.ok()
-			})
-			.take(5)
-			.collect()
-			.await;
+			.state_accessor
+			.get_name(room_id)
+			.await
+			.ok();
 
-		let name = match heroes.len().cmp(&(1_usize)) {
+		// Heroes
+		let heroes: Vec<_> = if room_name.is_none() {
+			services
+				.rooms
+				.state_cache
+				.room_members(room_id)
+				.ready_filter(|member| *member != sender_user)
+				.filter_map(|user_id| {
+					services
+						.rooms
+						.state_accessor
+						.get_member(room_id, user_id)
+						.map_ok(|memberevent| sync_events::v5::response::Hero {
+							user_id: user_id.into(),
+							name: memberevent.displayname,
+							avatar: memberevent.avatar_url,
+						})
+						.ok()
+				})
+				.take(5)
+				.collect()
+				.await
+		} else {
+			vec![]
+		};
+
+		let hero_name = match heroes.len().cmp(&(1_usize)) {
 			| Ordering::Greater => {
 				let firsts = heroes[1..]
 					.iter()
@@ -616,27 +627,24 @@ where
 			None
 		};
 
+		let room_avatar = match services
+			.rooms
+			.state_accessor
+			.get_avatar(room_id)
+			.await
+		{
+			| ruma::JsOption::Some(avatar) => ruma::JsOption::from_option(avatar.url),
+			| ruma::JsOption::Null => ruma::JsOption::Null,
+			| ruma::JsOption::Undefined => ruma::JsOption::Undefined,
+		};
+
 		rooms.insert(room_id.clone(), sync_events::v5::response::Room {
-			name: services
-				.rooms
-				.state_accessor
-				.get_name(room_id)
-				.await
-				.ok()
-				.or(name),
-			avatar: match heroes_avatar {
-				| Some(heroes_avatar) => ruma::JsOption::Some(heroes_avatar),
-				| _ => match services
-					.rooms
-					.state_accessor
-					.get_avatar(room_id)
-					.await
-				{
-					| ruma::JsOption::Some(avatar) => ruma::JsOption::from_option(avatar.url),
-					| ruma::JsOption::Null => ruma::JsOption::Null,
-					| ruma::JsOption::Undefined => ruma::JsOption::Undefined,
-				},
+			avatar: if room_name.is_some() {
+				room_avatar
+			} else {
+				ruma::JsOption::from_option(heroes_avatar)
 			},
+			name: room_name.or(hero_name),
 			initial: Some(roomsince == &0),
 			is_dm: None,
 			invite_state,
