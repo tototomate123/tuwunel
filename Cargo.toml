@@ -856,6 +856,7 @@ unused-qualifications = "warn"
 
 ## some sadness
 elided_named_lifetimes = "allow"                                     # TODO!
+mismatched_lifetime_syntaxes = "allow"                               # TODO!
 let_underscore_drop = "allow"
 missing_docs = "allow"
 # cfgs cannot be limited to expected cfgs or their de facto non-transitive/opt-in use-case e.g.
@@ -870,6 +871,10 @@ variant_size_differences = "allow"
 
 # we check nightly clippy lints
 unknown_lints = "allow"
+
+# rust claims elided_named_lifetimes has been replaced by
+# mismatched_lifetime_syntaxes but it actually has not.
+renamed_and_removed_lints = "allow"
 
 #######################################
 #
