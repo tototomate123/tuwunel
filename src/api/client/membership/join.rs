@@ -2,7 +2,7 @@ use std::{borrow::Borrow, collections::HashMap, iter::once, sync::Arc};
 
 use axum::extract::State;
 use axum_client_ip::InsecureClientIp;
-use futures::{FutureExt, StreamExt};
+use futures::{FutureExt, StreamExt, pin_mut};
 use ruma::{
 	CanonicalJsonObject, CanonicalJsonValue, OwnedRoomId, OwnedServerName, OwnedUserId, RoomId,
 	RoomVersionId, UserId,
@@ -747,7 +747,7 @@ async fn join_room_by_id_helper_local(
 			})
 			.await
 		{
-			services
+			let users = services
 				.rooms
 				.state_cache
 				.local_users_in_room(room_id)
@@ -759,10 +759,10 @@ async fn join_room_by_id_helper_local(
 						&state_lock,
 					)
 				})
-				.boxed()
-				.next()
-				.await
-				.map(ToOwned::to_owned)
+				.map(ToOwned::to_owned);
+
+			pin_mut!(users);
+			users.next().await
 		} else {
 			None
 		}

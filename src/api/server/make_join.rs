@@ -1,5 +1,5 @@
 use axum::extract::State;
-use futures::StreamExt;
+use futures::{StreamExt, pin_mut};
 use ruma::{
 	CanonicalJsonObject, OwnedUserId, RoomId, RoomVersionId, UserId,
 	api::{client::error::ErrorKind, federation::membership::prepare_join_event},
@@ -105,7 +105,7 @@ pub(crate) async fn create_join_event_template_route(
 		)
 		.await?
 		{
-			let Some(auth_user) = services
+			let users = services
 				.rooms
 				.state_cache
 				.local_users_in_room(&body.room_id)
@@ -117,15 +117,15 @@ pub(crate) async fn create_join_event_template_route(
 						&state_lock,
 					)
 				})
-				.boxed()
-				.next()
-				.await
-				.map(ToOwned::to_owned)
-			else {
+				.map(ToOwned::to_owned);
+
+			pin_mut!(users);
+			let Some(auth_user) = users.next().await else {
 				return Err!(Request(UnableToGrantJoin(
 					"No user on this server is able to assist in joining."
 				)));
 			};
+
 			Some(auth_user)
 		} else {
 			None

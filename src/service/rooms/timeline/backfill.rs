@@ -118,14 +118,11 @@ pub async fn backfill_if_required(&self, room_id: &RoomId, from: PduCount) -> Re
 				},
 			)
 			.await;
+
 		match response {
 			| Ok(response) => {
 				for pdu in response.pdus {
-					if let Err(e) = self
-						.backfill_pdu(backfill_server, pdu)
-						.boxed()
-						.await
-					{
+					if let Err(e) = self.backfill_pdu(backfill_server, pdu).await {
 						debug_warn!("Failed to add backfilled pdu in room {room_id}: {e}");
 					}
 				}

@@ -7,7 +7,7 @@ use std::{
 	time::Instant,
 };
 
-use futures::{FutureExt, Stream, StreamExt, TryFutureExt, TryStreamExt};
+use futures::{FutureExt, Stream, StreamExt, TryFutureExt, TryStreamExt, pin_mut};
 use ruma::{EventId, OwnedEventId, RoomId};
 use tuwunel_core::{
 	Err, Result, at, debug, debug_error, implement, trace,
@@ -80,13 +80,13 @@ where
 	const BUCKET: Bucket<'_> = BTreeSet::new();
 
 	let started = Instant::now();
-	let mut starting_ids = self
+	let starting_ids = self
 		.services
 		.short
 		.multi_get_or_create_shorteventid(starting_events.clone())
-		.zip(starting_events.clone().stream())
-		.boxed();
+		.zip(starting_events.clone().stream());
 
+	pin_mut!(starting_ids);
 	let mut buckets = [BUCKET; NUM_BUCKETS];
 	while let Some((short, starting_event)) = starting_ids.next().await {
 		let bucket: usize = short.try_into()?;

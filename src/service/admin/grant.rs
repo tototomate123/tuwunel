@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use futures::FutureExt;
 use ruma::{
 	RoomId, UserId,
 	events::{
@@ -239,6 +240,7 @@ pub async fn revoke_admin(&self, user_id: &UserId) -> Result {
 			&room_id,
 			&state_lock,
 		)
+		.boxed()
 		.await
 		.map(|_| ())
 }

@@ -728,7 +728,6 @@ async fn load_joined_room(
 		joined_since_last_sync,
 		witness.as_ref(),
 	)
-	.boxed()
 	.await?;
 
 	let is_sender_membership = |pdu: &PduEvent| {
@@ -1075,8 +1074,7 @@ async fn calculate_state_incremental<'a>(
 					.rooms
 					.state_accessor
 					.state_full_shortids(current_shortstatehash)
-					.expect_ok()
-					.boxed(),
+					.expect_ok(),
 			)
 		})
 		.into();
@@ -1108,6 +1106,7 @@ async fn calculate_state_incremental<'a>(
 				.ok()
 		})
 		.collect::<Vec<_>>()
+		.boxed()
 		.await;
 
 	let (device_list_updates, left_encrypted_users) = state_events

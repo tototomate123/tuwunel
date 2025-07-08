@@ -253,9 +253,11 @@ impl Service {
 	) {
 		let keep =
 			usize::try_from(self.server.config.startup_netburst_keep).unwrap_or(usize::MAX);
-		let mut txns = HashMap::<Destination, Vec<SendingEvent>>::new();
-		let mut active = self.db.active_requests().boxed();
 
+		let mut txns = HashMap::<Destination, Vec<SendingEvent>>::new();
+		let active = self.db.active_requests();
+
+		pin_mut!(active);
 		while let Some((key, event, dest)) = active.next().await {
 			if self.shard_id(&dest) != id {
 				continue;
@@ -505,6 +507,7 @@ impl Service {
 					.then_some((room_id, receipt_map))
 			})
 			.collect()
+			.boxed()
 			.await;
 
 		if receipts.is_empty() {

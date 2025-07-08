@@ -61,6 +61,7 @@ where
 			.await?
 	} else {
 		self.state_at_incoming_resolved(&incoming_pdu, room_id, &room_version_id)
+			.boxed()
 			.await?
 	};
 
@@ -215,6 +216,7 @@ where
 
 		let new_room_state = self
 			.resolve_state(room_id, &room_version_id, state_after)
+			.boxed()
 			.await?;
 
 		// Set the new room state to the resolved state

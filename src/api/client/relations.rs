@@ -175,7 +175,7 @@ async fn paginate_relations_with_filter(
 	})
 }
 
-async fn visibility_filter<Pdu: Event + Send + Sync>(
+async fn visibility_filter<Pdu: Event>(
 	services: &Services,
 	sender_user: &UserId,
 	item: (PduCount, Pdu),
