@@ -44,7 +44,7 @@ struct Services {
 }
 
 /// Inputs to a command are a multi-line string and optional reply_id.
-#[derive(Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct CommandInput {
 	pub command: String,
 	pub reply_id: Option<OwnedEventId>,
@@ -122,7 +122,9 @@ impl crate::Service for Service {
 			}
 		}
 
-		self.console_auto_stop().await; //TODO: not unwind safe
+		//TODO: not unwind safe
+		self.interrupt();
+		self.console_auto_stop().await;
 
 		Ok(())
 	}
