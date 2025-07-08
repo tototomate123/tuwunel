@@ -21,7 +21,7 @@ use super::{pdu::Pdu, state_key::StateKey};
 use crate::{Result, utils};
 
 /// Abstraction of a PDU so users can have their own PDU types.
-pub trait Event: Clone + Debug {
+pub trait Event: Clone + Debug + Send + Sync {
 	/// Serialize into a Ruma JSON format, consuming.
 	#[inline]
 	fn into_format<T>(self) -> T

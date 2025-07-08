@@ -35,7 +35,7 @@ pub(super) async fn fetch_prev<'a, Pdu, Events>(
 	HashMap<OwnedEventId, (PduEvent, BTreeMap<String, CanonicalJsonValue>)>,
 )>
 where
-	Pdu: Event + Send + Sync,
+	Pdu: Event,
 	Events: Iterator<Item = &'a EventId> + Clone + Send,
 {
 	let num_ids = initial_set.clone().count();

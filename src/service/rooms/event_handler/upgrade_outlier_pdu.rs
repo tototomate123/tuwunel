@@ -26,7 +26,7 @@ pub(super) async fn upgrade_outlier_to_timeline_pdu<Pdu>(
 	room_id: &RoomId,
 ) -> Result<Option<RawPduId>>
 where
-	Pdu: Event + Send + Sync,
+	Pdu: Event,
 {
 	// Skip the PDU if we already have it as a timeline event
 	if let Ok(pduid) = self

@@ -24,7 +24,7 @@ pub(super) async fn handle_outlier_pdu<'a, Pdu>(
 	auth_events_known: bool,
 ) -> Result<(PduEvent, BTreeMap<String, CanonicalJsonValue>)>
 where
-	Pdu: Event + Send + Sync,
+	Pdu: Event,
 {
 	// 1. Remove unsigned field
 	value.remove("unsigned");

@@ -168,7 +168,7 @@ pub async fn build_and_append_pdu(
 #[tracing::instrument(skip_all, level = "debug")]
 async fn check_pdu_for_admin_room<Pdu>(&self, pdu: &Pdu, sender: &UserId) -> Result
 where
-	Pdu: Event + Send + Sync,
+	Pdu: Event,
 {
 	match pdu.kind() {
 		| TimelineEventType::RoomEncryption => {

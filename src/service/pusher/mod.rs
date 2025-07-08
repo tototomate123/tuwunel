@@ -296,8 +296,7 @@ impl Service {
 		event: &E,
 	) -> Result
 	where
-		E: Event + Send + Sync,
-		for<'a> &'a E: Event + Send,
+		E: Event,
 	{
 		let mut notify = None;
 		let mut tweaks = Vec::new();
@@ -385,15 +384,13 @@ impl Service {
 	}
 
 	#[tracing::instrument(skip(self, unread, pusher, tweaks, event))]
-	async fn send_notice<E>(
+	async fn send_notice<Pdu: Event>(
 		&self,
 		unread: UInt,
 		pusher: &Pusher,
 		tweaks: Vec<Tweak>,
-		event: &E,
+		event: &Pdu,
 	) -> Result
-	where
-		E: Event + Send + Sync,
 	{
 		// TODO: email
 		match &pusher.kind {

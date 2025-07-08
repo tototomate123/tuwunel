@@ -256,7 +256,7 @@ pub(crate) async fn is_ignored_pdu<Pdu>(
 	user_id: &UserId,
 ) -> bool
 where
-	Pdu: Event + Send + Sync,
+	Pdu: Event,
 {
 	// exclude Synapse's dummy events from bloating up response bodies. clients
 	// don't need to see this.

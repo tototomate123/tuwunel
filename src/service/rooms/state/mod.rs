@@ -332,10 +332,9 @@ impl Service {
 	}
 
 	#[tracing::instrument(skip_all, level = "debug")]
-	pub async fn summary_stripped<'a, E>(&self, event: &'a E) -> Vec<Raw<AnyStrippedStateEvent>>
+	pub async fn summary_stripped<Pdu>(&self, event: &Pdu) -> Vec<Raw<AnyStrippedStateEvent>>
 	where
-		E: Event + Send + Sync,
-		&'a E: Event + Send,
+		Pdu: Event,
 	{
 		let cells = [
 			(&StateEventType::RoomCreate, ""),

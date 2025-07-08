@@ -349,9 +349,9 @@ impl Service {
 		Ok(())
 	}
 
-	pub async fn is_admin_command<E>(&self, event: &E, body: &str) -> bool
+	pub async fn is_admin_command<Pdu>(&self, event: &Pdu, body: &str) -> bool
 	where
-		E: Event + Send + Sync,
+		Pdu: Event,
 	{
 		// Server-side command-escape with public echo
 		let is_escape = body.starts_with('\\');

@@ -29,7 +29,7 @@ pub(super) async fn handle_prev_pdu<'a, Pdu>(
 	prev_id: &'a EventId,
 ) -> Result
 where
-	Pdu: Event + Send + Sync,
+	Pdu: Event,
 {
 	// Check for disabled again because it might have changed
 	if self.services.metadata.is_disabled(room_id).await {

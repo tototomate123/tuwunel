@@ -26,7 +26,7 @@ pub(super) async fn fetch_state<Pdu>(
 	event_id: &EventId,
 ) -> Result<Option<HashMap<u64, OwnedEventId>>>
 where
-	Pdu: Event + Send + Sync,
+	Pdu: Event,
 {
 	let res = self
 		.services

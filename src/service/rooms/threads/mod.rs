@@ -51,7 +51,7 @@ impl crate::Service for Service {
 impl Service {
 	pub async fn add_to_thread<E>(&self, root_event_id: &EventId, event: &E) -> Result
 	where
-		E: Event + Send + Sync,
+		E: Event,
 	{
 		let root_id = self
 			.services

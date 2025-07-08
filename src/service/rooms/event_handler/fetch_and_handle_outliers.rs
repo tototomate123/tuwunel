@@ -38,7 +38,7 @@ pub(super) async fn fetch_and_handle_outliers<'a, Pdu, Events>(
 	room_id: &'a RoomId,
 ) -> Vec<(PduEvent, Option<BTreeMap<String, CanonicalJsonValue>>)>
 where
-	Pdu: Event + Send + Sync,
+	Pdu: Event,
 	Events: Iterator<Item = &'a EventId> + Clone + Send,
 {
 	let back_off = |id| match self

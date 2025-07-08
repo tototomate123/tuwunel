@@ -84,7 +84,10 @@ impl Pdu {
 	}
 }
 
-impl Event for Pdu {
+impl Event for Pdu
+where
+	Self: Send + Sync + 'static,
+{
 	#[inline]
 	fn auth_events(&self) -> impl DoubleEndedIterator<Item = &EventId> + Clone + Send + '_ {
 		self.auth_events.iter().map(AsRef::as_ref)
@@ -137,7 +140,10 @@ impl Event for Pdu {
 	fn is_owned(&self) -> bool { true }
 }
 
-impl Event for &Pdu {
+impl Event for &Pdu
+where
+	Self: Send,
+{
 	#[inline]
 	fn auth_events(&self) -> impl DoubleEndedIterator<Item = &EventId> + Clone + Send + '_ {
 		self.auth_events.iter().map(AsRef::as_ref)

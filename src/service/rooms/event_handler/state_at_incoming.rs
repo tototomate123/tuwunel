@@ -24,7 +24,7 @@ pub(super) async fn state_at_incoming_degree_one<Pdu>(
 	incoming_pdu: &Pdu,
 ) -> Result<Option<HashMap<u64, OwnedEventId>>>
 where
-	Pdu: Event + Send + Sync,
+	Pdu: Event,
 {
 	let prev_event = incoming_pdu
 		.prev_events()
@@ -80,7 +80,7 @@ pub(super) async fn state_at_incoming_resolved<Pdu>(
 	room_version_id: &RoomVersionId,
 ) -> Result<Option<HashMap<u64, OwnedEventId>>>
 where
-	Pdu: Event + Send + Sync,
+	Pdu: Event,
 {
 	trace!("Calculating extremity statehashes...");
 	let Ok(extremity_sstatehashes) = incoming_pdu
