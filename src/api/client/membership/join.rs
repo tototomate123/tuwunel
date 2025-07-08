@@ -550,7 +550,7 @@ async fn join_room_by_id_helper_remote(
 				.validate_and_add_event_id_no_fetch(pdu, &room_version_id)
 		})
 		.ready_filter_map(Result::ok)
-		.fold(HashMap::new(), |mut state, (event_id, value)| async move {
+		.fold(HashMap::new(), async |mut state, (event_id, value)| {
 			let pdu = match PduEvent::from_id_val(&event_id, value.clone()) {
 				| Ok(pdu) => pdu,
 				| Err(e) => {

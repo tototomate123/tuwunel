@@ -128,7 +128,7 @@ where
 	new_state
 		.into_iter()
 		.stream()
-		.broad_then(|((event_type, state_key), event_id)| async move {
+		.broad_then(async |((event_type, state_key), event_id)| {
 			self.services
 				.short
 				.get_or_create_shortstatekey(&event_type, &state_key)

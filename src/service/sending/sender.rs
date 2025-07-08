@@ -492,7 +492,7 @@ impl Service {
 			.state_cache
 			.server_rooms(server_name)
 			.map(ToOwned::to_owned)
-			.broad_filter_map(|room_id| async move {
+			.broad_filter_map(async |room_id| {
 				let receipt_map = self
 					.select_edus_receipts_room(&room_id, since, max_edu_count, &mut num)
 					.await;

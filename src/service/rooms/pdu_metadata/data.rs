@@ -84,9 +84,9 @@ impl Data {
 		.ready_take_while(move |key| key.starts_with(&target.to_be_bytes()))
 		.map(|to_from| u64_from_u8(&to_from[8..16]))
 		.map(PduCount::from_unsigned)
-		.wide_filter_map(move |shorteventid| async move {
+		.map(move |shorteventid| (user_id, shortroomid, shorteventid))
+		.wide_filter_map(async |(user_id, shortroomid, shorteventid)| {
 			let pdu_id: RawPduId = PduId { shortroomid, shorteventid }.into();
-
 			let mut pdu = self
 				.services
 				.timeline

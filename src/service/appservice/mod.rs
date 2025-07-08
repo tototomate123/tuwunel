@@ -213,7 +213,7 @@ impl Service {
 		self.db
 			.id_appserviceregistrations
 			.keys()
-			.and_then(move |id: &str| async move {
+			.and_then(async move |id: &str| {
 				Ok((id.to_owned(), self.get_db_registration(id).await?))
 			})
 	}

@@ -173,7 +173,7 @@ impl Services {
 
 	pub async fn clear_cache(&self) {
 		self.services()
-			.for_each(|service| async move {
+			.for_each(async |service| {
 				service.clear_cache().await;
 			})
 			.await;
@@ -182,7 +182,7 @@ impl Services {
 	pub async fn memory_usage(&self) -> Result<String> {
 		self.services()
 			.map(Ok)
-			.try_fold(String::new(), |mut out, service| async move {
+			.try_fold(String::new(), async |mut out, service| {
 				service.memory_usage(&mut out).await?;
 				Ok(out)
 			})

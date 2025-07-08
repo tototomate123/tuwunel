@@ -47,7 +47,7 @@ async fn list_joined_members(&self, room_id: OwnedRoomId, local_only: bool) -> R
 				.unwrap_or(true)
 		})
 		.map(ToOwned::to_owned)
-		.filter_map(|user_id| async move {
+		.filter_map(async |user_id| {
 			Some((
 				self.services
 					.users

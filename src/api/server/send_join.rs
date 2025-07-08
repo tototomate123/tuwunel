@@ -242,7 +242,7 @@ async fn create_join_event(
 		.rooms
 		.auth_chain
 		.event_ids_iter(room_id, starting_events)
-		.broad_and_then(|event_id| async move {
+		.broad_and_then(async |event_id| {
 			services
 				.rooms
 				.timeline

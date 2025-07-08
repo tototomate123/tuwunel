@@ -151,9 +151,7 @@ pub(crate) async fn get_message_events_route(
 		.map(IterStream::stream)
 		.into_stream()
 		.flatten()
-		.broad_filter_map(|user_id| async move {
-			get_member_event(&services, room_id, &user_id).await
-		})
+		.broad_filter_map(async |user_id| get_member_event(&services, room_id, &user_id).await)
 		.collect()
 		.await;
 

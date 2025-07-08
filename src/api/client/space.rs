@@ -166,7 +166,7 @@ where
 
 	let next_batch: OptionFuture<_> = queue
 		.pop_front()
-		.map(|(room, _)| async move {
+		.map(async |(room, _)| {
 			parents.insert(room);
 
 			let next_short_room_ids: Vec<_> = parents

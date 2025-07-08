@@ -470,7 +470,7 @@ where
 			.rooms
 			.read_receipt
 			.readreceipts_since(room_id, *roomsince)
-			.filter_map(|(read_user, _ts, v)| async move {
+			.filter_map(async |(read_user, _ts, v)| {
 				services
 					.users
 					.user_is_ignored(read_user, sender_user)
@@ -548,7 +548,7 @@ where
 		let required_state = required_state_request
 			.iter()
 			.stream()
-			.filter_map(|state| async move {
+			.filter_map(async |state| {
 				services
 					.rooms
 					.state_accessor

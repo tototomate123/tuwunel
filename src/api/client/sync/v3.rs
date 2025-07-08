@@ -237,7 +237,7 @@ pub(crate) async fn build_sync_events(
 		.rooms
 		.state_cache
 		.rooms_invited(sender_user)
-		.fold_default(|mut invited_rooms: BTreeMap<_, _>, (room_id, invite_state)| async move {
+		.fold_default(async |mut invited_rooms: BTreeMap<_, _>, (room_id, invite_state)| {
 			let invite_count = services
 				.rooms
 				.state_cache
@@ -262,7 +262,7 @@ pub(crate) async fn build_sync_events(
 		.rooms
 		.state_cache
 		.rooms_knocked(sender_user)
-		.fold_default(|mut knocked_rooms: BTreeMap<_, _>, (room_id, knock_state)| async move {
+		.fold_default(async |mut knocked_rooms: BTreeMap<_, _>, (room_id, knock_state)| {
 			let knock_count = services
 				.rooms
 				.state_cache
@@ -334,7 +334,7 @@ pub(crate) async fn build_sync_events(
 	let device_list_left: HashSet<_> = left_encrypted_users
 		.into_iter()
 		.stream()
-		.broad_filter_map(|user_id| async move {
+		.broad_filter_map(async |user_id: OwnedUserId| {
 			share_encrypted_room(services, sender_user, &user_id, None)
 				.await
 				.eq(&false)
@@ -620,7 +620,7 @@ async fn load_joined_room(
 		.rooms
 		.read_receipt
 		.readreceipts_since(room_id, since)
-		.filter_map(|(read_user, _, edu)| async move {
+		.filter_map(async |(read_user, _, edu)| {
 			services
 				.users
 				.user_is_ignored(read_user, sender_user)
@@ -806,7 +806,7 @@ async fn load_joined_room(
 		.rooms
 		.typing
 		.last_typing_update(room_id)
-		.and_then(|count| async move {
+		.and_then(async |count| {
 			if count <= since {
 				return Ok(Vec::<Raw<AnySyncEphemeralRoomEvent>>::new());
 			}
@@ -1124,8 +1124,9 @@ async fn calculate_state_incremental<'a>(
 		.fold_default(|(mut dlu, mut leu): pair_of!(HashSet<_>), (content, user_id)| async move {
 			use MembershipState::*;
 
-			let shares_encrypted_room =
-				|user_id| share_encrypted_room(services, sender_user, user_id, Some(room_id));
+			let shares_encrypted_room = async |user_id| {
+				share_encrypted_room(services, sender_user, user_id, Some(room_id)).await
+			};
 
 			match content.membership {
 				| Leave => leu.insert(user_id),

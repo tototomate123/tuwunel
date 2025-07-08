@@ -112,7 +112,7 @@ pub async fn search_pdus<'a>(
 	let pdus = pdu_ids
 		.into_iter()
 		.stream()
-		.wide_filter_map(move |result_pdu_id: RawPduId| async move {
+		.wide_filter_map(async |result_pdu_id: RawPduId| {
 			self.services
 				.timeline
 				.get_pdu_from_id(&result_pdu_id)
@@ -121,7 +121,7 @@ pub async fn search_pdus<'a>(
 		})
 		.ready_filter(|pdu| !pdu.is_redacted())
 		.ready_filter(move |pdu| filter.matches(pdu))
-		.wide_filter_map(move |pdu| async move {
+		.wide_filter_map(async |pdu| {
 			self.services
 				.state_accessor
 				.user_can_see_event(query.user_id?, pdu.room_id(), pdu.event_id())
@@ -164,7 +164,7 @@ async fn search_pdu_ids_query_room(
 ) -> Vec<Vec<RawPduId>> {
 	tokenize(&query.criteria.search_term)
 		.stream()
-		.wide_then(|word| async move {
+		.wide_then(async |word| {
 			self.search_pdu_ids_query_words(shortroomid, &word)
 				.collect::<Vec<_>>()
 				.await

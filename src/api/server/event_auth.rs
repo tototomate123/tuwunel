@@ -49,7 +49,7 @@ pub(crate) async fn get_event_authorization_route(
 		.auth_chain
 		.event_ids_iter(room_id, once(body.event_id.borrow()))
 		.ready_filter_map(Result::ok)
-		.filter_map(|id| async move {
+		.filter_map(async |id| {
 			services
 				.rooms
 				.timeline

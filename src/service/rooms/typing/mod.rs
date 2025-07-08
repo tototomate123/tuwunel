@@ -205,12 +205,12 @@ impl Service {
 		let user_ids: Vec<_> = typing_indicators
 			.into_keys()
 			.stream()
-			.filter_map(|typing_user_id| async move {
-				(!self
-					.services
+			.filter_map(async |typing_user_id| {
+				self.services
 					.users
 					.user_is_ignored(&typing_user_id, sender_user)
-					.await)
+					.await
+					.eq(&false)
 					.then_some(typing_user_id)
 			})
 			.collect()

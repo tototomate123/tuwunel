@@ -167,7 +167,7 @@ where
 				.prev_events()
 				.any(is_equal_to!(event_id))
 		})
-		.broad_filter_map(|event_id| async move {
+		.broad_filter_map(async |event_id| {
 			// Only keep those extremities were not referenced yet
 			self.services
 				.pdu_metadata

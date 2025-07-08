@@ -95,7 +95,7 @@ pub async fn backfill_if_required(&self, room_id: &RoomId, from: PduCount) -> Re
 				.stream(),
 		)
 		.ready_filter(|server_name| !self.services.globals.server_is_ours(server_name))
-		.filter_map(|server_name| async move {
+		.filter_map(async |server_name| {
 			self.services
 				.state_cache
 				.server_in_room(&server_name, room_id)

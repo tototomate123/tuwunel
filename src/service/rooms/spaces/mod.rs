@@ -270,7 +270,7 @@ fn get_space_child_events<'a>(
 		.map(IterStream::stream)
 		.map(StreamExt::flatten)
 		.flatten_stream()
-		.broad_filter_map(move |(state_key, event_id): (_, OwnedEventId)| async move {
+		.broad_filter_map(async move |(state_key, event_id): (_, OwnedEventId)| {
 			self.services
 				.timeline
 				.get_pdu(&event_id)

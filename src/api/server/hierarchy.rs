@@ -45,7 +45,7 @@ pub(crate) async fn get_hierarchy_route(
 			let (children, inaccessible_children) =
 				get_parent_children_via(&room, suggested_only)
 					.stream()
-					.broad_filter_map(|(child, _via)| async move {
+					.broad_filter_map(async |(child, _via)| {
 						match services
 							.rooms
 							.spaces

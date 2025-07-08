@@ -66,7 +66,7 @@ where
 
 	let b = Arc::new(Mutex::new(b.peekable()));
 	a.map(move |ai| (ai, b.clone()))
-		.filter_map(|(ai, b)| async move {
+		.filter_map(async move |(ai, b)| {
 			let mut lock = b.lock().await;
 			while let Some(bi) = Pin::new(&mut *lock)
 				.next_if(|bi| *bi <= ai)

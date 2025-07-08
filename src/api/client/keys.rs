@@ -526,7 +526,7 @@ where
 
 	let mut futures: FuturesUnordered<_> = get_over_federation
 		.into_iter()
-		.map(|(server, vec)| async move {
+		.map(async |(server, vec)| {
 			let mut device_keys_input_fed = BTreeMap::new();
 			for (user_id, keys) in vec {
 				device_keys_input_fed.insert(user_id.to_owned(), keys.clone());
@@ -656,7 +656,7 @@ pub(crate) async fn claim_keys_helper(
 
 	let mut futures: FuturesUnordered<_> = get_over_federation
 		.into_iter()
-		.map(|(server, vec)| async move {
+		.map(async |(server, vec)| {
 			let mut one_time_keys_input_fed = BTreeMap::new();
 			for (user_id, keys) in vec {
 				one_time_keys_input_fed.insert(user_id.clone(), keys.clone());

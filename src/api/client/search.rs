@@ -95,13 +95,13 @@ async fn category_room_events(
 		});
 
 	let results: Vec<_> = rooms
-		.filter_map(|room_id| async move {
+		.filter_map(async |room_id| {
 			check_room_visible(services, sender_user, &room_id, criteria)
 				.await
 				.is_ok()
 				.then_some(room_id)
 		})
-		.filter_map(|room_id| async move {
+		.filter_map(async |room_id| {
 			let query = RoomQuery {
 				room_id: &room_id,
 				user_id: Some(sender_user),
@@ -135,7 +135,7 @@ async fn category_room_events(
 		.iter()
 		.stream()
 		.ready_filter(|_| criteria.include_state.is_some_and(is_true!()))
-		.filter_map(|(room_id, ..)| async move {
+		.filter_map(async |(room_id, ..)| {
 			procure_room_state(services, room_id)
 				.map_ok(|state| (room_id.clone(), state))
 				.await

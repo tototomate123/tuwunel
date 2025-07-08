@@ -350,7 +350,7 @@ pub async fn update_displayname(
 	let all_joined_rooms: Vec<_> = all_joined_rooms
 		.iter()
 		.try_stream()
-		.and_then(|room_id: &OwnedRoomId| async move {
+		.and_then(async |room_id: &OwnedRoomId| {
 			let pdu = PduBuilder::state(user_id.to_string(), &RoomMemberEventContent {
 				displayname: displayname.clone(),
 				membership: MembershipState::Join,
@@ -403,7 +403,7 @@ pub async fn update_avatar_url(
 	let all_joined_rooms: Vec<_> = all_joined_rooms
 		.iter()
 		.try_stream()
-		.and_then(|room_id: &OwnedRoomId| async move {
+		.and_then(async |room_id: &OwnedRoomId| {
 			let pdu = PduBuilder::state(user_id.to_string(), &RoomMemberEventContent {
 				avatar_url: avatar_url.clone(),
 				blurhash: blurhash.clone(),

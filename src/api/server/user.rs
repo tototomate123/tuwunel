@@ -40,7 +40,7 @@ pub(crate) async fn get_devices_route(
 		devices: services
 			.users
 			.all_devices_metadata(user_id)
-			.filter_map(|metadata| async move {
+			.filter_map(async |metadata| {
 				let device_id = metadata.device_id.clone();
 				let device_id_clone = device_id.clone();
 				let device_id_string = device_id.as_str().to_owned();

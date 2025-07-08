@@ -3,7 +3,7 @@ use std::{
 	iter::once,
 };
 
-use futures::{FutureExt, future};
+use futures::FutureExt;
 use ruma::{
 	CanonicalJsonValue, EventId, MilliSecondsSinceUnixEpoch, OwnedEventId, RoomId, ServerName,
 	int, uint,
@@ -110,7 +110,7 @@ where
 		}
 	}
 
-	let event_fetch = |event_id| {
+	let event_fetch = async |event_id: OwnedEventId| {
 		let origin_server_ts = eventid_info
 			.get(&event_id)
 			.map_or_else(|| uint!(0), |info| info.0.origin_server_ts().get());
@@ -118,7 +118,7 @@ where
 		// This return value is the key used for sorting events,
 		// events are then sorted by power level, time,
 		// and lexically by event_id.
-		future::ok((int!(0), MilliSecondsSinceUnixEpoch(origin_server_ts)))
+		Ok((int!(0), MilliSecondsSinceUnixEpoch(origin_server_ts)))
 	};
 
 	let sorted = state_res::lexicographical_topological_sort(&graph, &event_fetch)

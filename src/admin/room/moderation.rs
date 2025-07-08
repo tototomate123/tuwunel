@@ -179,7 +179,7 @@ async fn ban_room(&self, room: OwnedRoomOrAliasId) -> Result {
 		.alias
 		.local_aliases_for_room(&room_id)
 		.map(ToOwned::to_owned)
-		.for_each(|local_alias| async move {
+		.for_each(async |local_alias| {
 			self.services
 				.rooms
 				.alias
@@ -363,7 +363,7 @@ async fn ban_list_of_rooms(&self) -> Result {
 			.alias
 			.local_aliases_for_room(&room_id)
 			.map(ToOwned::to_owned)
-			.for_each(|local_alias| async move {
+			.for_each(async |local_alias| {
 				self.services
 					.rooms
 					.alias

@@ -197,7 +197,7 @@ where
 			.map(ToOwned::to_owned)
 			// Don't notify the sender of their own events, and dont send from ignored users
 			.ready_filter(|user| *user != pdu.sender())
-			.filter_map(|recipient_user| async move { (!self.services.users.user_is_ignored(pdu.sender(), &recipient_user).await).then_some(recipient_user) })
+			.filter_map(async |recipient_user| self.services.users.user_is_ignored(pdu.sender(), &recipient_user).await.eq(&false).then_some(recipient_user))
 			.collect()
 			.await;
 

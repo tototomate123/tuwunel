@@ -158,10 +158,11 @@ async fn handle(
 	let results: ResolvedMap = pdus
 		.into_iter()
 		.try_stream()
-		.broad_and_then(|(room_id, pdus): (_, Vec<_>)| {
-			handle_room(services, client, origin, started, room_id, pdus.into_iter())
-				.map_ok(Vec::into_iter)
+		.broad_and_then(async |(room_id, pdus): (_, Vec<_>)| {
+			handle_room(services, client, origin, &started, room_id, pdus.into_iter())
+				.map_ok(ResolvedMap::into_iter)
 				.map_ok(IterStream::try_stream)
+				.await
 		})
 		.try_flatten()
 		.try_collect()
@@ -180,28 +181,27 @@ async fn handle_room(
 	services: &Services,
 	_client: &IpAddr,
 	origin: &ServerName,
-	txn_start_time: Instant,
-	room_id: OwnedRoomId,
+	txn_start_time: &Instant,
+	ref room_id: OwnedRoomId,
 	pdus: impl Iterator<Item = Pdu> + Send,
-) -> Result<Vec<(OwnedEventId, Result)>> {
+) -> Result<ResolvedMap> {
 	let _room_lock = services
 		.rooms
 		.event_handler
 		.mutex_federation
-		.lock(&room_id)
+		.lock(room_id)
 		.await;
 
-	let room_id = &room_id;
 	pdus.try_stream()
-		.and_then(|(_, event_id, value)| async move {
+		.and_then(async |(room_id, event_id, value)| {
 			services.server.check_running()?;
 			let pdu_start_time = Instant::now();
 			let result = services
 				.rooms
 				.event_handler
-				.handle_incoming_pdu(origin, room_id, &event_id, value, true)
-				.await
-				.map(|_| ());
+				.handle_incoming_pdu(origin, &room_id, &event_id, value, true)
+				.map_ok(|_| ())
+				.await;
 
 			debug!(
 				pdu_elapsed = ?pdu_start_time.elapsed(),
@@ -329,7 +329,7 @@ async fn handle_edu_receipt_room(
 		.read
 		.into_iter()
 		.stream()
-		.for_each_concurrent(automatic_width(), |(user_id, user_updates)| async move {
+		.for_each_concurrent(automatic_width(), async |(user_id, user_updates)| {
 			handle_edu_receipt_room_user(services, origin, room_id, &user_id, user_updates).await;
 		})
 		.await;
@@ -368,7 +368,7 @@ async fn handle_edu_receipt_room_user(
 		.event_ids
 		.into_iter()
 		.stream()
-		.for_each_concurrent(automatic_width(), |event_id| async move {
+		.for_each_concurrent(automatic_width(), async |event_id| {
 			let user_data = [(user_id.to_owned(), data.clone())];
 			let receipts = [(ReceiptType::Read, BTreeMap::from(user_data))];
 			let content = [(event_id.clone(), BTreeMap::from(receipts))];

@@ -19,7 +19,7 @@ pub(super) async fn list_rooms(
 		.rooms
 		.metadata
 		.iter_ids()
-		.filter_map(|room_id| async move {
+		.filter_map(async |room_id| {
 			(!exclude_disabled
 				|| !self
 					.services
@@ -29,7 +29,7 @@ pub(super) async fn list_rooms(
 					.await)
 				.then_some(room_id)
 		})
-		.filter_map(|room_id| async move {
+		.filter_map(async |room_id| {
 			(!exclude_banned
 				|| !self
 					.services

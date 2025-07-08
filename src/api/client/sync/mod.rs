@@ -75,7 +75,7 @@ async fn share_encrypted_room(
 		.get_shared_rooms(sender_user, user_id)
 		.ready_filter(|&room_id| Some(room_id) != ignore_room)
 		.map(ToOwned::to_owned)
-		.broad_any(|other_room_id| async move {
+		.broad_any(async |other_room_id| {
 			services
 				.rooms
 				.state_accessor

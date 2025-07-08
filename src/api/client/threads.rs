@@ -1,5 +1,5 @@
 use axum::extract::State;
-use futures::StreamExt;
+use futures::{StreamExt, TryStreamExt};
 use ruma::{api::client::threads::get_threads, uint};
 use tuwunel_core::{
 	Result, at,
@@ -35,18 +35,17 @@ pub(crate) async fn get_threads_route(
 		.rooms
 		.threads
 		.threads_until(body.sender_user(), &body.room_id, from, &body.include)
-		.await?
 		.take(limit)
-		.filter_map(|(count, pdu)| async move {
-			services
+		.try_filter_map(async |(count, pdu)| {
+			Ok(services
 				.rooms
 				.state_accessor
 				.user_can_see_event(body.sender_user(), &body.room_id, &pdu.event_id)
 				.await
-				.then_some((count, pdu))
+				.then_some((count, pdu)))
 		})
-		.collect()
-		.await;
+		.try_collect()
+		.await?;
 
 	Ok(get_threads::v1::Response {
 		next_batch: threads
