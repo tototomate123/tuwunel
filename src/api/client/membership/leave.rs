@@ -230,11 +230,7 @@ pub async fn leave_room(
 	Ok(())
 }
 
-async fn remote_leave_room(
-	services: &Services,
-	user_id: &UserId,
-	room_id: &RoomId,
-) -> Result<()> {
+async fn remote_leave_room(services: &Services, user_id: &UserId, room_id: &RoomId) -> Result {
 	let mut make_leave_response_and_server =
 		Err!(BadServerResponse("No remote server available to assist in leaving {room_id}."));
 

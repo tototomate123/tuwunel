@@ -30,7 +30,7 @@ pub extern "Rust" fn start(
 #[unsafe(no_mangle)]
 pub extern "Rust" fn stop(
 	services: Arc<Services>,
-) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+) -> Pin<Box<dyn Future<Output = Result> + Send>> {
 	AssertUnwindSafe(run::stop(services))
 		.catch_unwind()
 		.map_err(Error::from_panic)
@@ -41,7 +41,7 @@ pub extern "Rust" fn stop(
 #[unsafe(no_mangle)]
 pub extern "Rust" fn run(
 	services: &Arc<Services>,
-) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+) -> Pin<Box<dyn Future<Output = Result> + Send>> {
 	AssertUnwindSafe(run::run(services.clone()))
 		.catch_unwind()
 		.map_err(Error::from_panic)

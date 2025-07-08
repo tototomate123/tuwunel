@@ -161,7 +161,7 @@ impl Services {
 		debug_info!("Services shutdown complete.");
 	}
 
-	pub async fn poll(&self) -> Result<()> {
+	pub async fn poll(&self) -> Result {
 		if let Some(manager) = self.manager.lock().await.as_ref() {
 			return manager.poll().await;
 		}

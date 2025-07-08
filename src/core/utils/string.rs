@@ -42,7 +42,7 @@ macro_rules! is_format {
 #[inline]
 pub fn collect_stream<F>(func: F) -> Result<String>
 where
-	F: FnOnce(&mut dyn std::fmt::Write) -> Result<()>,
+	F: FnOnce(&mut dyn std::fmt::Write) -> Result,
 {
 	let mut out = String::new();
 	func(&mut out)?;
@@ -63,7 +63,7 @@ pub fn camel_to_snake_string(s: &str) -> String {
 
 #[inline]
 #[allow(clippy::unbuffered_bytes)] // these are allocated string utilities, not file I/O utils
-pub fn camel_to_snake_case<I, O>(output: &mut O, input: I) -> Result<()>
+pub fn camel_to_snake_case<I, O>(output: &mut O, input: I) -> Result
 where
 	I: std::io::Read,
 	O: std::fmt::Write,

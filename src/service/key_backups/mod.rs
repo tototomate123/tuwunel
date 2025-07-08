@@ -163,7 +163,7 @@ pub async fn add_key(
 	room_id: &RoomId,
 	session_id: &str,
 	key_data: &Raw<KeyBackupData>,
-) -> Result<()> {
+) -> Result {
 	let key = (user_id, version);
 	if self
 		.db

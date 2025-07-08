@@ -55,7 +55,7 @@ impl crate::Service for Service {
 		}))
 	}
 
-	async fn worker(self: Arc<Self>) -> Result<()> {
+	async fn worker(self: Arc<Self>) -> Result {
 		let receiver = self.timer_channel.1.clone();
 
 		let mut presence_timers = FuturesUnordered::new();
@@ -99,7 +99,7 @@ impl Service {
 
 	/// Pings the presence of the given user in the given room, setting the
 	/// specified state.
-	pub async fn ping_presence(&self, user_id: &UserId, new_state: &PresenceState) -> Result<()> {
+	pub async fn ping_presence(&self, user_id: &UserId, new_state: &PresenceState) -> Result {
 		const REFRESH_TIMEOUT: u64 = 60 * 1000;
 
 		let last_presence = self.db.get_presence(user_id).await;
@@ -140,7 +140,7 @@ impl Service {
 		currently_active: Option<bool>,
 		last_active_ago: Option<UInt>,
 		status_msg: Option<String>,
-	) -> Result<()> {
+	) -> Result {
 		let presence_state = match state.as_str() {
 			| "" => &PresenceState::Offline, // default an empty string to 'offline'
 			| &_ => state,
@@ -257,7 +257,7 @@ impl Service {
 		Ok(event)
 	}
 
-	async fn process_presence_timer(&self, user_id: &OwnedUserId) -> Result<()> {
+	async fn process_presence_timer(&self, user_id: &OwnedUserId) -> Result {
 		let mut presence_state = PresenceState::Offline;
 		let mut last_active_ago = None;
 		let mut status_msg = None;

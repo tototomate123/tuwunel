@@ -78,7 +78,7 @@ fn init_features() -> Result<Vec<String>> {
 	Ok(features)
 }
 
-fn append_features(features: &mut Vec<String>, manifest: &str) -> Result<()> {
+fn append_features(features: &mut Vec<String>, manifest: &str) -> Result {
 	let manifest = Manifest::from_str(manifest)?;
 	features.extend(manifest.features.keys().cloned());
 

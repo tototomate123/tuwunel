@@ -119,7 +119,7 @@ fn prepare(&self, dest: &ServerName, mut request: http::Request<Vec<u8>>) -> Res
 }
 
 #[implement(super::Service)]
-fn validate_url(&self, url: &Url) -> Result<()> {
+fn validate_url(&self, url: &Url) -> Result {
 	if let Some(url_host) = url.host_str() {
 		if let Ok(ip) = IPAddress::parse(url_host) {
 			trace!("Checking request URL IP {ip:?}");

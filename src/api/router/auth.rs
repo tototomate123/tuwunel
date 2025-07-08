@@ -309,7 +309,7 @@ async fn auth_server(
 	})
 }
 
-fn auth_server_checks(services: &Services, x_matrix: &XMatrix) -> Result<()> {
+fn auth_server_checks(services: &Services, x_matrix: &XMatrix) -> Result {
 	if !services.server.config.allow_federation {
 		return Err!(Config("allow_federation", "Federation is disabled."));
 	}

@@ -58,7 +58,7 @@ impl Data {
 		currently_active: Option<bool>,
 		last_active_ago: Option<UInt>,
 		status_msg: Option<String>,
-	) -> Result<()> {
+	) -> Result {
 		let last_presence = self.get_presence(user_id).await;
 		let state_changed = match last_presence {
 			| Err(_) => true,

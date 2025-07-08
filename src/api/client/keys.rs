@@ -597,7 +597,7 @@ fn add_unsigned_device_display_name(
 	keys: &mut Raw<ruma::encryption::DeviceKeys>,
 	metadata: ruma::api::client::device::Device,
 	include_display_names: bool,
-) -> serde_json::Result<()> {
+) -> Result {
 	if let Some(display_name) = metadata.display_name {
 		let mut object = keys.deserialize_as::<serde_json::Map<String, serde_json::Value>>()?;
 

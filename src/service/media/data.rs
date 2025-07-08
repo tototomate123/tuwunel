@@ -165,7 +165,7 @@ impl Data {
 	}
 
 	#[inline]
-	pub(super) fn remove_url_preview(&self, url: &str) -> Result<()> {
+	pub(super) fn remove_url_preview(&self, url: &str) -> Result {
 		self.url_previews.remove(url.as_bytes());
 		Ok(())
 	}
@@ -175,7 +175,7 @@ impl Data {
 		url: &str,
 		data: &UrlPreviewData,
 		timestamp: Duration,
-	) -> Result<()> {
+	) -> Result {
 		let mut value = Vec::<u8>::new();
 		value.extend_from_slice(&timestamp.as_secs().to_be_bytes());
 		value.push(0xFF);

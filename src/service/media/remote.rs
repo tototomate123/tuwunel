@@ -439,7 +439,7 @@ pub async fn fetch_remote_content_legacy(
 }
 
 #[implement(super::Service)]
-fn check_fetch_authorized(&self, mxc: &Mxc<'_>) -> Result<()> {
+fn check_fetch_authorized(&self, mxc: &Mxc<'_>) -> Result {
 	if self
 		.services
 		.server
@@ -463,7 +463,7 @@ fn check_fetch_authorized(&self, mxc: &Mxc<'_>) -> Result<()> {
 }
 
 #[implement(super::Service)]
-fn check_legacy_freeze(&self) -> Result<()> {
+fn check_legacy_freeze(&self) -> Result {
 	self.services
 		.server
 		.config

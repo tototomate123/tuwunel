@@ -38,7 +38,7 @@ pub(super) async fn serve(
 	server: &Arc<Server>,
 	app: Router,
 	mut shutdown: broadcast::Receiver<()>,
-) -> Result<()> {
+) -> Result {
 	let mut tasks = JoinSet::<()>::new();
 	let executor = TokioExecutor::new();
 	let app = app.into_make_service_with_connect_info::<net::SocketAddr>();

@@ -13,7 +13,7 @@ pub(super) async fn serve(
 	app: Router,
 	handle: ServerHandle,
 	addrs: Vec<SocketAddr>,
-) -> Result<()> {
+) -> Result {
 	let app = app.into_make_service_with_connect_info::<SocketAddr>();
 	let mut join_set = JoinSet::new();
 	for addr in &addrs {

@@ -149,7 +149,7 @@ async fn is_event_report_valid(
 	reason: Option<&String>,
 	score: Option<ruma::Int>,
 	pdu: &PduEvent,
-) -> Result<()> {
+) -> Result {
 	debug_info!(
 		"Checking if report from user {sender_user} for event {event_id} in room {room_id} is \
 		 valid"

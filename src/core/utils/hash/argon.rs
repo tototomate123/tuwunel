@@ -36,7 +36,7 @@ pub(super) fn password(password: &str) -> Result<String> {
 		.map_err(map_err)
 }
 
-pub(super) fn verify_password(password: &str, password_hash: &str) -> Result<()> {
+pub(super) fn verify_password(password: &str, password_hash: &str) -> Result {
 	let password_hash = PasswordHash::new(password_hash).map_err(map_err)?;
 	ARGON
 		.get_or_init(init_argon)

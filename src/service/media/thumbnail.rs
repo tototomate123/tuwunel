@@ -35,7 +35,7 @@ impl super::Service {
 		content_type: Option<&str>,
 		dim: &Dim,
 		file: &[u8],
-	) -> Result<()> {
+	) -> Result {
 		let key =
 			self.db
 				.create_file_metadata(mxc, user, dim, content_disposition, content_type)?;

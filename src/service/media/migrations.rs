@@ -18,7 +18,7 @@ use crate::Services;
 /// Migrates a media directory from legacy base64 file names to sha2 file names.
 /// All errors are fatal. Upon success the database is keyed to not perform this
 /// again.
-pub(crate) async fn migrate_sha256_media(services: &Services) -> Result<()> {
+pub(crate) async fn migrate_sha256_media(services: &Services) -> Result {
 	let db = &services.db;
 	let config = &services.server.config;
 
@@ -57,7 +57,7 @@ pub(crate) async fn migrate_sha256_media(services: &Services) -> Result<()> {
 /// - Going back and forth to non-sha256 legacy binaries (e.g. upstream).
 /// - Deletion of artifacts in the media directory which will then fall out of
 ///   sync with the database.
-pub(crate) async fn checkup_sha256_media(services: &Services) -> Result<()> {
+pub(crate) async fn checkup_sha256_media(services: &Services) -> Result {
 	use crate::media::encode_key;
 
 	debug!("Checking integrity of media directory");
@@ -101,7 +101,7 @@ async fn handle_media_check(
 	key: &[u8],
 	new_path: &OsStr,
 	old_path: &OsStr,
-) -> Result<()> {
+) -> Result {
 	use crate::media::encode_key;
 
 	let (mediaid_file, mediaid_user) = dbs;

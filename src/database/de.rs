@@ -54,7 +54,7 @@ impl<'de> Deserializer<'de> {
 
 	/// Determine if the input was fully consumed and error if bytes remaining.
 	/// This is intended for debug assertions; not optimized for parsing logic.
-	fn finished(&self) -> Result<()> {
+	fn finished(&self) -> Result {
 		let pos = self.pos;
 		let len = self.buf.len();
 		let parsed = &self.buf[0..pos];

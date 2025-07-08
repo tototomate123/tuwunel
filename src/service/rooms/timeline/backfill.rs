@@ -24,7 +24,7 @@ use super::ExtractBody;
 
 #[implement(super::Service)]
 #[tracing::instrument(name = "backfill", level = "debug", skip(self))]
-pub async fn backfill_if_required(&self, room_id: &RoomId, from: PduCount) -> Result<()> {
+pub async fn backfill_if_required(&self, room_id: &RoomId, from: PduCount) -> Result {
 	if self
 		.services
 		.state_cache
@@ -143,7 +143,7 @@ pub async fn backfill_if_required(&self, room_id: &RoomId, from: PduCount) -> Re
 
 #[implement(super::Service)]
 #[tracing::instrument(skip(self, pdu), level = "debug")]
-pub async fn backfill_pdu(&self, origin: &ServerName, pdu: Box<RawJsonValue>) -> Result<()> {
+pub async fn backfill_pdu(&self, origin: &ServerName, pdu: Box<RawJsonValue>) -> Result {
 	let (room_id, event_id, value) = self
 		.services
 		.event_handler

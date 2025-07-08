@@ -348,7 +348,7 @@ impl super::Service {
 		Ok(None)
 	}
 
-	fn handle_resolve_error(e: &ResolveError, host: &'_ str) -> Result<()> {
+	fn handle_resolve_error(e: &ResolveError, host: &'_ str) -> Result {
 		use hickory_resolver::{ResolveErrorKind::Proto, proto::ProtoErrorKind};
 
 		match e.kind() {
@@ -376,7 +376,7 @@ impl super::Service {
 		}
 	}
 
-	fn validate_dest(&self, dest: &ServerName) -> Result<()> {
+	fn validate_dest(&self, dest: &ServerName) -> Result {
 		if dest == self.services.server.name && !self.services.server.config.federation_loopback {
 			return Err!("Won't send federation request to ourselves");
 		}
@@ -388,7 +388,7 @@ impl super::Service {
 		Ok(())
 	}
 
-	fn validate_dest_ip_literal(&self, dest: &ServerName) -> Result<()> {
+	fn validate_dest_ip_literal(&self, dest: &ServerName) -> Result {
 		trace!("Destination is an IP literal, checking against IP range denylist.",);
 		debug_assert!(
 			dest.is_ip_literal() || !IPAddress::is_valid(dest.host()),
@@ -403,7 +403,7 @@ impl super::Service {
 		Ok(())
 	}
 
-	pub(crate) fn validate_ip(&self, ip: &IPAddress) -> Result<()> {
+	pub(crate) fn validate_ip(&self, ip: &IPAddress) -> Result {
 		if !self.services.client.valid_cidr_range(ip) {
 			return Err!(BadServerResponse("Not allowed to send requests to this IP"));
 		}

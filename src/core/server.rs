@@ -64,7 +64,7 @@ impl Server {
 		}
 	}
 
-	pub fn reload(&self) -> Result<()> {
+	pub fn reload(&self) -> Result {
 		if cfg!(any(not(tuwunel_mods), not(feature = "tuwunel_mods"))) {
 			return Err!("Reloading not enabled");
 		}
@@ -103,7 +103,7 @@ impl Server {
 		})
 	}
 
-	pub fn signal(&self, sig: &'static str) -> Result<()> {
+	pub fn signal(&self, sig: &'static str) -> Result {
 		if let Err(e) = self.signal.send(sig) {
 			return Err!("Failed to send signal: {e}");
 		}

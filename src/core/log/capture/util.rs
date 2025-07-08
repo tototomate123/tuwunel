@@ -22,7 +22,7 @@ where
 
 pub fn fmt<F, S>(fun: F, out: Arc<Mutex<S>>) -> Box<Closure>
 where
-	F: Fn(&mut S, &Level, &str, &str) -> Result<()> + Send + Sync + Copy + 'static,
+	F: Fn(&mut S, &Level, &str, &str) -> Result + Send + Sync + Copy + 'static,
 	S: std::fmt::Write + Send + 'static,
 {
 	Box::new(move |data| call(fun, &mut *out.lock().expect("locked"), &data))
@@ -30,7 +30,7 @@ where
 
 fn call<F, S>(fun: F, out: &mut S, data: &Data<'_>)
 where
-	F: Fn(&mut S, &Level, &str, &str) -> Result<()>,
+	F: Fn(&mut S, &Level, &str, &str) -> Result,
 	S: std::fmt::Write,
 {
 	fun(out, &data.level(), data.span_name(), data.message()).expect("log line appended");

@@ -68,7 +68,7 @@ impl crate::Service for Service {
 		}))
 	}
 
-	async fn worker(self: Arc<Self>) -> Result<()> {
+	async fn worker(self: Arc<Self>) -> Result {
 		self.create_media_dir().await?;
 
 		Ok(())
@@ -86,7 +86,7 @@ impl Service {
 		content_disposition: Option<&ContentDisposition>,
 		content_type: Option<&str>,
 		file: &[u8],
-	) -> Result<()> {
+	) -> Result {
 		// Width, Height = 0 if it's not a thumbnail
 		let key = self.db.create_file_metadata(
 			mxc,
@@ -104,7 +104,7 @@ impl Service {
 	}
 
 	/// Deletes a file in the database and from the media directory via an MXC
-	pub async fn delete(&self, mxc: &Mxc<'_>) -> Result<()> {
+	pub async fn delete(&self, mxc: &Mxc<'_>) -> Result {
 		match self.db.search_mxc_metadata_prefix(mxc).await {
 			| Ok(keys) => {
 				for key in keys {
@@ -341,12 +341,12 @@ impl Service {
 		Ok(deletion_count)
 	}
 
-	pub async fn create_media_dir(&self) -> Result<()> {
+	pub async fn create_media_dir(&self) -> Result {
 		let dir = self.get_media_dir();
 		Ok(fs::create_dir_all(dir).await?)
 	}
 
-	async fn remove_media_file(&self, key: &[u8]) -> Result<()> {
+	async fn remove_media_file(&self, key: &[u8]) -> Result {
 		let path = self.get_media_file(key);
 		let legacy = self.get_media_file_b64(key);
 		debug!(?key, ?path, ?legacy, "Removing media file");

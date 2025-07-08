@@ -58,7 +58,7 @@ pub async fn update(
 	user_id: &UserId,
 	event_type: RoomAccountDataEventType,
 	data: &serde_json::Value,
-) -> Result<()> {
+) -> Result {
 	if data.get("type").is_none() || data.get("content").is_none() {
 		return Err!(Request(InvalidParam("Account data doesn't have all required fields.")));
 	}

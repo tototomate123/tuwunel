@@ -26,7 +26,7 @@ pub(crate) trait Service: Any + Send + Sync {
 
 	/// Implement the service's worker loop. The service manager spawns a
 	/// task and calls this function after all services have been built.
-	async fn worker(self: Arc<Self>) -> Result<()> { Ok(()) }
+	async fn worker(self: Arc<Self>) -> Result { Ok(()) }
 
 	/// Interrupt the service. This is sent to initiate a graceful shutdown.
 	/// The service worker should return from its work loop.

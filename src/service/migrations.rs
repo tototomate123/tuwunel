@@ -29,7 +29,7 @@ use crate::{Services, media};
 ///   equal or lesser version. These are expected to be backward-compatible.
 pub(crate) const DATABASE_VERSION: u64 = 17;
 
-pub(crate) async fn migrations(services: &Services) -> Result<()> {
+pub(crate) async fn migrations(services: &Services) -> Result {
 	let users_count = services.users.count().await;
 
 	// Matrix resource ownership is based on the server name; changing it
@@ -52,7 +52,7 @@ pub(crate) async fn migrations(services: &Services) -> Result<()> {
 	}
 }
 
-async fn fresh(services: &Services) -> Result<()> {
+async fn fresh(services: &Services) -> Result {
 	let db = &services.db;
 
 	services
@@ -77,7 +77,7 @@ async fn fresh(services: &Services) -> Result<()> {
 }
 
 /// Apply any migrations
-async fn migrate(services: &Services) -> Result<()> {
+async fn migrate(services: &Services) -> Result {
 	let db = &services.db;
 	let config = &services.server.config;
 
@@ -220,7 +220,7 @@ async fn migrate(services: &Services) -> Result<()> {
 	Ok(())
 }
 
-async fn db_lt_12(services: &Services) -> Result<()> {
+async fn db_lt_12(services: &Services) -> Result {
 	for username in &services
 		.users
 		.list_local_users()
@@ -306,7 +306,7 @@ async fn db_lt_12(services: &Services) -> Result<()> {
 	Ok(())
 }
 
-async fn db_lt_13(services: &Services) -> Result<()> {
+async fn db_lt_13(services: &Services) -> Result {
 	for username in &services
 		.users
 		.list_local_users()
@@ -353,7 +353,7 @@ async fn db_lt_13(services: &Services) -> Result<()> {
 	Ok(())
 }
 
-async fn fix_bad_double_separator_in_state_cache(services: &Services) -> Result<()> {
+async fn fix_bad_double_separator_in_state_cache(services: &Services) -> Result {
 	warn!("Fixing bad double separator in state_cache roomuserid_joined");
 
 	let db = &services.db;
@@ -397,7 +397,7 @@ async fn fix_bad_double_separator_in_state_cache(services: &Services) -> Result<
 	Ok(())
 }
 
-async fn retroactively_fix_bad_data_from_roomuserid_joined(services: &Services) -> Result<()> {
+async fn retroactively_fix_bad_data_from_roomuserid_joined(services: &Services) -> Result {
 	warn!("Retroactively fixing bad data from broken roomuserid_joined");
 
 	let db = &services.db;

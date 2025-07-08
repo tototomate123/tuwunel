@@ -13,14 +13,14 @@ use tuwunel_core::{
 use crate::{Services, service, service::Service};
 
 pub(crate) struct Manager {
-	manager: Mutex<Option<JoinHandle<Result<()>>>>,
+	manager: Mutex<Option<JoinHandle<Result>>>,
 	workers: Mutex<Workers>,
 	server: Arc<Server>,
 	service: Arc<service::Map>,
 }
 
 type Workers = JoinSet<WorkerResult>;
-type WorkerResult = (Arc<dyn Service>, Result<()>);
+type WorkerResult = (Arc<dyn Service>, Result);
 type WorkersLocked<'a> = MutexGuard<'a, Workers>;
 
 const RESTART_DELAY_MS: u64 = 2500;
@@ -35,7 +35,7 @@ impl Manager {
 		})
 	}
 
-	pub(super) async fn poll(&self) -> Result<()> {
+	pub(super) async fn poll(&self) -> Result {
 		if let Some(manager) = &mut *self.manager.lock().await {
 			trace!("Polling service manager...");
 			return manager.await?;
@@ -44,7 +44,7 @@ impl Manager {
 		Ok(())
 	}
 
-	pub(super) async fn start(self: Arc<Self>) -> Result<()> {
+	pub(super) async fn start(self: Arc<Self>) -> Result {
 		let mut workers = self.workers.lock().await;
 
 		debug!("Starting service manager...");
@@ -83,7 +83,7 @@ impl Manager {
 		}
 	}
 
-	async fn worker(&self) -> Result<()> {
+	async fn worker(&self) -> Result {
 		loop {
 			let mut workers = self.workers.lock().await;
 			tokio::select! {
@@ -99,7 +99,7 @@ impl Manager {
 		Ok(())
 	}
 
-	async fn handle_abort(&self, _workers: &mut WorkersLocked<'_>, error: Error) -> Result<()> {
+	async fn handle_abort(&self, _workers: &mut WorkersLocked<'_>, error: Error) -> Result {
 		// not supported until service can be associated with abort
 		unimplemented!("unexpected worker task abort {error:?}");
 	}
@@ -108,7 +108,7 @@ impl Manager {
 		&self,
 		workers: &mut WorkersLocked<'_>,
 		result: WorkerResult,
-	) -> Result<()> {
+	) -> Result {
 		let (service, result) = result;
 		match result {
 			| Ok(()) => self.handle_finished(workers, &service).await,
@@ -120,7 +120,7 @@ impl Manager {
 		&self,
 		_workers: &mut WorkersLocked<'_>,
 		service: &Arc<dyn Service>,
-	) -> Result<()> {
+	) -> Result {
 		debug!("service {:?} worker finished", service.name());
 		Ok(())
 	}
@@ -130,7 +130,7 @@ impl Manager {
 		workers: &mut WorkersLocked<'_>,
 		service: &Arc<dyn Service>,
 		error: Error,
-	) -> Result<()> {
+	) -> Result {
 		let name = service.name();
 		error!("service {name:?} aborted: {error}");
 
@@ -155,7 +155,7 @@ impl Manager {
 		&self,
 		workers: &mut WorkersLocked<'_>,
 		service: &Arc<dyn Service>,
-	) -> Result<()> {
+	) -> Result {
 		if !self.server.running() {
 			return Err!(
 				"Service {:?} worker not starting during server shutdown.",

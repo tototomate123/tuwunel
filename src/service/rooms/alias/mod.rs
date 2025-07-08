@@ -64,12 +64,7 @@ impl crate::Service for Service {
 
 impl Service {
 	#[tracing::instrument(skip(self))]
-	pub fn set_alias(
-		&self,
-		alias: &RoomAliasId,
-		room_id: &RoomId,
-		user_id: &UserId,
-	) -> Result<()> {
+	pub fn set_alias(&self, alias: &RoomAliasId, room_id: &RoomId, user_id: &UserId) -> Result {
 		if alias == self.services.globals.admin_alias
 			&& user_id != self.services.globals.server_user
 		{
@@ -96,7 +91,7 @@ impl Service {
 	}
 
 	#[tracing::instrument(skip(self))]
-	pub async fn remove_alias(&self, alias: &RoomAliasId, user_id: &UserId) -> Result<()> {
+	pub async fn remove_alias(&self, alias: &RoomAliasId, user_id: &UserId) -> Result {
 		if !self.user_can_remove_alias(alias, user_id).await? {
 			return Err!(Request(Forbidden("User is not permitted to remove this alias.")));
 		}
@@ -295,7 +290,7 @@ impl Service {
 		&self,
 		room_alias: &RoomAliasId,
 		appservice_info: &Option<RegistrationInfo>,
-	) -> Result<()> {
+	) -> Result {
 		if !self
 			.services
 			.globals

@@ -275,7 +275,7 @@ impl Service {
 	}
 
 	#[tracing::instrument(skip(self, room_id), level = "debug")]
-	pub async fn flush_room(&self, room_id: &RoomId) -> Result<()> {
+	pub async fn flush_room(&self, room_id: &RoomId) -> Result {
 		let servers = self
 			.services
 			.state_cache
@@ -286,7 +286,7 @@ impl Service {
 	}
 
 	#[tracing::instrument(skip(self, servers), level = "debug")]
-	pub async fn flush_servers<'a, S>(&self, servers: S) -> Result<()>
+	pub async fn flush_servers<'a, S>(&self, servers: S) -> Result
 	where
 		S: Stream<Item = &'a ServerName> + Send + 'a,
 	{

@@ -44,7 +44,7 @@ async fn long_file_names_works() {
 			Ok(key)
 		}
 
-		fn delete_file_mxc(&self, _mxc: String) -> Result<()> { todo!() }
+		fn delete_file_mxc(&self, _mxc: String) -> Result { todo!() }
 
 		fn search_mxc_metadata_prefix(&self, _mxc: String) -> Result<Vec<Vec<u8>>> { todo!() }
 
@@ -59,14 +59,14 @@ async fn long_file_names_works() {
 			todo!()
 		}
 
-		fn remove_url_preview(&self, _url: &str) -> Result<()> { todo!() }
+		fn remove_url_preview(&self, _url: &str) -> Result { todo!() }
 
 		fn set_url_preview(
 			&self,
 			_url: &str,
 			_data: &UrlPreviewData,
 			_timestamp: std::time::Duration,
-		) -> Result<()> {
+		) -> Result {
 			todo!()
 		}
 

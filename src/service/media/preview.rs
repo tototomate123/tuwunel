@@ -49,13 +49,13 @@ pub struct UrlPreviewData {
 }
 
 #[implement(Service)]
-pub async fn remove_url_preview(&self, url: &str) -> Result<()> {
+pub async fn remove_url_preview(&self, url: &str) -> Result {
 	// TODO: also remove the downloaded image
 	self.db.remove_url_preview(url)
 }
 
 #[implement(Service)]
-pub async fn set_url_preview(&self, url: &str, data: &UrlPreviewData) -> Result<()> {
+pub async fn set_url_preview(&self, url: &str, data: &UrlPreviewData) -> Result {
 	let now = SystemTime::now()
 		.duration_since(SystemTime::UNIX_EPOCH)
 		.expect("valid system time");

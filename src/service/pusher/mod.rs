@@ -390,8 +390,7 @@ impl Service {
 		pusher: &Pusher,
 		tweaks: Vec<Tweak>,
 		event: &Pdu,
-	) -> Result
-	{
+	) -> Result {
 		// TODO: email
 		match &pusher.kind {
 			| PusherKind::Http(http) => {

@@ -889,7 +889,7 @@ pub async fn full_user_deactivate(
 	services: &Services,
 	user_id: &UserId,
 	all_joined_rooms: &[OwnedRoomId],
-) -> Result<()> {
+) -> Result {
 	services
 		.users
 		.deactivate_account(user_id)

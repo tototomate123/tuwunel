@@ -17,10 +17,10 @@ use crate::Server;
 type StartFuncResult = Pin<Box<dyn Future<Output = Result<Arc<Services>>> + Send>>;
 type StartFuncProto = fn(&Arc<tuwunel_core::Server>) -> StartFuncResult;
 
-type RunFuncResult = Pin<Box<dyn Future<Output = Result<()>> + Send>>;
+type RunFuncResult = Pin<Box<dyn Future<Output = Result> + Send>>;
 type RunFuncProto = fn(&Arc<Services>) -> RunFuncResult;
 
-type StopFuncResult = Pin<Box<dyn Future<Output = Result<()>> + Send>>;
+type StopFuncResult = Pin<Box<dyn Future<Output = Result> + Send>>;
 type StopFuncProto = fn(Arc<Services>) -> StopFuncResult;
 
 const RESTART_THRESH: &str = "tuwunel_service";

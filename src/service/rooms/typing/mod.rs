@@ -51,12 +51,7 @@ impl crate::Service for Service {
 impl Service {
 	/// Sets a user as typing until the timeout timestamp is reached or
 	/// roomtyping_remove is called.
-	pub async fn typing_add(
-		&self,
-		user_id: &UserId,
-		room_id: &RoomId,
-		timeout: u64,
-	) -> Result<()> {
+	pub async fn typing_add(&self, user_id: &UserId, room_id: &RoomId, timeout: u64) -> Result {
 		debug_info!("typing started {user_id:?} in {room_id:?} timeout:{timeout:?}");
 		// update clients
 		self.typing
@@ -89,7 +84,7 @@ impl Service {
 	}
 
 	/// Removes a user from typing before the timeout is reached.
-	pub async fn typing_remove(&self, user_id: &UserId, room_id: &RoomId) -> Result<()> {
+	pub async fn typing_remove(&self, user_id: &UserId, room_id: &RoomId) -> Result {
 		debug_info!("typing stopped {user_id:?} in {room_id:?}");
 		// update clients
 		self.typing
@@ -131,7 +126,7 @@ impl Service {
 	}
 
 	/// Makes sure that typing events with old timestamps get removed.
-	async fn typings_maintain(&self, room_id: &RoomId) -> Result<()> {
+	async fn typings_maintain(&self, room_id: &RoomId) -> Result {
 		let current_timestamp = utils::millis_since_unix_epoch();
 		let mut removable = Vec::new();
 
@@ -226,12 +221,7 @@ impl Service {
 		})
 	}
 
-	async fn federation_send(
-		&self,
-		room_id: &RoomId,
-		user_id: &UserId,
-		typing: bool,
-	) -> Result<()> {
+	async fn federation_send(&self, room_id: &RoomId, user_id: &UserId, typing: bool) -> Result {
 		debug_assert!(
 			self.services.globals.user_is_local(user_id),
 			"tried to broadcast typing status of remote user",

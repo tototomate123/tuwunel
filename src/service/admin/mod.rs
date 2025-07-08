@@ -275,7 +275,7 @@ impl Service {
 			.ok_or_else(|| err!(Request(NotFound("Admin user not joined to admin room"))))
 	}
 
-	async fn handle_response(&self, content: RoomMessageEventContent) -> Result<()> {
+	async fn handle_response(&self, content: RoomMessageEventContent) -> Result {
 		let Some(Relation::Reply { in_reply_to }) = content.relates_to.as_ref() else {
 			return Ok(());
 		};
@@ -309,7 +309,7 @@ impl Service {
 		content: RoomMessageEventContent,
 		room_id: &RoomId,
 		user_id: &UserId,
-	) -> Result<()> {
+	) -> Result {
 		assert!(self.user_is_admin(user_id).await, "sender is not admin");
 
 		let state_lock = self.services.state.mutex.lock(room_id).await;
@@ -334,7 +334,7 @@ impl Service {
 		room_id: &RoomId,
 		user_id: &UserId,
 		state_lock: &RoomMutexGuard,
-	) -> Result<()> {
+	) -> Result {
 		error!("Failed to build and append admin room response PDU: \"{e}\"");
 		let content = RoomMessageEventContent::text_plain(format!(
 			"Failed to build and append admin room PDU: \"{e}\"\n\nThe original admin command \
