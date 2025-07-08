@@ -418,7 +418,7 @@ where
 		auth_events,
 		prev_events,
 		depth: uint!(0),
-		hashes: EventHash { sha256: String::new() },
+		hashes: EventHash::default(),
 		signatures: None,
 	}
 }

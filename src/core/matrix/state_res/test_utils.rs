@@ -426,7 +426,7 @@ pub(crate) fn to_init_pdu_event(
 		auth_events: vec![],
 		prev_events: vec![],
 		depth: uint!(0),
-		hashes: EventHash { sha256: "".to_owned() },
+		hashes: EventHash::default(),
 		signatures: None,
 	}
 }
@@ -474,7 +474,7 @@ where
 		auth_events,
 		prev_events,
 		depth: uint!(0),
-		hashes: EventHash { sha256: "".to_owned() },
+		hashes: EventHash::default(),
 		signatures: None,
 	}
 }

@@ -127,7 +127,7 @@ pub async fn create_hash_and_sign_event(
 		depth,
 		redacts,
 		unsigned,
-		hashes: EventHash { sha256: "aaa".to_owned() },
+		hashes: EventHash::default(),
 		signatures: None,
 		prev_events,
 		auth_events: auth_events

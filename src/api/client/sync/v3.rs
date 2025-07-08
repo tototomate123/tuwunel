@@ -458,7 +458,7 @@ async fn handle_left_room(
 			depth: uint!(1),
 			auth_events: vec![],
 			redacts: None,
-			hashes: EventHash { sha256: String::new() },
+			hashes: EventHash::default(),
 			signatures: None,
 		};
 

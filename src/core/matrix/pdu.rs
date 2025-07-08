@@ -1,5 +1,6 @@
 mod builder;
 mod count;
+mod hashes;
 mod id;
 mod raw_id;
 mod redact;
@@ -20,6 +21,7 @@ pub use self::{
 	Count as PduCount, Id as PduId, Pdu as PduEvent, RawId as RawPduId,
 	builder::{Builder, Builder as PduBuilder},
 	count::Count,
+	hashes::EventHashes as EventHash,
 	id::{ShortId, *},
 	raw_id::*,
 };
@@ -65,13 +67,6 @@ pub struct Pdu {
 	// BTreeMap<Box<ServerName>, BTreeMap<ServerSigningKeyId, String>>
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub signatures: Option<Box<RawJsonValue>>,
-}
-
-/// Content hashes of a PDU.
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct EventHash {
-	/// The SHA-256 hash.
-	pub sha256: String,
 }
 
 impl Pdu {
