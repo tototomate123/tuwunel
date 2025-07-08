@@ -71,29 +71,31 @@ pub async fn backfill_if_required(&self, room_id: &RoomId, from: PduCount) -> Re
 			}
 		});
 
-	let canonical_room_alias_server = once(
-		self.services
-			.state_accessor
-			.get_canonical_alias(room_id)
-			.await,
-	)
-	.filter_map(Result::ok)
-	.map(|alias| alias.server_name().to_owned())
-	.stream();
+	let canonical_alias = self
+		.services
+		.state_accessor
+		.get_canonical_alias(room_id)
+		.await;
+
+	let canonical_room_alias_server = once(canonical_alias)
+		.filter_map(Result::ok)
+		.map(|alias| alias.server_name().to_owned())
+		.stream();
+
+	let trusted_servers = self
+		.services
+		.server
+		.config
+		.trusted_servers
+		.iter()
+		.map(ToOwned::to_owned)
+		.stream();
 
 	let mut servers = room_mods
 		.stream()
 		.map(ToOwned::to_owned)
 		.chain(canonical_room_alias_server)
-		.chain(
-			self.services
-				.server
-				.config
-				.trusted_servers
-				.iter()
-				.map(ToOwned::to_owned)
-				.stream(),
-		)
+		.chain(trusted_servers)
 		.ready_filter(|server_name| !self.services.globals.server_is_ours(server_name))
 		.filter_map(async |server_name| {
 			self.services
