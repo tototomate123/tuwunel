@@ -157,6 +157,7 @@ async fn get_auth_chain_outer(
 			let auth_chain = self
 				.get_auth_chain_inner(room_id, event_id)
 				.await?;
+
 			self.cache_auth_chain_vec(vec![shortid], auth_chain.as_slice());
 			debug!(
 				?event_id,

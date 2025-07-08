@@ -86,7 +86,6 @@ pub async fn create_hash_and_sign_event(
 		.saturating_add(uint!(1));
 
 	let mut unsigned = unsigned.unwrap_or_default();
-
 	if let Some(state_key) = &state_key {
 		if let Ok(prev_pdu) = self
 			.services

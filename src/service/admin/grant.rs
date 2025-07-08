@@ -38,6 +38,7 @@ pub async fn make_user_admin(&self, user_id: &UserId) -> Result {
 	{
 		return Err!(debug_warn!("User is already joined in the admin room"));
 	}
+
 	if self
 		.services
 		.state_cache
@@ -132,6 +133,7 @@ pub async fn make_user_admin(&self, user_id: &UserId) -> Result {
 		.config
 		.admin_room_tag
 		.as_str();
+
 	if !room_tag.is_empty() {
 		if let Err(e) = self
 			.set_room_tag(&room_id, user_id, room_tag)

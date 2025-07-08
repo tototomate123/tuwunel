@@ -184,6 +184,7 @@ impl Service {
 				.into_iter()
 				.map(|(_, event)| event)
 				.collect();
+
 			futures.push(self.send_events(dest.clone(), new_events_vec));
 		} else {
 			statuses.remove(dest);

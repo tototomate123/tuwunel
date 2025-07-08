@@ -225,6 +225,7 @@ impl Service {
 				} else {
 					(state_ids_compressed, Arc::new(CompressedState::new()))
 				};
+
 			self.services
 				.state_compressor
 				.save_state_from_diff(

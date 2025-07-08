@@ -428,6 +428,7 @@ impl Service {
 			.services
 			.write()
 			.expect("locked for writing");
+
 		let weak = services.map(Arc::downgrade);
 		*receiver = weak;
 	}

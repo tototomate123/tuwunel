@@ -117,6 +117,7 @@ impl Services {
 
 		self.admin
 			.set_services(Some(Arc::clone(self)).as_ref());
+
 		super::migrations::migrations(self).await?;
 		self.manager
 			.lock()
@@ -137,6 +138,7 @@ impl Services {
 		}
 
 		debug_info!("Services startup complete.");
+
 		Ok(Arc::clone(self))
 	}
 

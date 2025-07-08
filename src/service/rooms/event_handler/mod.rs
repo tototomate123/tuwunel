@@ -90,6 +90,7 @@ impl crate::Service for Service {
 			.read()
 			.expect("locked for reading")
 			.len();
+
 		writeln!(out, "federation_handletime: {federation_handletime}")?;
 
 		Ok(())
