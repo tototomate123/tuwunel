@@ -69,10 +69,8 @@ where
 	incoming_pdu
 		.insert("event_id".to_owned(), CanonicalJsonValue::String(event_id.as_str().to_owned()));
 
-	let pdu_event = serde_json::from_value::<PduEvent>(
-		serde_json::to_value(&incoming_pdu).expect("CanonicalJsonObj is a valid JsonValue"),
-	)
-	.map_err(|e| err!(Request(BadJson(debug_warn!("Event is not a valid PDU: {e}")))))?;
+	let pdu_event = serde_json::from_value::<PduEvent>(serde_json::to_value(&incoming_pdu)?)
+		.map_err(|e| err!(Request(BadJson(debug_warn!("Event is not a valid PDU: {e}")))))?;
 
 	check_room_id(room_id, &pdu_event)?;
 

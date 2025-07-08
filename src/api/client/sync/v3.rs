@@ -447,12 +447,9 @@ async fn handle_left_room(
 			event_id: EventId::new(services.globals.server_name()),
 			sender: sender_user.to_owned(),
 			origin: None,
-			origin_server_ts: utils::millis_since_unix_epoch()
-				.try_into()
-				.expect("Timestamp is valid js_int value"),
+			origin_server_ts: utils::millis_since_unix_epoch().try_into()?,
 			kind: RoomMember,
-			content: serde_json::from_str(r#"{"membership":"leave"}"#)
-				.expect("this is valid JSON"),
+			content: serde_json::from_str(r#"{"membership":"leave"}"#)?,
 			state_key: Some(sender_user.as_str().into()),
 			unsigned: None,
 			// The following keys are dropped on conversion

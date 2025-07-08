@@ -17,7 +17,7 @@ use ruma::{
 };
 use serde_json::{json, value::to_raw_value};
 use tuwunel_core::{
-	Error, Result, err, info,
+	Err, Error, Result, err,
 	matrix::{Event, StateKey, pdu::PduBuilder},
 };
 
@@ -54,10 +54,8 @@ pub(crate) async fn upgrade_room_route(
 		TRANSFERABLE_STATE_EVENTS.is_sorted(),
 		"TRANSFERABLE_STATE_EVENTS is not sorted"
 	);
-	let sender_user = body
-		.sender_user
-		.as_ref()
-		.expect("user is authenticated");
+
+	let sender_user = body.sender_user();
 
 	if !services
 		.server
@@ -134,8 +132,7 @@ pub(crate) async fn upgrade_room_route(
 				create_event_content.insert(
 					"creator".into(),
 					json!(&sender_user).try_into().map_err(|e| {
-						info!("Error forming creation event: {e}");
-						Error::BadRequest(ErrorKind::BadJson, "Error forming creation event")
+						err!(Request(BadJson(error!("Error forming creation event: {e}"))))
 					})?,
 				);
 			},
@@ -150,24 +147,20 @@ pub(crate) async fn upgrade_room_route(
 		"room_version".into(),
 		json!(&body.new_version)
 			.try_into()
-			.map_err(|_| Error::BadRequest(ErrorKind::BadJson, "Error forming creation event"))?,
+			.map_err(|_| err!(Request(BadJson("Error forming creation event"))))?,
 	);
 	create_event_content.insert(
 		"predecessor".into(),
 		json!(predecessor)
 			.try_into()
-			.map_err(|_| Error::BadRequest(ErrorKind::BadJson, "Error forming creation event"))?,
+			.map_err(|_| err!(Request(BadJson("Error forming creation event"))))?,
 	);
 
 	// Validate creation event content
-	if serde_json::from_str::<CanonicalJsonObject>(
-		to_raw_value(&create_event_content)
-			.expect("Error forming creation event")
-			.get(),
-	)
-	.is_err()
+	if serde_json::from_str::<CanonicalJsonObject>(to_raw_value(&create_event_content)?.get())
+		.is_err()
 	{
-		return Err(Error::BadRequest(ErrorKind::BadJson, "Error forming creation event"));
+		return Err!(Request(BadJson("Error forming creation event")));
 	}
 
 	services
@@ -176,8 +169,7 @@ pub(crate) async fn upgrade_room_route(
 		.build_and_append_pdu(
 			PduBuilder {
 				event_type: TimelineEventType::RoomCreate,
-				content: to_raw_value(&create_event_content)
-					.expect("event is valid, we just created it"),
+				content: to_raw_value(&create_event_content)?,
 				unsigned: None,
 				state_key: Some(StateKey::new()),
 				redacts: None,
@@ -205,8 +197,7 @@ pub(crate) async fn upgrade_room_route(
 					blurhash: services.users.blurhash(sender_user).await.ok(),
 					reason: None,
 					join_authorized_via_users_server: None,
-				})
-				.expect("event is valid, we just created it"),
+				})?,
 				unsigned: None,
 				state_key: Some(sender_user.as_str().into()),
 				redacts: None,

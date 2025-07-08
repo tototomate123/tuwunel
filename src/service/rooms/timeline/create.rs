@@ -26,8 +26,8 @@ pub async fn create_hash_and_sign_event(
 	pdu_builder: PduBuilder,
 	sender: &UserId,
 	room_id: &RoomId,
-	_mutex_lock: &RoomMutexGuard, /* Take mutex guard to make sure users get the room
-	                               * state mutex */
+	// Take mutex guard to make sure users get the room state mutex
+	_mutex_lock: &RoomMutexGuard,
 ) -> Result<(PduEvent, CanonicalJsonObject)> {
 	let PduBuilder {
 		event_type,
@@ -100,36 +100,40 @@ pub async fn create_hash_and_sign_event(
 		}
 	}
 
+	let unsigned = if unsigned.is_empty() {
+		None
+	} else {
+		Some(to_raw_value(&unsigned)?)
+	};
+
+	let origin_server_ts = timestamp.map_or_else(
+		|| {
+			utils::millis_since_unix_epoch()
+				.try_into()
+				.expect("timestamp to UInt")
+		},
+		|ts| ts.get(),
+	);
+
 	let mut pdu = PduEvent {
 		event_id: ruma::event_id!("$thiswillbefilledinlater").into(),
 		room_id: room_id.to_owned(),
 		sender: sender.to_owned(),
 		origin: None,
-		origin_server_ts: timestamp.map_or_else(
-			|| {
-				utils::millis_since_unix_epoch()
-					.try_into()
-					.expect("u64 fits into UInt")
-			},
-			|ts| ts.get(),
-		),
+		origin_server_ts,
 		kind: event_type,
 		content,
 		state_key,
-		prev_events,
 		depth,
+		redacts,
+		unsigned,
+		hashes: EventHash { sha256: "aaa".to_owned() },
+		signatures: None,
+		prev_events,
 		auth_events: auth_events
 			.values()
 			.map(|pdu| pdu.event_id.clone())
 			.collect(),
-		redacts,
-		unsigned: if unsigned.is_empty() {
-			None
-		} else {
-			Some(to_raw_value(&unsigned)?)
-		},
-		hashes: EventHash { sha256: "aaa".to_owned() },
-		signatures: None,
 	};
 
 	let auth_fetch = |k: &StateEventType, s: &str| {

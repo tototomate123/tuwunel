@@ -487,43 +487,32 @@ fn default_power_levels_content(
 	visibility: &room::Visibility,
 	users: BTreeMap<OwnedUserId, Int>,
 ) -> Result<serde_json::Value> {
+	use serde_json::to_value;
+
 	let mut power_levels_content =
-		serde_json::to_value(RoomPowerLevelsEventContent { users, ..Default::default() })
-			.expect("event is valid, we just created it");
+		to_value(RoomPowerLevelsEventContent { users, ..Default::default() })?;
 
 	// secure proper defaults of sensitive/dangerous permissions that moderators
 	// (power level 50) should not have easy access to
-	power_levels_content["events"]["m.room.power_levels"] =
-		serde_json::to_value(100).expect("100 is valid Value");
-	power_levels_content["events"]["m.room.server_acl"] =
-		serde_json::to_value(100).expect("100 is valid Value");
-	power_levels_content["events"]["m.room.tombstone"] =
-		serde_json::to_value(100).expect("100 is valid Value");
-	power_levels_content["events"]["m.room.encryption"] =
-		serde_json::to_value(100).expect("100 is valid Value");
-	power_levels_content["events"]["m.room.history_visibility"] =
-		serde_json::to_value(100).expect("100 is valid Value");
+	power_levels_content["events"]["m.room.power_levels"] = to_value(100)?;
+	power_levels_content["events"]["m.room.server_acl"] = to_value(100)?;
+	power_levels_content["events"]["m.room.tombstone"] = to_value(100)?;
+	power_levels_content["events"]["m.room.encryption"] = to_value(100)?;
+	power_levels_content["events"]["m.room.history_visibility"] = to_value(100)?;
 
 	// always allow users to respond (not post new) to polls. this is primarily
 	// useful in read-only announcement rooms that post a public poll.
-	power_levels_content["events"]["org.matrix.msc3381.poll.response"] =
-		serde_json::to_value(0).expect("0 is valid Value");
-	power_levels_content["events"]["m.poll.response"] =
-		serde_json::to_value(0).expect("0 is valid Value");
+	power_levels_content["events"]["org.matrix.msc3381.poll.response"] = to_value(0)?;
+	power_levels_content["events"]["m.poll.response"] = to_value(0)?;
 
 	// synapse does this too. clients do not expose these permissions. it prevents
 	// default users from calling public rooms, for obvious reasons.
 	if *visibility == room::Visibility::Public {
-		power_levels_content["events"]["m.call.invite"] =
-			serde_json::to_value(50).expect("50 is valid Value");
-		power_levels_content["events"]["m.call"] =
-			serde_json::to_value(50).expect("50 is valid Value");
-		power_levels_content["events"]["m.call.member"] =
-			serde_json::to_value(50).expect("50 is valid Value");
-		power_levels_content["events"]["org.matrix.msc3401.call"] =
-			serde_json::to_value(50).expect("50 is valid Value");
-		power_levels_content["events"]["org.matrix.msc3401.call.member"] =
-			serde_json::to_value(50).expect("50 is valid Value");
+		power_levels_content["events"]["m.call.invite"] = to_value(50)?;
+		power_levels_content["events"]["m.call"] = to_value(50)?;
+		power_levels_content["events"]["m.call.member"] = to_value(50)?;
+		power_levels_content["events"]["org.matrix.msc3401.call"] = to_value(50)?;
+		power_levels_content["events"]["org.matrix.msc3401.call.member"] = to_value(50)?;
 	}
 
 	if let Some(power_level_content_override) = power_level_content_override {
