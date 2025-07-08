@@ -1,5 +1,6 @@
 use std::{borrow::Cow, collections::BTreeMap, ops::Deref, sync::Arc};
 
+use base64::prelude::*;
 use clap::Subcommand;
 use futures::{FutureExt, Stream, StreamExt, TryStreamExt};
 use tokio::time::Instant;
@@ -30,6 +31,10 @@ pub(crate) enum RawCommand {
 
 		/// Key
 		key: String,
+
+		/// Encode as base64
+		#[arg(long, short)]
+		base64: bool,
 	},
 
 	/// - Raw database delete (for string keys)
@@ -421,13 +426,19 @@ pub(super) async fn raw_del(&self, map: String, key: String) -> Result {
 }
 
 #[admin_command]
-pub(super) async fn raw_get(&self, map: String, key: String) -> Result {
+pub(super) async fn raw_get(&self, map: String, key: String, base64: bool) -> Result {
 	let map = self.services.db.get(&map)?;
 	let timer = Instant::now();
 	let handle = map.get(&key).await?;
 
 	let query_time = timer.elapsed();
-	let result = String::from_utf8_lossy(&handle);
+
+	let result = if base64 {
+		BASE64_STANDARD.encode(&handle)
+	} else {
+		String::from_utf8_lossy(&handle).to_string()
+	};
+
 	self.write_str(&format!("Query completed in {query_time:?}:\n\n```rs\n{result:?}\n```"))
 		.await
 }

@@ -4837,6 +4837,7 @@ dependencies = [
 name = "tuwunel_admin"
 version = "1.2.0"
 dependencies = [
+ "base64",
  "clap",
  "const-str",
  "ctor",
