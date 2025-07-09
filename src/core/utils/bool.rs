@@ -31,7 +31,7 @@ pub trait BoolExt {
 
 	fn map_or<T, F: FnOnce() -> T>(self, err: T, f: F) -> T;
 
-	fn map_or_else<T, F: FnOnce() -> T>(self, err: F, f: F) -> T;
+	fn map_or_else<T, E: FnOnce() -> T, F: FnOnce() -> T>(self, err: E, f: F) -> T;
 
 	fn ok_or<E>(self, err: E) -> Result<(), E>;
 
@@ -84,7 +84,7 @@ impl BoolExt for bool {
 	fn map_or<T, F: FnOnce() -> T>(self, err: T, f: F) -> T { self.then(f).unwrap_or(err) }
 
 	#[inline]
-	fn map_or_else<T, F: FnOnce() -> T>(self, err: F, f: F) -> T {
+	fn map_or_else<T, E: FnOnce() -> T, F: FnOnce() -> T>(self, err: E, f: F) -> T {
 		self.then(f).unwrap_or_else(err)
 	}
 
