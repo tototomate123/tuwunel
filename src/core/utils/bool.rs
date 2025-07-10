@@ -23,6 +23,10 @@ pub trait BoolExt {
 	#[allow(clippy::result_unit_err)]
 	fn into_result(self) -> Result<(), ()>;
 
+	fn then_ok_or<T, E>(self, t: T, e: E) -> Result<T, E>;
+
+	fn then_ok_or_else<T, E, F: FnOnce() -> E>(self, t: T, e: F) -> Result<T, E>;
+
 	fn map<T, F: FnOnce(Self) -> T>(self, f: F) -> T
 	where
 		Self: Sized;
@@ -66,6 +70,14 @@ impl BoolExt for bool {
 
 	#[inline]
 	fn into_result(self) -> Result<(), ()> { self.ok_or(()) }
+
+	#[inline]
+	fn then_ok_or<T, E>(self, t: T, e: E) -> Result<T, E> { self.map_ok_or(e, move || t) }
+
+	#[inline]
+	fn then_ok_or_else<T, E, F: FnOnce() -> E>(self, t: T, e: F) -> Result<T, E> {
+		self.ok_or_else(e).map(move |()| t)
+	}
 
 	#[inline]
 	fn map<T, F: FnOnce(Self) -> T>(self, f: F) -> T
