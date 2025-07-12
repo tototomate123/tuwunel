@@ -840,44 +840,51 @@ where
 					.await;
 
 				for (key, id) in current_state_ids {
-					if since_state_ids.get(&key) != Some(&id) {
-						let Ok(pdu) = services.rooms.timeline.get_pdu(&id).await else {
-							error!("Pdu in state not found: {id}");
-							continue;
-						};
-						if pdu.kind == TimelineEventType::RoomMember {
-							if let Some(Ok(user_id)) = pdu.state_key.as_deref().map(UserId::parse)
-							{
-								if user_id == sender_user {
-									continue;
-								}
+					if since_state_ids.get(&key) == Some(&id) {
+						continue;
+					}
 
-								let content: RoomMemberEventContent = pdu.get_content()?;
-								match content.membership {
-									| MembershipState::Join => {
-										// A new user joined an encrypted room
-										if !share_encrypted_room(
-											services,
-											sender_user,
-											user_id,
-											Some(room_id),
-										)
-										.await
-										{
-											device_list_changes.insert(user_id.to_owned());
-										}
-									},
-									| MembershipState::Leave => {
-										// Write down users that have left encrypted rooms we
-										// are in
-										left_encrypted_users.insert(user_id.to_owned());
-									},
-									| _ => {},
-								}
+					let Ok(pdu) = services.rooms.timeline.get_pdu(&id).await else {
+						error!("Pdu in state not found: {id}");
+						continue;
+					};
+
+					if pdu.kind != TimelineEventType::RoomMember {
+						continue;
+					}
+
+					let Some(Ok(user_id)) = pdu.state_key.as_deref().map(UserId::parse) else {
+						continue;
+					};
+
+					if user_id == sender_user {
+						continue;
+					}
+
+					let content: RoomMemberEventContent = pdu.get_content()?;
+					match content.membership {
+						| MembershipState::Join => {
+							// A new user joined an encrypted room
+							if !share_encrypted_room(
+								services,
+								sender_user,
+								user_id,
+								Some(room_id),
+							)
+							.await
+							{
+								device_list_changes.insert(user_id.to_owned());
 							}
-						}
+						},
+						| MembershipState::Leave => {
+							// Write down users that have left encrypted rooms we
+							// are in
+							left_encrypted_users.insert(user_id.to_owned());
+						},
+						| _ => {},
 					}
 				}
+
 				if joined_since_last_sync || new_encrypted_room {
 					// If the user is in a new encrypted room, give them all joined users
 					device_list_changes.extend(
