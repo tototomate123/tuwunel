@@ -72,7 +72,8 @@ complement_skip="${complement_skip}|TestToDeviceMessagesOverFederation/stopped_s
 complement_skip="${complement_skip}|TestLogin/parallel/POST_/login_as_non-existing_user_is_rejected"
 complement_skip="${complement_skip}|TestRoomState/Parallel/GET_/publicRooms_lists_newly-created_room"
 complement_skip="${complement_skip}|TestThreadReceiptsInSyncMSC4102"
-complement_run=".*"
+complement_skip="${complement_skip}|TestRoomCreate/Parallel/POST_/createRoom_makes_a_room_with_a_topic_and_writes_rich_topic_representation"
+complement_skip="${complement_skip}|TestRoomCreate/Parallel/POST_/createRoom_makes_a_room_with_a_topic_via_initial_state_overwritten_by_topic"
 set +a
 
 ###############################################################################

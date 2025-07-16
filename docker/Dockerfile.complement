@@ -165,7 +165,7 @@ RUN \
 EOF
 
 WORKDIR /usr/src
-ADD https://github.com/matrix-construct/complement.git complement
+ADD https://github.com/matrix-construct/complement.git#81f3b61e10ec102a36921890c81b79564ebf6f40 complement
 
 WORKDIR /usr/src/complement
 ENV COMPLEMENT_BASE_IMAGE="complement-testee"
