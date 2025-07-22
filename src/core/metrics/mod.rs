@@ -1,4 +1,4 @@
-use std::sync::atomic::AtomicU32;
+use std::sync::atomic::{AtomicU32, AtomicU64};
 
 use tokio::runtime;
 use tokio_metrics::TaskMonitor;
@@ -19,8 +19,9 @@ pub struct Metrics {
 	runtime_intervals: std::sync::Mutex<Option<RuntimeIntervals>>,
 
 	// TODO: move stats
+	pub requests_count: AtomicU64,
+	pub requests_handle_finished: AtomicU64,
 	pub requests_handle_active: AtomicU32,
-	pub requests_handle_finished: AtomicU32,
 	pub requests_panic: AtomicU32,
 }
 
@@ -48,8 +49,9 @@ impl Metrics {
 			#[cfg(tokio_unstable)]
 			runtime_intervals: std::sync::Mutex::new(runtime_intervals),
 
+			requests_count: AtomicU64::new(0),
+			requests_handle_finished: AtomicU64::new(0),
 			requests_handle_active: AtomicU32::new(0),
-			requests_handle_finished: AtomicU32::new(0),
 			requests_panic: AtomicU32::new(0),
 		}
 	}

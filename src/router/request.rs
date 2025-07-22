@@ -15,7 +15,18 @@ use tracing::Span;
 use tuwunel_core::{Result, debug, debug_error, debug_warn, err, error, trace};
 use tuwunel_service::Services;
 
-#[tracing::instrument(name = "request", level = "debug", skip_all)]
+#[tracing::instrument(
+	name = "request",
+	level = "debug",
+	skip_all,
+	fields(
+		id = %services
+			.server
+			.metrics
+			.requests_count
+			.fetch_add(1, Ordering::Relaxed)
+	)
+)]
 pub(crate) async fn handle(
 	State(services): State<Arc<Services>>,
 	req: http::Request<axum::body::Body>,
