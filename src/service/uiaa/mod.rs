@@ -11,7 +11,7 @@ use ruma::{
 	},
 };
 use tuwunel_core::{
-	Err, Result, err, error, implement, utils,
+	Err, Result, debug_warn, err, error, implement, utils,
 	utils::{hash, string::EMPTY},
 };
 use tuwunel_database::{Deserialized, Json, Map};
@@ -189,10 +189,13 @@ pub async fn try_auth(
 				return Ok((false, uiaainfo));
 			}
 		},
+		| AuthData::FallbackAcknowledgement(session) => {
+			debug_warn!("FallbackAcknowledgement: {session:?}");
+		},
 		| AuthData::Dummy(_) => {
 			uiaainfo.completed.push(AuthType::Dummy);
 		},
-		| k => error!("type not supported: {:?}", k),
+		| auth => error!("AuthData type not supported: {auth:?}"),
 	}
 
 	// Check if a flow now succeeds
