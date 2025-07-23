@@ -256,6 +256,9 @@ pub(super) enum DebugCommand {
 		audience: Option<String>,
 	},
 
+	/// - Synchronize database with primary (secondary only)
+	ResyncDatabase,
+
 	/// - Developer test stubs
 	#[command(subcommand)]
 	#[allow(non_snake_case)]

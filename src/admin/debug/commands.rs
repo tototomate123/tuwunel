@@ -1035,3 +1035,16 @@ pub(super) async fn create_jwt(
 		.map(async |token| self.write_str(&token).await)?
 		.await
 }
+
+#[admin_command]
+pub(super) async fn resync_database(&self) -> Result {
+	if !self.services.db.is_secondary() {
+		return Err!("Not a secondary instance.");
+	}
+
+	self.services
+		.db
+		.db
+		.update()
+		.map_err(|e| err!("Failed to update from primary: {e:?}"))
+}
