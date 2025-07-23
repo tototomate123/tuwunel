@@ -173,7 +173,7 @@ jobs:
       - name: Release Branch
         if: >
           !failure() && !cancelled()
-          && github.ref == 'refs/heads/main'
+          && (github.ref == 'refs/heads/main' || contains(github.ref, 'refs/tags/v'))
 
         env:
           acct: ${{github.actor}}
