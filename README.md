@@ -140,21 +140,16 @@ turbulence limited to release-time.
 
 ### Getting Help & Support
 
-The official community will be found at [#tuwunel:tuwunel.chat](https://matrix.to/#/#tuwunel:tuwunel.chat).
-If this is currently inaccessible please be patient as it's still coming online at the time of
-the first release; we will have updates to this section. This is a fully moderated space to protect
-the wellbeing of our users and create a non-toxic work environment for staff. If you require assistance
-with anything that is not remedied by the documentation, don't hesitate to open an issue on github.
-
 If you are opposed to using github, or if private discussion is required such as for security
 disclosures, or for any other reason, I would be happy to receive your DM at
 [@jason:tuwunel.me](https://matrix.to/#/@jason:tuwunel.me). This will not be bothering me as it would
-be my pleasure to help you anytime. As an emergency contact you can send an email to jasonzemos@gmail.com.
+be my pleasure to help you when possible. As an emergency contact you can send an email to
+jasonzemos@gmail.com.
 
 ##### Tuwunel Fanclub
 
-We also have an unofficial community-run chat which is publicly accessible at
-[#tuwunel:grin.hu](https://matrix.to/#/#tuwunel:grin.hu). The members, content, or moderation
+We have an unofficial community-run chat which is publicly accessible at
+[#tuwunel:matrix.org](https://matrix.to/#/#tuwunel:matrix.org). The members, content, or moderation
 decisions of this room are not in any way related or endorsed by this project or its sponsors,
 and not all project staff will be present there. There will be at least some presence by staff to
 offer assistance so long as the room remains in minimally good standing.
