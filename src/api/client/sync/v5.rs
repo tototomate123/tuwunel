@@ -74,7 +74,7 @@ pub(crate) async fn sync_events_v5_route(
 	// Setup watchers, so if there's no response, we can wait for them
 	let watcher = services.sync.watch(sender_user, sender_device);
 
-	let next_batch = services.globals.next_count()?;
+	let next_batch = services.globals.next_count();
 
 	let conn_id = body.conn_id.clone();
 
@@ -136,7 +136,7 @@ pub(crate) async fn sync_events_v5_route(
 		.chain(all_invited_rooms.clone())
 		.chain(all_knocked_rooms.clone());
 
-	let pos = next_batch.clone().to_string();
+	let pos = next_batch.to_string();
 
 	let mut todo_rooms: TodoRooms = BTreeMap::new();
 
@@ -146,7 +146,7 @@ pub(crate) async fn sync_events_v5_route(
 
 	let e2ee = collect_e2ee(services, sync_info, all_joined_rooms.clone());
 
-	let to_device = collect_to_device(services, sync_info, next_batch).map(Ok);
+	let to_device = collect_to_device(services, sync_info, *next_batch).map(Ok);
 
 	let receipts = collect_receipts(services).map(Ok);
 
@@ -189,7 +189,7 @@ pub(crate) async fn sync_events_v5_route(
 	response.rooms = process_rooms(
 		services,
 		sender_user,
-		next_batch,
+		*next_batch,
 		all_invited_rooms.clone(),
 		&todo_rooms,
 		&mut response,
