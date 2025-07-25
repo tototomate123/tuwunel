@@ -98,3 +98,7 @@ tests/test_results/complement/test_logs.jsonl
 
 # cargo profiles from -Z self-profile
 *.mm_profdata
+
+# Editor crashfiles
+*.save
+*.swp
