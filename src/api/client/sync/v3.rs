@@ -246,7 +246,7 @@ pub(crate) async fn build_sync_events(
 				.ok();
 
 			// Invited before last sync
-			if Some(since) >= invite_count {
+			if Some(since) >= invite_count || Some(next_batch) < invite_count {
 				return invited_rooms;
 			}
 
@@ -270,8 +270,8 @@ pub(crate) async fn build_sync_events(
 				.await
 				.ok();
 
-			// Knocked before last sync
-			if Some(since) >= knock_count {
+			// Knocked before last sync; or after the cutoff for this sync
+			if Some(since) >= knock_count || Some(next_batch) < knock_count {
 				return knocked_rooms;
 			}
 
@@ -439,8 +439,8 @@ async fn handle_left_room(
 		.await
 		.ok();
 
-	// Left before last sync
-	if Some(since) >= left_count {
+	// Left before last sync or after cutoff for next sync
+	if Some(since) >= left_count || Some(next_batch) < left_count {
 		return Ok(None);
 	}
 
