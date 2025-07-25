@@ -224,7 +224,6 @@ pub(crate) async fn build_sync_events(
 				sender_user,
 				next_batch,
 				full_state,
-				filter.room.include_leave,
 				&filter,
 			)
 			.map_ok(move |left_room| (room_id, left_room))
@@ -429,7 +428,6 @@ async fn handle_left_room(
 	sender_user: &UserId,
 	next_batch: u64,
 	full_state: bool,
-	include_leave: bool,
 	filter: &FilterDefinition,
 ) -> Result<Option<LeftRoom>> {
 	let left_count = services
@@ -439,8 +437,26 @@ async fn handle_left_room(
 		.await
 		.ok();
 
+	let filter_exclude = filter
+		.room
+		.not_rooms
+		.iter()
+		.any(is_equal_to!(room_id));
+
+	let filter_include = filter
+		.room
+		.rooms
+		.as_ref()
+		.is_some_and(|rooms| rooms.iter().any(is_equal_to!(room_id)));
+
+	let too_soon = Some(next_batch) < left_count;
+	let too_late = Some(since) >= left_count;
+	let initial_sync = since == 0;
+	let include_leave =
+		filter.room.include_leave && !filter_exclude && (filter_include || initial_sync);
+
 	// Left before last sync or after cutoff for next sync
-	if Some(since) >= left_count || Some(next_batch) < left_count {
+	if (too_late && !include_leave) || too_soon {
 		return Ok(None);
 	}
 
@@ -562,10 +578,6 @@ async fn handle_left_room(
 				error!("Pdu in state not found: {event_id}");
 				continue;
 			};
-
-			if !include_leave && pdu.sender == sender_user {
-				continue;
-			}
 
 			left_state_events.push(pdu.into_format());
 		}
