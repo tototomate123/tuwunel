@@ -38,6 +38,7 @@ struct Services {
 }
 
 struct Data {
+	roomid_knockedcount: Arc<Map>,
 	roomid_invitedcount: Arc<Map>,
 	roomid_inviteviaservers: Arc<Map>,
 	roomid_joinedcount: Arc<Map>,
@@ -72,6 +73,7 @@ impl crate::Service for Service {
 				users: args.depend::<users::Service>("users"),
 			},
 			db: Data {
+				roomid_knockedcount: args.db["roomid_knockedcount"].clone(),
 				roomid_invitedcount: args.db["roomid_invitedcount"].clone(),
 				roomid_inviteviaservers: args.db["roomid_inviteviaservers"].clone(),
 				roomid_joinedcount: args.db["roomid_joinedcount"].clone(),
@@ -249,6 +251,28 @@ pub async fn room_joined_count(&self, room_id: &RoomId) -> Result<u64> {
 		.deserialized()
 }
 
+/// Returns the number of users which are currently invited to a room
+#[implement(Service)]
+#[tracing::instrument(skip(self), level = "trace")]
+pub async fn room_invited_count(&self, room_id: &RoomId) -> Result<u64> {
+	self.db
+		.roomid_invitedcount
+		.get(room_id)
+		.await
+		.deserialized()
+}
+
+/// Returns the number of users which are currently knocking upon a room
+#[implement(Service)]
+#[tracing::instrument(skip(self), level = "trace")]
+pub async fn room_knocked_count(&self, room_id: &RoomId) -> Result<u64> {
+	self.db
+		.roomid_knockedcount
+		.get(room_id)
+		.await
+		.deserialized()
+}
+
 #[implement(Service)]
 #[tracing::instrument(skip(self), level = "debug")]
 /// Returns an iterator of all our local users in the room, even if they're
@@ -271,17 +295,6 @@ pub fn active_local_users_in_room<'a>(
 ) -> impl Stream<Item = &UserId> + Send + 'a {
 	self.local_users_in_room(room_id)
 		.filter(|user| self.services.users.is_active(user))
-}
-
-/// Returns the number of users which are currently invited to a room
-#[implement(Service)]
-#[tracing::instrument(skip(self), level = "trace")]
-pub async fn room_invited_count(&self, room_id: &RoomId) -> Result<u64> {
-	self.db
-		.roomid_invitedcount
-		.get(room_id)
-		.await
-		.deserialized()
 }
 
 /// Returns an iterator over all User IDs who ever joined a room.

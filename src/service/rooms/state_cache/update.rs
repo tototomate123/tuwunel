@@ -198,7 +198,7 @@ pub async fn update_joined_count(&self, room_id: &RoomId) {
 		.roomid_invitedcount
 		.raw_put(room_id, invitedcount);
 	self.db
-		.roomuserid_knockedcount
+		.roomid_knockedcount
 		.raw_put(room_id, knockedcount);
 
 	self.room_servers(room_id)
