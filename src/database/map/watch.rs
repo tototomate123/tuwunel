@@ -6,10 +6,11 @@ use std::{
 };
 
 use futures::pin_mut;
+use serde::Serialize;
 use tokio::sync::watch::{Sender, channel};
 use tuwunel_core::implement;
 
-use crate::keyval::KeyBuf;
+use crate::keyval::{KeyBuf, serialize_key};
 
 type Watchers = Mutex<BTreeMap<KeyBuf, Sender<()>>>;
 
@@ -19,9 +20,18 @@ pub(super) struct Watch {
 }
 
 #[implement(super::Map)]
-pub fn watch_raw_prefix<K>(&self, prefix: &K) -> impl Future<Output = ()> + Send + use<K>
+pub fn watch_prefix<K>(&self, prefix: K) -> impl Future<Output = ()> + Send + '_
 where
-	K: AsRef<[u8]> + ?Sized,
+	K: Serialize,
+{
+	let prefix = serialize_key(prefix).expect("failed to serialize watch prefix key");
+	self.watch_raw_prefix(&prefix)
+}
+
+#[implement(super::Map)]
+pub fn watch_raw_prefix<'a, K>(&self, prefix: &'a K) -> impl Future<Output = ()> + Send + use<K>
+where
+	K: AsRef<[u8]> + ?Sized + 'a,
 {
 	let rx = match self
 		.watch
