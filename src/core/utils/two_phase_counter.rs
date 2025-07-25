@@ -44,6 +44,10 @@ pub struct State<F: Fn(u64) -> Result + Sync> {
 	/// this list is the "retirement" sequence number where all writes have
 	/// completed and all reads are globally visible.
 	pending: VecDeque<u64>,
+
+	/// Callback to notify updates of the retirement value. This is likely
+	/// called from the destructor of a permit/guard; try not to panic.
+	release: F,
 }
 
 #[derive(Debug)]
@@ -63,8 +67,10 @@ impl<F: Fn(u64) -> Result + Sync> Counter<F> {
 	/// Construct a new Two-Phase counter state. The value of `init` is
 	/// considered retired, and the next sequence number dispatched will be one
 	/// greater.
-	pub fn new(init: u64, commit: F) -> Arc<Self> {
-		Arc::new(Self { inner: State::new(init, commit).into() })
+	pub fn new(init: u64, commit: F, release: F) -> Arc<Self> {
+		Arc::new(Self {
+			inner: State::new(init, commit, release).into(),
+		})
 	}
 
 	/// Obtain a sequence number to conduct write operations for the scope.
@@ -83,16 +89,27 @@ impl<F: Fn(u64) -> Result + Sync> Counter<F> {
 			.expect("locked for reading")
 			.retired()
 	}
+
+	/// Load the highest sequence number (dispatched); may still be pending or
+	/// may be retired.
+	#[inline]
+	pub fn dispatched(&self) -> u64 {
+		self.inner
+			.read()
+			.expect("locked for reading")
+			.dispatched
+	}
 }
 
 impl<F: Fn(u64) -> Result + Sync> State<F> {
 	/// Create new state, starting from `init`. The next sequence number
 	/// dispatched will be one greater than `init`.
-	fn new(dispatched: u64, commit: F) -> Self {
+	fn new(dispatched: u64, commit: F, release: F) -> Self {
 		Self {
 			dispatched,
 			commit,
 			pending: VecDeque::new(),
+			release,
 		}
 	}
 
@@ -127,6 +144,10 @@ impl<F: Fn(u64) -> Result + Sync> State<F> {
 			.expect("sequence number at index must be removed");
 
 		debug_assert!(removed == id, "sequence number removed must match id");
+
+		if index == 0 {
+			(self.release)(id).expect("release callback should not error");
+		}
 	}
 
 	/// Calculate the retired sequence number, one less than the lowest pending
