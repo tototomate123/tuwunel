@@ -22,7 +22,6 @@ mod stream;
 #[cfg(test)]
 mod tests;
 pub(crate) mod util;
-mod watchers;
 
 use std::{ops::Index, sync::Arc};
 

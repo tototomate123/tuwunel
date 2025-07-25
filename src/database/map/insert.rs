@@ -32,7 +32,7 @@ where
 		self.db.flush().expect("database flush error");
 	}
 
-	self.watchers.wake(key.as_ref());
+	self.notify(key.as_ref());
 }
 
 #[implement(super::Map)]

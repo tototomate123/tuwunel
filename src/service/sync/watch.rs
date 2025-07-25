@@ -20,33 +20,39 @@ pub async fn watch(&self, user_id: &UserId, device_id: &DeviceId) -> Result {
 	futures.push(
 		self.db
 			.todeviceid_events
-			.watch_prefix(&userdeviceid_prefix),
+			.watch_raw_prefix(&userdeviceid_prefix)
+			.boxed(),
 	);
 
 	futures.push(
 		self.db
 			.userroomid_joined
-			.watch_prefix(&userid_prefix),
+			.watch_raw_prefix(&userid_prefix)
+			.boxed(),
 	);
 	futures.push(
 		self.db
 			.userroomid_invitestate
-			.watch_prefix(&userid_prefix),
+			.watch_raw_prefix(&userid_prefix)
+			.boxed(),
 	);
 	futures.push(
 		self.db
 			.userroomid_leftstate
-			.watch_prefix(&userid_prefix),
+			.watch_raw_prefix(&userid_prefix)
+			.boxed(),
 	);
 	futures.push(
 		self.db
 			.userroomid_notificationcount
-			.watch_prefix(&userid_prefix),
+			.watch_raw_prefix(&userid_prefix)
+			.boxed(),
 	);
 	futures.push(
 		self.db
 			.userroomid_highlightcount
-			.watch_prefix(&userid_prefix),
+			.watch_raw_prefix(&userid_prefix)
+			.boxed(),
 	);
 
 	// Events for rooms we are in
@@ -66,7 +72,8 @@ pub async fn watch(&self, user_id: &UserId, device_id: &DeviceId) -> Result {
 		futures.push(
 			self.db
 				.keychangeid_userid
-				.watch_prefix(&roomid_prefix),
+				.watch_raw_prefix(&roomid_prefix)
+				.boxed(),
 		);
 
 		// Room account data
@@ -76,12 +83,18 @@ pub async fn watch(&self, user_id: &UserId, device_id: &DeviceId) -> Result {
 		futures.push(
 			self.db
 				.roomusertype_roomuserdataid
-				.watch_prefix(&roomuser_prefix),
+				.watch_raw_prefix(&roomuser_prefix)
+				.boxed(),
 		);
 
 		// PDUs
 		let short_roomid = short_roomid.to_be_bytes().to_vec();
-		futures.push(self.db.pduid_pdu.watch_prefix(&short_roomid));
+		futures.push(
+			self.db
+				.pduid_pdu
+				.watch_raw_prefix(&short_roomid)
+				.boxed(),
+		);
 
 		// EDUs
 		let typing_room_id = room_id.to_owned();
@@ -96,7 +109,8 @@ pub async fn watch(&self, user_id: &UserId, device_id: &DeviceId) -> Result {
 		futures.push(
 			self.db
 				.readreceiptid_readreceipt
-				.watch_prefix(&roomid_prefix),
+				.watch_raw_prefix(&roomid_prefix)
+				.boxed(),
 		);
 	}
 
@@ -106,21 +120,24 @@ pub async fn watch(&self, user_id: &UserId, device_id: &DeviceId) -> Result {
 	futures.push(
 		self.db
 			.roomusertype_roomuserdataid
-			.watch_prefix(&globaluserdata_prefix),
+			.watch_raw_prefix(&globaluserdata_prefix)
+			.boxed(),
 	);
 
 	// More key changes (used when user is not joined to any rooms)
 	futures.push(
 		self.db
 			.keychangeid_userid
-			.watch_prefix(&userid_prefix),
+			.watch_raw_prefix(&userid_prefix)
+			.boxed(),
 	);
 
 	// One time keys
 	futures.push(
 		self.db
 			.userid_lastonetimekeyupdate
-			.watch_prefix(&userid_bytes),
+			.watch_raw_prefix(&userid_bytes)
+			.boxed(),
 	);
 
 	// Server shutdown

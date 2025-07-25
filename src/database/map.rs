@@ -24,14 +24,12 @@ mod rev_stream_prefix;
 mod stream;
 mod stream_from;
 mod stream_prefix;
+mod watch;
 
 use std::{
-	convert::AsRef,
 	ffi::CStr,
 	fmt,
 	fmt::{Debug, Display},
-	future::Future,
-	pin::Pin,
 	sync::Arc,
 };
 
@@ -42,12 +40,13 @@ pub(crate) use self::options::{
 	cache_iter_options_default, cache_read_options_default, iter_options_default,
 	read_options_default, write_options_default,
 };
+use self::watch::Watch;
 pub use self::{get_batch::Get, qry_batch::Qry};
-use crate::{Engine, watchers::Watchers};
+use crate::Engine;
 
 pub struct Map {
 	name: &'static str,
-	watchers: Watchers,
+	watch: Watch,
 	cf: Arc<ColumnFamily>,
 	db: Arc<Engine>,
 	read_options: ReadOptions,
@@ -59,24 +58,13 @@ impl Map {
 	pub(crate) fn open(db: &Arc<Engine>, name: &'static str) -> Result<Arc<Self>> {
 		Ok(Arc::new(Self {
 			name,
-			watchers: Watchers::default(),
+			watch: Watch::default(),
 			cf: open::open(db, name),
 			db: db.clone(),
 			read_options: read_options_default(db),
 			cache_read_options: cache_read_options_default(db),
 			write_options: write_options_default(db),
 		}))
-	}
-
-	#[inline]
-	pub fn watch_prefix<'a, K>(
-		&'a self,
-		prefix: &K,
-	) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>>
-	where
-		K: AsRef<[u8]> + ?Sized + Debug,
-	{
-		self.watchers.watch(prefix.as_ref())
 	}
 
 	#[inline]
