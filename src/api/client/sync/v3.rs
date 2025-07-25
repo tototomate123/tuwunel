@@ -133,7 +133,8 @@ pub(crate) async fn sync_events_route(
 	// Setup watchers, so if there's no response, we can wait for them
 	let watcher = services.sync.watch(sender_user, sender_device);
 
-	let response = build_sync_events(&services, &body).await?;
+	let next_batch = services.globals.current_count();
+	let response = build_sync_events(&services, &body, next_batch).await?;
 	if body.body.full_state
 		|| !(response.rooms.is_empty()
 			&& response.presence.is_empty()
@@ -147,20 +148,22 @@ pub(crate) async fn sync_events_route(
 	// Hang a few seconds so requests are not spammed
 	// Stop hanging if new info arrives
 	let default = Duration::from_secs(30);
-	let duration = cmp::min(body.body.timeout.unwrap_or(default), default);
+	let timeout = body.body.timeout.unwrap_or(default);
+	let duration = cmp::min(timeout, default);
 	_ = tokio::time::timeout(duration, watcher).await;
 
 	// Retry returning data
-	build_sync_events(&services, &body).await
+	let next_batch = services.globals.current_count();
+	build_sync_events(&services, &body, next_batch).await
 }
 
 pub(crate) async fn build_sync_events(
 	services: &Services,
 	body: &Ruma<sync_events::v3::Request>,
+	next_batch: u64,
 ) -> Result<sync_events::v3::Response, RumaResponse<UiaaResponse>> {
 	let (sender_user, sender_device) = body.sender();
 
-	let next_batch = services.globals.current_count();
 	let since = body
 		.body
 		.since

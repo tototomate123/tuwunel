@@ -87,7 +87,7 @@ pub(crate) async fn sync_events_v5_route(
 	// Setup watchers, so if there's no response, we can wait for them
 	let watcher = services.sync.watch(sender_user, sender_device);
 
-	let next_batch = services.globals.next_count();
+	let next_batch = services.globals.current_count();
 
 	// Get sticky parameters from cache
 	let mut cached = body.body.clone();
