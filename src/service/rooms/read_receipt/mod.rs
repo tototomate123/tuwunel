@@ -126,8 +126,9 @@ impl Service {
 		&'a self,
 		room_id: &'a RoomId,
 		since: u64,
+		to: Option<u64>,
 	) -> impl Stream<Item = ReceiptItem<'_>> + Send + 'a {
-		self.db.readreceipts_since(room_id, since)
+		self.db.readreceipts_since(room_id, since, to)
 	}
 
 	/// Sets a private read marker at PDU `count`.

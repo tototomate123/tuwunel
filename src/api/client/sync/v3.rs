@@ -645,7 +645,7 @@ async fn load_joined_room(
 	let receipt_events = services
 		.rooms
 		.read_receipt
-		.readreceipts_since(room_id, since)
+		.readreceipts_since(room_id, since, Some(next_batch))
 		.filter_map(async |(read_user, _, edu)| {
 			services
 				.users

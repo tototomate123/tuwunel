@@ -536,17 +536,15 @@ impl Service {
 		max_edu_count: &AtomicU64,
 		num: &AtomicUsize,
 	) -> ReceiptMap {
-		let receipts = self
-			.services
-			.read_receipt
-			.readreceipts_since(room_id, since.0);
+		let receipts =
+			self.services
+				.read_receipt
+				.readreceipts_since(room_id, since.0, Some(since.1));
 
 		pin_mut!(receipts);
 		let mut read = BTreeMap::<OwnedUserId, ReceiptData>::new();
 		while let Some((user_id, count, read_receipt)) = receipts.next().await {
-			if count > since.1 {
-				break;
-			}
+			debug_assert!(count <= since.1, "exceeds upper-bound");
 
 			max_edu_count.fetch_max(count, Ordering::Relaxed);
 			if !self.services.globals.user_is_local(user_id) {

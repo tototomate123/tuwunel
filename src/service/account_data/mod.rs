@@ -75,6 +75,7 @@ pub async fn update(
 		.roomusertype_roomuserdataid
 		.qry(&key)
 		.await;
+
 	self.db
 		.roomusertype_roomuserdataid
 		.put(key, roomuserdataid);
