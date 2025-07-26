@@ -809,7 +809,8 @@ async fn load_joined_room(
 		.map(ToOwned::to_owned)
 		.collect::<Vec<_>>();
 
-	let send_notification_counts = last_notification_read.is_none_or(|count| count > since);
+	let send_notification_counts =
+		last_notification_read.is_none_or(|last_count| last_count.gt(&since));
 
 	let notification_count: OptionFuture<_> = send_notification_counts
 		.then(|| {
