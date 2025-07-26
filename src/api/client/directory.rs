@@ -51,19 +51,7 @@ pub(crate) async fn get_public_rooms_filtered_route(
 	InsecureClientIp(client): InsecureClientIp,
 	body: Ruma<get_public_rooms_filtered::v3::Request>,
 ) -> Result<get_public_rooms_filtered::v3::Response> {
-	if let Some(server) = &body.server {
-		if services
-			.config
-			.forbidden_remote_room_directory_server_names
-			.is_match(server.host())
-			|| services
-				.config
-				.forbidden_remote_server_names
-				.is_match(server.host())
-		{
-			return Err!(Request(Forbidden("Server is banned on this homeserver.")));
-		}
-	}
+	check_banned(&services, body.server.as_deref())?;
 
 	let response = get_public_rooms_filtered_helper(
 		&services,
@@ -92,19 +80,7 @@ pub(crate) async fn get_public_rooms_route(
 	InsecureClientIp(client): InsecureClientIp,
 	body: Ruma<get_public_rooms::v3::Request>,
 ) -> Result<get_public_rooms::v3::Response> {
-	if let Some(server) = &body.server {
-		if services
-			.config
-			.forbidden_remote_room_directory_server_names
-			.is_match(server.host())
-			|| services
-				.config
-				.forbidden_remote_server_names
-				.is_match(server.host())
-		{
-			return Err!(Request(Forbidden("Server is banned on this homeserver.")));
-		}
-	}
+	check_banned(&services, body.server.as_deref())?;
 
 	let response = get_public_rooms_filtered_helper(
 		&services,
@@ -488,5 +464,27 @@ async fn public_rooms_chunk(services: &Services, room_id: OwnedRoomId) -> Public
 		room_type,
 		topic,
 		world_readable,
+	}
+}
+
+fn check_banned(services: &Services, server: Option<&ServerName>) -> Result {
+	let Some(server) = server else {
+		return Ok(());
+	};
+
+	let forbidden_remote_directory = services
+		.config
+		.forbidden_remote_room_directory_server_names
+		.is_match(server.host());
+
+	let forbidden_remote_server = services
+		.config
+		.forbidden_remote_server_names
+		.is_match(server.host());
+
+	if forbidden_remote_directory || forbidden_remote_server {
+		Err!(Request(Forbidden("Server is banned on this homeserver.")))
+	} else {
+		Ok(())
 	}
 }
