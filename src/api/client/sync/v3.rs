@@ -288,7 +288,7 @@ pub(crate) async fn build_sync_events(
 	let presence_updates: OptionFuture<_> = services
 		.config
 		.allow_local_presence
-		.then(|| process_presence_updates(services, since, sender_user))
+		.then(|| process_presence_updates(services, since, next_batch, sender_user))
 		.into();
 
 	let account_data = services
@@ -391,11 +391,12 @@ pub(crate) async fn build_sync_events(
 async fn process_presence_updates(
 	services: &Services,
 	since: u64,
+	next_batch: u64,
 	syncing_user: &UserId,
 ) -> PresenceUpdates {
 	services
 		.presence
-		.presence_since(since)
+		.presence_since(since, Some(next_batch))
 		.filter(|(user_id, ..)| {
 			services
 				.rooms

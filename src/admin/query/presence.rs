@@ -19,6 +19,9 @@ pub(crate) enum PresenceCommand {
 	PresenceSince {
 		/// UNIX timestamp since (u64)
 		since: u64,
+
+		/// Upper-bound of since
+		to: Option<u64>,
 	},
 }
 
@@ -34,11 +37,11 @@ pub(super) async fn process(subcommand: PresenceCommand, context: &Context<'_>) 
 
 			write!(context, "Query completed in {query_time:?}:\n\n```rs\n{results:#?}\n```")
 		},
-		| PresenceCommand::PresenceSince { since } => {
+		| PresenceCommand::PresenceSince { since, to } => {
 			let timer = tokio::time::Instant::now();
 			let results: Vec<(_, _, _)> = services
 				.presence
-				.presence_since(since)
+				.presence_since(since, to)
 				.map(|(user_id, count, bytes)| (user_id.to_owned(), count, bytes.to_vec()))
 				.collect()
 				.await;

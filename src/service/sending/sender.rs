@@ -605,14 +605,15 @@ impl Service {
 		since: (u64, u64),
 		max_edu_count: &AtomicU64,
 	) -> Option<EduBuf> {
-		let presence_since = self.services.presence.presence_since(since.0);
+		let presence_since = self
+			.services
+			.presence
+			.presence_since(since.0, Some(since.1));
 
 		pin_mut!(presence_since);
 		let mut presence_updates = HashMap::<OwnedUserId, PresenceUpdate>::new();
 		while let Some((user_id, count, presence_bytes)) = presence_since.next().await {
-			if count > since.1 {
-				break;
-			}
+			debug_assert!(count <= since.1, "exceeded upper-bound");
 
 			max_edu_count.fetch_max(count, Ordering::Relaxed);
 			if !self.services.globals.user_is_local(user_id) {
