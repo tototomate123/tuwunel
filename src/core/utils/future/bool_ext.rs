@@ -4,7 +4,10 @@ use std::marker::Unpin;
 
 use futures::{
 	Future, FutureExt,
-	future::{select_ok, try_join, try_join_all, try_select},
+	future::{
+		Either::{Left, Right},
+		select_ok, try_join, try_join_all,
+	},
 };
 
 pub trait BoolExt
@@ -53,7 +56,7 @@ where
 
 		let b = b.map(|b| b.then_some(()).ok_or(Result::Err(())));
 
-		try_select(a, b).map(|result| result.is_ok())
+		select_ok([Left(a), Right(b)]).map(|result| result.is_ok())
 	}
 }
 
