@@ -159,27 +159,29 @@ where
 		.await;
 
 	let insert_lock = self.mutex_insert.lock(pdu.room_id()).await;
-	let count1 = self.services.globals.next_count();
-	let count2 = self.services.globals.next_count();
+	let next_count1 = self.services.globals.next_count();
+	let next_count2 = self.services.globals.next_count();
 
 	// Mark as read first so the sending client doesn't get a notification even if
 	// appending fails
 	self.services
 		.read_receipt
-		.private_read_set(pdu.room_id(), pdu.sender(), *count1);
+		.private_read_set(pdu.room_id(), pdu.sender(), *next_count2);
 
 	self.services
 		.user
 		.reset_notification_counts(pdu.sender(), pdu.room_id());
 
-	let count2 = PduCount::Normal(*count2);
-	let pdu_id: RawPduId = PduId { shortroomid, shorteventid: count2 }.into();
+	let count = PduCount::Normal(*next_count1);
+	let pdu_id: RawPduId = PduId { shortroomid, shorteventid: count }.into();
 
 	// Insert pdu
 	self.db
-		.append_pdu(&pdu_id, pdu, &pdu_json, count2)
+		.append_pdu(&pdu_id, pdu, &pdu_json, count)
 		.await;
 
+	drop(next_count1);
+	drop(next_count2);
 	drop(insert_lock);
 
 	// See if the event matches any known pushers via power level
@@ -396,7 +398,7 @@ where
 		{
 			self.services
 				.pdu_metadata
-				.add_relation(count2, related_pducount);
+				.add_relation(count, related_pducount);
 		}
 	}
 
@@ -408,7 +410,7 @@ where
 				if let Ok(related_pducount) = self.get_pdu_count(&in_reply_to.event_id).await {
 					self.services
 						.pdu_metadata
-						.add_relation(count2, related_pducount);
+						.add_relation(count, related_pducount);
 				}
 			},
 			| Relation::Thread(thread) => {

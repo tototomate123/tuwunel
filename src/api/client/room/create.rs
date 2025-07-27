@@ -111,6 +111,7 @@ pub(crate) async fn create_room_route(
 		.short
 		.get_or_create_shortroomid(&room_id)
 		.await;
+
 	let state_lock = services.rooms.state.mutex.lock(&room_id).await;
 
 	let alias: Option<OwnedRoomAliasId> = match body.room_alias_name.as_ref() {
@@ -186,6 +187,10 @@ pub(crate) async fn create_room_route(
 			content
 		},
 	};
+
+	// Increment and hold the counter; the room will sync atomically to clients
+	// which is preferable.
+	let next_count = services.globals.next_count();
 
 	// 1. The room create event
 	services
@@ -425,8 +430,10 @@ pub(crate) async fn create_room_route(
 			.await?;
 	}
 
-	// 8. Events implied by invite (and TODO: invite_3pid)
+	drop(next_count);
 	drop(state_lock);
+
+	// 8. Events implied by invite (and TODO: invite_3pid)
 	for user_id in &body.invite {
 		if services
 			.users
