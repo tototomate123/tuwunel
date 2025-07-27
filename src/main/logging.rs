@@ -29,6 +29,8 @@ pub(crate) fn init(
 		.map_err(|e| err!(Config("log", "{e}.")))?;
 
 	let console_layer = fmt::Layer::new()
+		.with_ansi(config.log_colors)
+		.with_thread_ids(config.log_thread_ids)
 		.with_span_events(console_span_events)
 		.event_format(ConsoleFormat::new(config))
 		.fmt_fields(ConsoleFormat::new(config))

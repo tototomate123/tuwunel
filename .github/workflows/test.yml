@@ -203,7 +203,8 @@ jobs:
       run: |
         docker/complement.sh
 
-    - name: Extract
+    - if: success() || failure() && steps.execute.outcome == 'failure'
+      name: Extract
       id: extract
       env:
         name: complement_tester__${{matrix.sys_name}}__${{matrix.sys_version}}__${{matrix.sys_target}}
@@ -213,12 +214,22 @@ jobs:
         cid=$(cat "$name")
         docker cp "$cid:/usr/src/complement/new_results.jsonl" tests/test_results/complement/test_results.jsonl
 
-    - name: Upload
-      id: upload
+    - if: success() || failure() && steps.execute.outcome == 'failure'
+      name: Upload New Results
+      id: upload-result
       uses: actions/upload-artifact@v4
       with:
-        name: test_results-${{matrix.feat_set}}-${{matrix.sys_name}}-${{matrix.sys_target}}.jsonl
+        name: complement_results-${{matrix.feat_set}}-${{matrix.sys_name}}-${{matrix.sys_target}}.jsonl
         path: ./tests/test_results/complement/test_results.jsonl
+
+    - if: failure() && steps.execute.outcome == 'failure'
+      name: Upload Failure Output
+      id: upload-output
+      uses: actions/upload-artifact@v4
+      with:
+        name: complement_output-${{matrix.feat_set}}-${{matrix.sys_name}}-${{matrix.sys_target}}.jsonl
+        path: ./complement.jsonl
+        if-no-files-found: ignore
 
     - name: Accept
       id: accept

@@ -73,7 +73,9 @@ impl ConsoleFormat {
 	#[must_use]
 	pub fn new(config: &Config) -> Self {
 		Self {
-			_compact: fmt::format().compact(),
+			_compact: fmt::format()
+				.compact()
+				.with_ansi(config.log_colors),
 
 			full: Format::<Full>::default()
 				.with_thread_ids(config.log_thread_ids)
