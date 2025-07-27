@@ -8,7 +8,7 @@ use std::{
 use axum::extract::State;
 use futures::{
 	FutureExt, Stream, StreamExt, TryFutureExt,
-	future::{OptionFuture, join3, try_join4},
+	future::{OptionFuture, join3, try_join5},
 	pin_mut,
 };
 use ruma::{
@@ -139,17 +139,19 @@ pub(crate) async fn sync_events_v5_route(
 
 	let to_device = collect_to_device(services, sync_info, next_batch).map(Ok);
 
-	let receipts = collect_receipts(services).map(Ok);
+	let receipts = collect_receipts(services, sync_info, next_batch).map(Ok);
 
-	let (account_data, e2ee, to_device, receipts) =
-		try_join4(account_data, e2ee, to_device, receipts).await?;
+	let typing = collect_typing_events(services, sync_info, next_batch, all_joined_rooms.clone());
+
+	let (account_data, e2ee, to_device, receipts, typing) =
+		try_join5(account_data, e2ee, to_device, receipts, typing).await?;
 
 	let extensions = sync_events::v5::response::Extensions {
 		account_data,
 		e2ee,
 		to_device,
 		receipts,
-		typing: sync_events::v5::response::Typing::default(),
+		typing,
 	};
 
 	let mut response = sync_events::v5::Response {
@@ -171,9 +173,6 @@ pub(crate) async fn sync_events_v5_route(
 		&mut response,
 	)
 	.await;
-
-	response.extensions.typing =
-		collect_typing_events(services, sender_user, &cached, all_joined_rooms.clone()).await?;
 
 	fetch_subscriptions(services, sync_info, &known_rooms, &mut todo_rooms).await;
 
@@ -968,8 +967,8 @@ async fn collect_to_device(
 
 async fn collect_typing_events<'a, Rooms>(
 	services: &Services,
-	sender_user: &UserId,
-	body: &sync_events::v5::Request,
+	(sender_user, _, _, body): SyncInfo<'_>,
+	_next_batch: u64,
 	rooms: Rooms,
 ) -> Result<sync_events::v5::response::Typing>
 where
@@ -1007,7 +1006,11 @@ where
 		.await
 }
 
-async fn collect_receipts(_services: &Services) -> sync_events::v5::response::Receipts {
+async fn collect_receipts(
+	_services: &Services,
+	(_sender_user, _, _globalsince, _body): SyncInfo<'_>,
+	_next_batch: u64,
+) -> sync_events::v5::response::Receipts {
 	sync_events::v5::response::Receipts { rooms: BTreeMap::new() }
 	// TODO: get explicitly requested read receipts
 }
