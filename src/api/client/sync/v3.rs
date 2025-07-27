@@ -665,7 +665,7 @@ async fn load_joined_room(
 			.boxed()
 			.await?;
 
-	let initial = since_shortstatehash.is_none();
+	let initial = since_shortstatehash.is_none() || since == 0;
 	let lazy_loading_enabled = filter.room.state.lazy_load_options.is_enabled()
 		|| filter
 			.room
