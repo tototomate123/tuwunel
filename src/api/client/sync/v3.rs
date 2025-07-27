@@ -26,9 +26,11 @@ use ruma::{
 	},
 	events::{
 		AnyRawAccountDataEvent, AnySyncEphemeralRoomEvent, StateEventType,
+		SyncEphemeralRoomEvent,
 		TimelineEventType::*,
 		presence::{PresenceEvent, PresenceEventContent},
 		room::member::{MembershipState, RoomMemberEventContent},
+		typing::TypingEventContent,
 	},
 	serde::Raw,
 	uint,
@@ -854,11 +856,7 @@ async fn load_joined_room(
 				return Ok(Vec::<Raw<AnySyncEphemeralRoomEvent>>::new());
 			}
 
-			let typings = services
-				.rooms
-				.typing
-				.typings_event_for_user(room_id, sender_user)
-				.await?;
+			let typings = typings_event_for_user(services, room_id, sender_user).await?;
 
 			Ok(vec![serde_json::from_str(&serde_json::to_string(&typings)?)?])
 		})
@@ -1202,4 +1200,20 @@ async fn fold_hero(
 
 	heroes.push(user_id.to_owned());
 	heroes
+}
+
+async fn typings_event_for_user(
+	services: &Services,
+	room_id: &RoomId,
+	sender_user: &UserId,
+) -> Result<SyncEphemeralRoomEvent<TypingEventContent>> {
+	Ok(SyncEphemeralRoomEvent {
+		content: TypingEventContent {
+			user_ids: services
+				.rooms
+				.typing
+				.typing_users_for_user(room_id, sender_user)
+				.await?,
+		},
+	})
 }
