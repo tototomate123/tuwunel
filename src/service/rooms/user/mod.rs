@@ -97,6 +97,7 @@ pub async fn last_notification_read(&self, user_id: &UserId, room_id: &RoomId) -
 }
 
 #[implement(Service)]
+#[tracing::instrument(level = "trace", skip(self))]
 pub async fn associate_token_shortstatehash(
 	&self,
 	room_id: &RoomId,

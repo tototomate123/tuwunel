@@ -115,6 +115,7 @@ type PresenceUpdates = HashMap<OwnedUserId, PresenceEventContent>;
 	level = "debug",
 	skip_all,
 	fields(
+		user_id = %body.sender_user(),
 		since = %body.body.since.as_deref().unwrap_or_default(),
     )
 )]

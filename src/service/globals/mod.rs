@@ -103,13 +103,16 @@ impl crate::Service for Service {
 
 impl Service {
 	#[inline]
+	#[tracing::instrument(level = "trace", skip(self))]
 	pub async fn wait_pending(&self) -> Result<u64> { self.db.wait_pending().await }
 
 	#[inline]
+	#[tracing::instrument(level = "trace", skip(self))]
 	pub async fn wait_count(&self, count: &u64) -> Result<u64> { self.db.wait_count(count).await }
 
 	#[inline]
 	#[must_use]
+	#[tracing::instrument(level = "debug", skip(self))]
 	pub fn next_count(&self) -> data::Permit { self.db.next_count() }
 
 	#[inline]
