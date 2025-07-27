@@ -4,6 +4,14 @@ use axum_extra::{
 	headers::{Authorization, authorization::Bearer},
 	typed_header::TypedHeaderRejectionReason,
 };
+use futures::{
+	TryFutureExt,
+	future::{
+		Either::{Left, Right},
+		select_ok,
+	},
+	pin_mut,
+};
 use ruma::{
 	CanonicalJsonObject, CanonicalJsonValue, OwnedDeviceId, OwnedServerName, OwnedUserId, UserId,
 	api::{
@@ -35,6 +43,7 @@ enum Token {
 	None,
 }
 
+#[derive(Default)]
 pub(super) struct Auth {
 	pub(super) origin: Option<OwnedServerName>,
 	pub(super) sender_user: Option<OwnedUserId>,
@@ -56,68 +65,10 @@ pub(super) async fn auth(
 		| None => request.query.access_token.as_deref(),
 	};
 
-	let token = if let Some(token) = token {
-		match services
-			.appservice
-			.find_from_access_token(token)
-			.await
-		{
-			| Some(reg_info) => Token::Appservice(Box::new(reg_info)),
-			| _ => match services.users.find_from_access_token(token).await {
-				| Ok((user_id, device_id)) => Token::User((user_id, device_id)),
-				| _ => Token::Invalid,
-			},
-		}
-	} else {
-		Token::None
-	};
+	let token = find_token(services, token).await?;
 
 	if metadata.authentication == AuthScheme::None {
-		match metadata {
-			| &get_public_rooms::v3::Request::METADATA => {
-				if !services
-					.server
-					.config
-					.allow_public_room_directory_without_auth
-				{
-					match token {
-						| Token::Appservice(_) | Token::User(_) => {
-							// we should have validated the token above
-							// already
-						},
-						| Token::None | Token::Invalid => {
-							return Err!(Request(MissingToken(
-								"Missing or invalid access token."
-							)));
-						},
-					}
-				}
-			},
-			| &get_profile::v3::Request::METADATA
-			| &get_profile_key::unstable::Request::METADATA
-			| &get_display_name::v3::Request::METADATA
-			| &get_avatar_url::v3::Request::METADATA
-			| &get_timezone_key::unstable::Request::METADATA => {
-				if services
-					.server
-					.config
-					.require_auth_for_profile_requests
-				{
-					match token {
-						| Token::Appservice(_) | Token::User(_) => {
-							// we should have validated the token above
-							// already
-						},
-						| Token::None | Token::Invalid => {
-							return Err!(Request(MissingToken(
-								"Missing or invalid access token."
-							)));
-						},
-					}
-				}
-			},
-			| _ => {},
-		}
+		check_auth_still_required(services, metadata, &token)?;
 	}
 
 	match (metadata.authentication, token) {
@@ -127,20 +78,13 @@ pub(super) async fn auth(
 			AuthScheme::None | AuthScheme::AccessTokenOptional | AuthScheme::AppserviceToken,
 			Token::Appservice(info),
 		) => Ok(Auth {
-			origin: None,
-			sender_user: None,
-			sender_device: None,
 			appservice_info: Some(*info),
+			..Auth::default()
 		}),
 		| (AuthScheme::AccessToken, Token::None) => match metadata {
 			| &get_turn_server_info::v3::Request::METADATA => {
 				if services.server.config.turn_allow_guests {
-					Ok(Auth {
-						origin: None,
-						sender_user: None,
-						sender_device: None,
-						appservice_info: None,
-					})
+					Ok(Auth::default())
 				} else {
 					Err!(Request(MissingToken("Missing access token.")))
 				}
@@ -151,22 +95,16 @@ pub(super) async fn auth(
 			AuthScheme::AccessToken | AuthScheme::AccessTokenOptional | AuthScheme::None,
 			Token::User((user_id, device_id)),
 		) => Ok(Auth {
-			origin: None,
 			sender_user: Some(user_id),
 			sender_device: Some(device_id),
-			appservice_info: None,
+			..Auth::default()
 		}),
 		| (AuthScheme::ServerSignatures, Token::None) =>
 			Ok(auth_server(services, request, json_body).await?),
 		| (
 			AuthScheme::None | AuthScheme::AppserviceToken | AuthScheme::AccessTokenOptional,
 			Token::None,
-		) => Ok(Auth {
-			sender_user: None,
-			sender_device: None,
-			origin: None,
-			appservice_info: None,
-		}),
+		) => Ok(Auth::default()),
 		| (AuthScheme::ServerSignatures, Token::Appservice(_) | Token::User(_)) =>
 			Err!(Request(Unauthorized("Only server signatures should be used on this endpoint."))),
 		| (AuthScheme::AppserviceToken, Token::User(_)) => Err!(Request(Unauthorized(
@@ -179,12 +117,7 @@ pub(super) async fn auth(
 			if request.query.access_token.is_some()
 				&& metadata == &get_openid_userinfo::v1::Request::METADATA
 			{
-				Ok(Auth {
-					origin: None,
-					sender_user: None,
-					sender_device: None,
-					appservice_info: None,
-				})
+				Ok(Auth::default())
 			} else {
 				Err(Error::BadRequest(
 					ErrorKind::UnknownToken { soft_logout: false },
@@ -196,6 +129,66 @@ pub(super) async fn auth(
 			ErrorKind::UnknownToken { soft_logout: false },
 			"Unknown access token.",
 		)),
+	}
+}
+
+fn check_auth_still_required(services: &Services, metadata: &Metadata, token: &Token) -> Result {
+	debug_assert_eq!(
+		metadata.authentication,
+		AuthScheme::None,
+		"Expected endpoint to be unauthenticated"
+	);
+
+	match metadata {
+		| &get_profile::v3::Request::METADATA
+		| &get_profile_key::unstable::Request::METADATA
+		| &get_display_name::v3::Request::METADATA
+		| &get_avatar_url::v3::Request::METADATA
+		| &get_timezone_key::unstable::Request::METADATA
+			if services
+				.server
+				.config
+				.require_auth_for_profile_requests =>
+			match token {
+				| Token::Appservice(_) | Token::User(_) => Ok(()),
+				| Token::None | Token::Invalid =>
+					Err!(Request(MissingToken("Missing or invalid access token."))),
+			},
+		| &get_public_rooms::v3::Request::METADATA
+			if !services
+				.server
+				.config
+				.allow_public_room_directory_without_auth =>
+			match token {
+				| Token::Appservice(_) | Token::User(_) => Ok(()),
+				| Token::None | Token::Invalid =>
+					Err!(Request(MissingToken("Missing or invalid access token."))),
+			},
+		| _ => Ok(()),
+	}
+}
+
+async fn find_token(services: &Services, token: Option<&str>) -> Result<Token> {
+	let Some(token) = token else {
+		return Ok(Token::None);
+	};
+
+	let user_token = services
+		.users
+		.find_from_access_token(token)
+		.map_ok(Token::User);
+
+	let appservice_token = services
+		.appservice
+		.find_from_access_token(token)
+		.map_ok(Box::new)
+		.map_ok(Token::Appservice);
+
+	pin_mut!(user_token, appservice_token);
+	match select_ok([Left(user_token), Right(appservice_token)]).await {
+		| Err(e) if !e.is_not_found() => Err(e),
+		| Ok((token, _)) => Ok(token),
+		| _ => Ok(Token::Invalid),
 	}
 }
 

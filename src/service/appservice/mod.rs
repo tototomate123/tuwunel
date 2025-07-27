@@ -166,12 +166,13 @@ impl Service {
 			.map(|info| info.registration)
 	}
 
-	pub async fn find_from_access_token(&self, token: &str) -> Option<RegistrationInfo> {
+	pub async fn find_from_access_token(&self, token: &str) -> Result<RegistrationInfo> {
 		self.read()
 			.await
 			.values()
 			.find(|info| info.registration.as_token == token)
 			.cloned()
+			.ok_or_else(|| err!(Request(NotFound("Missing or invalid appservice token"))))
 	}
 
 	/// Checks if a given user id matches any exclusive appservice regex
