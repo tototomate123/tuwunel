@@ -173,7 +173,6 @@ impl Service {
 	}
 
 	/// Returns the json of a pdu.
-	#[inline]
 	pub async fn get_non_outlier_pdu_json(
 		&self,
 		event_id: &EventId,
@@ -182,7 +181,6 @@ impl Service {
 	}
 
 	/// Returns the pdu's id.
-	#[inline]
 	pub async fn get_pdu_id(&self, event_id: &EventId) -> Result<RawPduId> {
 		self.db.get_pdu_id(event_id).await
 	}
@@ -190,7 +188,6 @@ impl Service {
 	/// Returns the pdu.
 	///
 	/// Checks the `eventid_outlierpdu` Tree if not found in the timeline.
-	#[inline]
 	pub async fn get_non_outlier_pdu(&self, event_id: &EventId) -> Result<impl Event> {
 		self.db.get_non_outlier_pdu(event_id).await
 	}
@@ -198,7 +195,6 @@ impl Service {
 	/// Returns the pdu.
 	///
 	/// Checks the `eventid_outlierpdu` Tree if not found in the timeline.
-	#[inline]
 	pub async fn get_pdu(&self, event_id: &EventId) -> Result<PduEvent> {
 		self.db.get_pdu(event_id).await
 	}
@@ -206,13 +202,11 @@ impl Service {
 	/// Returns the pdu.
 	///
 	/// This does __NOT__ check the outliers `Tree`.
-	#[inline]
 	pub async fn get_pdu_from_id(&self, pdu_id: &RawPduId) -> Result<PduEvent> {
 		self.db.get_pdu_from_id(pdu_id).await
 	}
 
 	/// Returns the pdu as a `BTreeMap<String, CanonicalJsonValue>`.
-	#[inline]
 	pub async fn get_pdu_json_from_id(&self, pdu_id: &RawPduId) -> Result<CanonicalJsonObject> {
 		self.db.get_pdu_json_from_id(pdu_id).await
 	}
@@ -220,7 +214,6 @@ impl Service {
 	/// Checks if pdu exists
 	///
 	/// Checks the `eventid_outlierpdu` Tree if not found in the timeline.
-	#[inline]
 	pub fn pdu_exists<'a>(
 		&'a self,
 		event_id: &'a EventId,
@@ -236,7 +229,6 @@ impl Service {
 
 	/// Returns an iterator over all PDUs in a room. Unknown rooms produce no
 	/// items.
-	#[inline]
 	pub fn all_pdus<'a>(
 		&'a self,
 		user_id: &'a UserId,
