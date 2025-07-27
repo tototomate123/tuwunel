@@ -29,6 +29,8 @@ pub enum Error {
 	#[error(transparent)]
 	Std(#[from] Box<dyn std::error::Error + Send>),
 	#[error(transparent)]
+	SystemTime(#[from] std::time::SystemTimeError),
+	#[error(transparent)]
 	ThreadAccessError(#[from] std::thread::AccessError),
 	#[error(transparent)]
 	TryFromInt(#[from] std::num::TryFromIntError),
