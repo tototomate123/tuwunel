@@ -1,5 +1,5 @@
 use axum::extract::State;
-use futures::{FutureExt, TryStreamExt};
+use futures::{FutureExt, TryFutureExt, TryStreamExt};
 use ruma::{
 	OwnedEventId, RoomId, UserId,
 	api::client::state::{get_state_events, get_state_events_for_key, send_state_event},
@@ -17,7 +17,7 @@ use ruma::{
 };
 use serde_json::json;
 use tuwunel_core::{
-	Err, Result, err,
+	Err, Result, err, is_false,
 	matrix::{Event, pdu::PduBuilder},
 	utils::BoolExt,
 };
@@ -356,7 +356,7 @@ async fn allowed_to_send_state_event(
 		},
 		| StateEventType::RoomMember => match json.deserialize_as::<RoomMemberEventContent>() {
 			| Ok(membership_content) => {
-				let Ok(state_key) = UserId::parse(state_key) else {
+				let Ok(_state_key) = UserId::parse(state_key) else {
 					return Err!(Request(BadJson(
 						"Membership event has invalid or non-existent state key"
 					)));
@@ -371,17 +371,6 @@ async fn allowed_to_send_state_event(
 						)));
 					}
 
-					if services
-						.rooms
-						.state_cache
-						.is_joined(state_key, room_id)
-						.await
-					{
-						return Err!(Request(InvalidParam(
-							"{state_key} is already joined, an authorising user is not required."
-						)));
-					}
-
 					if !services.globals.user_is_local(&authorising_user) {
 						return Err!(Request(InvalidParam(
 							"Authorising user {authorising_user} does not belong to this \
@@ -389,17 +378,19 @@ async fn allowed_to_send_state_event(
 						)));
 					}
 
-					if !services
+					services
 						.rooms
 						.state_cache
 						.is_joined(&authorising_user, room_id)
-						.await
-					{
-						return Err!(Request(InvalidParam(
-							"Authorising user {authorising_user} is not in the room, they \
-							 cannot authorise the join."
-						)));
-					}
+						.map(is_false!())
+						.map(BoolExt::into_result)
+						.map_err(|()| {
+							err!(Request(InvalidParam(
+								"Authorising user {authorising_user} is not in the room. They \
+								 cannot authorise the join."
+							)))
+						})
+						.await?;
 				}
 			},
 			| Err(e) => {
