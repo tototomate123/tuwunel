@@ -252,6 +252,27 @@ pub struct Config {
 	#[serde(default = "default_roomid_spacehierarchy_cache_capacity")]
 	pub roomid_spacehierarchy_cache_capacity: u32,
 
+	/// Minimum timeout a client can request for long-polling sync. Requests
+	/// will be clamped up to this value if smaller.
+	///
+	/// default: 5000
+	#[serde(default = "default_client_sync_timeout_min")]
+	pub client_sync_timeout_min: u64,
+
+	/// Default timeout for long-polling sync if a client does not request
+	/// another in their query-string.
+	///
+	/// default: 30000
+	#[serde(default = "default_client_sync_timeout_default")]
+	pub client_sync_timeout_default: u64,
+
+	/// Maximum timeout a client can request for long-polling sync. Requests
+	/// will be clamped down to this value if larger.
+	///
+	/// default: 90000
+	#[serde(default = "default_client_sync_timeout_max")]
+	pub client_sync_timeout_max: u64,
+
 	/// Maximum entries stored in DNS memory-cache. The size of an entry may
 	/// vary so please take care if raising this value excessively. Only
 	/// decrease this when using an external DNS cache. Please note that
@@ -2628,3 +2649,9 @@ fn default_ldap_name_attribute() -> String { String::from("givenName") }
 fn default_jwt_algorithm() -> String { "HS256".to_owned() }
 
 fn default_jwt_format() -> String { "HMAC".to_owned() }
+
+fn default_client_sync_timeout_min() -> u64 { 5000 }
+
+fn default_client_sync_timeout_default() -> u64 { 30000 }
+
+fn default_client_sync_timeout_max() -> u64 { 90000 }

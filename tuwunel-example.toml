@@ -189,6 +189,21 @@
 #
 #roomid_spacehierarchy_cache_capacity = varies by system
 
+# Minimum timeout a client can request for long-polling sync. Requests
+# will be clamped up to this value if smaller.
+#
+#client_sync_timeout_min = 5000
+
+# Default timeout for long-polling sync if a client does not request
+# another in their query-string.
+#
+#client_sync_timeout_default = 30000
+
+# Maximum timeout a client can request for long-polling sync. Requests
+# will be clamped down to this value if larger.
+#
+#client_sync_timeout_max = 90000
+
 # Maximum entries stored in DNS memory-cache. The size of an entry may
 # vary so please take care if raising this value excessively. Only
 # decrease this when using an external DNS cache. Please note that

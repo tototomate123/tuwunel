@@ -1,5 +1,4 @@
 use std::{
-	cmp::{self},
 	collections::{BTreeMap, HashMap, HashSet},
 	time::Duration,
 };
@@ -150,9 +149,15 @@ pub(crate) async fn sync_events_route(
 
 	// Hang a few seconds so requests are not spammed
 	// Stop hanging if new info arrives
-	let default = Duration::from_secs(30);
-	let timeout = body.body.timeout.unwrap_or(default);
-	let duration = cmp::min(timeout, default);
+	let timeout_default = services.config.client_sync_timeout_default;
+	let timeout_min = services.config.client_sync_timeout_min;
+	let timeout_max = services.config.client_sync_timeout_max;
+	let duration = body
+		.body
+		.timeout
+		.unwrap_or_else(|| Duration::from_millis(timeout_default))
+		.clamp(Duration::from_millis(timeout_min), Duration::from_millis(timeout_max));
+
 	_ = tokio::time::timeout(duration, watcher).await;
 
 	// Retry returning data
