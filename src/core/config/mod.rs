@@ -1318,6 +1318,12 @@ pub struct Config {
 	#[serde(default)]
 	pub allow_legacy_media: bool,
 
+	/// Fallback to requesting legacy unauthenticated media from remote servers.
+	/// Unauthenticated media was removed in ~2024Q3; enabling this adds
+	/// considerable federation requests which are unlikely to succeed.
+	#[serde(default)]
+	pub request_legacy_media: bool,
+
 	#[serde(default = "true_fn")]
 	pub freeze_legacy_media: bool,
 

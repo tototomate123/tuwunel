@@ -1130,6 +1130,12 @@
 #
 #allow_legacy_media = false
 
+# Fallback to requesting legacy unauthenticated media from remote servers.
+# Unauthenticated media was removed in ~2024Q3; enabling this adds
+# considerable federation requests which are unlikely to succeed.
+#
+#request_legacy_media = false
+
 # This item is undocumented. Please contribute documentation for it.
 #
 #freeze_legacy_media = true
