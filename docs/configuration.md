@@ -17,6 +17,11 @@ Alternatively, you can use the environment variable `TUWUNEL_CONFIG` to specify
 the config file to used. Conduit's environment variables are supported for 
 backwards compatibility.
 
+> [!IMPORTANT]
+> It is bad practice to uncomment default options without changing them. Many
+> defaults are updated by developers as features evolve and can be essential
+> to expected server function.
+
 ## Option commandline flag
 
 Tuwunel supports setting individual config options in TOML format from the
