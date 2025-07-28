@@ -31,6 +31,10 @@ pub async fn watch(&self, user_id: &UserId, device_id: &DeviceId) -> Result {
 			.watch_raw_prefix(&userid_prefix)
 			.boxed(),
 		self.db
+			.userroomid_knockedstate
+			.watch_raw_prefix(&userid_prefix)
+			.boxed(),
+		self.db
 			.userroomid_notificationcount
 			.watch_raw_prefix(&userid_prefix)
 			.boxed(),
