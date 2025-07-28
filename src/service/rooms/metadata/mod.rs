@@ -1,8 +1,14 @@
 use std::sync::Arc;
 
-use futures::{Stream, StreamExt};
-use ruma::RoomId;
-use tuwunel_core::{Result, implement, utils::stream::TryIgnore};
+use futures::{FutureExt, Stream, StreamExt, pin_mut};
+use ruma::{OwnedRoomId, RoomId, events::room::join_rules::JoinRule};
+use tuwunel_core::{
+	Result, implement,
+	utils::{
+		future::BoolExt,
+		stream::{TryIgnore, WidebandExt},
+	},
+};
 use tuwunel_database::Map;
 
 use crate::{Dep, rooms};
@@ -20,7 +26,9 @@ struct Data {
 }
 
 struct Services {
+	directory: Dep<rooms::directory::Service>,
 	short: Dep<rooms::short::Service>,
+	state_accessor: Dep<rooms::state_accessor::Service>,
 }
 
 impl crate::Service for Service {
@@ -33,7 +41,10 @@ impl crate::Service for Service {
 				pduid_pdu: args.db["pduid_pdu"].clone(),
 			},
 			services: Services {
+				directory: args.depend::<rooms::directory::Service>("rooms::directory"),
 				short: args.depend::<rooms::short::Service>("rooms::short"),
+				state_accessor: args
+					.depend::<rooms::state_accessor::Service>("rooms::state_accessor"),
 			},
 		}))
 	}
@@ -58,8 +69,40 @@ pub async fn exists(&self, room_id: &RoomId) -> bool {
 }
 
 #[implement(Service)]
+pub fn public_ids_prefix<'a>(
+	&'a self,
+	prefix: &'a str,
+) -> impl Stream<Item = OwnedRoomId> + Send + 'a {
+	self.ids_prefix(prefix)
+		.map(ToOwned::to_owned)
+		.wide_filter_map(async |room_id| self.is_public(&room_id).await.then_some(room_id))
+}
+
+#[implement(Service)]
+pub fn ids_prefix<'a>(&'a self, prefix: &'a str) -> impl Stream<Item = &RoomId> + Send + 'a {
+	self.db
+		.roomid_shortroomid
+		.keys_raw_prefix(prefix)
+		.ignore_err()
+}
+
+#[implement(Service)]
 pub fn iter_ids(&self) -> impl Stream<Item = &RoomId> + Send + '_ {
 	self.db.roomid_shortroomid.keys().ignore_err()
+}
+
+#[implement(Service)]
+pub async fn is_public(&self, room_id: &RoomId) -> bool {
+	let listed_public = self.services.directory.is_public_room(room_id);
+
+	let join_rule_public = self
+		.services
+		.state_accessor
+		.get_join_rules(room_id)
+		.map(|rule| matches!(rule, JoinRule::Public));
+
+	pin_mut!(listed_public, join_rule_public);
+	listed_public.or(join_rule_public).await
 }
 
 #[implement(Service)]
