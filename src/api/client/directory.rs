@@ -33,7 +33,7 @@ use tuwunel_core::{
 		TryFutureExtExt,
 		math::Expected,
 		result::FlatOk,
-		stream::{ReadyExt, WidebandExt},
+		stream::{IterStream, ReadyExt, WidebandExt},
 	},
 };
 use tuwunel_service::Services;
@@ -284,32 +284,62 @@ pub(crate) async fn get_public_rooms_filtered_helper(
 		}
 	}
 
+	let search_term = filter
+		.generic_search_term
+		.as_deref()
+		.map(str::to_lowercase);
+
+	let search_room_id = filter
+		.generic_search_term
+		.as_deref()
+		.filter(|_| services.config.allow_public_room_search_by_id)
+		.filter(|s| s.starts_with('!'))
+		.filter(|s| s.len() > 5); // require some characters to limit scope.
+
+	let meta_public_rooms = search_room_id
+		.filter(|_| services.config.allow_unlisted_room_search_by_id)
+		.map(|prefix| services.rooms.metadata.public_ids_prefix(prefix))
+		.into_iter()
+		.stream()
+		.flatten();
+
 	let mut all_rooms: Vec<PublicRoomsChunk> = services
 		.rooms
 		.directory
 		.public_rooms()
 		.map(ToOwned::to_owned)
+		.chain(meta_public_rooms)
 		.wide_then(|room_id| public_rooms_chunk(services, room_id))
 		.ready_filter_map(|chunk| {
-			if !filter.room_types.is_empty() && !filter.room_types.contains(&RoomTypeFilter::from(chunk.room_type.clone())) {
+			if !filter.room_types.is_empty()
+				&& !filter
+					.room_types
+					.contains(&RoomTypeFilter::from(chunk.room_type.clone()))
+			{
 				return None;
 			}
 
-			if let Some(query) = filter.generic_search_term.as_ref().map(|q| q.to_lowercase()) {
+			if let Some(query) = search_room_id {
+				if chunk.room_id.as_str().contains(query) {
+					return Some(chunk);
+				}
+			}
+
+			if let Some(query) = search_term.as_deref() {
 				if let Some(name) = &chunk.name {
-					if name.as_str().to_lowercase().contains(&query) {
+					if name.as_str().to_lowercase().contains(query) {
 						return Some(chunk);
 					}
 				}
 
 				if let Some(topic) = &chunk.topic {
-					if topic.to_lowercase().contains(&query) {
+					if topic.to_lowercase().contains(query) {
 						return Some(chunk);
 					}
 				}
 
 				if let Some(canonical_alias) = &chunk.canonical_alias {
-					if canonical_alias.as_str().to_lowercase().contains(&query) {
+					if canonical_alias.as_str().to_lowercase().contains(query) {
 						return Some(chunk);
 					}
 				}

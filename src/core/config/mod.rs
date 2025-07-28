@@ -598,6 +598,26 @@ pub struct Config {
 	#[serde(default)]
 	pub allow_public_room_directory_without_auth: bool,
 
+	/// Allows room directory searches to match on partial room_id's when the
+	/// search term starts with '!'.
+	///
+	/// default: true
+	#[serde(default = "true_fn")]
+	pub allow_public_room_search_by_id: bool,
+
+	/// Set this to false to limit results of rooms when searching by ID to
+	/// those that would be found by an alias or other query; specifically
+	/// those listed in the public rooms directory. By default this is set to
+	/// true allowing any joinable room to match. This satisfies the Principle
+	/// of Least Expectation when pasting a room_id into a search box with
+	/// intent to join; many rooms simply opt-out of public listings. Therefor
+	/// to prevent this feature from abuse, knowledge of several characters of
+	/// the room_id is required before any results are returned.
+	///
+	/// default: true
+	#[serde(default = "true_fn")]
+	pub allow_unlisted_room_search_by_id: bool,
+
 	/// Allow guests/unauthenticated users to access TURN credentials.
 	///
 	/// This is the equivalent of Synapse's `turn_allow_guests` config option.
