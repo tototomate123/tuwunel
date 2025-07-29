@@ -34,30 +34,32 @@ impl crate::Service for Service {
 		let db = Data::new(&args);
 		let config = &args.server.config;
 
-		let turn_secret =
-			config
-				.turn_secret_file
-				.as_ref()
-				.map_or(config.turn_secret.clone(), |path| {
-					std::fs::read_to_string(path).unwrap_or_else(|e| {
-						error!("Failed to read the TURN secret file: {e}");
-
-						config.turn_secret.clone()
-					})
-				});
-
-		let registration_token = config.registration_token_file.as_ref().map_or(
-			config.registration_token.clone(),
+		let turn_secret = config.turn_secret_file.as_ref().map_or_else(
+			|| config.turn_secret.clone(),
 			|path| {
-				let Ok(token) = std::fs::read_to_string(path).inspect_err(|e| {
-					error!("Failed to read the registration token file: {e}");
-				}) else {
-					return config.registration_token.clone();
-				};
+				std::fs::read_to_string(path).unwrap_or_else(|e| {
+					error!("Failed to read the TURN secret file: {e}");
 
-				Some(token)
+					config.turn_secret.clone()
+				})
 			},
 		);
+
+		let registration_token = config
+			.registration_token_file
+			.as_ref()
+			.map_or_else(
+				|| config.registration_token.clone(),
+				|path| {
+					let Ok(token) = std::fs::read_to_string(path).inspect_err(|e| {
+						error!("Failed to read the registration token file: {e}");
+					}) else {
+						return config.registration_token.clone();
+					};
+
+					Some(token)
+				},
+			);
 
 		Ok(Arc::new(Self {
 			db,
