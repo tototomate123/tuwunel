@@ -3,6 +3,7 @@ mod data;
 use std::{
 	collections::HashMap,
 	fmt::Write,
+	ops::Range,
 	sync::{Arc, RwLock},
 	time::Instant,
 };
@@ -105,21 +106,39 @@ impl crate::Service for Service {
 
 impl Service {
 	#[inline]
-	#[tracing::instrument(level = "trace", skip(self))]
+	#[tracing::instrument(
+		level = "trace",
+		skip_all,
+		ret,
+		fields(pending = ?self.pending_count()),
+	)]
 	pub async fn wait_pending(&self) -> Result<u64> { self.db.wait_pending().await }
 
 	#[inline]
-	#[tracing::instrument(level = "trace", skip(self))]
+	#[tracing::instrument(
+		level = "trace",
+		skip_all,
+		ret,
+		fields(pending = ?self.pending_count()),
+	)]
 	pub async fn wait_count(&self, count: &u64) -> Result<u64> { self.db.wait_count(count).await }
 
 	#[inline]
 	#[must_use]
-	#[tracing::instrument(level = "debug", skip(self))]
+	#[tracing::instrument(
+		level = "debug",
+		skip_all,
+		fields(pending = ?self.pending_count()),
+	)]
 	pub fn next_count(&self) -> data::Permit { self.db.next_count() }
 
 	#[inline]
 	#[must_use]
 	pub fn current_count(&self) -> u64 { self.db.current_count() }
+
+	#[inline]
+	#[must_use]
+	pub fn pending_count(&self) -> Range<u64> { self.db.pending_count() }
 
 	#[inline]
 	#[must_use]

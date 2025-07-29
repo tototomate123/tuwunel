@@ -42,6 +42,7 @@ use tuwunel_core::{
 	},
 	pair_of, ref_at,
 	result::FlatOk,
+	trace,
 	utils::{
 		self, BoolExt, FutureBoolExt, IterStream, ReadyExt, TryFutureExtExt,
 		future::{OptionStream, ReadyEqExt},
@@ -115,6 +116,7 @@ type PresenceUpdates = HashMap<OwnedUserId, PresenceEventContent>;
 	skip_all,
 	fields(
 		user_id = %body.sender_user(),
+		since = body.body.since.as_deref().unwrap_or("0"),
     )
 )]
 pub(crate) async fn sync_events_route(
@@ -166,7 +168,12 @@ pub(crate) async fn sync_events_route(
 		.clamp(Duration::from_millis(timeout_min), Duration::from_millis(timeout_max));
 
 	// Wait for activity notification.
-	_ = tokio::time::timeout(duration, watcher).await;
+	let timeout = tokio::time::timeout(duration, watcher).await;
+	trace!(
+		count = ?services.globals.pending_count(),
+		timedout = timeout.is_err(),
+		"waited for watchers"
+	);
 
 	// Wait for synchronization of activity.
 	let next_batch = services.globals.wait_pending().await?;
@@ -174,6 +181,7 @@ pub(crate) async fn sync_events_route(
 
 	// Return an empty response when nothing has changed.
 	if since == next_batch {
+		trace!(next_batch, "empty response");
 		return Ok(sync_events::v3::Response::new(next_batch.to_string()));
 	}
 
@@ -190,6 +198,7 @@ pub(crate) async fn sync_events_route(
 	fields(
 		%since,
 		%next_batch,
+		count = ?services.globals.pending_count(),
     )
 )]
 async fn build_sync_events(

@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{ops::Range, sync::Arc};
 
 use tokio::sync::{watch, watch::Sender};
 use tuwunel_core::{
@@ -53,7 +53,7 @@ impl Data {
 			.wait_for(|retired| retired.ge(count))
 			.await
 			.map(|retired| *retired)
-			.map_err(|e| err!("counter channel error {e:?}"))
+			.map_err(|e| err!(debug_error!("counter channel error {e:?}")))
 	}
 
 	#[inline]
@@ -65,6 +65,9 @@ impl Data {
 
 	#[inline]
 	pub fn current_count(&self) -> u64 { self.counter.current() }
+
+	#[inline]
+	pub fn pending_count(&self) -> Range<u64> { self.counter.range() }
 
 	fn handle_retire(sender: &Sender<u64>, count: u64) -> Result {
 		let _prev = sender.send_replace(count);

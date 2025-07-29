@@ -48,6 +48,7 @@ use crate::rooms::timeline::RawPduId;
 	level = INFO_SPAN_LEVEL,
 	skip_all,
 	fields(%room_id, %event_id),
+	ret(Debug),
 )]
 pub async fn handle_incoming_pdu<'a>(
 	&self,

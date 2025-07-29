@@ -93,6 +93,15 @@ impl crate::Service for Service {
 
 impl Service {
 	/// Set the room to the given statehash and update caches.
+	#[tracing::instrument(
+		name = "force",
+		level = "debug",
+		skip_all,
+		fields(
+			count = ?self.services.globals.pending_count(),
+			%shortstatehash,
+		)
+	)]
 	pub async fn force_state(
 		&self,
 		room_id: &RoomId,
@@ -172,7 +181,14 @@ impl Service {
 	///
 	/// This adds all current state events (not including the incoming event)
 	/// to `stateid_pduid` and adds the incoming event to `eventid_statehash`.
-	#[tracing::instrument(skip(self, state_ids_compressed), level = "debug")]
+	#[tracing::instrument(
+		name = "set",
+		level = "debug",
+		skip(self, state_ids_compressed),
+		fields(
+			count = ?self.services.globals.pending_count(),
+		)
+	)]
 	pub async fn set_event_state(
 		&self,
 		event_id: &EventId,
@@ -248,7 +264,14 @@ impl Service {
 	///
 	/// This adds all current state events (not including the incoming event)
 	/// to `stateid_pduid` and adds the incoming event to `eventid_statehash`.
-	#[tracing::instrument(skip(self, new_pdu), level = "debug")]
+	#[tracing::instrument(
+		name = "set",
+		level = "debug",
+		skip(self, new_pdu),
+		fields(
+			count = ?self.services.globals.pending_count(),
+		)
+	)]
 	pub async fn append_to_state(&self, new_pdu: &PduEvent) -> Result<u64> {
 		const BUFSIZE: usize = size_of::<u64>();
 
@@ -332,7 +355,7 @@ impl Service {
 		}
 	}
 
-	#[tracing::instrument(skip_all, level = "debug")]
+	#[tracing::instrument(skip_all, level = "trace")]
 	pub async fn summary_stripped<Pdu>(&self, event: &Pdu) -> Vec<Raw<AnyStrippedStateEvent>>
 	where
 		Pdu: Event,
@@ -380,7 +403,11 @@ impl Service {
 	}
 
 	/// Returns the room's version.
-	#[tracing::instrument(skip(self), level = "debug")]
+	#[tracing::instrument(
+		level = "trace"
+		skip(self),
+		ret,
+	)]
 	pub async fn get_room_version(&self, room_id: &RoomId) -> Result<RoomVersionId> {
 		self.services
 			.state_accessor
@@ -390,6 +417,11 @@ impl Service {
 			.map_err(|e| err!(Request(NotFound("No create event found: {e:?}"))))
 	}
 
+	#[tracing::instrument(
+		level = "trace"
+		skip(self),
+		ret,
+	)]
 	pub async fn get_room_shortstatehash(&self, room_id: &RoomId) -> Result<ShortStateHash> {
 		self.db
 			.roomid_shortstatehash
@@ -411,6 +443,11 @@ impl Service {
 			.ignore_err()
 	}
 
+	#[tracing::instrument(
+		level = "debug"
+		skip_all,
+		fields(%room_id),
+	)]
 	pub async fn set_forward_extremities<'a, I>(
 		&'a self,
 		room_id: &'a RoomId,
@@ -434,7 +471,7 @@ impl Service {
 	}
 
 	/// This fetches auth events from the current state.
-	#[tracing::instrument(skip(self, content), level = "debug")]
+	#[tracing::instrument(skip(self, content), level = "trace")]
 	pub async fn get_auth_events(
 		&self,
 		room_id: &RoomId,

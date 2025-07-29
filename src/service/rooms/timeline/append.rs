@@ -33,7 +33,12 @@ use crate::{appservice::NamespaceRegex, rooms::state_compressor::CompressedState
 /// Append the incoming event setting the state snapshot to the state from
 /// the server that sent the event.
 #[implement(super::Service)]
-#[tracing::instrument(level = "debug", skip_all)]
+#[tracing::instrument(
+	name = "append_incoming",
+	level = "debug",
+	skip_all,
+	ret(Debug)
+)]
 pub async fn append_incoming_pdu<'a, Leafs>(
 	&'a self,
 	pdu: &'a PduEvent,
@@ -81,7 +86,7 @@ where
 ///
 /// Returns pdu id
 #[implement(super::Service)]
-#[tracing::instrument(level = "debug", skip_all)]
+#[tracing::instrument(name = "append", level = "debug", skip_all, ret(Debug))]
 pub async fn append_pdu<'a, Leafs>(
 	&'a self,
 	pdu: &'a PduEvent,

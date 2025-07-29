@@ -23,7 +23,7 @@ use super::RoomMutexGuard;
 /// takes a roomid_mutex_state, meaning that only this function is able to
 /// mutate the room state.
 #[implement(super::Service)]
-#[tracing::instrument(skip(self, state_lock), level = "debug")]
+#[tracing::instrument(skip(self, state_lock), level = "debug", ret)]
 pub async fn build_and_append_pdu(
 	&self,
 	pdu_builder: PduBuilder,

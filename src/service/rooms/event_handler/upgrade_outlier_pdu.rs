@@ -17,6 +17,7 @@ use crate::rooms::{
 };
 
 #[implement(super::Service)]
+#[tracing::instrument(name = "upgrade", level = "debug", skip_all, ret(Debug))]
 pub(super) async fn upgrade_outlier_to_timeline_pdu<Pdu>(
 	&self,
 	incoming_pdu: PduEvent,

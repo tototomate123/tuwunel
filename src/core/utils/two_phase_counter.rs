@@ -2,8 +2,7 @@
 
 use std::{
 	collections::VecDeque,
-	fmt::Debug,
-	ops::Deref,
+	ops::{Deref, Range},
 	sync::{Arc, RwLock},
 };
 
@@ -23,14 +22,12 @@ use crate::{Result, checked, is_equal_to};
 /// value, but that value has no Pdu found because its write has not been
 /// completed with global visibility. Client-sync will then move on to the next
 /// counter value having missed the data from the current one.
-#[derive(Debug)]
 pub struct Counter<F: Fn(u64) -> Result + Sync> {
 	/// Self is intended to be Arc<Counter> with inner state mutable via Lock.
 	inner: RwLock<State<F>>,
 }
 
 /// Inner protected state for Two-Phase Counter.
-#[derive(Debug)]
 pub struct State<F: Fn(u64) -> Result + Sync> {
 	/// Monotonic counter. The next sequence number is drawn by adding one to
 	/// this value. That number will be persisted and added to `pending`.
@@ -50,7 +47,6 @@ pub struct State<F: Fn(u64) -> Result + Sync> {
 	release: F,
 }
 
-#[derive(Debug)]
 pub struct Permit<F: Fn(u64) -> Result + Sync> {
 	/// Link back to the shared-state.
 	state: Arc<Counter<F>>,
@@ -78,6 +74,17 @@ impl<F: Fn(u64) -> Result + Sync> Counter<F> {
 		let (retired, id) = self.inner.write()?.dispatch()?;
 
 		Ok(Permit::<F> { state: self.clone(), retired, id })
+	}
+
+	/// Load the current and dispatched values simultaneously
+	#[inline]
+	pub fn range(&self) -> Range<u64> {
+		let inner = self.inner.read().expect("locked for reading");
+
+		Range {
+			start: inner.retired(),
+			end: inner.dispatched,
+		}
 	}
 
 	/// Load the highest sequence number safe for reading, also known as the
