@@ -190,16 +190,23 @@ where
 		.await
 		.unwrap_or_default();
 
+	// Don't notify the sender of their own events, and dont send from ignored users
 	let mut push_target: HashSet<_> = self
-			.services
-			.state_cache
-			.active_local_users_in_room(pdu.room_id())
-			.map(ToOwned::to_owned)
-			// Don't notify the sender of their own events, and dont send from ignored users
-			.ready_filter(|user| *user != pdu.sender())
-			.filter_map(async |recipient_user| self.services.users.user_is_ignored(pdu.sender(), &recipient_user).await.eq(&false).then_some(recipient_user))
-			.collect()
-			.await;
+		.services
+		.state_cache
+		.active_local_users_in_room(pdu.room_id())
+		.map(ToOwned::to_owned)
+		.ready_filter(|user| *user != pdu.sender())
+		.filter_map(async |recipient_user| {
+			self.services
+				.users
+				.user_is_ignored(pdu.sender(), &recipient_user)
+				.await
+				.eq(&false)
+				.then_some(recipient_user)
+		})
+		.collect()
+		.await;
 
 	let mut notifies = Vec::with_capacity(push_target.len().saturating_add(1));
 	let mut highlights = Vec::with_capacity(push_target.len().saturating_add(1));
