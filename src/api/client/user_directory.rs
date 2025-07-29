@@ -6,7 +6,10 @@ use ruma::{
 };
 use tuwunel_core::{
 	Result,
-	utils::{future::BoolExt, stream::BroadbandExt},
+	utils::{
+		future::BoolExt,
+		stream::{BroadbandExt, ReadyExt},
+	},
 };
 
 use crate::Ruma;
@@ -34,6 +37,7 @@ pub(crate) async fn search_users_route(
 	let mut users = services
 		.users
 		.stream()
+		.ready_filter(|&user_id| user_id != sender_user)
 		.map(ToOwned::to_owned)
 		.broad_filter_map(async |user_id| {
 			let display_name = services.users.displayname(&user_id).await.ok();
