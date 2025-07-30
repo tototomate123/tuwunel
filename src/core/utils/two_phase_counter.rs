@@ -123,16 +123,16 @@ impl<F: Fn(u64) -> Result + Sync> State<F> {
 	/// Dispatch the next sequence number as pending. The retired value is
 	/// calculated as a courtesy while the state is under lock.
 	fn dispatch(&mut self) -> Result<(u64, u64)> {
-		let retired = self.retired();
 		let prev = self.dispatched;
-
-		self.dispatched = checked!(prev + 1)?;
-		(self.commit)(self.dispatched)?;
+		let retired = self.retired();
+		let dispatched = checked!(prev + 1)?;
 		debug_assert!(
-			!self.check_pending(self.dispatched),
+			!self.check_pending(dispatched),
 			"sequence number cannot already be pending",
 		);
 
+		(self.commit)(dispatched)?;
+		self.dispatched = dispatched;
 		self.pending.push_back(self.dispatched);
 		Ok((retired, self.dispatched))
 	}

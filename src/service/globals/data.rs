@@ -1,6 +1,7 @@
 use std::{ops::Range, sync::Arc};
 
-use tokio::sync::{watch, watch::Sender};
+use futures::TryFutureExt;
+use tokio::sync::watch::Sender;
 use tuwunel_core::{
 	Result, err, utils,
 	utils::two_phase_counter::{Counter as TwoPhaseCounter, Permit as TwoPhasePermit},
@@ -24,7 +25,7 @@ impl Data {
 	pub(super) fn new(args: &crate::Args<'_>) -> Self {
 		let db = args.db.clone();
 		let count = Self::stored_count(&args.db["global"]).expect("initialize global counter");
-		let retires = watch::channel(count).0;
+		let retires = Sender::new(count);
 		Self {
 			db: args.db.clone(),
 			global: args.db["global"].clone(),
@@ -51,9 +52,9 @@ impl Data {
 		self.retires
 			.subscribe()
 			.wait_for(|retired| retired.ge(count))
-			.await
-			.map(|retired| *retired)
+			.map_ok(|retired| *retired)
 			.map_err(|e| err!(debug_error!("counter channel error {e:?}")))
+			.await
 	}
 
 	#[inline]
