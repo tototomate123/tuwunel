@@ -1,5 +1,5 @@
 use futures::{FutureExt, StreamExt, pin_mut, stream::FuturesUnordered};
-use ruma::{DeviceId, UserId};
+use ruma::{DeviceId, RoomId, UserId};
 use tuwunel_core::{Result, implement, trace};
 use tuwunel_database::{Interfix, Separator, serialize_key};
 
@@ -8,6 +8,7 @@ use tuwunel_database::{Interfix, Separator, serialize_key};
 pub async fn watch(&self, user_id: &UserId, device_id: &DeviceId) -> Result {
 	let userdeviceid_prefix = (user_id, device_id, Interfix);
 	let globaluserdata_prefix = (Separator, user_id, Interfix);
+	let roomuserdataid_prefix = (Option::<&RoomId>::None, user_id, Interfix);
 	let userid_prefix =
 		serialize_key((user_id, Interfix)).expect("failed to serialize watch prefix");
 
@@ -55,6 +56,11 @@ pub async fn watch(&self, user_id: &UserId, device_id: &DeviceId) -> Result {
 		self.db
 			.userid_lastonetimekeyupdate
 			.watch_raw_prefix(&user_id)
+			.boxed(),
+		// User account data
+		self.db
+			.roomuserdataid_accountdata
+			.watch_prefix(&roomuserdataid_prefix)
 			.boxed(),
 	];
 
