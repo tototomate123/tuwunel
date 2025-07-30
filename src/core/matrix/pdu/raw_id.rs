@@ -1,8 +1,10 @@
+use std::fmt;
+
 use arrayvec::ArrayVec;
 
 use super::{Count, Id, ShortEventId, ShortId, ShortRoomId};
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Eq, Hash, PartialEq)]
 pub enum RawId {
 	Normal(RawIdNormal),
 	Backfilled(RawIdBackfilled),
@@ -58,6 +60,13 @@ impl RawId {
 			| Self::Normal(raw) => raw,
 			| Self::Backfilled(raw) => raw,
 		}
+	}
+}
+
+impl fmt::Debug for RawId {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		let id: Id = (*self).into();
+		write!(f, "{id:?}")
 	}
 }
 
