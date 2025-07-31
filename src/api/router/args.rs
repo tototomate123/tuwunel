@@ -1,4 +1,4 @@
-use std::{mem, ops::Deref};
+use std::{fmt::Debug, mem, ops::Deref};
 
 use axum::{body::Body, extract::FromRequest};
 use bytes::{BufMut, Bytes, BytesMut};
@@ -13,6 +13,7 @@ use super::{auth, auth::Auth, request, request::Request};
 use crate::State;
 
 /// Extractor for Ruma request structs
+#[derive(Debug)]
 pub(crate) struct Args<T> {
 	/// Request struct body
 	pub(crate) body: T,
@@ -38,10 +39,7 @@ pub(crate) struct Args<T> {
 	pub(crate) json_body: Option<CanonicalJsonValue>,
 }
 
-impl<T> Args<T>
-where
-	T: IncomingRequest + Send + Sync + 'static,
-{
+impl<T> Args<T> {
 	#[inline]
 	pub(crate) fn sender(&self) -> (&UserId, &DeviceId) {
 		(self.sender_user(), self.sender_device())
@@ -71,7 +69,7 @@ where
 
 impl<T> Deref for Args<T>
 where
-	T: IncomingRequest + Send + Sync + 'static,
+	T: Sync,
 {
 	type Target = T;
 
@@ -80,10 +78,11 @@ where
 
 impl<T> FromRequest<State, Body> for Args<T>
 where
-	T: IncomingRequest + Send + Sync + 'static,
+	T: IncomingRequest + Debug + Send + Sync + 'static,
 {
 	type Rejection = Error;
 
+	#[tracing::instrument(name = "ar", level = "debug", skip(services), ret, err)]
 	async fn from_request(
 		request: hyper::Request<Body>,
 		services: &State,

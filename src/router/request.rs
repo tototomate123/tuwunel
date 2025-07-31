@@ -19,6 +19,7 @@ use tuwunel_service::Services;
 	name = "request",
 	level = "debug",
 	skip_all,
+	err(Debug)
 	fields(
 		id = %services
 			.server

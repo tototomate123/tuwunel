@@ -1,3 +1,5 @@
+use std::{fmt::Debug, time::SystemTime};
+
 use axum::RequestPartsExt;
 use axum_extra::{
 	TypedHeader,
@@ -43,7 +45,7 @@ enum Token {
 	None,
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub(super) struct Auth {
 	pub(super) origin: Option<OwnedServerName>,
 	pub(super) sender_user: Option<OwnedUserId>,
@@ -51,6 +53,12 @@ pub(super) struct Auth {
 	pub(super) appservice_info: Option<RegistrationInfo>,
 }
 
+#[tracing::instrument(
+	level = "trace",
+	skip(services, request, json_body),
+	ret,
+	err
+)]
 pub(super) async fn auth(
 	services: &Services,
 	request: &mut Request,
