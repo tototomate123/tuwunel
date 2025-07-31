@@ -86,6 +86,7 @@ pub(super) async fn password_login(
 				.password_hash(lowercased_user_id)
 				.map_ok(|hash| (hash, lowercased_user_id))
 		})
+		.map_err(|_| err!(Request(Forbidden("Wrong username or password."))))
 		.await?;
 
 	if hash.is_empty() {
