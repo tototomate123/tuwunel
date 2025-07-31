@@ -3,6 +3,7 @@ mod jwt;
 mod ldap;
 mod logout;
 mod password;
+mod refresh;
 mod token;
 
 use axum::extract::State;
@@ -21,10 +22,12 @@ use ruma::api::client::session::{
 	},
 };
 use tuwunel_core::{Err, Result, info, utils, utils::stream::ReadyExt};
+use tuwunel_service::users::device::generate_refresh_token;
 
 use self::{ldap::ldap_login, password::password_login};
 pub(crate) use self::{
 	logout::{logout_all_route, logout_route},
+	refresh::refresh_token_route,
 	token::login_token_route,
 };
 use super::{DEVICE_ID_LENGTH, TOKEN_LENGTH};
@@ -87,7 +90,12 @@ pub(crate) async fn login_route(
 	};
 
 	// Generate a new token for the device
-	let access_token = utils::random_string(TOKEN_LENGTH);
+	let (access_token, expires_in) = services
+		.users
+		.generate_access_token(body.body.refresh_token);
+
+	// Generate a new refresh_token if requested by client
+	let refresh_token = expires_in.is_some().then(generate_refresh_token);
 
 	// Generate new device id if the user didn't specify one
 	let device_id = body
@@ -108,7 +116,8 @@ pub(crate) async fn login_route(
 			.create_device(
 				&user_id,
 				&device_id,
-				&access_token,
+				(&access_token, expires_in),
+				refresh_token.as_deref(),
 				body.initial_device_display_name.clone(),
 				Some(client.to_string()),
 			)
@@ -116,7 +125,13 @@ pub(crate) async fn login_route(
 	} else {
 		services
 			.users
-			.set_access_token(&user_id, &device_id, &access_token)
+			.set_access_token(
+				&user_id,
+				&device_id,
+				&access_token,
+				expires_in,
+				refresh_token.as_deref(),
+			)
 			.await?;
 	}
 
@@ -141,7 +156,7 @@ pub(crate) async fn login_route(
 		device_id,
 		home_server,
 		well_known,
-		expires_in: None,
-		refresh_token: None,
+		expires_in,
+		refresh_token,
 	})
 }

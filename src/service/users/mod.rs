@@ -1,4 +1,4 @@
-mod device;
+pub mod device;
 mod keys;
 mod ldap;
 mod profile;
@@ -44,6 +44,7 @@ struct Data {
 	token_userdeviceid: Arc<Map>,
 	userdeviceid_metadata: Arc<Map>,
 	userdeviceid_token: Arc<Map>,
+	userdeviceid_refresh: Arc<Map>,
 	userfilterid_filter: Arc<Map>,
 	userid_avatarurl: Arc<Map>,
 	userid_blurhash: Arc<Map>,
@@ -80,6 +81,7 @@ impl crate::Service for Service {
 				token_userdeviceid: args.db["token_userdeviceid"].clone(),
 				userdeviceid_metadata: args.db["userdeviceid_metadata"].clone(),
 				userdeviceid_token: args.db["userdeviceid_token"].clone(),
+				userdeviceid_refresh: args.db["userdeviceid_refresh"].clone(),
 				userfilterid_filter: args.db["userfilterid_filter"].clone(),
 				userid_avatarurl: args.db["userid_avatarurl"].clone(),
 				userid_blurhash: args.db["userid_blurhash"].clone(),

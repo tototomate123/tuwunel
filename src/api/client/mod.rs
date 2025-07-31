@@ -89,7 +89,7 @@ pub(super) use well_known::*;
 const DEVICE_ID_LENGTH: usize = 10;
 
 /// generated user access token length
-const TOKEN_LENGTH: usize = 32;
+const TOKEN_LENGTH: usize = tuwunel_service::users::device::TOKEN_LENGTH;
 
 /// generated user session ID length
 const SESSION_ID_LENGTH: usize = tuwunel_service::uiaa::SESSION_ID_LENGTH;

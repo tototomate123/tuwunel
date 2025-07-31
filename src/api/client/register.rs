@@ -17,8 +17,9 @@ use ruma::{
 	push,
 };
 use tuwunel_core::{Err, Error, Result, debug_info, error, info, is_equal_to, utils, warn};
+use tuwunel_service::users::device::generate_refresh_token;
 
-use super::{DEVICE_ID_LENGTH, SESSION_ID_LENGTH, TOKEN_LENGTH, join_room_by_id_helper};
+use super::{DEVICE_ID_LENGTH, SESSION_ID_LENGTH, join_room_by_id_helper};
 use crate::Ruma;
 
 const RANDOM_USER_ID_LENGTH: usize = 10;
@@ -432,7 +433,12 @@ pub(crate) async fn register_route(
 		.unwrap_or_else(|| utils::random_string(DEVICE_ID_LENGTH).into());
 
 	// Generate new token for the device
-	let token = utils::random_string(TOKEN_LENGTH);
+	let (access_token, expires_in) = services
+		.users
+		.generate_access_token(body.body.refresh_token);
+
+	// Generate a new refresh_token if requested by client
+	let refresh_token = expires_in.is_some().then(generate_refresh_token);
 
 	// Create device for this account
 	services
@@ -440,7 +446,8 @@ pub(crate) async fn register_route(
 		.create_device(
 			&user_id,
 			&device_id,
-			&token,
+			(&access_token, expires_in),
+			refresh_token.as_deref(),
 			body.initial_device_display_name.clone(),
 			Some(client.to_string()),
 		)
@@ -574,11 +581,11 @@ pub(crate) async fn register_route(
 	}
 
 	Ok(register::v3::Response {
-		access_token: Some(token),
 		user_id,
 		device_id: Some(device_id),
-		refresh_token: None,
-		expires_in: None,
+		access_token: Some(access_token),
+		refresh_token,
+		expires_in,
 	})
 }
 

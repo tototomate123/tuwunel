@@ -29,7 +29,9 @@ use ruma::{
 		federation::{authentication::XMatrix, openid::get_openid_userinfo},
 	},
 };
-use tuwunel_core::{Err, Error, Result, debug_error, err, warn};
+use tuwunel_core::{
+	Err, Error, Result, debug_error, err, is_less_than, utils::result::LogDebugErr, warn,
+};
 use tuwunel_service::{
 	Services,
 	appservice::RegistrationInfo,
@@ -40,7 +42,8 @@ use super::request::Request;
 
 enum Token {
 	Appservice(Box<RegistrationInfo>),
-	User((OwnedUserId, OwnedDeviceId)),
+	User((OwnedUserId, OwnedDeviceId, Option<SystemTime>)),
+	Expired((OwnedUserId, OwnedDeviceId)),
 	Invalid,
 	None,
 }
@@ -51,6 +54,7 @@ pub(super) struct Auth {
 	pub(super) sender_user: Option<OwnedUserId>,
 	pub(super) sender_device: Option<OwnedDeviceId>,
 	pub(super) appservice_info: Option<RegistrationInfo>,
+	pub(super) _expires_at: Option<SystemTime>,
 }
 
 #[tracing::instrument(
@@ -65,6 +69,11 @@ pub(super) async fn auth(
 	json_body: Option<&CanonicalJsonValue>,
 	metadata: &Metadata,
 ) -> Result<Auth> {
+	use AuthScheme::{AccessToken, AccessTokenOptional, AppserviceToken, ServerSignatures};
+	use Error::BadRequest;
+	use ErrorKind::UnknownToken;
+	use Token::{Appservice, Expired, Invalid, User};
+
 	let bearer: Option<TypedHeader<Authorization<Bearer>>> =
 		request.parts.extract().await.unwrap_or(None);
 
@@ -73,70 +82,76 @@ pub(super) async fn auth(
 		| None => request.query.access_token.as_deref(),
 	};
 
-	let token = find_token(services, token).await?;
+	let token = match find_token(services, token).await? {
+		| User((user_id, device_id, expires_at))
+			if expires_at.is_some_and(is_less_than!(SystemTime::now())) =>
+			Expired((user_id, device_id)),
+
+		| token => token,
+	};
 
 	if metadata.authentication == AuthScheme::None {
 		check_auth_still_required(services, metadata, &token)?;
 	}
 
 	match (metadata.authentication, token) {
-		| (AuthScheme::AccessToken, Token::Appservice(info)) =>
-			Ok(auth_appservice(services, request, info).await?),
-		| (
-			AuthScheme::None | AuthScheme::AccessTokenOptional | AuthScheme::AppserviceToken,
-			Token::Appservice(info),
-		) => Ok(Auth {
-			appservice_info: Some(*info),
+		| (AccessToken, Appservice(info)) => Ok(auth_appservice(services, request, info).await?),
+
+		| (AccessToken | AccessTokenOptional | AuthScheme::None, User(user)) => Ok(Auth {
+			sender_user: Some(user.0),
+			sender_device: Some(user.1),
+			_expires_at: user.2,
 			..Auth::default()
 		}),
-		| (AuthScheme::AccessToken, Token::None) => match metadata {
-			| &get_turn_server_info::v3::Request::METADATA => {
-				if services.server.config.turn_allow_guests {
-					Ok(Auth::default())
-				} else {
-					Err!(Request(MissingToken("Missing access token.")))
-				}
-			},
+
+		| (AccessToken, Token::None) => match metadata {
+			| &get_turn_server_info::v3::Request::METADATA
+				if services.server.config.turn_allow_guests =>
+				Ok(Auth::default()),
+
 			| _ => Err!(Request(MissingToken("Missing access token."))),
 		},
-		| (
-			AuthScheme::AccessToken | AuthScheme::AccessTokenOptional | AuthScheme::None,
-			Token::User((user_id, device_id)),
-		) => Ok(Auth {
-			sender_user: Some(user_id),
-			sender_device: Some(device_id),
-			..Auth::default()
-		}),
-		| (AuthScheme::ServerSignatures, Token::None) =>
-			Ok(auth_server(services, request, json_body).await?),
-		| (
-			AuthScheme::None | AuthScheme::AppserviceToken | AuthScheme::AccessTokenOptional,
-			Token::None,
-		) => Ok(Auth::default()),
-		| (AuthScheme::ServerSignatures, Token::Appservice(_) | Token::User(_)) =>
-			Err!(Request(Unauthorized("Only server signatures should be used on this endpoint."))),
-		| (AuthScheme::AppserviceToken, Token::User(_)) => Err!(Request(Unauthorized(
-			"Only appservice access tokens should be used on this endpoint."
-		))),
-		| (AuthScheme::None, Token::Invalid) => {
+
+		| (AppserviceToken, User(_)) =>
+			Err!(Request(Unauthorized("Appservice tokens must be used on this endpoint."))),
+
+		| (ServerSignatures, Appservice(_) | User(_)) =>
+			Err!(Request(Unauthorized("Server signatures must be used on this endpoint."))),
+
+		| (ServerSignatures, Token::None) => Ok(auth_server(services, request, json_body).await?),
+
+		| (AuthScheme::None | AccessTokenOptional | AppserviceToken, Appservice(info)) =>
+			Ok(Auth {
+				appservice_info: Some(*info),
+				..Auth::default()
+			}),
+
+		| (AuthScheme::None | AccessTokenOptional | AppserviceToken, Token::None) =>
+			Ok(Auth::default()),
+
+		| (AuthScheme::None, Invalid)
+			if request.query.access_token.is_some()
+				&& metadata == &get_openid_userinfo::v1::Request::METADATA =>
+		{
 			// OpenID federation endpoint uses a query param with the same name, drop this
 			// once query params for user auth are removed from the spec. This is
 			// required to make integration manager work.
-			if request.query.access_token.is_some()
-				&& metadata == &get_openid_userinfo::v1::Request::METADATA
-			{
-				Ok(Auth::default())
-			} else {
-				Err(Error::BadRequest(
-					ErrorKind::UnknownToken { soft_logout: false },
-					"Unknown access token.",
-				))
-			}
+			Ok(Auth::default())
 		},
-		| (_, Token::Invalid) => Err(Error::BadRequest(
-			ErrorKind::UnknownToken { soft_logout: false },
-			"Unknown access token.",
-		)),
+
+		| (_, Expired((user_id, device_id))) => {
+			services
+				.users
+				.remove_access_token(&user_id, &device_id)
+				.await
+				.log_debug_err()
+				.ok();
+
+			Err(BadRequest(UnknownToken { soft_logout: true }, "Expired access token."))
+		},
+
+		| (_, Invalid) =>
+			Err(BadRequest(UnknownToken { soft_logout: false }, "Unknown access token.")),
 	}
 }
 
@@ -159,7 +174,7 @@ fn check_auth_still_required(services: &Services, metadata: &Metadata, token: &T
 				.require_auth_for_profile_requests =>
 			match token {
 				| Token::Appservice(_) | Token::User(_) => Ok(()),
-				| Token::None | Token::Invalid =>
+				| Token::None | Token::Expired(_) | Token::Invalid =>
 					Err!(Request(MissingToken("Missing or invalid access token."))),
 			},
 		| &get_public_rooms::v3::Request::METADATA
@@ -169,7 +184,7 @@ fn check_auth_still_required(services: &Services, metadata: &Metadata, token: &T
 				.allow_public_room_directory_without_auth =>
 			match token {
 				| Token::Appservice(_) | Token::User(_) => Ok(()),
-				| Token::None | Token::Invalid =>
+				| Token::None | Token::Expired(_) | Token::Invalid =>
 					Err!(Request(MissingToken("Missing or invalid access token."))),
 			},
 		| _ => Ok(()),
@@ -183,7 +198,7 @@ async fn find_token(services: &Services, token: Option<&str>) -> Result<Token> {
 
 	let user_token = services
 		.users
-		.find_from_access_token(token)
+		.find_from_token(token)
 		.map_ok(Token::User);
 
 	let appservice_token = services
@@ -226,10 +241,9 @@ async fn auth_appservice(
 	}
 
 	Ok(Auth {
-		origin: None,
 		sender_user: Some(user_id),
-		sender_device: None,
 		appservice_info: Some(*info),
+		..Auth::default()
 	})
 }
 
@@ -304,9 +318,7 @@ async fn auth_server(
 
 	Ok(Auth {
 		origin: origin.to_owned().into(),
-		sender_user: None,
-		sender_device: None,
-		appservice_info: None,
+		..Auth::default()
 	})
 }
 

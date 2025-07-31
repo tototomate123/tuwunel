@@ -703,6 +703,14 @@
 #
 #login_token_ttl = 120000
 
+# Access token TTL in seconds.
+#
+# For clients that support refresh-tokens, the access-token provided on
+# login will be invalidated after this amount of time and the client will
+# be soft-logged-out until refreshing it.
+#
+#access_token_ttl = 604800
+
 # Static TURN username to provide the client if not using a shared secret
 # ("turn_secret"), It is recommended to use a shared secret over static
 # credentials.

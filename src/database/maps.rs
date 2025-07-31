@@ -347,6 +347,10 @@ pub(super) static MAPS: &[Descriptor] = &[
 		..descriptor::RANDOM_SMALL
 	},
 	Descriptor {
+		name: "userdeviceid_refresh",
+		..descriptor::RANDOM_SMALL
+	},
+	Descriptor {
 		name: "userdeviceid_token",
 		..descriptor::RANDOM_SMALL
 	},

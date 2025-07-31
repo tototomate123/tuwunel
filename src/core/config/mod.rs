@@ -860,6 +860,16 @@ pub struct Config {
 	#[serde(default = "default_login_token_ttl")]
 	pub login_token_ttl: u64,
 
+	/// Access token TTL in seconds.
+	///
+	/// For clients that support refresh-tokens, the access-token provided on
+	/// login will be invalidated after this amount of time and the client will
+	/// be soft-logged-out until refreshing it.
+	///
+	/// default: 604800
+	#[serde(default = "default_access_token_ttl")]
+	pub access_token_ttl: u64,
+
 	/// Static TURN username to provide the client if not using a shared secret
 	/// ("turn_secret"), It is recommended to use a shared secret over static
 	/// credentials.
@@ -2675,3 +2685,5 @@ fn default_client_sync_timeout_min() -> u64 { 5000 }
 fn default_client_sync_timeout_default() -> u64 { 30000 }
 
 fn default_client_sync_timeout_max() -> u64 { 90000 }
+
+fn default_access_token_ttl() -> u64 { 604_800 }

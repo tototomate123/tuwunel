@@ -35,6 +35,7 @@ pub fn build(router: Router<State>, server: &Server) -> Router<State> {
 		.ruma_route(&client::get_login_types_route)
 		.ruma_route(&client::login_route)
 		.ruma_route(&client::login_token_route)
+		.ruma_route(&client::refresh_token_route)
 		.ruma_route(&client::whoami_route)
 		.ruma_route(&client::logout_route)
 		.ruma_route(&client::logout_all_route)
