@@ -101,6 +101,10 @@ pub(super) static MAPS: &[Descriptor] = &[
 		..descriptor::RANDOM_SMALL
 	},
 	Descriptor {
+		name: "logintoken_expiresatuserid",
+		..descriptor::RANDOM_SMALL
+	},
+	Descriptor {
 		name: "mediaid_file",
 		..descriptor::RANDOM_SMALL
 	},
@@ -110,6 +114,10 @@ pub(super) static MAPS: &[Descriptor] = &[
 	},
 	Descriptor {
 		name: "onetimekeyid_onetimekeys",
+		..descriptor::RANDOM_SMALL
+	},
+	Descriptor {
+		name: "openidtoken_expiresatuserid",
 		..descriptor::RANDOM_SMALL
 	},
 	Descriptor {
@@ -400,14 +408,6 @@ pub(super) static MAPS: &[Descriptor] = &[
 	},
 	Descriptor {
 		name: "useridprofilekey_value",
-		..descriptor::RANDOM_SMALL
-	},
-	Descriptor {
-		name: "openidtoken_expiresatuserid",
-		..descriptor::RANDOM_SMALL
-	},
-	Descriptor {
-		name: "logintoken_expiresatuserid",
 		..descriptor::RANDOM_SMALL
 	},
 	Descriptor {
