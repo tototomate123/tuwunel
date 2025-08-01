@@ -241,6 +241,39 @@ fn de_tuple_incomplete() {
 }
 
 #[test]
+fn de_tuple_incomplete_default() {
+	let user_id: &UserId = "@user:example.com".try_into().unwrap();
+
+	let raw: &[u8] = b"@user:example.com";
+	let (a, b): (&UserId, &str) = de::from_slice(raw).expect("failed to deserialize");
+
+	assert_eq!(a, user_id, "deserialized user_id does not match");
+	assert_eq!(b, "", "deserialized defaulted str does not match");
+}
+
+#[test]
+#[should_panic(expected = "failed to deserialize")]
+fn de_tuple_incomplete_nodefault() {
+	let user_id: &UserId = "@user:example.com".try_into().unwrap();
+
+	let raw: &[u8] = b"@user:example.com";
+	let (a, _): (&UserId, u64) = de::from_slice(raw).expect("failed to deserialize");
+
+	assert_eq!(a, user_id, "deserialized user_id does not match");
+}
+
+#[test]
+fn de_tuple_incomplete_option() {
+	let user_id: &UserId = "@user:example.com".try_into().unwrap();
+
+	let raw: &[u8] = b"@user:example.com";
+	let (a, b): (&UserId, Option<&str>) = de::from_slice(raw).expect("failed to deserialize");
+
+	assert_eq!(a, user_id, "deserialized user_id does not match");
+	assert_eq!(b, None, "deserialized defaulted Option does not match");
+}
+
+#[test]
 #[should_panic(expected = "failed to deserialize")]
 fn de_tuple_incomplete_with_sep() {
 	let user_id: &UserId = "@user:example.com".try_into().unwrap();
@@ -478,6 +511,28 @@ fn serde_tuple_option_some_value() {
 
 	assert_eq!(bb.0, cc.0);
 	assert_eq!(cc.1, bb.1);
+}
+
+#[test]
+fn serde_tuple_option_value_incomplete() {
+	let room_id: &RoomId = "!room:example.com".try_into().unwrap();
+	let user_id: &UserId = "@user:example.com".try_into().unwrap();
+
+	let mut aa = Vec::<u8>::new();
+	aa.extend_from_slice(room_id.as_bytes());
+	aa.push(0xFF);
+	aa.extend_from_slice(user_id.as_bytes());
+
+	let bb: (&RoomId, &UserId) = (room_id, user_id);
+	let bbs = serialize_to_vec(&bb).expect("failed to serialize tuple");
+	assert_eq!(aa, bbs);
+
+	let cc: (&RoomId, &UserId, Option<u64>) =
+		de::from_slice(&bbs).expect("failed to deserialize tuple");
+
+	assert_eq!(bb.0, cc.0);
+	assert_eq!(bb.1, cc.1);
+	assert_eq!(cc.2, None);
 }
 
 #[test]
