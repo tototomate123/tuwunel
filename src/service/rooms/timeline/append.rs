@@ -185,8 +185,6 @@ where
 		.append_pdu(&pdu_id, pdu, &pdu_json, count)
 		.await;
 
-	drop(next_count1);
-	drop(next_count2);
 	drop(insert_lock);
 
 	// See if the event matches any known pushers via power level
@@ -427,6 +425,9 @@ where
 			| _ => {}, // TODO: Aggregate other types
 		}
 	}
+
+	drop(next_count1);
+	drop(next_count2);
 
 	for appservice in self.services.appservice.read().await.values() {
 		if self
