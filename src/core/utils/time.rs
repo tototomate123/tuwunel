@@ -22,22 +22,37 @@ pub fn now() -> Duration {
 }
 
 #[inline]
-pub fn parse_timepoint_ago(ago: &str) -> Result<SystemTime> {
-	timepoint_ago(parse_duration(ago)?)
+#[must_use]
+pub fn duration_since_epoch(timepoint: SystemTime) -> Duration {
+	timepoint
+		.duration_since(UNIX_EPOCH)
+		.unwrap_or(Duration::ZERO)
 }
 
 #[inline]
-pub fn timepoint_ago(duration: Duration) -> Result<SystemTime> {
-	SystemTime::now()
-		.checked_sub(duration)
-		.ok_or_else(|| err!(Arithmetic("Duration {duration:?} is too large")))
+pub fn timepoint_from_epoch(duration: Duration) -> Result<SystemTime> {
+	UNIX_EPOCH
+		.checked_add(duration)
+		.ok_or_else(|| err!(Arithmetic("Duration {duration:?} from epoch is too large")))
 }
 
 #[inline]
 pub fn timepoint_from_now(duration: Duration) -> Result<SystemTime> {
 	SystemTime::now()
 		.checked_add(duration)
-		.ok_or_else(|| err!(Arithmetic("Duration {duration:?} is too large")))
+		.ok_or_else(|| err!(Arithmetic("Duration {duration:?} from now is too large")))
+}
+
+#[inline]
+pub fn timepoint_ago(duration: Duration) -> Result<SystemTime> {
+	SystemTime::now()
+		.checked_sub(duration)
+		.ok_or_else(|| err!(Arithmetic("Duration {duration:?} ago is too large")))
+}
+
+#[inline]
+pub fn parse_timepoint_ago(ago: &str) -> Result<SystemTime> {
+	timepoint_ago(parse_duration(ago)?)
 }
 
 #[inline]
