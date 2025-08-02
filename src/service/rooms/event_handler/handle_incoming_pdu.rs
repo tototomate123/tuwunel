@@ -1,12 +1,10 @@
-use std::time::Instant;
-
 use futures::{
 	FutureExt, TryFutureExt, TryStreamExt,
 	future::{OptionFuture, try_join5},
 };
 use ruma::{CanonicalJsonObject, EventId, RoomId, ServerName, UserId, events::StateEventType};
 use tuwunel_core::{
-	Err, Result, debug, debug::INFO_SPAN_LEVEL, defer, err, implement, matrix::Event,
+	Err, Result, debug, debug::INFO_SPAN_LEVEL, err, implement, matrix::Event,
 	utils::stream::IterStream, warn,
 };
 
@@ -165,19 +163,6 @@ pub async fn handle_incoming_pdu<'a>(
 		.await?;
 
 	// Done with prev events, now handling the incoming event
-	let start_time = Instant::now();
-	self.federation_handletime
-		.write()
-		.expect("locked")
-		.insert(room_id.into(), (event_id.to_owned(), start_time));
-
-	defer! {{
-		self.federation_handletime
-			.write()
-			.expect("locked")
-			.remove(room_id);
-	}};
-
 	self.upgrade_outlier_to_timeline_pdu(incoming_pdu, val, create_event, origin, room_id)
 		.boxed()
 		.await

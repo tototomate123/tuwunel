@@ -1,13 +1,10 @@
-use std::{
-	ops::Range,
-	time::{Duration, Instant},
-};
+use std::{ops::Range, time::Duration};
 
 use ruma::{CanonicalJsonObject, EventId, MilliSecondsSinceUnixEpoch, RoomId, ServerName};
 use tuwunel_core::{
 	Err, Result, debug,
 	debug::INFO_SPAN_LEVEL,
-	defer, implement,
+	implement,
 	matrix::{Event, PduEvent},
 };
 
@@ -57,26 +54,8 @@ where
 		return Ok(());
 	}
 
-	let start_time = Instant::now();
-	self.federation_handletime
-		.write()
-		.expect("locked")
-		.insert(room_id.into(), (prev_id.to_owned(), start_time));
-
-	defer! {{
-		self.federation_handletime
-			.write()
-			.expect("locked")
-			.remove(room_id);
-	}};
-
 	self.upgrade_outlier_to_timeline_pdu(pdu, json, create_event, origin, room_id)
 		.await?;
-
-	debug!(
-		elapsed = ?start_time.elapsed(),
-		"Handled prev_event",
-	);
 
 	Ok(())
 }

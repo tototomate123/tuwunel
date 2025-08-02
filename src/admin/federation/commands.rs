@@ -1,5 +1,3 @@
-use std::fmt::Write;
-
 use futures::StreamExt;
 use ruma::{OwnedRoomId, OwnedServerName, OwnedUserId};
 use tuwunel_core::{Err, Result};
@@ -26,25 +24,7 @@ pub(super) async fn enable_room(&self, room_id: OwnedRoomId) -> Result {
 
 #[admin_command]
 pub(super) async fn incoming_federation(&self) -> Result {
-	let msg = {
-		let map = self
-			.services
-			.rooms
-			.event_handler
-			.federation_handletime
-			.read()
-			.expect("locked");
-
-		let mut msg = format!("Handling {} incoming pdus:\n", map.len());
-		for (r, (e, i)) in map.iter() {
-			let elapsed = i.elapsed();
-			writeln!(msg, "{} {}: {}m{}s", r, e, elapsed.as_secs() / 60, elapsed.as_secs() % 60)?;
-		}
-
-		msg
-	};
-
-	self.write_str(&msg).await
+	Err!("This command is temporarily disabled")
 }
 
 #[admin_command]
