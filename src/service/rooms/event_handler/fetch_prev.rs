@@ -73,7 +73,7 @@ where
 				if json_opt.is_none() {
 					json_opt = self
 						.services
-						.outlier
+						.timeline
 						.get_outlier_pdu_json(&prev_event_id)
 						.await
 						.ok();

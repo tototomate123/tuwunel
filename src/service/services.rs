@@ -82,7 +82,6 @@ impl Services {
 				event_handler: build!(rooms::event_handler::Service),
 				lazy_loading: build!(rooms::lazy_loading::Service),
 				metadata: build!(rooms::metadata::Service),
-				outlier: build!(rooms::outlier::Service),
 				pdu_metadata: build!(rooms::pdu_metadata::Service),
 				read_receipt: build!(rooms::read_receipt::Service),
 				search: build!(rooms::search::Service),

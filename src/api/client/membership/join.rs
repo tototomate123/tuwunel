@@ -561,8 +561,9 @@ async fn join_room_by_id_helper_remote(
 
 			services
 				.rooms
-				.outlier
+				.timeline
 				.add_pdu_outlier(&event_id, &value);
+
 			if let Some(state_key) = &pdu.state_key {
 				let shortstatekey = services
 					.rooms
@@ -595,7 +596,7 @@ async fn join_room_by_id_helper_remote(
 		.ready_for_each(|(event_id, value)| {
 			services
 				.rooms
-				.outlier
+				.timeline
 				.add_pdu_outlier(&event_id, &value);
 		})
 		.await;

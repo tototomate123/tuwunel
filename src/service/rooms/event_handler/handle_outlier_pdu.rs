@@ -151,7 +151,7 @@ where
 
 	// 7. Persist the event as an outlier.
 	self.services
-		.outlier
+		.timeline
 		.add_pdu_outlier(pdu_event.event_id(), &incoming_pdu);
 
 	trace!("Added pdu as outlier.");

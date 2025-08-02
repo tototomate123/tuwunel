@@ -168,6 +168,14 @@ pub async fn replace_pdu(&self, pdu_id: &RawPduId, pdu_json: &CanonicalJsonObjec
 }
 
 #[implement(Service)]
+#[tracing::instrument(skip(self, pdu), level = "debug")]
+pub fn add_pdu_outlier(&self, event_id: &EventId, pdu: &CanonicalJsonObject) {
+	self.db
+		.eventid_outlierpdu
+		.raw_put(event_id, Json(pdu));
+}
+
+#[implement(Service)]
 #[tracing::instrument(skip(self), level = "debug")]
 pub async fn first_pdu_in_room(&self, room_id: &RoomId) -> Result<PduEvent> {
 	self.first_item_in_room(room_id).await.map(at!(1))

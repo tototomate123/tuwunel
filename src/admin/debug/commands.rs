@@ -638,7 +638,7 @@ pub(super) async fn force_set_room_state_from_server(
 
 		self.services
 			.rooms
-			.outlier
+			.timeline
 			.add_pdu_outlier(&event_id, &value);
 
 		if let Some(state_key) = &pdu.state_key {
@@ -668,7 +668,7 @@ pub(super) async fn force_set_room_state_from_server(
 
 		self.services
 			.rooms
-			.outlier
+			.timeline
 			.add_pdu_outlier(&event_id, &value);
 	}
 

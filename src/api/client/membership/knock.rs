@@ -541,8 +541,9 @@ async fn knock_room_helper_remote(
 
 		services
 			.rooms
-			.outlier
+			.timeline
 			.add_pdu_outlier(&event_id, &event);
+
 		state_map.insert(shortstatekey, event_id.clone());
 	}
 
