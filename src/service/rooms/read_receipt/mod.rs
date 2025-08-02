@@ -60,6 +60,7 @@ impl Service {
 		self.db
 			.readreceipt_update(user_id, room_id, event)
 			.await;
+
 		self.services
 			.sending
 			.flush_room(room_id)
@@ -78,6 +79,7 @@ impl Service {
 			.map_err(|e| {
 				err!(Database(warn!("No private read receipt was set in {room_id}: {e}")))
 			});
+
 		let shortroomid = self
 			.services
 			.short
@@ -120,7 +122,6 @@ impl Service {
 
 	/// Returns an iterator over the most recent read_receipts in a room that
 	/// happened after the event with id `since`.
-	#[inline]
 	#[tracing::instrument(skip(self), level = "debug")]
 	pub fn readreceipts_since<'a>(
 		&'a self,
@@ -132,14 +133,12 @@ impl Service {
 	}
 
 	/// Sets a private read marker at PDU `count`.
-	#[inline]
 	#[tracing::instrument(skip(self), level = "debug")]
 	pub fn private_read_set(&self, room_id: &RoomId, user_id: &UserId, count: u64) {
 		self.db.private_read_set(room_id, user_id, count);
 	}
 
 	/// Returns the private read marker PDU count.
-	#[inline]
 	#[tracing::instrument(skip(self), level = "debug")]
 	pub async fn private_read_get_count(
 		&self,
@@ -152,7 +151,6 @@ impl Service {
 	}
 
 	/// Returns the PDU count of the last typing update in this room.
-	#[inline]
 	pub async fn last_privateread_update(&self, user_id: &UserId, room_id: &RoomId) -> u64 {
 		self.db
 			.last_privateread_update(user_id, room_id)
@@ -180,8 +178,8 @@ where
 			},
 		}
 	}
-	let content = ReceiptEventContent::from_iter(json);
 
+	let content = ReceiptEventContent::from_iter(json);
 	tuwunel_core::trace!(?content);
 	Raw::from_json(
 		serde_json::value::to_raw_value(&SyncEphemeralRoomEvent { content })

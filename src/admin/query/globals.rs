@@ -32,7 +32,7 @@ pub(super) async fn process(subcommand: GlobalsCommand, context: &Context<'_>) -
 		},
 		| GlobalsCommand::CurrentCount => {
 			let timer = tokio::time::Instant::now();
-			let results = services.globals.db.current_count();
+			let results = services.globals.current_count();
 			let query_time = timer.elapsed();
 
 			write!(context, "Query completed in {query_time:?}:\n\n```rs\n{results:#?}\n```")

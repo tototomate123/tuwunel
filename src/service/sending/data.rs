@@ -42,6 +42,7 @@ impl Data {
 		}
 	}
 
+	#[inline]
 	pub(super) fn delete_active_request(&self, key: &[u8]) {
 		self.servercurrentevent_data.remove(key);
 	}

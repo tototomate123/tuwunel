@@ -38,7 +38,8 @@ impl Data {
 		}
 	}
 
-	pub async fn wait_pending(&self) -> Result<u64> {
+	#[inline]
+	pub(super) async fn wait_pending(&self) -> Result<u64> {
 		let count = self.counter.dispatched();
 		self.wait_count(&count).await.inspect(|retired| {
 			debug_assert!(
@@ -48,7 +49,8 @@ impl Data {
 		})
 	}
 
-	pub async fn wait_count(&self, count: &u64) -> Result<u64> {
+	#[inline]
+	pub(super) async fn wait_count(&self, count: &u64) -> Result<u64> {
 		self.retires
 			.subscribe()
 			.wait_for(|retired| retired.ge(count))
@@ -58,17 +60,17 @@ impl Data {
 	}
 
 	#[inline]
-	pub fn next_count(&self) -> Permit {
+	pub(super) fn next_count(&self) -> Permit {
 		self.counter
 			.next()
 			.expect("failed to obtain next sequence number")
 	}
 
 	#[inline]
-	pub fn current_count(&self) -> u64 { self.counter.current() }
+	pub(super) fn current_count(&self) -> u64 { self.counter.current() }
 
 	#[inline]
-	pub fn pending_count(&self) -> Range<u64> { self.counter.range() }
+	pub(super) fn pending_count(&self) -> Range<u64> { self.counter.range() }
 
 	fn handle_retire(sender: &Sender<u64>, count: u64) -> Result {
 		let _prev = sender.send_replace(count);

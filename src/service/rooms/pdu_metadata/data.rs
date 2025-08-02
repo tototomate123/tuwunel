@@ -46,6 +46,7 @@ impl Data {
 		}
 	}
 
+	#[inline]
 	pub(super) fn add_relation(&self, from: u64, to: u64) {
 		const BUFSIZE: usize = size_of::<u64>() * 2;
 
@@ -116,15 +117,18 @@ impl Data {
 		}
 	}
 
+	#[inline]
 	pub(super) async fn is_event_referenced(&self, room_id: &RoomId, event_id: &EventId) -> bool {
 		let key = (room_id, event_id);
 		self.referencedevents.qry(&key).await.is_ok()
 	}
 
+	#[inline]
 	pub(super) fn mark_event_soft_failed(&self, event_id: &EventId) {
 		self.softfailedeventids.insert(event_id, []);
 	}
 
+	#[inline]
 	pub(super) async fn is_event_soft_failed(&self, event_id: &EventId) -> bool {
 		self.softfailedeventids
 			.get(event_id)

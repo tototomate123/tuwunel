@@ -89,7 +89,6 @@ impl crate::Service for Service {
 
 impl Service {
 	/// Returns the latest presence event for the given user.
-	#[inline]
 	pub async fn get_presence(&self, user_id: &UserId) -> Result<PresenceEvent> {
 		self.db
 			.get_presence(user_id)

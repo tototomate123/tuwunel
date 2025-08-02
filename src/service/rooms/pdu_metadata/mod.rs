@@ -119,7 +119,6 @@ impl Service {
 		self.db.mark_as_referenced(room_id, event_ids);
 	}
 
-	#[inline]
 	#[tracing::instrument(skip(self), level = "debug")]
 	pub async fn is_event_referenced(&self, room_id: &RoomId, event_id: &EventId) -> bool {
 		self.db
@@ -127,13 +126,11 @@ impl Service {
 			.await
 	}
 
-	#[inline]
 	#[tracing::instrument(skip(self), level = "debug")]
 	pub fn mark_event_soft_failed(&self, event_id: &EventId) {
 		self.db.mark_event_soft_failed(event_id);
 	}
 
-	#[inline]
 	#[tracing::instrument(skip(self), level = "debug")]
 	pub async fn is_event_soft_failed(&self, event_id: &EventId) -> bool {
 		self.db.is_event_soft_failed(event_id).await

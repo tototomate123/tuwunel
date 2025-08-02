@@ -35,6 +35,7 @@ impl Data {
 		}
 	}
 
+	#[inline]
 	pub(super) async fn get_presence(&self, user_id: &UserId) -> Result<(u64, PresenceEvent)> {
 		let count = self
 			.userid_presenceid
@@ -135,6 +136,7 @@ impl Data {
 		Ok(())
 	}
 
+	#[inline]
 	pub(super) async fn remove_presence(&self, user_id: &UserId) {
 		let Ok(count) = self
 			.userid_presenceid

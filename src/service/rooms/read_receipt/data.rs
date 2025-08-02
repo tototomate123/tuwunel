@@ -40,6 +40,7 @@ impl Data {
 		}
 	}
 
+	#[inline]
 	pub(super) async fn readreceipt_update(
 		&self,
 		user_id: &UserId,
@@ -62,6 +63,7 @@ impl Data {
 			.put(latest_id, Json(event));
 	}
 
+	#[inline]
 	pub(super) fn readreceipts_since<'a>(
 		&'a self,
 		room_id: &'a RoomId,
@@ -90,6 +92,7 @@ impl Data {
 			.ignore_err()
 	}
 
+	#[inline]
 	pub(super) fn private_read_set(&self, room_id: &RoomId, user_id: &UserId, pdu_count: u64) {
 		let key = (room_id, user_id);
 		let next_count = self.services.globals.next_count();
@@ -99,6 +102,7 @@ impl Data {
 			.put(key, *next_count);
 	}
 
+	#[inline]
 	pub(super) async fn private_read_get_count(
 		&self,
 		room_id: &RoomId,
@@ -111,6 +115,7 @@ impl Data {
 			.deserialized()
 	}
 
+	#[inline]
 	pub(super) async fn last_privateread_update(
 		&self,
 		user_id: &UserId,
