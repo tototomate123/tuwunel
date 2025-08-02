@@ -1,13 +1,10 @@
-use std::{
-	collections::{BTreeMap, hash_map},
-	time::Instant,
-};
+use std::time::Instant;
 
 use futures::{
 	FutureExt, TryFutureExt, TryStreamExt,
 	future::{OptionFuture, try_join5},
 };
-use ruma::{CanonicalJsonValue, EventId, RoomId, ServerName, UserId, events::StateEventType};
+use ruma::{CanonicalJsonObject, EventId, RoomId, ServerName, UserId, events::StateEventType};
 use tuwunel_core::{
 	Err, Result, debug, debug::INFO_SPAN_LEVEL, defer, err, implement, matrix::Event,
 	utils::stream::IterStream, warn,
@@ -55,7 +52,7 @@ pub async fn handle_incoming_pdu<'a>(
 	origin: &'a ServerName,
 	room_id: &'a RoomId,
 	event_id: &'a EventId,
-	value: BTreeMap<String, CanonicalJsonValue>,
+	value: CanonicalJsonObject,
 	is_timeline_event: bool,
 ) -> Result<Option<RawPduId>> {
 	// 1. Skip the PDU if we already have it as a timeline event
@@ -160,22 +157,7 @@ pub async fn handle_incoming_pdu<'a>(
 			)
 			.inspect_err(move |e| {
 				warn!("Prev {prev_id} failed: {e}");
-				match self
-					.services
-					.globals
-					.bad_event_ratelimiter
-					.write()
-					.expect("locked")
-					.entry(prev_id.into())
-				{
-					| hash_map::Entry::Vacant(e) => {
-						e.insert((Instant::now(), 1));
-					},
-					| hash_map::Entry::Occupied(mut e) => {
-						let tries = e.get().1.saturating_add(1);
-						*e.get_mut() = (Instant::now(), tries);
-					},
-				}
+				self.back_off(prev_id);
 			})
 			.map(|_| self.services.server.check_running())
 		})

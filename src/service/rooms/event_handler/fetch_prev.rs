@@ -1,11 +1,11 @@
 use std::{
-	collections::{BTreeMap, HashMap, HashSet, VecDeque},
+	collections::{HashMap, HashSet, VecDeque},
 	iter::once,
 };
 
 use futures::FutureExt;
 use ruma::{
-	CanonicalJsonValue, EventId, MilliSecondsSinceUnixEpoch, OwnedEventId, RoomId, ServerName,
+	CanonicalJsonObject, EventId, MilliSecondsSinceUnixEpoch, OwnedEventId, RoomId, ServerName,
 	int, uint,
 };
 use tuwunel_core::{
@@ -30,10 +30,7 @@ pub(super) async fn fetch_prev<'a, Pdu, Events>(
 	room_id: &RoomId,
 	first_ts_in_room: MilliSecondsSinceUnixEpoch,
 	initial_set: Events,
-) -> Result<(
-	Vec<OwnedEventId>,
-	HashMap<OwnedEventId, (PduEvent, BTreeMap<String, CanonicalJsonValue>)>,
-)>
+) -> Result<(Vec<OwnedEventId>, HashMap<OwnedEventId, (PduEvent, CanonicalJsonObject)>)>
 where
 	Pdu: Event,
 	Events: Iterator<Item = &'a EventId> + Clone + Send,

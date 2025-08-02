@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap, hash_map};
+use std::collections::{HashMap, hash_map};
 
 use futures::future::ready;
 use ruma::{
@@ -22,7 +22,7 @@ pub(super) async fn handle_outlier_pdu<'a, Pdu>(
 	room_id: &'a RoomId,
 	mut value: CanonicalJsonObject,
 	auth_events_known: bool,
-) -> Result<(PduEvent, BTreeMap<String, CanonicalJsonValue>)>
+) -> Result<(PduEvent, CanonicalJsonObject)>
 where
 	Pdu: Event,
 {

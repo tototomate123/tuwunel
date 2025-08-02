@@ -1,7 +1,7 @@
-use std::{borrow::Borrow, collections::BTreeMap, iter::once, sync::Arc, time::Instant};
+use std::{borrow::Borrow, iter::once, sync::Arc, time::Instant};
 
 use futures::{FutureExt, StreamExt, future::ready};
-use ruma::{CanonicalJsonValue, RoomId, ServerName, events::StateEventType};
+use ruma::{CanonicalJsonObject, RoomId, ServerName, events::StateEventType};
 use tuwunel_core::{
 	Err, Result, debug, debug_info, err, implement, is_equal_to,
 	matrix::{Event, EventTypeExt, PduEvent, StateKey, state_res},
@@ -21,7 +21,7 @@ use crate::rooms::{
 pub(super) async fn upgrade_outlier_to_timeline_pdu<Pdu>(
 	&self,
 	incoming_pdu: PduEvent,
-	val: BTreeMap<String, CanonicalJsonValue>,
+	val: CanonicalJsonObject,
 	create_event: &Pdu,
 	origin: &ServerName,
 	room_id: &RoomId,

@@ -1,10 +1,11 @@
 use std::{
-	collections::{BTreeMap, HashSet, VecDeque, hash_map},
-	time::Instant,
+	collections::{HashSet, VecDeque},
+	ops::Range,
+	time::Duration,
 };
 
 use ruma::{
-	CanonicalJsonValue, EventId, OwnedEventId, RoomId, ServerName,
+	CanonicalJsonObject, CanonicalJsonValue, EventId, OwnedEventId, RoomId, ServerName,
 	api::federation::event::get_event,
 };
 use tuwunel_core::{
@@ -13,9 +14,7 @@ use tuwunel_core::{
 		PduEvent,
 		event::{Event, gen_event_id_canonical_json},
 	},
-	trace,
-	utils::continue_exponential_backoff_secs,
-	warn,
+	trace, warn,
 };
 
 use super::get_room_version_id;
@@ -36,144 +35,19 @@ pub(super) async fn fetch_and_handle_outliers<'a, Pdu, Events>(
 	events: Events,
 	create_event: &'a Pdu,
 	room_id: &'a RoomId,
-) -> Vec<(PduEvent, Option<BTreeMap<String, CanonicalJsonValue>>)>
+) -> Vec<(PduEvent, Option<CanonicalJsonObject>)>
 where
 	Pdu: Event,
 	Events: Iterator<Item = &'a EventId> + Clone + Send,
 {
-	let back_off = |id| match self
-		.services
-		.globals
-		.bad_event_ratelimiter
-		.write()
-		.expect("locked")
-		.entry(id)
-	{
-		| hash_map::Entry::Vacant(e) => {
-			e.insert((Instant::now(), 1));
-		},
-		| hash_map::Entry::Occupied(mut e) => {
-			*e.get_mut() = (Instant::now(), e.get().1.saturating_add(1));
-		},
-	};
-
 	let mut events_with_auth_events = Vec::with_capacity(events.clone().count());
 
-	for id in events {
-		// a. Look in the main timeline (pduid_pdu tree)
-		// b. Look at outlier pdu tree
-		// (get_pdu_json checks both)
-		if let Ok(local_pdu) = self.services.timeline.get_pdu(id).await {
-			events_with_auth_events.push((id.to_owned(), Some(local_pdu), vec![]));
-			continue;
-		}
+	for event_id in events {
+		let outlier = self
+			.fetch_auth(room_id, event_id, origin, create_event)
+			.await;
 
-		// c. Ask origin server over federation
-		// We also handle its auth chain here so we don't get a stack overflow in
-		// handle_outlier_pdu.
-		let mut todo_auth_events: VecDeque<_> = [id.to_owned()].into();
-		let mut events_in_reverse_order = Vec::with_capacity(todo_auth_events.len());
-
-		let mut events_all = HashSet::with_capacity(todo_auth_events.len());
-		while let Some(next_id) = todo_auth_events.pop_front() {
-			if let Some((time, tries)) = self
-				.services
-				.globals
-				.bad_event_ratelimiter
-				.read()
-				.expect("locked")
-				.get(&*next_id)
-			{
-				// Exponential backoff
-				const MIN_DURATION: u64 = 60 * 2;
-				const MAX_DURATION: u64 = 60 * 60 * 8;
-				if continue_exponential_backoff_secs(
-					MIN_DURATION,
-					MAX_DURATION,
-					time.elapsed(),
-					*tries,
-				) {
-					debug_warn!(
-						tried = ?*tries,
-						elapsed = ?time.elapsed(),
-						"Backing off from {next_id}",
-					);
-					continue;
-				}
-			}
-
-			if events_all.contains(&next_id) {
-				continue;
-			}
-
-			if self.services.timeline.pdu_exists(&next_id).await {
-				trace!("Found {next_id} in db");
-				continue;
-			}
-
-			debug!("Fetching {next_id} over federation.");
-			match self
-				.services
-				.sending
-				.send_federation_request(origin, get_event::v1::Request {
-					event_id: (*next_id).to_owned(),
-					include_unredacted_content: None,
-				})
-				.await
-			{
-				| Ok(res) => {
-					debug!("Got {next_id} over federation");
-					let Ok(room_version_id) = get_room_version_id(create_event) else {
-						back_off((*next_id).to_owned());
-						continue;
-					};
-
-					let Ok((calculated_event_id, value)) =
-						gen_event_id_canonical_json(&res.pdu, &room_version_id)
-					else {
-						back_off((*next_id).to_owned());
-						continue;
-					};
-
-					if calculated_event_id != *next_id {
-						warn!(
-							"Server didn't return event id we requested: requested: {next_id}, \
-							 we got {calculated_event_id}. Event: {:?}",
-							&res.pdu
-						);
-					}
-
-					if let Some(auth_events) = value
-						.get("auth_events")
-						.and_then(CanonicalJsonValue::as_array)
-					{
-						for auth_event in auth_events {
-							match serde_json::from_value::<OwnedEventId>(
-								auth_event.clone().into(),
-							) {
-								| Ok(auth_event) => {
-									todo_auth_events.push_back(auth_event);
-								},
-								| _ => {
-									warn!("Auth event id is not valid");
-								},
-							}
-						}
-					} else {
-						warn!("Auth event list invalid");
-					}
-
-					events_in_reverse_order.push((next_id.clone(), value));
-					events_all.insert(next_id);
-				},
-				| Err(e) => {
-					debug_error!("Failed to fetch event {next_id}: {e}");
-					back_off((*next_id).to_owned());
-				},
-			}
-		}
-
-		events_with_auth_events.push((id.to_owned(), None, events_in_reverse_order));
+		events_with_auth_events.push(outlier);
 	}
 
 	let mut pdus = Vec::with_capacity(events_with_auth_events.len());
@@ -187,26 +61,12 @@ where
 		}
 
 		for (next_id, value) in events_in_reverse_order.into_iter().rev() {
-			if let Some((time, tries)) = self
-				.services
-				.globals
-				.bad_event_ratelimiter
-				.read()
-				.expect("locked")
-				.get(&*next_id)
-			{
-				// Exponential backoff
-				const MIN_DURATION: u64 = 5 * 60;
-				const MAX_DURATION: u64 = 60 * 60 * 24;
-				if continue_exponential_backoff_secs(
-					MIN_DURATION,
-					MAX_DURATION,
-					time.elapsed(),
-					*tries,
-				) {
-					debug!("Backing off from {next_id}");
-					continue;
-				}
+			if self.is_backed_off(&next_id, Range {
+				start: Duration::from_secs(5 * 60),
+				end: Duration::from_secs(60 * 60 * 24),
+			}) {
+				debug_warn!("Backing off from {next_id}");
+				continue;
 			}
 
 			match Box::pin(self.handle_outlier_pdu(
@@ -225,11 +85,117 @@ where
 					},
 				| Err(e) => {
 					warn!("Authentication of event {next_id} failed: {e:?}");
-					back_off(next_id);
+					self.back_off(&next_id);
 				},
 			}
 		}
 	}
 
 	pdus
+}
+
+#[implement(super::Service)]
+async fn fetch_auth<'a, Pdu>(
+	&self,
+	_room_id: &'a RoomId,
+	event_id: &'a EventId,
+	origin: &'a ServerName,
+	create_event: &'a Pdu,
+) -> (OwnedEventId, Option<PduEvent>, Vec<(OwnedEventId, CanonicalJsonObject)>)
+where
+	Pdu: Event,
+{
+	// a. Look in the main timeline (pduid_pdu tree)
+	// b. Look at outlier pdu tree
+	// (get_pdu_json checks both)
+	if let Ok(local_pdu) = self.services.timeline.get_pdu(event_id).await {
+		return (event_id.to_owned(), Some(local_pdu), vec![]);
+	}
+
+	// c. Ask origin server over federation
+	// We also handle its auth chain here so we don't get a stack overflow in
+	// handle_outlier_pdu.
+	let mut todo_auth_events: VecDeque<_> = [event_id.to_owned()].into();
+	let mut events_in_reverse_order = Vec::with_capacity(todo_auth_events.len());
+
+	let mut events_all = HashSet::with_capacity(todo_auth_events.len());
+	while let Some(next_id) = todo_auth_events.pop_front() {
+		if self.is_backed_off(&next_id, Range {
+			start: Duration::from_secs(2 * 60),
+			end: Duration::from_secs(60 * 60 * 8),
+		}) {
+			debug_warn!("Backing off from {next_id}");
+			continue;
+		}
+
+		if events_all.contains(&next_id) {
+			continue;
+		}
+
+		if self.services.timeline.pdu_exists(&next_id).await {
+			trace!("Found {next_id} in db");
+			continue;
+		}
+
+		debug!("Fetching {next_id} over federation.");
+		match self
+			.services
+			.sending
+			.send_federation_request(origin, get_event::v1::Request {
+				event_id: (*next_id).to_owned(),
+				include_unredacted_content: None,
+			})
+			.await
+		{
+			| Ok(res) => {
+				debug!("Got {next_id} over federation");
+				let Ok(room_version_id) = get_room_version_id(create_event) else {
+					self.back_off(&next_id);
+					continue;
+				};
+
+				let Ok((calculated_event_id, value)) =
+					gen_event_id_canonical_json(&res.pdu, &room_version_id)
+				else {
+					self.back_off(&next_id);
+					continue;
+				};
+
+				if calculated_event_id != *next_id {
+					warn!(
+						"Server didn't return event id we requested: requested: {next_id}, we \
+						 got {calculated_event_id}. Event: {:?}",
+						&res.pdu
+					);
+				}
+
+				if let Some(auth_events) = value
+					.get("auth_events")
+					.and_then(CanonicalJsonValue::as_array)
+				{
+					for auth_event in auth_events {
+						match serde_json::from_value::<OwnedEventId>(auth_event.clone().into()) {
+							| Ok(auth_event) => {
+								todo_auth_events.push_back(auth_event);
+							},
+							| _ => {
+								warn!("Auth event id is not valid");
+							},
+						}
+					}
+				} else {
+					warn!("Auth event list invalid");
+				}
+
+				events_in_reverse_order.push((next_id.clone(), value));
+				events_all.insert(next_id);
+			},
+			| Err(e) => {
+				debug_error!("Failed to fetch event {next_id}: {e}");
+				self.back_off(&next_id);
+			},
+		}
+	}
+
+	(event_id.to_owned(), None, events_in_reverse_order)
 }

@@ -1,16 +1,17 @@
-use std::{collections::BTreeMap, time::Instant};
+use std::{
+	ops::Range,
+	time::{Duration, Instant},
+};
 
-use ruma::{CanonicalJsonValue, EventId, MilliSecondsSinceUnixEpoch, RoomId, ServerName};
+use ruma::{CanonicalJsonObject, EventId, MilliSecondsSinceUnixEpoch, RoomId, ServerName};
 use tuwunel_core::{
 	Err, Result, debug,
 	debug::INFO_SPAN_LEVEL,
 	defer, implement,
 	matrix::{Event, PduEvent},
-	utils::continue_exponential_backoff_secs,
 };
 
 #[implement(super::Service)]
-#[allow(clippy::type_complexity)]
 #[allow(clippy::too_many_arguments)]
 #[tracing::instrument(
 	name = "prev",
@@ -23,7 +24,7 @@ pub(super) async fn handle_prev_pdu<'a, Pdu>(
 	origin: &'a ServerName,
 	event_id: &'a EventId,
 	room_id: &'a RoomId,
-	eventid_info: Option<(PduEvent, BTreeMap<String, CanonicalJsonValue>)>,
+	eventid_info: Option<(PduEvent, CanonicalJsonObject)>,
 	create_event: &'a Pdu,
 	first_ts_in_room: MilliSecondsSinceUnixEpoch,
 	prev_id: &'a EventId,
@@ -39,25 +40,12 @@ where
 		))));
 	}
 
-	if let Some((time, tries)) = self
-		.services
-		.globals
-		.bad_event_ratelimiter
-		.read()
-		.expect("locked")
-		.get(prev_id)
-	{
-		// Exponential backoff
-		const MIN_DURATION: u64 = 5 * 60;
-		const MAX_DURATION: u64 = 60 * 60 * 24;
-		if continue_exponential_backoff_secs(MIN_DURATION, MAX_DURATION, time.elapsed(), *tries) {
-			debug!(
-				?tries,
-				duration = ?time.elapsed(),
-				"Backing off from prev_event"
-			);
-			return Ok(());
-		}
+	if self.is_backed_off(prev_id, Range {
+		start: Duration::from_secs(5 * 60),
+		end: Duration::from_secs(60 * 60 * 24),
+	}) {
+		debug!(?prev_id, "Backing off from prev_event");
+		return Ok(());
 	}
 
 	let Some((pdu, json)) = eventid_info else {
@@ -73,7 +61,7 @@ where
 	self.federation_handletime
 		.write()
 		.expect("locked")
-		.insert(room_id.into(), ((*prev_id).to_owned(), start_time));
+		.insert(room_id.into(), (prev_id.to_owned(), start_time));
 
 	defer! {{
 		self.federation_handletime

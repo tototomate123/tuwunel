@@ -11,21 +11,22 @@ mod state_at_incoming;
 mod upgrade_outlier_pdu;
 
 use std::{
-	collections::HashMap,
+	collections::{HashMap, hash_map},
 	fmt::Write,
+	ops::Range,
 	sync::{Arc, RwLock as StdRwLock},
-	time::Instant,
+	time::{Duration, Instant},
 };
 
 use async_trait::async_trait;
 use ruma::{
-	OwnedEventId, OwnedRoomId, RoomId, RoomVersionId,
+	EventId, OwnedEventId, OwnedRoomId, RoomId, RoomVersionId,
 	events::room::create::RoomCreateEventContent,
 };
 use tuwunel_core::{
-	Err, Result, RoomVersion, Server,
+	Err, Result, RoomVersion, Server, implement,
 	matrix::{Event, PduEvent},
-	utils::MutexMap,
+	utils::{MutexMap, continue_exponential_backoff},
 };
 
 use crate::{Dep, globals, rooms, sending, server_keys};
@@ -97,18 +98,56 @@ impl crate::Service for Service {
 	fn name(&self) -> &str { crate::service::make_name(std::module_path!()) }
 }
 
-impl Service {
-	async fn event_exists(&self, event_id: OwnedEventId) -> bool {
-		self.services.timeline.pdu_exists(&event_id).await
-	}
+#[implement(Service)]
+fn back_off(&self, event_id: &EventId) {
+	use hash_map::Entry::{Occupied, Vacant};
 
-	async fn event_fetch(&self, event_id: OwnedEventId) -> Option<PduEvent> {
-		self.services
-			.timeline
-			.get_pdu(&event_id)
-			.await
-			.ok()
+	match self
+		.services
+		.globals
+		.bad_event_ratelimiter
+		.write()
+		.expect("locked")
+		.entry(event_id.into())
+	{
+		| Vacant(e) => {
+			e.insert((Instant::now(), 1));
+		},
+		| Occupied(mut e) => {
+			*e.get_mut() = (Instant::now(), e.get().1.saturating_add(1));
+		},
 	}
+}
+
+#[implement(Service)]
+fn is_backed_off(&self, event_id: &EventId, range: Range<Duration>) -> bool {
+	let Some((time, tries)) = self
+		.services
+		.globals
+		.bad_event_ratelimiter
+		.read()
+		.expect("locked")
+		.get(event_id)
+		.copied()
+	else {
+		return false;
+	};
+
+	continue_exponential_backoff(range.start, range.end, time.elapsed(), tries)
+}
+
+#[implement(Service)]
+async fn event_exists(&self, event_id: OwnedEventId) -> bool {
+	self.services.timeline.pdu_exists(&event_id).await
+}
+
+#[implement(Service)]
+async fn event_fetch(&self, event_id: OwnedEventId) -> Option<PduEvent> {
+	self.services
+		.timeline
+		.get_pdu(&event_id)
+		.await
+		.ok()
 }
 
 fn check_room_id<Pdu: Event>(room_id: &RoomId, pdu: &Pdu) -> Result {
