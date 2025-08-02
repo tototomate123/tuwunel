@@ -2,7 +2,7 @@ use std::iter::once;
 
 use futures::{FutureExt, StreamExt};
 use ruma::{
-	RoomId, ServerName,
+	CanonicalJsonObject, EventId, RoomId, ServerName,
 	api::federation,
 	events::{
 		StateEventType, TimelineEventType, room::power_levels::RoomPowerLevelsEventContent,
@@ -19,6 +19,7 @@ use tuwunel_core::{
 	utils::{IterStream, ReadyExt},
 	validated, warn,
 };
+use tuwunel_database::Json;
 
 use super::ExtractBody;
 
@@ -191,8 +192,7 @@ pub async fn backfill_pdu(&self, origin: &ServerName, pdu: Box<RawJsonValue>) ->
 	.into();
 
 	// Insert pdu
-	self.db
-		.prepend_backfill_pdu(&pdu_id, &event_id, &value);
+	self.prepend_backfill_pdu(&pdu_id, &event_id, &value);
 
 	drop(insert_lock);
 
@@ -208,4 +208,16 @@ pub async fn backfill_pdu(&self, origin: &ServerName, pdu: Box<RawJsonValue>) ->
 
 	debug!("Prepended backfill pdu");
 	Ok(())
+}
+
+#[implement(super::Service)]
+fn prepend_backfill_pdu(
+	&self,
+	pdu_id: &RawPduId,
+	event_id: &EventId,
+	json: &CanonicalJsonObject,
+) {
+	self.db.pduid_pdu.raw_put(pdu_id, Json(json));
+	self.db.eventid_pduid.insert(event_id, pdu_id);
+	self.db.eventid_outlierpdu.remove(event_id);
 }

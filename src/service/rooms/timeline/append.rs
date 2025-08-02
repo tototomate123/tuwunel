@@ -5,7 +5,7 @@ use std::{
 
 use futures::StreamExt;
 use ruma::{
-	CanonicalJsonObject, CanonicalJsonValue, EventId, RoomVersionId, UserId,
+	CanonicalJsonObject, CanonicalJsonValue, EventId, OwnedUserId, RoomId, RoomVersionId, UserId,
 	events::{
 		GlobalAccountDataEventType, StateEventType, TimelineEventType,
 		push_rules::PushRulesEvent,
@@ -26,6 +26,7 @@ use tuwunel_core::{
 	},
 	utils::{self, ReadyExt},
 };
+use tuwunel_database::{Json, Map};
 
 use super::{ExtractBody, ExtractRelatesTo, ExtractRelatesToEventId, RoomMutexGuard};
 use crate::{appservice::NamespaceRegex, rooms::state_compressor::CompressedState};
@@ -181,9 +182,7 @@ where
 	let pdu_id: RawPduId = PduId { shortroomid, shorteventid: count }.into();
 
 	// Insert pdu
-	self.db
-		.append_pdu(&pdu_id, pdu, &pdu_json, count)
-		.await;
+	self.append_pdu_json(&pdu_id, pdu, &pdu_json, count);
 
 	drop(insert_lock);
 
@@ -286,8 +285,7 @@ where
 			.await;
 	}
 
-	self.db
-		.increment_notification_counts(pdu.room_id(), notifies, highlights);
+	self.increment_notification_counts(pdu.room_id(), notifies, highlights);
 
 	match *pdu.kind() {
 		| TimelineEventType::RoomRedaction => {
@@ -486,4 +484,56 @@ where
 	}
 
 	Ok(pdu_id)
+}
+
+#[implement(super::Service)]
+fn append_pdu_json(
+	&self,
+	pdu_id: &RawPduId,
+	pdu: &PduEvent,
+	json: &CanonicalJsonObject,
+	count: PduCount,
+) {
+	debug_assert!(matches!(count, PduCount::Normal(_)), "PduCount not Normal");
+
+	self.db.pduid_pdu.raw_put(pdu_id, Json(json));
+
+	self.db
+		.eventid_pduid
+		.insert(pdu.event_id.as_bytes(), pdu_id);
+
+	self.db
+		.eventid_outlierpdu
+		.remove(pdu.event_id.as_bytes());
+}
+
+#[implement(super::Service)]
+fn increment_notification_counts(
+	&self,
+	room_id: &RoomId,
+	notifies: Vec<OwnedUserId>,
+	highlights: Vec<OwnedUserId>,
+) {
+	let _cork = self.db.db.cork();
+
+	for user in notifies {
+		let mut userroom_id = user.as_bytes().to_vec();
+		userroom_id.push(0xFF);
+		userroom_id.extend_from_slice(room_id.as_bytes());
+		increment(&self.db.userroomid_notificationcount, &userroom_id);
+	}
+
+	for user in highlights {
+		let mut userroom_id = user.as_bytes().to_vec();
+		userroom_id.push(0xFF);
+		userroom_id.extend_from_slice(room_id.as_bytes());
+		increment(&self.db.userroomid_highlightcount, &userroom_id);
+	}
+}
+
+//TODO: this is an ABA
+fn increment(db: &Arc<Map>, key: &[u8]) {
+	let old = db.get_blocking(key);
+	let new = utils::increment(old.ok().as_deref());
+	db.insert(key, new);
 }
