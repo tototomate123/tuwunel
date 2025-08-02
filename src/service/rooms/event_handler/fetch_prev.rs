@@ -5,8 +5,8 @@ use std::{
 
 use futures::FutureExt;
 use ruma::{
-	CanonicalJsonObject, EventId, MilliSecondsSinceUnixEpoch, OwnedEventId, RoomId, ServerName,
-	int, uint,
+	CanonicalJsonObject, EventId, MilliSecondsSinceUnixEpoch, OwnedEventId, RoomId,
+	RoomVersionId, ServerName, int, uint,
 };
 use tuwunel_core::{
 	Result, debug_warn, err, implement,
@@ -23,16 +23,15 @@ use super::check_room_id;
 	fields(%origin),
 )]
 #[allow(clippy::type_complexity)]
-pub(super) async fn fetch_prev<'a, Pdu, Events>(
+pub(super) async fn fetch_prev<'a, Events>(
 	&self,
 	origin: &ServerName,
-	create_event: &Pdu,
 	room_id: &RoomId,
-	first_ts_in_room: MilliSecondsSinceUnixEpoch,
 	initial_set: Events,
+	room_version: &RoomVersionId,
+	first_ts_in_room: MilliSecondsSinceUnixEpoch,
 ) -> Result<(Vec<OwnedEventId>, HashMap<OwnedEventId, (PduEvent, CanonicalJsonObject)>)>
 where
-	Pdu: Event,
 	Events: Iterator<Item = &'a EventId> + Clone + Send,
 {
 	let num_ids = initial_set.clone().count();
@@ -47,12 +46,7 @@ where
 		self.services.server.check_running()?;
 
 		match self
-			.fetch_and_handle_outliers(
-				origin,
-				once(prev_event_id.as_ref()),
-				create_event,
-				room_id,
-			)
+			.fetch_auth(origin, room_id, once(prev_event_id.as_ref()), room_version)
 			.boxed()
 			.await
 			.pop()
@@ -62,7 +56,7 @@ where
 
 				let limit = self.services.server.config.max_fetch_prev_events;
 				if amount > limit {
-					debug_warn!("Max prev event limit reached! Limit: {limit}");
+					debug_warn!(?limit, "Max prev event limit reached!");
 					graph.insert(prev_event_id.clone(), HashSet::new());
 					continue;
 				}

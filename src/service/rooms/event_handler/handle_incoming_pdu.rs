@@ -8,6 +8,7 @@ use tuwunel_core::{
 	utils::stream::IterStream, warn,
 };
 
+use super::get_room_version_id;
 use crate::rooms::timeline::RawPduId;
 
 /// When receiving an event one needs to:
@@ -50,7 +51,7 @@ pub async fn handle_incoming_pdu<'a>(
 	origin: &'a ServerName,
 	room_id: &'a RoomId,
 	event_id: &'a EventId,
-	value: CanonicalJsonObject,
+	pdu: CanonicalJsonObject,
 	is_timeline_event: bool,
 ) -> Result<Option<RawPduId>> {
 	// 1. Skip the PDU if we already have it as a timeline event
@@ -72,7 +73,7 @@ pub async fn handle_incoming_pdu<'a>(
 	let origin_acl_check = self.acl_check(origin, room_id);
 
 	// 1.3.2 Check room ACL on sender's server name
-	let sender: &UserId = value
+	let sender: &UserId = pdu
 		.get("sender")
 		.try_into()
 		.map_err(|e| err!(Request(InvalidParam("PDU does not have a valid sender key: {e}"))))?;
@@ -106,8 +107,10 @@ pub async fn handle_incoming_pdu<'a>(
 		return Err!(Request(Forbidden("Federation of this room is disabled by this server.")));
 	}
 
+	let room_version = get_room_version_id(create_event)?;
+
 	let (incoming_pdu, val) = self
-		.handle_outlier_pdu(origin, create_event, event_id, room_id, value, false)
+		.handle_outlier_pdu(origin, room_id, event_id, pdu, &room_version, false)
 		.boxed()
 		.await?;
 
@@ -131,7 +134,7 @@ pub async fn handle_incoming_pdu<'a>(
 	// 9. Fetch any missing prev events doing all checks listed here starting at 1.
 	//    These are timeline events
 	let (sorted_prev_events, mut eventid_info) = self
-		.fetch_prev(origin, create_event, room_id, first_ts_in_room, incoming_pdu.prev_events())
+		.fetch_prev(origin, room_id, incoming_pdu.prev_events(), &room_version, first_ts_in_room)
 		.await?;
 
 	debug!(
@@ -146,12 +149,13 @@ pub async fn handle_incoming_pdu<'a>(
 		.try_for_each(|prev_id| {
 			self.handle_prev_pdu(
 				origin,
-				event_id,
 				room_id,
+				event_id,
 				eventid_info.remove(prev_id),
-				create_event,
+				&room_version,
 				first_ts_in_room,
 				prev_id,
+				create_event.event_id(),
 			)
 			.inspect_err(move |e| {
 				warn!("Prev {prev_id} failed: {e}");
@@ -163,7 +167,14 @@ pub async fn handle_incoming_pdu<'a>(
 		.await?;
 
 	// Done with prev events, now handling the incoming event
-	self.upgrade_outlier_to_timeline_pdu(incoming_pdu, val, create_event, origin, room_id)
-		.boxed()
-		.await
+	self.upgrade_outlier_to_timeline_pdu(
+		origin,
+		room_id,
+		incoming_pdu,
+		val,
+		&room_version,
+		create_event.event_id(),
+	)
+	.boxed()
+	.await
 }

@@ -1,6 +1,8 @@
 use std::{ops::Range, time::Duration};
 
-use ruma::{CanonicalJsonObject, EventId, MilliSecondsSinceUnixEpoch, RoomId, ServerName};
+use ruma::{
+	CanonicalJsonObject, EventId, MilliSecondsSinceUnixEpoch, RoomId, RoomVersionId, ServerName,
+};
 use tuwunel_core::{
 	Err, Result, debug,
 	debug::INFO_SPAN_LEVEL,
@@ -16,19 +18,17 @@ use tuwunel_core::{
 	skip_all,
 	fields(%prev_id),
 )]
-pub(super) async fn handle_prev_pdu<'a, Pdu>(
+pub(super) async fn handle_prev_pdu(
 	&self,
-	origin: &'a ServerName,
-	event_id: &'a EventId,
-	room_id: &'a RoomId,
+	origin: &ServerName,
+	room_id: &RoomId,
+	event_id: &EventId,
 	eventid_info: Option<(PduEvent, CanonicalJsonObject)>,
-	create_event: &'a Pdu,
+	room_version: &RoomVersionId,
 	first_ts_in_room: MilliSecondsSinceUnixEpoch,
-	prev_id: &'a EventId,
-) -> Result
-where
-	Pdu: Event,
-{
+	prev_id: &EventId,
+	create_event_id: &EventId,
+) -> Result {
 	// Check for disabled again because it might have changed
 	if self.services.metadata.is_disabled(room_id).await {
 		return Err!(Request(Forbidden(debug_warn!(
@@ -54,8 +54,15 @@ where
 		return Ok(());
 	}
 
-	self.upgrade_outlier_to_timeline_pdu(pdu, json, create_event, origin, room_id)
-		.await?;
+	self.upgrade_outlier_to_timeline_pdu(
+		origin,
+		room_id,
+		pdu,
+		json,
+		room_version,
+		create_event_id,
+	)
+	.await?;
 
 	Ok(())
 }

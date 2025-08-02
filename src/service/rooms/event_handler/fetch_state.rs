@@ -2,8 +2,8 @@ use std::collections::{HashMap, hash_map};
 
 use futures::FutureExt;
 use ruma::{
-	EventId, OwnedEventId, RoomId, ServerName, api::federation::event::get_room_state_ids,
-	events::StateEventType,
+	EventId, OwnedEventId, RoomId, RoomVersionId, ServerName,
+	api::federation::event::get_room_state_ids, events::StateEventType,
 };
 use tuwunel_core::{Err, Result, debug, debug_warn, err, implement, matrix::Event};
 
@@ -18,16 +18,14 @@ use crate::rooms::short::ShortStateKey;
 	skip_all,
 	fields(%origin),
 )]
-pub(super) async fn fetch_state<Pdu>(
+pub(super) async fn fetch_state(
 	&self,
 	origin: &ServerName,
-	create_event: &Pdu,
 	room_id: &RoomId,
 	event_id: &EventId,
-) -> Result<Option<HashMap<u64, OwnedEventId>>>
-where
-	Pdu: Event,
-{
+	room_version: &RoomVersionId,
+	create_event_id: &EventId,
+) -> Result<Option<HashMap<u64, OwnedEventId>>> {
 	let res = self
 		.services
 		.sending
@@ -41,7 +39,7 @@ where
 	debug!("Fetching state events");
 	let state_ids = res.pdu_ids.iter().map(AsRef::as_ref);
 	let state_vec = self
-		.fetch_and_handle_outliers(origin, state_ids, create_event, room_id)
+		.fetch_auth(origin, room_id, state_ids, room_version)
 		.boxed()
 		.await;
 
@@ -79,7 +77,7 @@ where
 	if state
 		.get(&create_shortstatekey)
 		.map(AsRef::as_ref)
-		!= Some(create_event.event_id())
+		!= Some(create_event_id)
 	{
 		return Err!(Database("Incoming event refers to wrong create event."));
 	}

@@ -5,19 +5,14 @@ use std::{
 };
 
 use ruma::{
-	CanonicalJsonObject, CanonicalJsonValue, EventId, OwnedEventId, RoomId, ServerName,
-	api::federation::event::get_event,
+	CanonicalJsonObject, CanonicalJsonValue, EventId, OwnedEventId, RoomId, RoomVersionId,
+	ServerName, api::federation::event::get_event,
 };
 use tuwunel_core::{
 	debug, debug_error, debug_warn, implement,
-	matrix::{
-		PduEvent,
-		event::{Event, gen_event_id_canonical_json},
-	},
+	matrix::{PduEvent, event::gen_event_id_canonical_json},
 	trace, warn,
 };
-
-use super::get_room_version_id;
 
 /// Find the event and auth it. Once the event is validated (steps 1 - 8)
 /// it is appended to the outliers Tree.
@@ -29,22 +24,21 @@ use super::get_room_version_id;
 /// c. Ask origin server over federation
 /// d. TODO: Ask other servers over federation?
 #[implement(super::Service)]
-pub(super) async fn fetch_and_handle_outliers<'a, Pdu, Events>(
+pub(super) async fn fetch_auth<'a, Events>(
 	&self,
-	origin: &'a ServerName,
+	origin: &ServerName,
+	room_id: &RoomId,
 	events: Events,
-	create_event: &'a Pdu,
-	room_id: &'a RoomId,
+	room_version: &RoomVersionId,
 ) -> Vec<(PduEvent, Option<CanonicalJsonObject>)>
 where
-	Pdu: Event,
 	Events: Iterator<Item = &'a EventId> + Clone + Send,
 {
 	let mut events_with_auth_events = Vec::with_capacity(events.clone().count());
 
 	for event_id in events {
 		let outlier = self
-			.fetch_auth(room_id, event_id, origin, create_event)
+			.fetch_auth_chain(origin, room_id, event_id, room_version)
 			.await;
 
 		events_with_auth_events.push(outlier);
@@ -71,10 +65,10 @@ where
 
 			match Box::pin(self.handle_outlier_pdu(
 				origin,
-				create_event,
-				&next_id,
 				room_id,
+				&next_id,
 				value.clone(),
+				room_version,
 				true,
 			))
 			.await
@@ -95,16 +89,13 @@ where
 }
 
 #[implement(super::Service)]
-async fn fetch_auth<'a, Pdu>(
+async fn fetch_auth_chain(
 	&self,
-	_room_id: &'a RoomId,
-	event_id: &'a EventId,
-	origin: &'a ServerName,
-	create_event: &'a Pdu,
-) -> (OwnedEventId, Option<PduEvent>, Vec<(OwnedEventId, CanonicalJsonObject)>)
-where
-	Pdu: Event,
-{
+	origin: &ServerName,
+	_room_id: &RoomId,
+	event_id: &EventId,
+	room_version: &RoomVersionId,
+) -> (OwnedEventId, Option<PduEvent>, Vec<(OwnedEventId, CanonicalJsonObject)>) {
 	// a. Look in the main timeline (pduid_pdu tree)
 	// b. Look at outlier pdu tree
 	// (get_pdu_json checks both)
@@ -149,13 +140,8 @@ where
 		{
 			| Ok(res) => {
 				debug!("Got {next_id} over federation");
-				let Ok(room_version_id) = get_room_version_id(create_event) else {
-					self.back_off(&next_id);
-					continue;
-				};
-
 				let Ok((calculated_event_id, value)) =
-					gen_event_id_canonical_json(&res.pdu, &room_version_id)
+					gen_event_id_canonical_json(&res.pdu, room_version)
 				else {
 					self.back_off(&next_id);
 					continue;

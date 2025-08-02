@@ -2,7 +2,8 @@ use std::collections::{HashMap, hash_map};
 
 use futures::future::ready;
 use ruma::{
-	CanonicalJsonObject, CanonicalJsonValue, EventId, RoomId, ServerName, events::StateEventType,
+	CanonicalJsonObject, CanonicalJsonValue, EventId, RoomId, RoomVersionId, ServerName,
+	events::StateEventType,
 };
 use tuwunel_core::{
 	Err, Result, debug, debug_info, err, implement,
@@ -10,41 +11,36 @@ use tuwunel_core::{
 	state_res, trace, warn,
 };
 
-use super::{check_room_id, get_room_version_id, to_room_version};
+use super::{check_room_id, to_room_version};
 
 #[implement(super::Service)]
-#[allow(clippy::too_many_arguments)]
-pub(super) async fn handle_outlier_pdu<'a, Pdu>(
+pub(super) async fn handle_outlier_pdu(
 	&self,
-	origin: &'a ServerName,
-	create_event: &'a Pdu,
-	event_id: &'a EventId,
-	room_id: &'a RoomId,
-	mut value: CanonicalJsonObject,
+	origin: &ServerName,
+	room_id: &RoomId,
+	event_id: &EventId,
+	mut pdu_json: CanonicalJsonObject,
+	room_version: &RoomVersionId,
 	auth_events_known: bool,
-) -> Result<(PduEvent, CanonicalJsonObject)>
-where
-	Pdu: Event,
-{
+) -> Result<(PduEvent, CanonicalJsonObject)> {
 	// 1. Remove unsigned field
-	value.remove("unsigned");
+	pdu_json.remove("unsigned");
 
-	// TODO: For RoomVersion6 we must check that Raw<..> is canonical do we anywhere?: https://matrix.org/docs/spec/rooms/v6#canonical-json
-
+	// TODO: For RoomVersion6 we must check that Raw<..> is canonical do we
+	// anywhere?: https://matrix.org/docs/spec/rooms/v6#canonical-json
 	// 2. Check signatures, otherwise drop
 	// 3. check content hash, redact if doesn't match
-	let room_version_id = get_room_version_id(create_event)?;
-	let mut incoming_pdu = match self
+	let mut pdu_json = match self
 		.services
 		.server_keys
-		.verify_event(&value, Some(&room_version_id))
+		.verify_event(&pdu_json, Some(room_version))
 		.await
 	{
-		| Ok(ruma::signatures::Verified::All) => value,
+		| Ok(ruma::signatures::Verified::All) => pdu_json,
 		| Ok(ruma::signatures::Verified::Signatures) => {
 			// Redact
 			debug_info!("Calculated hash does not match (redaction): {event_id}");
-			let Ok(obj) = ruma::canonical_json::redact(value, &room_version_id, None) else {
+			let Ok(obj) = ruma::canonical_json::redact(pdu_json, room_version, None) else {
 				return Err!(Request(InvalidParam("Redaction failed")));
 			};
 
@@ -66,13 +62,13 @@ where
 
 	// Now that we have checked the signature and hashes we can add the eventID and
 	// convert to our PduEvent type
-	incoming_pdu
+	pdu_json
 		.insert("event_id".to_owned(), CanonicalJsonValue::String(event_id.as_str().to_owned()));
 
-	let pdu_event = serde_json::from_value::<PduEvent>(serde_json::to_value(&incoming_pdu)?)
+	let event = serde_json::from_value::<PduEvent>(serde_json::to_value(&pdu_json)?)
 		.map_err(|e| err!(Request(BadJson(debug_warn!("Event is not a valid PDU: {e}")))))?;
 
-	check_room_id(room_id, &pdu_event)?;
+	check_room_id(room_id, &event)?;
 
 	if !auth_events_known {
 		// 4. fetch any missing auth events doing all checks listed here starting at 1.
@@ -81,21 +77,15 @@ where
 		//    the auth events are also rejected "due to auth events"
 		// NOTE: Step 5 is not applied anymore because it failed too often
 		debug!("Fetching auth events");
-		Box::pin(self.fetch_and_handle_outliers(
-			origin,
-			pdu_event.auth_events(),
-			create_event,
-			room_id,
-		))
-		.await;
+		Box::pin(self.fetch_auth(origin, room_id, event.auth_events(), room_version)).await;
 	}
 
 	// 6. Reject "due to auth events" if the event doesn't pass auth based on the
 	//    auth events
 	debug!("Checking based on auth events");
 	// Build map of auth events
-	let mut auth_events = HashMap::with_capacity(pdu_event.auth_events().count());
-	for id in pdu_event.auth_events() {
+	let mut auth_events = HashMap::with_capacity(event.auth_events().count());
+	for id in event.auth_events() {
 		let Ok(auth_event) = self.services.timeline.get_pdu(id).await else {
 			warn!("Could not find auth event {id}");
 			continue;
@@ -135,8 +125,8 @@ where
 	};
 
 	let auth_check = state_res::event_auth::auth_check(
-		&to_room_version(&room_version_id),
-		&pdu_event,
+		&to_room_version(room_version),
+		&event,
 		None, // TODO: third party invite
 		state_fetch,
 	)
@@ -152,9 +142,9 @@ where
 	// 7. Persist the event as an outlier.
 	self.services
 		.timeline
-		.add_pdu_outlier(pdu_event.event_id(), &incoming_pdu);
+		.add_pdu_outlier(event.event_id(), &pdu_json);
 
 	trace!("Added pdu as outlier.");
 
-	Ok((pdu_event, incoming_pdu))
+	Ok((event, pdu_json))
 }

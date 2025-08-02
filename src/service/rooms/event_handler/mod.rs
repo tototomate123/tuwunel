@@ -1,5 +1,5 @@
 mod acl_check;
-mod fetch_and_handle_outliers;
+mod fetch_auth;
 mod fetch_prev;
 mod fetch_state;
 mod handle_incoming_pdu;

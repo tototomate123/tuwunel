@@ -1,7 +1,9 @@
 use std::{borrow::Borrow, iter::once, sync::Arc, time::Instant};
 
 use futures::{FutureExt, StreamExt, future::ready};
-use ruma::{CanonicalJsonObject, RoomId, ServerName, events::StateEventType};
+use ruma::{
+	CanonicalJsonObject, EventId, RoomId, RoomVersionId, ServerName, events::StateEventType,
+};
 use tuwunel_core::{
 	Err, Result, debug, debug_info, err, implement, is_equal_to,
 	matrix::{Event, EventTypeExt, PduEvent, StateKey, state_res},
@@ -10,7 +12,7 @@ use tuwunel_core::{
 	warn,
 };
 
-use super::{get_room_version_id, to_room_version};
+use super::to_room_version;
 use crate::rooms::{
 	state_compressor::{CompressedState, HashSetCompressStateEvent},
 	timeline::RawPduId,
@@ -18,17 +20,15 @@ use crate::rooms::{
 
 #[implement(super::Service)]
 #[tracing::instrument(name = "upgrade", level = "debug", skip_all, ret(Debug))]
-pub(super) async fn upgrade_outlier_to_timeline_pdu<Pdu>(
+pub(super) async fn upgrade_outlier_to_timeline_pdu(
 	&self,
-	incoming_pdu: PduEvent,
-	val: CanonicalJsonObject,
-	create_event: &Pdu,
 	origin: &ServerName,
 	room_id: &RoomId,
-) -> Result<Option<RawPduId>>
-where
-	Pdu: Event,
-{
+	incoming_pdu: PduEvent,
+	val: CanonicalJsonObject,
+	room_version: &RoomVersionId,
+	create_event_id: &EventId,
+) -> Result<Option<RawPduId>> {
 	// Skip the PDU if we already have it as a timeline event
 	if let Ok(pduid) = self
 		.services
@@ -50,7 +50,6 @@ where
 
 	debug!("Upgrading to timeline pdu");
 	let timer = Instant::now();
-	let room_version_id = get_room_version_id(create_event)?;
 
 	// 10. Fetch missing state and auth chain events by calling /state_ids at
 	//     backwards extremities doing all the checks in this list starting at 1.
@@ -61,21 +60,20 @@ where
 		self.state_at_incoming_degree_one(&incoming_pdu)
 			.await?
 	} else {
-		self.state_at_incoming_resolved(&incoming_pdu, room_id, &room_version_id)
+		self.state_at_incoming_resolved(&incoming_pdu, room_id, room_version)
 			.boxed()
 			.await?
 	};
 
 	if state_at_incoming_event.is_none() {
 		state_at_incoming_event = self
-			.fetch_state(origin, create_event, room_id, incoming_pdu.event_id())
+			.fetch_state(origin, room_id, incoming_pdu.event_id(), room_version, create_event_id)
+			.boxed()
 			.await?;
 	}
 
 	let state_at_incoming_event =
 		state_at_incoming_event.expect("we always set this to some above");
-
-	let room_version = to_room_version(&room_version_id);
 
 	debug!("Performing auth check");
 	// 11. Check the auth of the event passes based on the state of the event
@@ -97,7 +95,7 @@ where
 	};
 
 	let auth_check = state_res::event_auth::auth_check(
-		&room_version,
+		&to_room_version(room_version),
 		&incoming_pdu,
 		None, // TODO: third party invite
 		|ty, sk| state_fetch(ty.clone(), sk.into()),
@@ -128,7 +126,7 @@ where
 	};
 
 	let auth_check = state_res::event_auth::auth_check(
-		&room_version,
+		&to_room_version(room_version),
 		&incoming_pdu,
 		None, // third-party invite
 		state_fetch,
@@ -138,7 +136,7 @@ where
 
 	// Soft fail check before doing state res
 	debug!("Performing soft-fail check");
-	let soft_fail = match (auth_check, incoming_pdu.redacts_id(&room_version_id)) {
+	let soft_fail = match (auth_check, incoming_pdu.redacts_id(room_version)) {
 		| (false, _) => true,
 		| (true, None) => false,
 		| (true, Some(redact_id)) =>
@@ -216,7 +214,7 @@ where
 		}
 
 		let new_room_state = self
-			.resolve_state(room_id, &room_version_id, state_after)
+			.resolve_state(room_id, room_version, state_after)
 			.boxed()
 			.await?;
 
