@@ -95,40 +95,6 @@ pub(super) async fn auth(
 	}
 
 	match (metadata.authentication, token) {
-		| (AccessToken, Appservice(info)) => Ok(auth_appservice(services, request, info).await?),
-
-		| (AccessToken | AccessTokenOptional | AuthScheme::None, User(user)) => Ok(Auth {
-			sender_user: Some(user.0),
-			sender_device: Some(user.1),
-			_expires_at: user.2,
-			..Auth::default()
-		}),
-
-		| (AccessToken, Token::None) => match metadata {
-			| &get_turn_server_info::v3::Request::METADATA
-				if services.server.config.turn_allow_guests =>
-				Ok(Auth::default()),
-
-			| _ => Err!(Request(MissingToken("Missing access token."))),
-		},
-
-		| (AppserviceToken, User(_)) =>
-			Err!(Request(Unauthorized("Appservice tokens must be used on this endpoint."))),
-
-		| (ServerSignatures, Appservice(_) | User(_)) =>
-			Err!(Request(Unauthorized("Server signatures must be used on this endpoint."))),
-
-		| (ServerSignatures, Token::None) => Ok(auth_server(services, request, json_body).await?),
-
-		| (AuthScheme::None | AccessTokenOptional | AppserviceToken, Appservice(info)) =>
-			Ok(Auth {
-				appservice_info: Some(*info),
-				..Auth::default()
-			}),
-
-		| (AuthScheme::None | AccessTokenOptional | AppserviceToken, Token::None) =>
-			Ok(Auth::default()),
-
 		| (AuthScheme::None, Invalid)
 			if request.query.access_token.is_some()
 				&& metadata == &get_openid_userinfo::v1::Request::METADATA =>
@@ -138,6 +104,9 @@ pub(super) async fn auth(
 			// required to make integration manager work.
 			Ok(Auth::default())
 		},
+
+		| (_, Invalid) =>
+			Err(BadRequest(UnknownToken { soft_logout: false }, "Unknown access token.")),
 
 		| (_, Expired((user_id, device_id))) => {
 			services
@@ -150,8 +119,41 @@ pub(super) async fn auth(
 			Err(BadRequest(UnknownToken { soft_logout: true }, "Expired access token."))
 		},
 
-		| (_, Invalid) =>
-			Err(BadRequest(UnknownToken { soft_logout: false }, "Unknown access token.")),
+		| (AppserviceToken, User(_)) =>
+			Err!(Request(Unauthorized("Appservice tokens must be used on this endpoint."))),
+
+		| (ServerSignatures, Appservice(_) | User(_)) =>
+			Err!(Request(Unauthorized("Server signatures must be used on this endpoint."))),
+
+		| (ServerSignatures, Token::None) => Ok(auth_server(services, request, json_body).await?),
+
+		| (AccessToken, Appservice(info)) => Ok(auth_appservice(services, request, info).await?),
+
+		| (AccessToken, Token::None) => match metadata {
+			| &get_turn_server_info::v3::Request::METADATA
+				if services.server.config.turn_allow_guests =>
+				Ok(Auth::default()),
+
+			| _ => Err!(Request(MissingToken("Missing access token."))),
+		},
+
+		| (AccessToken | AccessTokenOptional | AuthScheme::None, User(user)) => Ok(Auth {
+			sender_user: Some(user.0),
+			sender_device: Some(user.1),
+			_expires_at: user.2,
+			..Auth::default()
+		}),
+
+		//TODO: add AppserviceTokenOptional
+		| (AccessTokenOptional | AppserviceToken | AuthScheme::None, Appservice(info)) =>
+			Ok(Auth {
+				appservice_info: Some(*info),
+				..Auth::default()
+			}),
+
+		//TODO: add AppserviceTokenOptional
+		| (AccessTokenOptional | AppserviceToken | AuthScheme::None, Token::None) =>
+			Ok(Auth::default()),
 	}
 }
 
