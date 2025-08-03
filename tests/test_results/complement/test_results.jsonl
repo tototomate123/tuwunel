@@ -344,7 +344,7 @@
 {"Action":"pass","Test":"TestMembersLocal/Parallel/Existing_members_see_new_members'_presence_(in_initial_sync)"}
 {"Action":"pass","Test":"TestMembersLocal/Parallel/New_room_members_see_their_own_join_event"}
 {"Action":"fail","Test":"TestMembershipOnEvents"}
-{"Action":"fail","Test":"TestNetworkPartitionOrdering"}
+{"Action":"pass","Test":"TestNetworkPartitionOrdering"}
 {"Action":"pass","Test":"TestNotPresentUserCannotBanOthers"}
 {"Action":"pass","Test":"TestOlderLeftRoomsNotInLeaveSection"}
 {"Action":"fail","Test":"TestOutboundFederationEventSizeGetMissingEvents"}
@@ -643,11 +643,11 @@
 {"Action":"fail","Test":"TestSync"}
 {"Action":"fail","Test":"TestSync/parallel"}
 {"Action":"pass","Test":"TestSync/parallel/Can_sync_a_joined_room"}
-{"Action":"fail","Test":"TestSync/parallel/Device_list_tracking"}
-{"Action":"fail","Test":"TestSync/parallel/Device_list_tracking/User_is_correctly_listed_when_they_leave,_even_when_lazy_loading_is_enabled"}
+{"Action":"pass","Test":"TestSync/parallel/Device_list_tracking"}
+{"Action":"pass","Test":"TestSync/parallel/Device_list_tracking/User_is_correctly_listed_when_they_leave,_even_when_lazy_loading_is_enabled"}
 {"Action":"pass","Test":"TestSync/parallel/Full_state_sync_includes_joined_rooms"}
 {"Action":"fail","Test":"TestSync/parallel/Get_presence_for_newly_joined_members_in_incremental_sync"}
-{"Action":"fail","Test":"TestSync/parallel/Newly_joined_room_has_correct_timeline_in_incremental_sync"}
+{"Action":"pass","Test":"TestSync/parallel/Newly_joined_room_has_correct_timeline_in_incremental_sync"}
 {"Action":"fail","Test":"TestSync/parallel/Newly_joined_room_includes_presence_in_incremental_sync"}
 {"Action":"pass","Test":"TestSync/parallel/Newly_joined_room_is_included_in_an_incremental_sync"}
 {"Action":"pass","Test":"TestSync/parallel/sync_should_succeed_even_if_the_sync_token_points_to_a_redaction_of_an_unknown_event"}
