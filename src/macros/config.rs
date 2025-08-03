@@ -73,7 +73,8 @@ fn generate_example(input: &ItemStruct, args: &[Meta], write: bool) -> Result<To
 				.expect("written to config file");
 		}
 
-		file.write_fmt(format_args!("\n#[{section}]\n"))
+		let pound = if section != "global" { "#" } else { "" };
+		file.write_fmt(format_args!("\n{pound}[{section}]\n"))
 			.expect("written to config file");
 	}
 
