@@ -15,9 +15,14 @@ default_sys_name="debian"
 default_sys_target="x86_64-v1-linux-gnu"
 default_sys_version="testing-slim"
 
-default_run=".*"
-run="${1:-$default_run}"
+default_complement_verbose=0
+default_complement_count=1
+default_complement_parallel=16
+default_complement_shuffle=0
+default_complement_timeout="1h"
+default_complement_run=".*"
 
+run="${1:-$default_complement_run}"
 skip=""
 skip="TestPartialStateJoin.*"
 skip="${skip}|TestRoomDeleteAlias/Pa.*/Can_delete_canonical_alias"
@@ -43,13 +48,13 @@ set +a
 ###############################################################################
 
 envs=""
-envs="$envs -e complement_verbose=${complement_verbose:-0}"
-envs="$envs -e complement_count=${complement_count:-1}"
-envs="$envs -e complement_parallel=${complement_parallel:-16}"
-envs="$envs -e complement_shuffle=${complement_shuffle:-0}"
-envs="$envs -e complement_timeout=${complement_timeout:-1h}"
+envs="$envs -e complement_verbose=${complement_verbose:-$default_complement_verbose}"
+envs="$envs -e complement_count=${complement_count:-$default_complement_count}"
+envs="$envs -e complement_parallel=${complement_parallel:-$default_complement_parallel}"
+envs="$envs -e complement_shuffle=${complement_shuffle:-$default_complement_shuffle}"
+envs="$envs -e complement_timeout=${complement_timeout:-$default_complement_timeout}"
 envs="$envs -e complement_skip=${complement_skip:-$skip}"
-envs="$envs -e complement_run=${run}"
+envs="$envs -e complement_run=${1:-$default_complement_run}"
 
 set -x
 tester_image="complement-tester--${sys_name}--${sys_version}--${sys_target}"
