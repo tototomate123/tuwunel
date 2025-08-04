@@ -420,19 +420,24 @@ async fn load_full_state(&self, shortstatehash: ShortStateHash) -> Result<Arc<Co
 		.await
 }
 
-/// Returns the state hash for this pdu.
+/// Returns the state hash at this event.
 #[implement(super::Service)]
 pub async fn pdu_shortstatehash(&self, event_id: &EventId) -> Result<ShortStateHash> {
-	const BUFSIZE: usize = size_of::<ShortEventId>();
-
 	self.services
 		.short
 		.get_shorteventid(event_id)
-		.and_then(|shorteventid| {
-			self.db
-				.shorteventid_shortstatehash
-				.aqry::<BUFSIZE, _>(&shorteventid)
-		})
+		.and_then(|shorteventid| self.get_shortstatehash(shorteventid))
+		.await
+}
+
+/// Returns the state hash at this event.
+#[implement(super::Service)]
+pub async fn get_shortstatehash(&self, shorteventid: ShortEventId) -> Result<ShortStateHash> {
+	const BUFSIZE: usize = size_of::<ShortEventId>();
+
+	self.db
+		.shorteventid_shortstatehash
+		.aqry::<BUFSIZE, _>(&shorteventid)
 		.await
 		.deserialized()
 }
