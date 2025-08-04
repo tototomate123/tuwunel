@@ -1683,6 +1683,23 @@ pub struct Config {
 	#[serde(default = "default_admin_room_tag")]
 	pub admin_room_tag: String,
 
+	/// Whether to grant the first user to register admin privileges by joining
+	/// them to the admin room. Note that technically the next user to register
+	/// when the admin room is empty (or only contains the server-user) is
+	/// granted, and only when the admin room is enabled.
+	///
+	/// default: true
+	#[serde(default = "true_fn")]
+	pub grant_admin_to_first_user: bool,
+
+	/// Whether the admin room is created on first startup. Users should not set
+	/// this to false. Developers can set this to false during integration tests
+	/// to reduce activity and output.
+	///
+	/// default: true
+	#[serde(default = "true_fn")]
+	pub create_admin_room: bool,
+
 	/// Sentry.io crash/panic reporting, performance monitoring/metrics, etc.
 	/// This is NOT enabled by default. tuwunel's default Sentry reporting
 	/// endpoint domain is `o4509498990067712.ingest.us.sentry.io`.

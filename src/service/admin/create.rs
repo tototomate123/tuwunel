@@ -20,6 +20,22 @@ use tuwunel_core::{Result, pdu::PduBuilder};
 
 use crate::Services;
 
+/// Create the server user.
+///
+/// This should be the first user on the server and created prior to the
+/// admin room.
+pub async fn create_server_user(services: &Services) -> Result {
+	let server_user = services.globals.server_user.as_ref();
+
+	// Create a user for the server
+	services
+		.users
+		.create(server_user, None, None)
+		.await?;
+
+	Ok(())
+}
+
 /// Create the admin room.
 ///
 /// Users in this room are considered admins by tuwunel, and the room can be
@@ -38,10 +54,9 @@ pub async fn create_admin_room(services: &Services) -> Result {
 
 	// Create a user for the server
 	let server_user = services.globals.server_user.as_ref();
-	services
-		.users
-		.create(server_user, None, None)
-		.await?;
+	if !services.users.exists(server_user).await {
+		create_server_user(services).await?;
+	}
 
 	let create_content = {
 		use RoomVersionId::*;

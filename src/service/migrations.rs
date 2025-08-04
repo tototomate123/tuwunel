@@ -67,9 +67,11 @@ async fn fresh(services: &Services) -> Result {
 	db["global"].insert(b"fix_readreceiptid_readreceipt_duplicates", []);
 
 	// Create the admin room and server user on first run
-	crate::admin::create_admin_room(services)
-		.boxed()
-		.await?;
+	if services.config.create_admin_room {
+		crate::admin::create_admin_room(services)
+			.boxed()
+			.await?;
+	}
 
 	warn!("Created new RocksDB database with version {DATABASE_VERSION}");
 

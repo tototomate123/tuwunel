@@ -1,5 +1,5 @@
 pub mod console;
-mod create;
+pub mod create;
 mod execute;
 mod grant;
 

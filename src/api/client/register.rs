@@ -513,19 +513,18 @@ pub(crate) async fn register_route(
 	// If this is the first real user, grant them admin privileges except for guest
 	// users
 	// Note: the server user is generated first
-	if !is_guest {
-		if let Ok(admin_room) = services.admin.get_admin_room().await {
-			if services
-				.rooms
-				.state_cache
-				.room_joined_count(&admin_room)
-				.await
-				.is_ok_and(is_equal_to!(1))
-			{
-				services.admin.make_user_admin(&user_id).await?;
-				warn!("Granting {user_id} admin privileges as the first user");
-			}
-		}
+	if !is_guest
+		&& services.config.grant_admin_to_first_user
+		&& let Ok(admin_room) = services.admin.get_admin_room().await
+		&& services
+			.rooms
+			.state_cache
+			.room_joined_count(&admin_room)
+			.await
+			.is_ok_and(is_equal_to!(1))
+	{
+		services.admin.make_user_admin(&user_id).await?;
+		warn!("Granting {user_id} admin privileges as the first user");
 	}
 
 	if body.appservice_info.is_none()
