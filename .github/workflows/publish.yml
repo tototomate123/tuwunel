@@ -280,7 +280,7 @@ jobs:
       - name: Push Branch
         if: >
           !failure() && !cancelled()
-          && github.ref == 'refs/heads/main'
+          && (github.ref == 'refs/heads/main' || contains(github.ref, 'refs/tags/v'))
 
         env:
           ref_name: ${{github.ref_name}}
