@@ -71,19 +71,8 @@ pub(crate) async fn handle(
 	level = "debug",
 	parent = parent,
 	skip_all,
-	fields(
-		active = %services
-			.server
-			.metrics
-			.requests_handle_active
-			.fetch_add(1, Ordering::Relaxed),
-		handled = %services
-			.server
-			.metrics
-			.requests_handle_finished
-			.load(Ordering::Relaxed),
-	)
 )]
+#[allow(unused_variables)]
 async fn execute(
 	// we made a safety contract that Services will not go out of scope
 	// during the request; this ensures a reference is accounted for at
@@ -93,6 +82,13 @@ async fn execute(
 	next: axum::middleware::Next,
 	parent: &Span,
 ) -> Response {
+	#[cfg(debug_assertions)]
+	services
+		.server
+		.metrics
+		.requests_handle_active
+		.fetch_add(1, Ordering::Relaxed);
+
 	#[cfg(debug_assertions)]
 	tuwunel_core::defer! {{
 		_ = services.server
