@@ -72,12 +72,14 @@ impl Data {
 	#[inline]
 	pub(super) fn pending_count(&self) -> Range<u64> { self.counter.range() }
 
+	#[tracing::instrument(name = "retire", level = "debug", skip(sender))]
 	fn handle_retire(sender: &Sender<u64>, count: u64) -> Result {
 		let _prev = sender.send_replace(count);
 
 		Ok(())
 	}
 
+	#[tracing::instrument(name = "dispatch", level = "debug", skip(db, global))]
 	fn store_count(db: &Arc<Database>, global: &Arc<Map>, count: u64) -> Result {
 		let _cork = db.cork();
 		global.insert(COUNTER, count.to_be_bytes());

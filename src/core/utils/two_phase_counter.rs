@@ -150,7 +150,7 @@ impl<F: Fn(u64) -> Result + Sync> State<F> {
 			.remove(index)
 			.expect("sequence number at index must be removed");
 
-		debug_assert!(removed == id, "sequence number removed must match id");
+		debug_assert_eq!(removed, id, "sequence number removed must match id");
 
 		// release only occurs when the oldest value retires
 		if index != 0 {
@@ -159,6 +159,8 @@ impl<F: Fn(u64) -> Result + Sync> State<F> {
 
 		// release occurs for the maximum retired value
 		let release = if self.pending.is_empty() { self.dispatched } else { id };
+
+		debug_assert!(release >= id, "sequence number released must not be less than id");
 
 		(self.release)(release).expect("release callback should not error");
 	}
