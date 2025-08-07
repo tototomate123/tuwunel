@@ -298,7 +298,7 @@ fn get_space_child_events<'a>(
 #[implement(Service)]
 pub async fn get_summary_and_children_client(
 	&self,
-	current_room: &OwnedRoomId,
+	current_room: &RoomId,
 	suggested_only: bool,
 	user_id: &UserId,
 	via: &[OwnedServerName],
