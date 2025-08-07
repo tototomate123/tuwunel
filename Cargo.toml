@@ -39,7 +39,7 @@ name = "tuwunel"
 #
 
 [workspace.dependencies.argon2]
-version = "0.5.3"
+version = "0.5"
 default-features = false
 features = [
 	"alloc",
@@ -47,17 +47,17 @@ features = [
 ]
 
 [workspace.dependencies.arrayvec]
-version = "0.7.6"
+version = "0.7"
 features = ["serde"]
 
 [workspace.dependencies.async-channel]
 version = "2.3.1"
 
 [workspace.dependencies.async-trait]
-version = "0.1.88"
+version = "0.1"
 
 [workspace.dependencies.axum]
-version = "0.8.4"
+version = "0.8"
 default-features = false
 features = [
 	"form",
@@ -73,7 +73,7 @@ features = [
 version = "0.7"
 
 [workspace.dependencies.axum-extra]
-version = "0.10.1"
+version = "0.10"
 default-features = false
 features = [
 	"typed-header",
@@ -81,7 +81,7 @@ features = [
 ]
 
 [workspace.dependencies.axum-server]
-version = "0.7.2"
+version = "0.7"
 default-features = false
 
 [workspace.dependencies.axum-server-dual-protocol]
@@ -89,11 +89,11 @@ version = "0.7"
 default-features = false
 
 [workspace.dependencies.base64]
-version = "0.22.1"
+version = "0.22"
 default-features = false
 
 [workspace.dependencies.blurhash]
-version = "0.2.3"
+version = "0.2"
 default-features = false
 features = [
 	"fast-linear-to-srgb",
@@ -101,13 +101,13 @@ features = [
 ]
 
 [workspace.dependencies.bytes]
-version = "1.10.1"
+version = "1.10"
 
 [workspace.dependencies.bytesize]
-version = "2.0.1"
+version = "2.0"
 
 [workspace.dependencies.cargo_toml]
-version = "0.22.1"
+version = "0.22"
 default-features = false
 features = ["features"]
 
@@ -115,12 +115,12 @@ features = ["features"]
 version = "0.1"
 
 [workspace.dependencies.chrono]
-version = "0.4.41"
+version = "0.4"
 features = ["alloc", "std"]
 default-features = false
 
 [workspace.dependencies.clap]
-version = "4.5.39"
+version = "4.5"
 default-features = false
 features = [
 	"derive",
@@ -140,26 +140,26 @@ features = [
 version = "0.8.3"
 
 [workspace.dependencies.const-str]
-version = "0.6.2"
+version = "0.6"
 
 [workspace.dependencies.ctor]
-version = "0.4.2"
+version = "0.4"
 
 [workspace.dependencies.cyborgtime]
-version = "2.1.1"
+version = "2.1"
 
 [workspace.dependencies.either]
-version = "1.15.0"
+version = "1.15"
 default-features = false
 features = ["serde"]
 
 [workspace.dependencies.figment]
-version = "0.10.19"
+version = "0.10"
 default-features = false
 features = ["env", "toml"]
 
 [workspace.dependencies.futures]
-version = "0.3.31"
+version = "0.3"
 default-features = false
 features = ["std", "async-await"]
 
@@ -173,7 +173,7 @@ features = [
 ]
 
 [workspace.dependencies.hickory-resolver]
-version = "0.25.2"
+version = "0.25"
 default-features = false
 features = [
 	"serde",
@@ -182,17 +182,17 @@ features = [
 ]
 
 [workspace.dependencies.hmac]
-version = "0.12.1"
+version = "0.12"
 default-features = false
 
 [workspace.dependencies.http]
-version = "1.3.1"
+version = "1.3"
 
 [workspace.dependencies.http-body-util]
-version = "0.1.3"
+version = "0.1"
 
 [workspace.dependencies.hyper]
-version = "1.6.0"
+version = "1.6"
 default-features = false
 features = [
 	"server",
@@ -210,7 +210,7 @@ features = [
 ]
 
 [workspace.dependencies.image]
-version = "0.25.6"
+version = "0.25"
 default-features = false
 features = [
 	"jpeg",
@@ -220,13 +220,13 @@ features = [
 ]
 
 [workspace.dependencies.ipaddress]
-version = "0.1.3"
+version = "0.1"
 
 [workspace.dependencies.itertools]
-version = "0.14.0"
+version = "0.14"
 
 [workspace.dependencies.jsonwebtoken]
-version = "9.3.1"
+version = "9.3"
 default-features = false
 features = ["use_pem"]
 
@@ -237,39 +237,39 @@ default-features = false
 features = ["sync", "tls-rustls"]
 
 [workspace.dependencies.libc]
-version = "0.2.172"
+version = "0.2"
 
 [workspace.dependencies.libloading]
-version = "0.8.8"
+version = "0.8"
 
 [workspace.dependencies.log]
-version = "0.4.27"
+version = "0.4"
 default-features = false
 
 [workspace.dependencies.loole]
-version = "0.4.1"
+version = "0.4"
 
 [workspace.dependencies.lru-cache]
-version = "0.1.2"
+version = "0.1"
 
 [workspace.dependencies.maplit]
-version = "1.0.2"
+version = "1.0"
 
 [workspace.dependencies.minicbor]
-version = "1.0.0"
+version = "2.0"
 features = ["std"]
 
 [workspace.dependencies.minicbor-serde]
-version = "0.5.0"
+version = "0.6"
 features = ["std"]
 
 [workspace.dependencies.nix]
-version = "0.30.1"
+version = "0.30"
 default-features = false
 features = ["resource"]
 
 [workspace.dependencies.num-traits]
-version = "0.2.19"
+version = "0.2"
 
 [workspace.dependencies.opentelemetry]
 version = "0.30.0"
@@ -280,23 +280,23 @@ version = "0.30.0"
 #features = ["rt-tokio"]
 
 [workspace.dependencies.opentelemetry_sdk]
-version = "0.30.0"
+version = "0.30"
 features = ["rt-tokio"]
 
 [workspace.dependencies.proc-macro2]
-version = "1.0.95"
+version = "1.0"
 
 [workspace.dependencies.quote]
-version = "1.0.40"
+version = "1.0"
 
 [workspace.dependencies.rand]
-version = "0.8.5"
+version = "0.8"
 
 [workspace.dependencies.regex]
-version = "1.11.1"
+version = "1.11"
 
 [workspace.dependencies.reqwest]
-version = "0.12.19"
+version = "0.12"
 default-features = false
 features = [
 	"rustls-tls-native-roots",
@@ -306,7 +306,7 @@ features = [
 ]
 
 [workspace.dependencies.ring]
-version = "0.17.14"
+version = "0.17"
 default-features = false
 
 [workspace.dependencies.ruma]
@@ -349,7 +349,7 @@ features = [
 ]
 
 [workspace.dependencies.rustls]
-version = "0.23.27"
+version = "0.23"
 default-features = false
 features = ["aws_lc_rs"]
 
@@ -370,14 +370,14 @@ features = [
 ]
 
 [workspace.dependencies.sanitize-filename]
-version = "0.6.0"
+version = "0.6"
 
 [workspace.dependencies.sd-notify]
-version = "0.4.5"
+version = "0.4"
 default-features = false
 
 [workspace.dependencies.sentry]
-version = "0.38.1"
+version = "0.42"
 default-features = false
 features = [
     "backtrace",
@@ -393,36 +393,36 @@ features = [
 ]
 
 [workspace.dependencies.sentry-tower]
-version = "0.38.1"
+version = "0.42"
 
 [workspace.dependencies.sentry-tracing]
-version = "0.38.1"
+version = "0.42"
 
 [workspace.dependencies.serde]
-version = "1.0.219"
+version = "1.0"
 default-features = false
 features = ["rc"]
 
 [workspace.dependencies.serde_html_form]
-version = "0.2.6"
+version = "0.2"
 
 [workspace.dependencies.serde_json]
-version = "1.0.140"
+version = "1.0"
 default-features = false
 features = ["raw_value"]
 
 [workspace.dependencies.serde_regex]
-version = "1.1.0"
+version = "1.1"
 
 [workspace.dependencies.serde_yaml]
-version = "0.9.34"
+version = "0.9"
 
 [workspace.dependencies.sha1]
-version = "0.10.6"
+version = "0.10"
 default-features = false
 
 [workspace.dependencies.sha2]
-version = "0.10.9"
+version = "0.10"
 default-features = false
 
 [workspace.dependencies.smallstr]
@@ -434,7 +434,7 @@ features = [
 ]
 
 [workspace.dependencies.smallvec]
-version = "1.15.1"
+version = "1.15"
 features = [
 	"const_generics",
 	"const_new",
@@ -444,7 +444,7 @@ features = [
 ]
 
 [workspace.dependencies.syn]
-version = "2.0.101"
+version = "2.0"
 default-features = false
 features = [
 	"extra-traits",
@@ -455,11 +455,11 @@ features = [
 ]
 
 [workspace.dependencies.termimad]
-version = "0.33.0"
+version = "0.33"
 default-features = false
 
 [workspace.dependencies.thiserror]
-version = "2.0.12"
+version = "2.0"
 default-features = false
 
 [workspace.dependencies.tikv-jemallocator]
@@ -487,7 +487,7 @@ features = [
 ]
 
 [workspace.dependencies.tokio]
-version = "1.46.0"
+version = "1.47"
 default-features = false
 features = [
 	"fs",
@@ -502,20 +502,20 @@ features = [
 ]
 
 [workspace.dependencies.tokio-metrics]
-version = "0.4.2"
+version = "0.4"
 
 [workspace.dependencies.toml]
-version = "0.8.23"
+version = "0.9"
 default-features = false
 features = ["parse"]
 
 [workspace.dependencies.tower]
-version = "0.5.2"
+version = "0.5"
 default-features = false
 features = ["util"]
 
 [workspace.dependencies.tower-http]
-version = "0.6.6"
+version = "0.6"
 default-features = false
 features = [
     "add-extension",
@@ -555,12 +555,12 @@ features = [
 ]
 
 [workspace.dependencies.url]
-version = "2.5.4"
+version = "2.5"
 default-features = false
 features = ["serde"]
 
 [workspace.dependencies.webpage]
-version = "2.0.1"
+version = "2.0"
 default-features = false
 
 #
