@@ -422,7 +422,7 @@ where
 
 			(timeline_pdus, limited) = (Vec::new(), true);
 		} else {
-			(timeline_pdus, limited) = match load_timeline(
+			(timeline_pdus, limited, _) = match load_timeline(
 				services,
 				sender_user,
 				room_id,
