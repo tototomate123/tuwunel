@@ -1,5 +1,5 @@
 use axum::extract::State;
-use futures::{FutureExt, StreamExt, future::join};
+use futures::{FutureExt, StreamExt};
 use ruma::{
 	api::client::membership::{
 		get_member_events::{self, v3::MembershipEventFilter},
@@ -10,14 +10,7 @@ use ruma::{
 		room::member::{MembershipState, RoomMemberEventContent},
 	},
 };
-use tuwunel_core::{
-	Err, Result, at,
-	matrix::Event,
-	utils::{
-		future::TryExtExt,
-		stream::{BroadbandExt, ReadyExt},
-	},
-};
+use tuwunel_core::{Err, Result, at, matrix::Event, utils::stream::ReadyExt};
 
 use crate::Ruma;
 
@@ -31,19 +24,17 @@ pub(crate) async fn get_member_events_route(
 	State(services): State<crate::State>,
 	body: Ruma<get_member_events::v3::Request>,
 ) -> Result<get_member_events::v3::Response> {
-	let sender_user = body.sender_user();
-	let membership = body.membership.as_ref();
-	let not_membership = body.not_membership.as_ref();
-
 	if !services
 		.rooms
 		.state_accessor
-		.user_can_see_state_events(sender_user, &body.room_id)
+		.user_can_see_state_events(body.sender_user(), &body.room_id)
 		.await
 	{
 		return Err!(Request(Forbidden("You don't have permission to view this room.")));
 	}
 
+	let membership = body.membership.as_ref();
+	let not_membership = body.not_membership.as_ref();
 	Ok(get_member_events::v3::Response {
 		chunk: services
 			.rooms
@@ -82,19 +73,23 @@ pub(crate) async fn joined_members_route(
 	Ok(joined_members::v3::Response {
 		joined: services
 			.rooms
-			.state_cache
-			.room_members(&body.room_id)
-			.map(ToOwned::to_owned)
-			.broad_then(async |user_id| {
-				let (display_name, avatar_url) = join(
-					services.users.displayname(&user_id).ok(),
-					services.users.avatar_url(&user_id).ok(),
-				)
-				.await;
+			.state_accessor
+			.room_state_full(&body.room_id)
+			.ready_filter_map(Result::ok)
+			.ready_filter(|((ty, _), _)| *ty == StateEventType::RoomMember)
+			.map(at!(1))
+			.ready_filter_map(|pdu| {
+				let content = pdu.get_content::<RoomMemberEventContent>().ok()?;
+				let sender = pdu.sender().to_owned();
+				let member = RoomMember {
+					display_name: content.displayname,
+					avatar_url: content.avatar_url,
+				};
 
-				(user_id, RoomMember { display_name, avatar_url })
+				Some((sender, member))
 			})
 			.collect()
+			.boxed()
 			.await,
 	})
 }
