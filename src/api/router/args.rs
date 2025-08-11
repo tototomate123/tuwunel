@@ -82,7 +82,13 @@ where
 {
 	type Rejection = Error;
 
-	#[tracing::instrument(name = "ar", level = "debug", skip(services), ret, err)]
+	#[tracing::instrument(
+		name = "ar",
+		level = "debug",
+		skip(services),
+		err(level = "warn")
+		ret,
+	)]
 	async fn from_request(
 		request: hyper::Request<Body>,
 		services: &State,

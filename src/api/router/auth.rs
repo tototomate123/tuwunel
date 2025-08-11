@@ -60,8 +60,8 @@ pub(super) struct Auth {
 #[tracing::instrument(
 	level = "trace",
 	skip(services, request, json_body),
-	ret,
-	err
+	err(level = "warn"),
+	ret
 )]
 pub(super) async fn auth(
 	services: &Services,
