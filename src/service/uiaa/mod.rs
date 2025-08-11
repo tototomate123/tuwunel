@@ -125,24 +125,14 @@ pub async fn try_auth(
 
 	match auth {
 		// Find out what the user completed
-		| AuthData::Password(Password {
-			identifier,
-			password,
-			#[cfg(feature = "element_hacks")]
-			user,
-			..
-		}) => {
-			#[cfg(feature = "element_hacks")]
+		| AuthData::Password(Password { identifier, password, user, .. }) => {
 			let username = if let Some(UserIdentifier::UserIdOrLocalpart(username)) = identifier {
 				username
-			} else if let Some(username) = user {
+			} else if cfg!(feature = "element_hacks")
+				&& let Some(username) = user
+			{
 				username
 			} else {
-				return Err!(Request(Unrecognized("Identifier type not recognized.")));
-			};
-
-			#[cfg(not(feature = "element_hacks"))]
-			let Some(UserIdentifier::UserIdOrLocalpart(username)) = identifier else {
 				return Err!(Request(Unrecognized("Identifier type not recognized.")));
 			};
 
