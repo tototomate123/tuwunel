@@ -1713,6 +1713,13 @@ pub struct Config {
 	#[serde(default = "true_fn")]
 	pub create_admin_room: bool,
 
+	/// Whether to enable federation on the admin room. This cannot be changed
+	/// after the admin room is created.
+	///
+	/// default: true
+	#[serde(default = "true_fn")]
+	pub federate_admin_room: bool,
+
 	/// Sentry.io crash/panic reporting, performance monitoring/metrics, etc.
 	/// This is NOT enabled by default. tuwunel's default Sentry reporting
 	/// endpoint domain is `o4509498990067712.ingest.us.sentry.io`.

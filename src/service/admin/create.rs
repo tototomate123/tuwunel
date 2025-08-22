@@ -71,7 +71,7 @@ pub async fn create_admin_room(services: &Services) -> Result {
 		.timeline
 		.build_and_append_pdu(
 			PduBuilder::state(String::new(), &RoomCreateEventContent {
-				federate: true,
+				federate: services.config.federate_admin_room,
 				predecessor: None,
 				room_version: room_version.clone(),
 				..create_content

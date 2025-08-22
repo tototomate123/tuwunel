@@ -1476,6 +1476,11 @@
 #
 #create_admin_room = true
 
+# Whether to enable federation on the admin room. This cannot be changed
+# after the admin room is created.
+#
+#federate_admin_room = true
+
 # Sentry.io crash/panic reporting, performance monitoring/metrics, etc.
 # This is NOT enabled by default. tuwunel's default Sentry reporting
 # endpoint domain is `o4509498990067712.ingest.us.sentry.io`.
