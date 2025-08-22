@@ -29,20 +29,9 @@ use tuwunel_core::{
 };
 use tuwunel_database::{Deserialized, Ignore, Interfix, Json, Map};
 
-use crate::{Dep, client, globals, rooms, sending, users};
-
 pub struct Service {
 	db: Data,
-	services: Services,
-}
-
-struct Services {
-	globals: Dep<globals::Service>,
-	client: Dep<client::Service>,
-	state_accessor: Dep<rooms::state_accessor::Service>,
-	state_cache: Dep<rooms::state_cache::Service>,
-	users: Dep<users::Service>,
-	sending: Dep<sending::Service>,
+	services: Arc<crate::services::OnceServices>,
 }
 
 struct Data {
@@ -57,15 +46,7 @@ impl crate::Service for Service {
 				senderkey_pusher: args.db["senderkey_pusher"].clone(),
 				pushkey_deviceid: args.db["pushkey_deviceid"].clone(),
 			},
-			services: Services {
-				globals: args.depend::<globals::Service>("globals"),
-				client: args.depend::<client::Service>("client"),
-				state_accessor: args
-					.depend::<rooms::state_accessor::Service>("rooms::state_accessor"),
-				state_cache: args.depend::<rooms::state_cache::Service>("rooms::state_cache"),
-				users: args.depend::<users::Service>("users"),
-				sending: args.depend::<sending::Service>("sending"),
-			},
+			services: args.services.clone(),
 		}))
 	}
 

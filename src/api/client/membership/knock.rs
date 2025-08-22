@@ -67,7 +67,6 @@ pub(crate) async fn knock_room_route(
 			let mut servers = body.via.clone();
 			servers.extend(
 				services
-					.rooms
 					.state_cache
 					.servers_invite_via(&room_id)
 					.map(ToOwned::to_owned)
@@ -77,7 +76,6 @@ pub(crate) async fn knock_room_route(
 
 			servers.extend(
 				services
-					.rooms
 					.state_cache
 					.invite_state(sender_user, &room_id)
 					.await
@@ -100,7 +98,6 @@ pub(crate) async fn knock_room_route(
 		},
 		| Err(room_alias) => {
 			let (room_id, mut servers) = services
-				.rooms
 				.alias
 				.resolve_alias(&room_alias, Some(body.via.clone()))
 				.await?;
@@ -115,13 +112,11 @@ pub(crate) async fn knock_room_route(
 			.await?;
 
 			let addl_via_servers = services
-				.rooms
 				.state_cache
 				.servers_invite_via(&room_id)
 				.map(ToOwned::to_owned);
 
 			let addl_state_servers = services
-				.rooms
 				.state_cache
 				.invite_state(sender_user, &room_id)
 				.await
@@ -158,10 +153,9 @@ async fn knock_room_by_id_helper(
 	reason: Option<String>,
 	servers: &[OwnedServerName],
 ) -> Result<knock_room::v3::Response> {
-	let state_lock = services.rooms.state.mutex.lock(room_id).await;
+	let state_lock = services.state.mutex.lock(room_id).await;
 
 	if services
-		.rooms
 		.state_cache
 		.is_invited(sender_user, room_id)
 		.await
@@ -173,7 +167,6 @@ async fn knock_room_by_id_helper(
 	}
 
 	if services
-		.rooms
 		.state_cache
 		.is_joined(sender_user, room_id)
 		.await
@@ -183,7 +176,6 @@ async fn knock_room_by_id_helper(
 	}
 
 	if services
-		.rooms
 		.state_cache
 		.is_knocked(sender_user, room_id)
 		.await
@@ -193,7 +185,6 @@ async fn knock_room_by_id_helper(
 	}
 
 	if let Ok(membership) = services
-		.rooms
 		.state_accessor
 		.get_member(room_id, sender_user)
 		.await
@@ -205,7 +196,6 @@ async fn knock_room_by_id_helper(
 	}
 
 	let server_in_room = services
-		.rooms
 		.state_cache
 		.server_in_room(services.globals.server_name(), room_id)
 		.await;
@@ -237,11 +227,7 @@ async fn knock_room_helper_local(
 ) -> Result {
 	debug_info!("We can knock locally");
 
-	let room_version_id = services
-		.rooms
-		.state
-		.get_room_version(room_id)
-		.await?;
+	let room_version_id = services.state.get_room_version(room_id).await?;
 
 	if matches!(
 		room_version_id,
@@ -265,7 +251,6 @@ async fn knock_room_helper_local(
 
 	// Try normal knock first
 	let Err(error) = services
-		.rooms
 		.timeline
 		.build_and_append_pdu(
 			PduBuilder::state(sender_user.to_string(), &content),
@@ -366,7 +351,6 @@ async fn knock_room_helper_local(
 	info!("send_knock finished");
 
 	services
-		.rooms
 		.short
 		.get_or_create_shortroomid(room_id)
 		.await;
@@ -378,7 +362,6 @@ async fn knock_room_helper_local(
 
 	info!("Updating membership locally to knock state with provided stripped state events");
 	services
-		.rooms
 		.state_cache
 		.update_membership(
 			room_id,
@@ -401,7 +384,6 @@ async fn knock_room_helper_local(
 
 	info!("Appending room knock event locally");
 	services
-		.rooms
 		.timeline
 		.append_pdu(
 			&parsed_knock_pdu,
@@ -503,7 +485,6 @@ async fn knock_room_helper_remote(
 	info!("send_knock finished");
 
 	services
-		.rooms
 		.short
 		.get_or_create_shortroomid(room_id)
 		.await;
@@ -550,13 +531,11 @@ async fn knock_room_helper_remote(
 
 		let event_id = gen_event_id(&event, &room_version_id)?;
 		let shortstatekey = services
-			.rooms
 			.short
 			.get_or_create_shortstatekey(&event_type, &state_key)
 			.await;
 
 		services
-			.rooms
 			.timeline
 			.add_pdu_outlier(&event_id, &event);
 
@@ -565,7 +544,6 @@ async fn knock_room_helper_remote(
 
 	info!("Compressing state from send_knock");
 	let compressed: CompressedState = services
-		.rooms
 		.state_compressor
 		.compress_state_events(
 			state_map
@@ -581,27 +559,23 @@ async fn knock_room_helper_remote(
 		added,
 		removed,
 	} = services
-		.rooms
 		.state_compressor
 		.save_state(room_id, Arc::new(compressed))
 		.await?;
 
 	debug!("Forcing state for new room");
 	services
-		.rooms
 		.state
 		.force_state(room_id, statehash_before_knock, added, removed, &state_lock)
 		.await?;
 
 	let statehash_after_knock = services
-		.rooms
 		.state
 		.append_to_state(&parsed_knock_pdu)
 		.await?;
 
 	info!("Updating membership locally to knock state with provided stripped state events");
 	services
-		.rooms
 		.state_cache
 		.update_membership(
 			room_id,
@@ -624,7 +598,6 @@ async fn knock_room_helper_remote(
 
 	info!("Appending room knock event locally");
 	services
-		.rooms
 		.timeline
 		.append_pdu(
 			&parsed_knock_pdu,
@@ -638,7 +611,6 @@ async fn knock_room_helper_remote(
 	// We set the room state after inserting the pdu, so that we never have a moment
 	// in time where events in the current room state do not exist
 	services
-		.rooms
 		.state
 		.set_room_state(room_id, statehash_after_knock, &state_lock);
 

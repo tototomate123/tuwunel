@@ -37,7 +37,6 @@ pub(super) async fn delete(
 		// parsing the PDU for any MXC URLs begins here
 		match self
 			.services
-			.rooms
 			.timeline
 			.get_pdu_json(&event_id)
 			.await

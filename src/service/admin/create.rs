@@ -45,12 +45,11 @@ pub async fn create_admin_room(services: &Services) -> Result {
 	let room_version = RoomVersionId::V11;
 
 	let _short_id = services
-		.rooms
 		.short
 		.get_or_create_shortroomid(&room_id)
 		.await;
 
-	let state_lock = services.rooms.state.mutex.lock(&room_id).await;
+	let state_lock = services.state.mutex.lock(&room_id).await;
 
 	// Create a user for the server
 	let server_user = services.globals.server_user.as_ref();
@@ -69,7 +68,6 @@ pub async fn create_admin_room(services: &Services) -> Result {
 
 	// 1. The room create event
 	services
-		.rooms
 		.timeline
 		.build_and_append_pdu(
 			PduBuilder::state(String::new(), &RoomCreateEventContent {
@@ -87,7 +85,6 @@ pub async fn create_admin_room(services: &Services) -> Result {
 
 	// 2. Make server user/bot join
 	services
-		.rooms
 		.timeline
 		.build_and_append_pdu(
 			PduBuilder::state(
@@ -105,7 +102,6 @@ pub async fn create_admin_room(services: &Services) -> Result {
 	let users = BTreeMap::from_iter([(server_user.into(), 69420.into())]);
 
 	services
-		.rooms
 		.timeline
 		.build_and_append_pdu(
 			PduBuilder::state(String::new(), &RoomPowerLevelsEventContent {
@@ -121,7 +117,6 @@ pub async fn create_admin_room(services: &Services) -> Result {
 
 	// 4.1 Join Rules
 	services
-		.rooms
 		.timeline
 		.build_and_append_pdu(
 			PduBuilder::state(String::new(), &RoomJoinRulesEventContent::new(JoinRule::Invite)),
@@ -134,7 +129,6 @@ pub async fn create_admin_room(services: &Services) -> Result {
 
 	// 4.2 History Visibility
 	services
-		.rooms
 		.timeline
 		.build_and_append_pdu(
 			PduBuilder::state(
@@ -150,7 +144,6 @@ pub async fn create_admin_room(services: &Services) -> Result {
 
 	// 4.3 Guest Access
 	services
-		.rooms
 		.timeline
 		.build_and_append_pdu(
 			PduBuilder::state(
@@ -167,7 +160,6 @@ pub async fn create_admin_room(services: &Services) -> Result {
 	// 5. Events implied by name and topic
 	let room_name = format!("{} Admin Room", services.config.server_name);
 	services
-		.rooms
 		.timeline
 		.build_and_append_pdu(
 			PduBuilder::state(String::new(), &RoomNameEventContent::new(room_name)),
@@ -179,7 +171,6 @@ pub async fn create_admin_room(services: &Services) -> Result {
 		.await?;
 
 	services
-		.rooms
 		.timeline
 		.build_and_append_pdu(
 			PduBuilder::state(String::new(), &RoomTopicEventContent {
@@ -197,7 +188,6 @@ pub async fn create_admin_room(services: &Services) -> Result {
 	let alias = &services.globals.admin_alias;
 
 	services
-		.rooms
 		.timeline
 		.build_and_append_pdu(
 			PduBuilder::state(String::new(), &RoomCanonicalAliasEventContent {
@@ -212,13 +202,11 @@ pub async fn create_admin_room(services: &Services) -> Result {
 		.await?;
 
 	services
-		.rooms
 		.alias
 		.set_alias(alias, &room_id, server_user)?;
 
 	// 7. (ad-hoc) Disable room URL previews for everyone by default
 	services
-		.rooms
 		.timeline
 		.build_and_append_pdu(
 			PduBuilder::state(String::new(), &RoomPreviewUrlsEventContent { disabled: true }),

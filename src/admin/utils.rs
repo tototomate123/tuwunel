@@ -17,13 +17,11 @@ pub(crate) async fn get_room_info(
 	(
 		room_id.into(),
 		services
-			.rooms
 			.state_cache
 			.room_joined_count(room_id)
 			.await
 			.unwrap_or(0),
 		services
-			.rooms
 			.state_accessor
 			.get_name(room_id)
 			.await

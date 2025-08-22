@@ -8,13 +8,9 @@ use futures::{Stream, StreamExt, TryFutureExt, stream::FuturesUnordered};
 use loole::{Receiver, Sender};
 use ruma::{OwnedUserId, UInt, UserId, events::presence::PresenceEvent, presence::PresenceState};
 use tokio::time::sleep;
-use tuwunel_core::{
-	Error, Result, Server, checked, debug, debug_warn, error, result::LogErr, trace,
-};
-use tuwunel_database::Database;
+use tuwunel_core::{Error, Result, checked, debug, debug_warn, error, result::LogErr, trace};
 
 use self::{data::Data, presence::Presence};
-use crate::{Dep, globals, users};
 
 pub struct Service {
 	timer_channel: (Sender<TimerType>, Receiver<TimerType>),
@@ -22,14 +18,7 @@ pub struct Service {
 	idle_timeout: u64,
 	offline_timeout: u64,
 	db: Data,
-	services: Services,
-}
-
-struct Services {
-	server: Arc<Server>,
-	db: Arc<Database>,
-	globals: Dep<globals::Service>,
-	users: Dep<users::Service>,
+	services: Arc<crate::services::OnceServices>,
 }
 
 type TimerType = (OwnedUserId, Duration);
@@ -46,12 +35,7 @@ impl crate::Service for Service {
 			idle_timeout: checked!(idle_timeout_s * 1_000)?,
 			offline_timeout: checked!(offline_timeout_s * 1_000)?,
 			db: Data::new(&args),
-			services: Services {
-				server: args.server.clone(),
-				db: args.db.clone(),
-				globals: args.depend::<globals::Service>("globals"),
-				users: args.depend::<users::Service>("users"),
-			},
+			services: args.services.clone(),
 		}))
 	}
 

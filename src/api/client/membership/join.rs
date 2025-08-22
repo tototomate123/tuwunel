@@ -76,7 +76,6 @@ pub(crate) async fn join_room_by_id_route(
 
 	// There is no body.server_name for /roomId/join
 	let mut servers: Vec<_> = services
-		.rooms
 		.state_cache
 		.servers_invite_via(&body.room_id)
 		.map(ToOwned::to_owned)
@@ -85,7 +84,6 @@ pub(crate) async fn join_room_by_id_route(
 
 	servers.extend(
 		services
-			.rooms
 			.state_cache
 			.invite_state(sender_user, &body.room_id)
 			.await
@@ -151,7 +149,6 @@ pub(crate) async fn join_room_by_id_or_alias_route(
 			let mut servers = body.via.clone();
 			servers.extend(
 				services
-					.rooms
 					.state_cache
 					.servers_invite_via(&room_id)
 					.map(ToOwned::to_owned)
@@ -161,7 +158,6 @@ pub(crate) async fn join_room_by_id_or_alias_route(
 
 			servers.extend(
 				services
-					.rooms
 					.state_cache
 					.invite_state(sender_user, &room_id)
 					.await
@@ -184,7 +180,6 @@ pub(crate) async fn join_room_by_id_or_alias_route(
 		},
 		| Err(room_alias) => {
 			let (room_id, mut servers) = services
-				.rooms
 				.alias
 				.resolve_alias(&room_alias, Some(body.via.clone()))
 				.await?;
@@ -199,13 +194,11 @@ pub(crate) async fn join_room_by_id_or_alias_route(
 			.await?;
 
 			let addl_via_servers = services
-				.rooms
 				.state_cache
 				.servers_invite_via(&room_id)
 				.map(ToOwned::to_owned);
 
 			let addl_state_servers = services
-				.rooms
 				.state_cache
 				.invite_state(sender_user, &room_id)
 				.await
@@ -254,7 +247,7 @@ pub async fn join_room_by_id_helper(
 	third_party_signed: Option<&ThirdPartySigned>,
 	appservice_info: &Option<RegistrationInfo>,
 ) -> Result<join_room_by_id::v3::Response> {
-	let state_lock = services.rooms.state.mutex.lock(room_id).await;
+	let state_lock = services.state.mutex.lock(room_id).await;
 
 	let user_is_guest = services
 		.users
@@ -265,7 +258,6 @@ pub async fn join_room_by_id_helper(
 
 	if user_is_guest
 		&& !services
-			.rooms
 			.state_accessor
 			.guest_can_join(room_id)
 			.await
@@ -274,7 +266,6 @@ pub async fn join_room_by_id_helper(
 	}
 
 	if services
-		.rooms
 		.state_cache
 		.is_joined(sender_user, room_id)
 		.await
@@ -284,7 +275,6 @@ pub async fn join_room_by_id_helper(
 	}
 
 	if let Ok(membership) = services
-		.rooms
 		.state_accessor
 		.get_member(room_id, sender_user)
 		.await
@@ -296,7 +286,6 @@ pub async fn join_room_by_id_helper(
 	}
 
 	let server_in_room = services
-		.rooms
 		.state_cache
 		.server_in_room(services.globals.server_name(), room_id)
 		.await;
@@ -518,7 +507,6 @@ async fn join_room_by_id_helper_remote(
 	}
 
 	services
-		.rooms
 		.short
 		.get_or_create_shortroomid(room_id)
 		.await;
@@ -565,13 +553,11 @@ async fn join_room_by_id_helper_remote(
 			};
 
 			services
-				.rooms
 				.timeline
 				.add_pdu_outlier(&event_id, &value);
 
 			if let Some(state_key) = &pdu.state_key {
 				let shortstatekey = services
-					.rooms
 					.short
 					.get_or_create_shortstatekey(&pdu.kind.to_string().into(), state_key)
 					.await;
@@ -600,7 +586,6 @@ async fn join_room_by_id_helper_remote(
 		.ready_filter_map(Result::ok)
 		.ready_for_each(|(event_id, value)| {
 			services
-				.rooms
 				.timeline
 				.add_pdu_outlier(&event_id, &value);
 		})
@@ -612,10 +597,9 @@ async fn join_room_by_id_helper_remote(
 	state_res::auth_check(
 		&room_version::rules(&room_version_id)?,
 		&parsed_join_pdu,
-		&async |event_id| services.rooms.timeline.get_pdu(&event_id).await,
+		&async |event_id| services.timeline.get_pdu(&event_id).await,
 		&async |event_type, state_key| {
 			let shortstatekey = services
-				.rooms
 				.short
 				.get_shortstatekey(&event_type, state_key.as_str())
 				.await?;
@@ -624,7 +608,7 @@ async fn join_room_by_id_helper_remote(
 				err!(Request(NotFound("Missing fetch_state {shortstatekey:?}")))
 			})?;
 
-			services.rooms.timeline.get_pdu(event_id).await
+			services.timeline.get_pdu(event_id).await
 		},
 	)
 	.boxed()
@@ -632,7 +616,6 @@ async fn join_room_by_id_helper_remote(
 
 	info!("Compressing state from send_join");
 	let compressed: CompressedState = services
-		.rooms
 		.state_compressor
 		.compress_state_events(state.iter().map(|(ssk, eid)| (ssk, eid.borrow())))
 		.collect()
@@ -644,21 +627,18 @@ async fn join_room_by_id_helper_remote(
 		added,
 		removed,
 	} = services
-		.rooms
 		.state_compressor
 		.save_state(room_id, Arc::new(compressed))
 		.await?;
 
 	debug!("Forcing state for new room");
 	services
-		.rooms
 		.state
 		.force_state(room_id, statehash_before_join, added, removed, &state_lock)
 		.await?;
 
 	info!("Updating joined counts for new room");
 	services
-		.rooms
 		.state_cache
 		.update_joined_count(room_id)
 		.await;
@@ -667,14 +647,12 @@ async fn join_room_by_id_helper_remote(
 	// time with the pdu without it's state. This is okay because append_pdu can't
 	// fail.
 	let statehash_after_join = services
-		.rooms
 		.state
 		.append_to_state(&parsed_join_pdu)
 		.await?;
 
 	info!("Appending new room join event");
 	services
-		.rooms
 		.timeline
 		.append_pdu(
 			&parsed_join_pdu,
@@ -688,7 +666,6 @@ async fn join_room_by_id_helper_remote(
 	// We set the room state after inserting the pdu, so that we never have a moment
 	// in time where events in the current room state do not exist
 	services
-		.rooms
 		.state
 		.set_room_state(room_id, statehash_after_join, &state_lock);
 
@@ -708,7 +685,6 @@ async fn join_room_by_id_helper_local(
 	debug_info!("We can join locally");
 
 	let join_rules_event_content = services
-		.rooms
 		.state_accessor
 		.room_state_get_content::<RoomJoinRulesEventContent>(
 			room_id,
@@ -737,18 +713,16 @@ async fn join_room_by_id_helper_local(
 			.stream()
 			.any(|restriction_room_id| {
 				services
-					.rooms
 					.state_cache
 					.is_joined(sender_user, restriction_room_id)
 			})
 			.await
 		{
 			let users = services
-				.rooms
 				.state_cache
 				.local_users_in_room(room_id)
 				.filter(|user| {
-					services.rooms.state_accessor.user_can_invite(
+					services.state_accessor.user_can_invite(
 						room_id,
 						user,
 						sender_user,
@@ -775,7 +749,6 @@ async fn join_room_by_id_helper_local(
 
 	// Try normal join first
 	let Err(error) = services
-		.rooms
 		.timeline
 		.build_and_append_pdu(
 			PduBuilder::state(sender_user.to_string(), &content),
@@ -912,7 +885,6 @@ async fn join_room_by_id_helper_local(
 
 		drop(state_lock);
 		services
-			.rooms
 			.event_handler
 			.handle_incoming_pdu(&remote_server, room_id, &signed_event_id, signed_value, true)
 			.boxed()

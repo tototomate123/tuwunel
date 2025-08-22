@@ -45,7 +45,6 @@ pub(crate) async fn get_mutual_rooms_route(
 	}
 
 	let mutual_rooms: Vec<OwnedRoomId> = services
-		.rooms
 		.state_cache
 		.get_shared_rooms(sender_user, &body.user_id)
 		.map(ToOwned::to_owned)
@@ -137,7 +136,6 @@ pub(crate) async fn set_profile_field_route(
 
 	if body.value.field_name() == ProfileFieldName::DisplayName {
 		let all_joined_rooms: Vec<OwnedRoomId> = services
-			.rooms
 			.state_cache
 			.rooms_joined(&body.user_id)
 			.map(Into::into)
@@ -155,7 +153,6 @@ pub(crate) async fn set_profile_field_route(
 		let mxc = ruma::OwnedMxcUri::from(body.value.value().to_string());
 
 		let all_joined_rooms: Vec<OwnedRoomId> = services
-			.rooms
 			.state_cache
 			.rooms_joined(&body.user_id)
 			.map(Into::into)
@@ -199,7 +196,6 @@ pub(crate) async fn delete_profile_field_route(
 
 	if body.field == ProfileFieldName::DisplayName {
 		let all_joined_rooms: Vec<OwnedRoomId> = services
-			.rooms
 			.state_cache
 			.rooms_joined(&body.user_id)
 			.map(Into::into)
@@ -209,7 +205,6 @@ pub(crate) async fn delete_profile_field_route(
 		update_displayname(&services, &body.user_id, None, &all_joined_rooms).await;
 	} else if body.field == ProfileFieldName::AvatarUrl {
 		let all_joined_rooms: Vec<OwnedRoomId> = services
-			.rooms
 			.state_cache
 			.rooms_joined(&body.user_id)
 			.map(Into::into)

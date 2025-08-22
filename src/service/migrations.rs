@@ -186,7 +186,6 @@ async fn migrate(services: &Services) -> Result {
 		let patterns = services.globals.forbidden_alias_names();
 		if !patterns.is_empty() {
 			for room_id in services
-				.rooms
 				.metadata
 				.iter_ids()
 				.map(ToOwned::to_owned)
@@ -194,7 +193,6 @@ async fn migrate(services: &Services) -> Result {
 				.await
 			{
 				services
-					.rooms
 					.alias
 					.local_aliases_for_room(&room_id)
 					.ready_for_each(|room_alias| {
@@ -406,7 +404,6 @@ async fn retroactively_fix_bad_data_from_roomuserid_joined(services: &Services) 
 	let _cork = db.cork_and_sync();
 
 	let room_ids = services
-		.rooms
 		.metadata
 		.iter_ids()
 		.map(ToOwned::to_owned)
@@ -417,7 +414,6 @@ async fn retroactively_fix_bad_data_from_roomuserid_joined(services: &Services) 
 		debug_info!("Fixing room {room_id}");
 
 		let users_in_room: Vec<OwnedUserId> = services
-			.rooms
 			.state_cache
 			.room_members(room_id)
 			.map(ToOwned::to_owned)
@@ -429,7 +425,6 @@ async fn retroactively_fix_bad_data_from_roomuserid_joined(services: &Services) 
 			.stream()
 			.filter(|user_id| {
 				services
-					.rooms
 					.state_accessor
 					.get_member(room_id, user_id)
 					.map(|member| {
@@ -444,7 +439,6 @@ async fn retroactively_fix_bad_data_from_roomuserid_joined(services: &Services) 
 			.stream()
 			.filter(|user_id| {
 				services
-					.rooms
 					.state_accessor
 					.get_member(room_id, user_id)
 					.map(|member| {
@@ -457,7 +451,6 @@ async fn retroactively_fix_bad_data_from_roomuserid_joined(services: &Services) 
 		for user_id in &joined_members {
 			debug_info!("User is joined, marking as joined");
 			services
-				.rooms
 				.state_cache
 				.mark_as_joined(user_id, room_id);
 		}
@@ -465,7 +458,6 @@ async fn retroactively_fix_bad_data_from_roomuserid_joined(services: &Services) 
 		for user_id in &non_joined_members {
 			debug_info!("User is left or banned, marking as left");
 			services
-				.rooms
 				.state_cache
 				.mark_as_left(user_id, room_id);
 		}
@@ -478,7 +470,6 @@ async fn retroactively_fix_bad_data_from_roomuserid_joined(services: &Services) 
 		);
 
 		services
-			.rooms
 			.state_cache
 			.update_joined_count(room_id)
 			.await;

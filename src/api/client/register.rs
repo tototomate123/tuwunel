@@ -517,7 +517,6 @@ pub(crate) async fn register_route(
 		&& services.config.grant_admin_to_first_user
 		&& let Ok(admin_room) = services.admin.get_admin_room().await
 		&& services
-			.rooms
 			.state_cache
 			.room_joined_count(&admin_room)
 			.await
@@ -536,7 +535,7 @@ pub(crate) async fn register_route(
 		&& (services.config.allow_guests_auto_join_rooms || !is_guest)
 	{
 		for room in &services.server.config.auto_join_rooms {
-			let Ok(room_id) = services.rooms.alias.resolve(room).await else {
+			let Ok(room_id) = services.alias.resolve(room).await else {
 				error!(
 					"Failed to resolve room alias to room ID when attempting to auto join \
 					 {room}, skipping"
@@ -545,7 +544,6 @@ pub(crate) async fn register_route(
 			};
 
 			if !services
-				.rooms
 				.state_cache
 				.server_in_room(services.globals.server_name(), &room_id)
 				.await

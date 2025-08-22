@@ -55,24 +55,17 @@ pub(crate) async fn create_knock_event_v1_route(
 		}
 	}
 
-	if !services
-		.rooms
-		.metadata
-		.exists(&body.room_id)
-		.await
-	{
+	if !services.metadata.exists(&body.room_id).await {
 		return Err!(Request(NotFound("Room is unknown to this server.")));
 	}
 
 	// ACL check origin server
 	services
-		.rooms
 		.event_handler
 		.acl_check(body.origin(), &body.room_id)
 		.await?;
 
 	let room_version_id = services
-		.rooms
 		.state
 		.get_room_version(&body.room_id)
 		.await?;
@@ -127,7 +120,6 @@ pub(crate) async fn create_knock_event_v1_route(
 	.map_err(|e| err!(Request(BadJson("Event sender is not a valid user ID: {e}"))))?;
 
 	services
-		.rooms
 		.event_handler
 		.acl_check(sender.server_name(), &body.room_id)
 		.await?;
@@ -168,14 +160,12 @@ pub(crate) async fn create_knock_event_v1_route(
 		.map_err(|e| err!(Request(InvalidParam("Invalid knock event PDU: {e}"))))?;
 
 	let mutex_lock = services
-		.rooms
 		.event_handler
 		.mutex_federation
 		.lock(&body.room_id)
 		.await;
 
 	let pdu_id = services
-		.rooms
 		.event_handler
 		.handle_incoming_pdu(&origin, &body.room_id, &event_id, value.clone(), true)
 		.boxed()
@@ -191,7 +181,6 @@ pub(crate) async fn create_knock_event_v1_route(
 
 	Ok(create_knock_event::v1::Response {
 		knock_room_state: services
-			.rooms
 			.state
 			.summary_stripped(&pdu)
 			.await

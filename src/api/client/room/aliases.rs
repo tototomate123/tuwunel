@@ -18,7 +18,6 @@ pub(crate) async fn get_room_aliases_route(
 	let sender_user = body.sender_user();
 
 	if !services
-		.rooms
 		.state_accessor
 		.user_can_see_state_events(sender_user, &body.room_id)
 		.await
@@ -28,7 +27,6 @@ pub(crate) async fn get_room_aliases_route(
 
 	Ok(aliases::v3::Response {
 		aliases: services
-			.rooms
 			.alias
 			.local_aliases_for_room(&body.room_id)
 			.map(ToOwned::to_owned)

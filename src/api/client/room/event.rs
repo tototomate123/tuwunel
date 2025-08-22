@@ -16,13 +16,11 @@ pub(crate) async fn get_room_event_route(
 	let room_id = &body.room_id;
 
 	let event = services
-		.rooms
 		.timeline
 		.get_pdu(event_id)
 		.map_err(|_| err!(Request(NotFound("Event {} not found.", event_id))));
 
 	let visible = services
-		.rooms
 		.state_accessor
 		.user_can_see_event(body.sender_user(), room_id, event_id)
 		.map(Ok);

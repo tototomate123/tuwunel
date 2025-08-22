@@ -26,14 +26,12 @@ pub(crate) async fn get_room_state_ids_route(
 	.await?;
 
 	let shortstatehash = services
-		.rooms
 		.state_accessor
 		.pdu_shortstatehash(&body.event_id)
 		.await
 		.map_err(|_| err!(Request(NotFound("Pdu state not found."))))?;
 
 	let pdu_ids: Vec<OwnedEventId> = services
-		.rooms
 		.state_accessor
 		.state_full_ids(shortstatehash)
 		.map(at!(1))
@@ -41,7 +39,6 @@ pub(crate) async fn get_room_state_ids_route(
 		.await;
 
 	let auth_chain_ids = services
-		.rooms
 		.auth_chain
 		.event_ids_iter(&body.room_id, once(body.event_id.borrow()))
 		.try_collect()

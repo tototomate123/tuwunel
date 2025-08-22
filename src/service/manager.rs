@@ -10,13 +10,13 @@ use tuwunel_core::{
 	Err, Error, Result, Server, debug, debug_warn, error, trace, utils::time, warn,
 };
 
-use crate::{Services, service, service::Service};
+use crate::{Services, service::Service};
 
 pub(crate) struct Manager {
 	manager: Mutex<Option<JoinHandle<Result>>>,
 	workers: Mutex<Workers>,
 	server: Arc<Server>,
-	service: Arc<service::Map>,
+	services: Arc<Services>,
 }
 
 type Workers = JoinSet<WorkerResult>;
@@ -26,12 +26,12 @@ type WorkersLocked<'a> = MutexGuard<'a, Workers>;
 const RESTART_DELAY_MS: u64 = 2500;
 
 impl Manager {
-	pub(super) fn new(services: &Services) -> Arc<Self> {
+	pub(super) fn new(services: &Arc<Services>) -> Arc<Self> {
 		Arc::new(Self {
 			manager: Mutex::new(None),
 			workers: Mutex::new(JoinSet::new()),
 			server: services.server.clone(),
-			service: services.service.clone(),
+			services: services.clone(),
 		})
 	}
 
@@ -55,19 +55,8 @@ impl Manager {
 				.spawn(async move { self_.worker().await }),
 		);
 
-		// we can't hold the lock during the iteration with start_worker so the values
-		// are snapshotted here
-		let services: Vec<Arc<dyn Service>> = self
-			.service
-			.read()
-			.expect("locked for reading")
-			.values()
-			.map(|val| val.0.upgrade())
-			.map(|arc| arc.expect("services available for manager startup"))
-			.collect();
-
 		debug!("Starting service workers...");
-		for service in services {
+		for service in self.services.services() {
 			self.start_worker(&mut workers, &service).await?;
 		}
 

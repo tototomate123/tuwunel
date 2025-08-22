@@ -45,7 +45,6 @@ pub(super) async fn echo(&self, message: Vec<String>) -> Result {
 pub(super) async fn get_auth_chain(&self, event_id: OwnedEventId) -> Result {
 	let Ok(event) = self
 		.services
-		.rooms
 		.timeline
 		.get_pdu_json(&event_id)
 		.await
@@ -64,7 +63,6 @@ pub(super) async fn get_auth_chain(&self, event_id: OwnedEventId) -> Result {
 	let start = Instant::now();
 	let count = self
 		.services
-		.rooms
 		.auth_chain
 		.event_ids_iter(room_id, once(event_id.as_ref()))
 		.ready_filter_map(Result::ok)
@@ -111,7 +109,6 @@ pub(super) async fn get_pdu(&self, event_id: OwnedEventId) -> Result {
 	let mut outlier = false;
 	let mut pdu_json = self
 		.services
-		.rooms
 		.timeline
 		.get_non_outlier_pdu_json(&event_id)
 		.await;
@@ -120,7 +117,6 @@ pub(super) async fn get_pdu(&self, event_id: OwnedEventId) -> Result {
 		outlier = true;
 		pdu_json = self
 			.services
-			.rooms
 			.timeline
 			.get_pdu_json(&event_id)
 			.await;
@@ -155,7 +151,6 @@ pub(super) async fn get_short_pdu(
 
 	let pdu_json = self
 		.services
-		.rooms
 		.timeline
 		.get_pdu_json_from_id(&pdu_id)
 		.await;
@@ -278,7 +273,6 @@ pub(super) async fn get_remote_pdu(
 			let _parsed_pdu = {
 				let parsed_result = self
 					.services
-					.rooms
 					.event_handler
 					.parse_incoming_pdu(&response.pdu)
 					.boxed()
@@ -298,7 +292,6 @@ pub(super) async fn get_remote_pdu(
 
 			info!("Attempting to handle event ID {event_id} as backfilled PDU");
 			self.services
-				.rooms
 				.timeline
 				.backfill_pdu(&server, response.pdu)
 				.await?;
@@ -313,10 +306,9 @@ pub(super) async fn get_remote_pdu(
 
 #[admin_command]
 pub(super) async fn get_room_state(&self, room: OwnedRoomOrAliasId) -> Result {
-	let room_id = self.services.rooms.alias.resolve(&room).await?;
+	let room_id = self.services.alias.resolve(&room).await?;
 	let room_state: Vec<Raw<AnyStateEvent>> = self
 		.services
-		.rooms
 		.state_accessor
 		.room_state_full_pdus(&room_id)
 		.map_ok(Event::into_format)
@@ -494,7 +486,6 @@ pub(super) async fn verify_pdu(&self, event_id: OwnedEventId) -> Result {
 
 	let mut event = self
 		.services
-		.rooms
 		.timeline
 		.get_pdu_json(&event_id)
 		.await?;
@@ -519,7 +510,6 @@ pub(super) async fn verify_pdu(&self, event_id: OwnedEventId) -> Result {
 pub(super) async fn first_pdu_in_room(&self, room_id: OwnedRoomId) -> Result {
 	if !self
 		.services
-		.rooms
 		.state_cache
 		.server_in_room(&self.services.server.name, &room_id)
 		.await
@@ -529,7 +519,6 @@ pub(super) async fn first_pdu_in_room(&self, room_id: OwnedRoomId) -> Result {
 
 	let first_pdu = self
 		.services
-		.rooms
 		.timeline
 		.first_pdu_in_room(&room_id)
 		.await
@@ -544,7 +533,6 @@ pub(super) async fn first_pdu_in_room(&self, room_id: OwnedRoomId) -> Result {
 pub(super) async fn latest_pdu_in_room(&self, room_id: OwnedRoomId) -> Result {
 	if !self
 		.services
-		.rooms
 		.state_cache
 		.server_in_room(&self.services.server.name, &room_id)
 		.await
@@ -554,7 +542,6 @@ pub(super) async fn latest_pdu_in_room(&self, room_id: OwnedRoomId) -> Result {
 
 	let latest_pdu = self
 		.services
-		.rooms
 		.timeline
 		.latest_pdu_in_room(&room_id)
 		.await
@@ -573,7 +560,6 @@ pub(super) async fn force_set_room_state_from_server(
 ) -> Result {
 	if !self
 		.services
-		.rooms
 		.state_cache
 		.server_in_room(&self.services.server.name, &room_id)
 		.await
@@ -583,7 +569,6 @@ pub(super) async fn force_set_room_state_from_server(
 
 	let first_pdu = self
 		.services
-		.rooms
 		.timeline
 		.latest_pdu_in_room(&room_id)
 		.await
@@ -591,7 +576,6 @@ pub(super) async fn force_set_room_state_from_server(
 
 	let room_version = self
 		.services
-		.rooms
 		.state
 		.get_room_version(&room_id)
 		.await?;
@@ -610,7 +594,6 @@ pub(super) async fn force_set_room_state_from_server(
 	for pdu in remote_state_response.pdus.clone() {
 		match self
 			.services
-			.rooms
 			.event_handler
 			.parse_incoming_pdu(&pdu)
 			.await
@@ -639,14 +622,12 @@ pub(super) async fn force_set_room_state_from_server(
 		})?;
 
 		self.services
-			.rooms
 			.timeline
 			.add_pdu_outlier(&event_id, &value);
 
 		if let Some(state_key) = &pdu.state_key {
 			let shortstatekey = self
 				.services
-				.rooms
 				.short
 				.get_or_create_shortstatekey(&pdu.kind.to_string().into(), state_key)
 				.await;
@@ -669,14 +650,12 @@ pub(super) async fn force_set_room_state_from_server(
 		};
 
 		self.services
-			.rooms
 			.timeline
 			.add_pdu_outlier(&event_id, &value);
 	}
 
 	let new_room_state = self
 		.services
-		.rooms
 		.event_handler
 		.resolve_state(&room_id, &room_version, state)
 		.await?;
@@ -688,21 +667,13 @@ pub(super) async fn force_set_room_state_from_server(
 		removed,
 	} = self
 		.services
-		.rooms
 		.state_compressor
 		.save_state(room_id.clone().as_ref(), new_room_state)
 		.await?;
 
-	let state_lock = self
-		.services
-		.rooms
-		.state
-		.mutex
-		.lock(&*room_id)
-		.await;
+	let state_lock = self.services.state.mutex.lock(&*room_id).await;
 
 	self.services
-		.rooms
 		.state
 		.force_state(room_id.clone().as_ref(), short_state_hash, added, removed, &state_lock)
 		.await?;
@@ -712,7 +683,6 @@ pub(super) async fn force_set_room_state_from_server(
 		 the room's m.room.member state"
 	);
 	self.services
-		.rooms
 		.state_cache
 		.update_joined_count(&room_id)
 		.await;

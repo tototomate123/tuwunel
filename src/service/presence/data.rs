@@ -9,17 +9,11 @@ use tuwunel_core::{
 use tuwunel_database::{Deserialized, Json, Map};
 
 use super::Presence;
-use crate::{Dep, globals, users};
 
 pub(crate) struct Data {
 	presenceid_presence: Arc<Map>,
 	userid_presenceid: Arc<Map>,
-	services: Services,
-}
-
-struct Services {
-	globals: Dep<globals::Service>,
-	users: Dep<users::Service>,
+	services: Arc<crate::services::OnceServices>,
 }
 
 impl Data {
@@ -28,10 +22,7 @@ impl Data {
 		Self {
 			presenceid_presence: db["presenceid_presence"].clone(),
 			userid_presenceid: db["userid_presenceid"].clone(),
-			services: Services {
-				globals: args.depend::<globals::Service>("globals"),
-				users: args.depend::<users::Service>("users"),
-			},
+			services: args.services.clone(),
 		}
 	}
 

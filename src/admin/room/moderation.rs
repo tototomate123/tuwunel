@@ -70,10 +70,7 @@ async fn ban_room(&self, room: OwnedRoomOrAliasId) -> Result {
 		};
 
 		debug!("Room specified is a room ID, banning room ID");
-		self.services
-			.rooms
-			.metadata
-			.ban_room(room_id, true);
+		self.services.metadata.ban_room(room_id, true);
 
 		room_id.to_owned()
 	} else if room.is_room_alias_id() {
@@ -95,7 +92,6 @@ async fn ban_room(&self, room: OwnedRoomOrAliasId) -> Result {
 
 		let room_id = match self
 			.services
-			.rooms
 			.alias
 			.resolve_local_alias(room_alias)
 			.await
@@ -109,7 +105,6 @@ async fn ban_room(&self, room: OwnedRoomOrAliasId) -> Result {
 
 				match self
 					.services
-					.rooms
 					.alias
 					.resolve_alias(room_alias, None)
 					.await
@@ -131,10 +126,7 @@ async fn ban_room(&self, room: OwnedRoomOrAliasId) -> Result {
 			},
 		};
 
-		self.services
-			.rooms
-			.metadata
-			.ban_room(&room_id, true);
+		self.services.metadata.ban_room(&room_id, true);
 
 		room_id
 	} else {
@@ -148,7 +140,6 @@ async fn ban_room(&self, room: OwnedRoomOrAliasId) -> Result {
 	debug!("Making all users leave the room {room_id} and forgetting it");
 	let mut users = self
 		.services
-		.rooms
 		.state_cache
 		.room_members(&room_id)
 		.map(ToOwned::to_owned)
@@ -169,19 +160,16 @@ async fn ban_room(&self, room: OwnedRoomOrAliasId) -> Result {
 		}
 
 		self.services
-			.rooms
 			.state_cache
 			.forget(&room_id, user_id);
 	}
 
 	self.services
-		.rooms
 		.alias
 		.local_aliases_for_room(&room_id)
 		.map(ToOwned::to_owned)
 		.for_each(async |local_alias| {
 			self.services
-				.rooms
 				.alias
 				.remove_alias(&local_alias, &self.services.globals.server_user)
 				.await
@@ -190,13 +178,9 @@ async fn ban_room(&self, room: OwnedRoomOrAliasId) -> Result {
 		.await;
 
 	// unpublish from room directory
-	self.services
-		.rooms
-		.directory
-		.set_not_public(&room_id);
+	self.services.directory.set_not_public(&room_id);
 
 	self.services
-		.rooms
 		.metadata
 		.disable_room(&room_id, true);
 
@@ -258,7 +242,6 @@ async fn ban_list_of_rooms(&self) -> Result {
 						| Ok(room_alias) => {
 							let room_id = match self
 								.services
-								.rooms
 								.alias
 								.resolve_local_alias(room_alias)
 								.await
@@ -272,7 +255,6 @@ async fn ban_list_of_rooms(&self) -> Result {
 
 									match self
 										.services
-										.rooms
 										.alias
 										.resolve_alias(room_alias, None)
 										.await
@@ -320,10 +302,7 @@ async fn ban_list_of_rooms(&self) -> Result {
 	}
 
 	for room_id in room_ids {
-		self.services
-			.rooms
-			.metadata
-			.ban_room(&room_id, true);
+		self.services.metadata.ban_room(&room_id, true);
 
 		debug!("Banned {room_id} successfully");
 		room_ban_count = room_ban_count.saturating_add(1);
@@ -331,7 +310,6 @@ async fn ban_list_of_rooms(&self) -> Result {
 		debug!("Making all users leave the room {room_id} and forgetting it");
 		let mut users = self
 			.services
-			.rooms
 			.state_cache
 			.room_members(&room_id)
 			.map(ToOwned::to_owned)
@@ -352,20 +330,17 @@ async fn ban_list_of_rooms(&self) -> Result {
 			}
 
 			self.services
-				.rooms
 				.state_cache
 				.forget(&room_id, user_id);
 		}
 
 		// remove any local aliases, ignore errors
 		self.services
-			.rooms
 			.alias
 			.local_aliases_for_room(&room_id)
 			.map(ToOwned::to_owned)
 			.for_each(async |local_alias| {
 				self.services
-					.rooms
 					.alias
 					.remove_alias(&local_alias, &self.services.globals.server_user)
 					.await
@@ -374,13 +349,9 @@ async fn ban_list_of_rooms(&self) -> Result {
 			.await;
 
 		// unpublish from room directory, ignore errors
-		self.services
-			.rooms
-			.directory
-			.set_not_public(&room_id);
+		self.services.directory.set_not_public(&room_id);
 
 		self.services
-			.rooms
 			.metadata
 			.disable_room(&room_id, true);
 	}
@@ -407,10 +378,7 @@ async fn unban_room(&self, room: OwnedRoomOrAliasId) -> Result {
 		};
 
 		debug!("Room specified is a room ID, unbanning room ID");
-		self.services
-			.rooms
-			.metadata
-			.ban_room(room_id, false);
+		self.services.metadata.ban_room(room_id, false);
 
 		room_id.to_owned()
 	} else if room.is_room_alias_id() {
@@ -432,7 +400,6 @@ async fn unban_room(&self, room: OwnedRoomOrAliasId) -> Result {
 
 		let room_id = match self
 			.services
-			.rooms
 			.alias
 			.resolve_local_alias(room_alias)
 			.await
@@ -446,7 +413,6 @@ async fn unban_room(&self, room: OwnedRoomOrAliasId) -> Result {
 
 				match self
 					.services
-					.rooms
 					.alias
 					.resolve_alias(room_alias, None)
 					.await
@@ -466,10 +432,7 @@ async fn unban_room(&self, room: OwnedRoomOrAliasId) -> Result {
 			},
 		};
 
-		self.services
-			.rooms
-			.metadata
-			.ban_room(&room_id, false);
+		self.services.metadata.ban_room(&room_id, false);
 
 		room_id
 	} else {
@@ -481,7 +444,6 @@ async fn unban_room(&self, room: OwnedRoomOrAliasId) -> Result {
 	};
 
 	self.services
-		.rooms
 		.metadata
 		.disable_room(&room_id, false);
 	self.write_str("Room unbanned and federation re-enabled.")
@@ -492,7 +454,6 @@ async fn unban_room(&self, room: OwnedRoomOrAliasId) -> Result {
 async fn list_banned_rooms(&self, no_details: bool) -> Result {
 	let room_ids: Vec<OwnedRoomId> = self
 		.services
-		.rooms
 		.metadata
 		.list_banned_rooms()
 		.map(Into::into)

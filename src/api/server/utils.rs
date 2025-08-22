@@ -14,20 +14,17 @@ pub(super) struct AccessCheck<'a> {
 pub(super) async fn check(&self) -> Result {
 	let acl_check = self
 		.services
-		.rooms
 		.event_handler
 		.acl_check(self.origin, self.room_id)
 		.map(|result| result.is_ok());
 
 	let world_readable = self
 		.services
-		.rooms
 		.state_accessor
 		.is_world_readable(self.room_id);
 
 	let server_in_room = self
 		.services
-		.rooms
 		.state_cache
 		.server_in_room(self.origin, self.room_id);
 
@@ -35,7 +32,6 @@ pub(super) async fn check(&self) -> Result {
 	// acknowledge bans or leaves
 	let user_is_knocking = self
 		.services
-		.rooms
 		.state_cache
 		.room_members_knocked(self.room_id)
 		.count();
@@ -44,7 +40,6 @@ pub(super) async fn check(&self) -> Result {
 		.event_id
 		.map(|event_id| {
 			self.services
-				.rooms
 				.state_accessor
 				.server_can_see_event(self.origin, self.room_id, event_id)
 		})

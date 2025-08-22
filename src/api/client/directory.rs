@@ -111,12 +111,7 @@ pub(crate) async fn set_room_visibility_route(
 ) -> Result<set_room_visibility::v3::Response> {
 	let sender_user = body.sender_user();
 
-	if !services
-		.rooms
-		.metadata
-		.exists(&body.room_id)
-		.await
-	{
+	if !services.metadata.exists(&body.room_id).await {
 		// Return 404 if the room doesn't exist
 		return Err!(Request(NotFound("Room not found")));
 	}
@@ -166,7 +161,7 @@ pub(crate) async fn set_room_visibility_route(
 				)));
 			}
 
-			services.rooms.directory.set_public(&body.room_id);
+			services.directory.set_public(&body.room_id);
 
 			if services.server.config.admin_room_notices {
 				services
@@ -179,10 +174,7 @@ pub(crate) async fn set_room_visibility_route(
 			}
 			info!("{sender_user} made {0} public to the room directory", body.room_id);
 		},
-		| room::Visibility::Private => services
-			.rooms
-			.directory
-			.set_not_public(&body.room_id),
+		| room::Visibility::Private => services.directory.set_not_public(&body.room_id),
 		| _ => {
 			return Err!(Request(InvalidParam("Room visibility type is not supported.",)));
 		},
@@ -198,19 +190,13 @@ pub(crate) async fn get_room_visibility_route(
 	State(services): State<crate::State>,
 	body: Ruma<get_room_visibility::v3::Request>,
 ) -> Result<get_room_visibility::v3::Response> {
-	if !services
-		.rooms
-		.metadata
-		.exists(&body.room_id)
-		.await
-	{
+	if !services.metadata.exists(&body.room_id).await {
 		// Return 404 if the room doesn't exist
 		return Err!(Request(NotFound("Room not found")));
 	}
 
 	Ok(get_room_visibility::v3::Response {
 		visibility: if services
-			.rooms
 			.directory
 			.is_public_room(&body.room_id)
 			.await
@@ -295,13 +281,12 @@ pub(crate) async fn get_public_rooms_filtered_helper(
 
 	let meta_public_rooms = search_room_id
 		.filter(|_| services.config.allow_unlisted_room_search_by_id)
-		.map(|prefix| services.rooms.metadata.public_ids_prefix(prefix))
+		.map(|prefix| services.metadata.public_ids_prefix(prefix))
 		.into_iter()
 		.stream()
 		.flatten();
 
 	let mut all_rooms: Vec<PublicRoomsChunk> = services
-		.rooms
 		.directory
 		.public_rooms()
 		.map(ToOwned::to_owned)
@@ -388,7 +373,6 @@ async fn user_can_publish_room(
 	room_id: &RoomId,
 ) -> Result<bool> {
 	match services
-		.rooms
 		.state_accessor
 		.get_power_levels(room_id)
 		.await
@@ -397,7 +381,6 @@ async fn user_can_publish_room(
 			Ok(power_levels.user_can_send_state(user_id, StateEventType::RoomHistoryVisibility)),
 		| _ => {
 			match services
-				.rooms
 				.state_accessor
 				.room_state_get(room_id, &StateEventType::RoomCreate, "")
 				.await
@@ -410,39 +393,30 @@ async fn user_can_publish_room(
 }
 
 async fn public_rooms_chunk(services: &Services, room_id: OwnedRoomId) -> PublicRoomsChunk {
-	let name = services
-		.rooms
-		.state_accessor
-		.get_name(&room_id)
-		.ok();
+	let name = services.state_accessor.get_name(&room_id).ok();
 
 	let room_type = services
-		.rooms
 		.state_accessor
 		.get_room_type(&room_id)
 		.ok();
 
 	let canonical_alias = services
-		.rooms
 		.state_accessor
 		.get_canonical_alias(&room_id)
 		.ok();
 
-	let avatar_url = services.rooms.state_accessor.get_avatar(&room_id);
+	let avatar_url = services.state_accessor.get_avatar(&room_id);
 
 	let topic = services
-		.rooms
 		.state_accessor
 		.get_room_topic(&room_id)
 		.ok();
 
 	let world_readable = services
-		.rooms
 		.state_accessor
 		.is_world_readable(&room_id);
 
 	let join_rule = services
-		.rooms
 		.state_accessor
 		.room_state_get_content(&room_id, &StateEventType::RoomJoinRules, "")
 		.map_ok(|c: RoomJoinRulesEventContent| match c.join_rule {
@@ -452,15 +426,9 @@ async fn public_rooms_chunk(services: &Services, room_id: OwnedRoomId) -> Public
 			| _ => "invite".into(),
 		});
 
-	let guest_can_join = services
-		.rooms
-		.state_accessor
-		.guest_can_join(&room_id);
+	let guest_can_join = services.state_accessor.guest_can_join(&room_id);
 
-	let num_joined_members = services
-		.rooms
-		.state_cache
-		.room_joined_count(&room_id);
+	let num_joined_members = services.state_cache.room_joined_count(&room_id);
 
 	let (
 		(avatar_url, canonical_alias, guest_can_join, join_rule, name),

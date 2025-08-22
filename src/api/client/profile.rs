@@ -42,7 +42,6 @@ pub(crate) async fn set_displayname_route(
 	}
 
 	let all_joined_rooms: Vec<OwnedRoomId> = services
-		.rooms
 		.state_cache
 		.rooms_joined(&body.user_id)
 		.map(ToOwned::to_owned)
@@ -138,7 +137,6 @@ pub(crate) async fn set_avatar_url_route(
 	}
 
 	let all_joined_rooms: Vec<OwnedRoomId> = services
-		.rooms
 		.state_cache
 		.rooms_joined(&body.user_id)
 		.map(ToOwned::to_owned)
@@ -448,9 +446,8 @@ async fn update_all_rooms(
 	user_id: &UserId,
 ) {
 	for (pdu_builder, room_id) in all_joined_rooms {
-		let state_lock = services.rooms.state.mutex.lock(room_id).await;
+		let state_lock = services.state.mutex.lock(room_id).await;
 		if let Err(e) = services
-			.rooms
 			.timeline
 			.build_and_append_pdu(pdu_builder, user_id, room_id, &state_lock)
 			.await

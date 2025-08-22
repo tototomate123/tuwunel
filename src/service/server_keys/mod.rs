@@ -18,25 +18,17 @@ use ruma::{
 };
 use serde_json::value::RawValue as RawJsonValue;
 use tuwunel_core::{
-	Result, Server, implement,
+	Result, implement,
 	utils::{IterStream, timepoint_from_now},
 };
 use tuwunel_database::{Deserialized, Json, Map};
-
-use crate::{Dep, globals, sending};
 
 pub struct Service {
 	keypair: Box<Ed25519KeyPair>,
 	verify_keys: VerifyKeys,
 	minimum_valid: Duration,
-	services: Services,
+	services: Arc<crate::services::OnceServices>,
 	db: Data,
-}
-
-struct Services {
-	globals: Dep<globals::Service>,
-	sending: Dep<sending::Service>,
-	server: Arc<Server>,
 }
 
 struct Data {
@@ -58,11 +50,7 @@ impl crate::Service for Service {
 			keypair,
 			verify_keys,
 			minimum_valid,
-			services: Services {
-				globals: args.depend::<globals::Service>("globals"),
-				sending: args.depend::<sending::Service>("sending"),
-				server: args.server.clone(),
-			},
+			services: args.services.clone(),
 			db: Data {
 				server_signingkeys: args.db["server_signingkeys"].clone(),
 			},

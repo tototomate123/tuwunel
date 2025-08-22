@@ -4,11 +4,11 @@ use ruma::{RoomId, UserId};
 use tuwunel_core::{Result, implement};
 use tuwunel_database::{Database, Deserialized, Map};
 
-use crate::{Dep, globals, rooms, rooms::short::ShortStateHash};
+use crate::rooms::short::ShortStateHash;
 
 pub struct Service {
 	db: Data,
-	services: Services,
+	services: Arc<crate::services::OnceServices>,
 }
 
 struct Data {
@@ -17,11 +17,6 @@ struct Data {
 	userroomid_highlightcount: Arc<Map>,
 	roomuserid_lastnotificationread: Arc<Map>,
 	roomsynctoken_shortstatehash: Arc<Map>,
-}
-
-struct Services {
-	globals: Dep<globals::Service>,
-	short: Dep<rooms::short::Service>,
 }
 
 impl crate::Service for Service {
@@ -34,11 +29,7 @@ impl crate::Service for Service {
 				roomuserid_lastnotificationread: args.db["userroomid_highlightcount"].clone(),
 				roomsynctoken_shortstatehash: args.db["roomsynctoken_shortstatehash"].clone(),
 			},
-
-			services: Services {
-				globals: args.depend::<globals::Service>("globals"),
-				short: args.depend::<rooms::short::Service>("rooms::short"),
-			},
+			services: args.services.clone(),
 		}))
 	}
 

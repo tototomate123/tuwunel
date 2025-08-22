@@ -17,12 +17,7 @@ pub(crate) async fn create_knock_event_template_route(
 	State(services): State<crate::State>,
 	body: Ruma<prepare_knock_event::v1::Request>,
 ) -> Result<prepare_knock_event::v1::Response> {
-	if !services
-		.rooms
-		.metadata
-		.exists(&body.room_id)
-		.await
-	{
+	if !services.metadata.exists(&body.room_id).await {
 		return Err!(Request(NotFound("Room is unknown to this server.")));
 	}
 
@@ -32,7 +27,6 @@ pub(crate) async fn create_knock_event_template_route(
 
 	// ACL check origin server
 	services
-		.rooms
 		.event_handler
 		.acl_check(body.origin(), &body.room_id)
 		.await?;
@@ -63,7 +57,6 @@ pub(crate) async fn create_knock_event_template_route(
 	}
 
 	let room_version_id = services
-		.rooms
 		.state
 		.get_room_version(&body.room_id)
 		.await?;
@@ -82,15 +75,9 @@ pub(crate) async fn create_knock_event_template_route(
 		));
 	}
 
-	let state_lock = services
-		.rooms
-		.state
-		.mutex
-		.lock(&body.room_id)
-		.await;
+	let state_lock = services.state.mutex.lock(&body.room_id).await;
 
 	if let Ok(membership) = services
-		.rooms
 		.state_accessor
 		.get_member(&body.room_id, &body.user_id)
 		.await
@@ -106,7 +93,6 @@ pub(crate) async fn create_knock_event_template_route(
 	}
 
 	let (_pdu, mut pdu_json) = services
-		.rooms
 		.timeline
 		.create_hash_and_sign_event(
 			PduBuilder::state(

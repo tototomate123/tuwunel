@@ -29,32 +29,13 @@ pub use self::{
 	dest::Destination,
 	sender::{EDU_LIMIT, PDU_LIMIT},
 };
-use crate::{
-	Dep, account_data, client, federation, globals, presence, pusher, rooms,
-	rooms::timeline::RawPduId, users,
-};
+use crate::rooms::timeline::RawPduId;
 
 pub struct Service {
 	pub db: Data,
 	server: Arc<Server>,
-	services: Services,
+	services: Arc<crate::services::OnceServices>,
 	channels: Vec<(loole::Sender<Msg>, loole::Receiver<Msg>)>,
-}
-
-struct Services {
-	client: Dep<client::Service>,
-	globals: Dep<globals::Service>,
-	state: Dep<rooms::state::Service>,
-	state_cache: Dep<rooms::state_cache::Service>,
-	user: Dep<rooms::user::Service>,
-	users: Dep<users::Service>,
-	presence: Dep<presence::Service>,
-	read_receipt: Dep<rooms::read_receipt::Service>,
-	timeline: Dep<rooms::timeline::Service>,
-	account_data: Dep<account_data::Service>,
-	appservice: Dep<crate::appservice::Service>,
-	pusher: Dep<pusher::Service>,
-	federation: Dep<federation::Service>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -85,21 +66,7 @@ impl crate::Service for Service {
 		Ok(Arc::new(Self {
 			db: Data::new(&args),
 			server: args.server.clone(),
-			services: Services {
-				client: args.depend::<client::Service>("client"),
-				globals: args.depend::<globals::Service>("globals"),
-				state: args.depend::<rooms::state::Service>("rooms::state"),
-				state_cache: args.depend::<rooms::state_cache::Service>("rooms::state_cache"),
-				user: args.depend::<rooms::user::Service>("rooms::user"),
-				users: args.depend::<users::Service>("users"),
-				presence: args.depend::<presence::Service>("presence"),
-				read_receipt: args.depend::<rooms::read_receipt::Service>("rooms::read_receipt"),
-				timeline: args.depend::<rooms::timeline::Service>("rooms::timeline"),
-				account_data: args.depend::<account_data::Service>("account_data"),
-				appservice: args.depend::<crate::appservice::Service>("appservice"),
-				pusher: args.depend::<pusher::Service>("pusher"),
-				federation: args.depend::<federation::Service>("federation"),
-			},
+			services: args.services.clone(),
 			channels: (0..num_senders)
 				.map(|_| loole::unbounded())
 				.collect(),

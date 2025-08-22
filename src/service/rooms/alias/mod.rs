@@ -8,32 +8,23 @@ use ruma::{
 	events::StateEventType,
 };
 use tuwunel_core::{
-	Err, Result, Server, err,
+	Err, Result, err,
 	matrix::Event,
 	utils::{ReadyExt, stream::TryIgnore},
 };
 use tuwunel_database::{Deserialized, Ignore, Interfix, Map};
 
-use crate::{Dep, admin, appservice, appservice::RegistrationInfo, globals, rooms, sending};
+use crate::appservice::RegistrationInfo;
 
 pub struct Service {
 	db: Data,
-	services: Services,
+	services: Arc<crate::services::OnceServices>,
 }
 
 struct Data {
 	alias_userid: Arc<Map>,
 	alias_roomid: Arc<Map>,
 	aliasid_alias: Arc<Map>,
-}
-
-struct Services {
-	server: Arc<Server>,
-	admin: Dep<admin::Service>,
-	appservice: Dep<appservice::Service>,
-	globals: Dep<globals::Service>,
-	sending: Dep<sending::Service>,
-	state_accessor: Dep<rooms::state_accessor::Service>,
 }
 
 impl crate::Service for Service {
@@ -44,15 +35,7 @@ impl crate::Service for Service {
 				alias_roomid: args.db["alias_roomid"].clone(),
 				aliasid_alias: args.db["aliasid_alias"].clone(),
 			},
-			services: Services {
-				server: args.server.clone(),
-				admin: args.depend::<admin::Service>("admin"),
-				appservice: args.depend::<appservice::Service>("appservice"),
-				globals: args.depend::<globals::Service>("globals"),
-				sending: args.depend::<sending::Service>("sending"),
-				state_accessor: args
-					.depend::<rooms::state_accessor::Service>("rooms::state_accessor"),
-			},
+			services: args.services.clone(),
 		}))
 	}
 

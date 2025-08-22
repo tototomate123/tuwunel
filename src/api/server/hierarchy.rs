@@ -17,12 +17,7 @@ pub(crate) async fn get_hierarchy_route(
 	State(services): State<crate::State>,
 	body: Ruma<get_hierarchy::v1::Request>,
 ) -> Result<get_hierarchy::v1::Response> {
-	if !services
-		.rooms
-		.metadata
-		.exists(&body.room_id)
-		.await
-	{
+	if !services.metadata.exists(&body.room_id).await {
 		return Err!(Request(NotFound("Room does not exist.")));
 	}
 
@@ -30,7 +25,6 @@ pub(crate) async fn get_hierarchy_route(
 	let suggested_only = body.suggested_only;
 	let ref identifier = Identifier::ServerName(body.origin());
 	match services
-		.rooms
 		.spaces
 		.get_summary_and_children_local(room_id, identifier)
 		.await?
@@ -47,7 +41,6 @@ pub(crate) async fn get_hierarchy_route(
 					.stream()
 					.broad_filter_map(async |(child, _via)| {
 						match services
-							.rooms
 							.spaces
 							.get_summary_and_children_local(&child, identifier)
 							.await

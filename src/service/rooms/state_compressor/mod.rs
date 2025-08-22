@@ -17,20 +17,12 @@ use tuwunel_core::{
 };
 use tuwunel_database::Map;
 
-use crate::{
-	Dep, rooms,
-	rooms::short::{ShortEventId, ShortId, ShortStateHash, ShortStateKey},
-};
+use crate::rooms::short::{ShortEventId, ShortId, ShortStateHash, ShortStateKey};
 
 pub struct Service {
 	pub stateinfo_cache: Mutex<StateInfoLruCache>,
 	db: Data,
-	services: Services,
-}
-
-struct Services {
-	short: Dep<rooms::short::Service>,
-	state: Dep<rooms::state::Service>,
+	services: Arc<crate::services::OnceServices>,
 }
 
 struct Data {
@@ -77,10 +69,7 @@ impl crate::Service for Service {
 			db: Data {
 				shortstatehash_statediff: args.db["shortstatehash_statediff"].clone(),
 			},
-			services: Services {
-				short: args.depend::<rooms::short::Service>("rooms::short"),
-				state: args.depend::<rooms::state::Service>("rooms::state"),
-			},
+			services: args.services.clone(),
 		}))
 	}
 

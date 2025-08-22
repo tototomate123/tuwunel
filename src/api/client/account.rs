@@ -215,7 +215,6 @@ pub(crate) async fn deactivate_route(
 
 	// Remove profile pictures and display name
 	let all_joined_rooms: Vec<OwnedRoomId> = services
-		.rooms
 		.state_cache
 		.rooms_joined(sender_user)
 		.map(Into::into)
@@ -317,10 +316,9 @@ pub async fn full_user_deactivate(
 		.await;
 
 	for room_id in all_joined_rooms {
-		let state_lock = services.rooms.state.mutex.lock(room_id).await;
+		let state_lock = services.state.mutex.lock(room_id).await;
 
 		let room_power_levels = services
-			.rooms
 			.state_accessor
 			.get_power_levels(room_id)
 			.await
@@ -334,7 +332,6 @@ pub async fn full_user_deactivate(
 
 		let user_can_demote_self = user_can_change_self
 			|| services
-				.rooms
 				.state_accessor
 				.room_state_get(room_id, &StateEventType::RoomCreate, "")
 				.await
@@ -350,7 +347,6 @@ pub async fn full_user_deactivate(
 
 			// ignore errors so deactivation doesn't fail
 			match services
-				.rooms
 				.timeline
 				.build_and_append_pdu(
 					PduBuilder::state(String::new(), &power_levels_content),

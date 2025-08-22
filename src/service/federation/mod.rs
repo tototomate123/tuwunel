@@ -2,31 +2,17 @@ mod execute;
 
 use std::sync::Arc;
 
-use tuwunel_core::{Result, Server};
+use tuwunel_core::Result;
 
-use crate::{Dep, client, resolver, server_keys};
+use crate::services::OnceServices;
 
 pub struct Service {
-	services: Services,
-}
-
-struct Services {
-	server: Arc<Server>,
-	client: Dep<client::Service>,
-	resolver: Dep<resolver::Service>,
-	server_keys: Dep<server_keys::Service>,
+	services: Arc<OnceServices>,
 }
 
 impl crate::Service for Service {
 	fn build(args: crate::Args<'_>) -> Result<Arc<Self>> {
-		Ok(Arc::new(Self {
-			services: Services {
-				server: args.server.clone(),
-				client: args.depend::<client::Service>("client"),
-				resolver: args.depend::<resolver::Service>("resolver"),
-				server_keys: args.depend::<server_keys::Service>("server_keys"),
-			},
-		}))
+		Ok(Arc::new(Self { services: args.services.clone() }))
 	}
 
 	fn name(&self) -> &str { crate::service::make_name(std::module_path!()) }

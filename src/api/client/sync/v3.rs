@@ -225,7 +225,6 @@ async fn build_sync_events(
 	};
 
 	let joined_rooms = services
-		.rooms
 		.state_cache
 		.rooms_joined(sender_user)
 		.map(ToOwned::to_owned)
@@ -258,7 +257,6 @@ async fn build_sync_events(
 		);
 
 	let left_rooms = services
-		.rooms
 		.state_cache
 		.rooms_left(sender_user)
 		.broad_filter_map(|(room_id, _)| {
@@ -278,12 +276,10 @@ async fn build_sync_events(
 		.collect();
 
 	let invited_rooms = services
-		.rooms
 		.state_cache
 		.rooms_invited(sender_user)
 		.fold_default(async |mut invited_rooms: BTreeMap<_, _>, (room_id, invite_state)| {
 			let invite_count = services
-				.rooms
 				.state_cache
 				.get_invite_count(&room_id, sender_user)
 				.await
@@ -303,12 +299,10 @@ async fn build_sync_events(
 		});
 
 	let knocked_rooms = services
-		.rooms
 		.state_cache
 		.rooms_knocked(sender_user)
 		.fold_default(async |mut knocked_rooms: BTreeMap<_, _>, (room_id, knock_state)| {
 			let knock_count = services
-				.rooms
 				.state_cache
 				.get_knock_count(&room_id, sender_user)
 				.await
@@ -439,7 +433,6 @@ async fn process_presence_updates(
 		.presence_since(since, Some(next_batch))
 		.filter(|(user_id, ..)| {
 			services
-				.rooms
 				.state_cache
 				.user_sees_user(syncing_user, user_id)
 		})
@@ -475,7 +468,6 @@ async fn handle_left_room(
 	filter: &FilterDefinition,
 ) -> Result<Option<LeftRoom>> {
 	let left_count = services
-		.rooms
 		.state_cache
 		.get_left_count(room_id, sender_user)
 		.await
@@ -504,11 +496,11 @@ async fn handle_left_room(
 		return Ok(None);
 	}
 
-	let is_not_found = services.rooms.metadata.exists(room_id).eq(&false);
+	let is_not_found = services.metadata.exists(room_id).eq(&false);
 
-	let is_disabled = services.rooms.metadata.is_disabled(room_id);
+	let is_disabled = services.metadata.is_disabled(room_id);
 
-	let is_banned = services.rooms.metadata.is_banned(room_id);
+	let is_banned = services.metadata.is_banned(room_id);
 
 	pin_mut!(is_not_found, is_disabled, is_banned);
 	if is_not_found.or(is_disabled).or(is_banned).await {
@@ -547,14 +539,12 @@ async fn handle_left_room(
 	let mut left_state_events = Vec::new();
 
 	let since_shortstatehash = services
-		.rooms
 		.user
 		.get_token_shortstatehash(room_id, since);
 
 	let since_state_ids: HashMap<_, OwnedEventId> = since_shortstatehash
 		.map_ok(|since_shortstatehash| {
 			services
-				.rooms
 				.state_accessor
 				.state_full_ids(since_shortstatehash)
 				.map(Ok)
@@ -565,7 +555,6 @@ async fn handle_left_room(
 		.unwrap_or_default();
 
 	let Ok(left_event_id): Result<OwnedEventId> = services
-		.rooms
 		.state_accessor
 		.room_state_get_id(room_id, &StateEventType::RoomMember, sender_user.as_str())
 		.await
@@ -575,7 +564,6 @@ async fn handle_left_room(
 	};
 
 	let Ok(left_shortstatehash) = services
-		.rooms
 		.state_accessor
 		.pdu_shortstatehash(&left_event_id)
 		.await
@@ -585,14 +573,12 @@ async fn handle_left_room(
 	};
 
 	let mut left_state_ids: HashMap<_, _> = services
-		.rooms
 		.state_accessor
 		.state_full_ids(left_shortstatehash)
 		.collect()
 		.await;
 
 	let leave_shortstatekey = services
-		.rooms
 		.short
 		.get_or_create_shortstatekey(&StateEventType::RoomMember, sender_user.as_str())
 		.await;
@@ -602,7 +588,6 @@ async fn handle_left_room(
 	for (shortstatekey, event_id) in left_state_ids {
 		if full_state || since_state_ids.get(&shortstatekey) != Some(&event_id) {
 			let (event_type, state_key) = services
-				.rooms
 				.short
 				.get_statekey_from_short(shortstatekey)
 				.await?;
@@ -618,7 +603,7 @@ async fn handle_left_room(
 				continue;
 			}
 
-			let Ok(pdu) = services.rooms.timeline.get_pdu(&event_id).await else {
+			let Ok(pdu) = services.timeline.get_pdu(&event_id).await else {
 				error!("Pdu in state not found: {event_id}");
 				continue;
 			};
@@ -659,7 +644,6 @@ async fn load_joined_room(
 	filter: &FilterDefinition,
 ) -> Result<(JoinedRoom, HashSet<OwnedUserId>, HashSet<OwnedUserId>)> {
 	let since_shortstatehash = services
-		.rooms
 		.user
 		.get_token_shortstatehash(room_id, since)
 		.ok()
@@ -682,7 +666,6 @@ async fn load_joined_room(
 	);
 
 	let receipt_events = services
-		.rooms
 		.read_receipt
 		.readreceipts_since(room_id, since, Some(next_batch))
 		.filter_map(async |(read_user, _, edu)| {
@@ -706,7 +689,6 @@ async fn load_joined_room(
 		.map(PduCount::into_unsigned)
 		.map(|shorteventid| {
 			services
-				.rooms
 				.state_accessor
 				.get_shortstatehash(shorteventid)
 		})
@@ -714,7 +696,6 @@ async fn load_joined_room(
 		.into();
 
 	let current_shortstatehash = services
-		.rooms
 		.state_accessor
 		.get_shortstatehash(last_timeline_count.into_unsigned())
 		.or_else(|_| services.state.get_room_shortstatehash(room_id));
@@ -727,10 +708,10 @@ async fn load_joined_room(
 	let current_shortstatehash = current_shortstatehash
 		.map_err(|_| err!(Database(error!("Room {room_id} has no state"))))?;
 
-	let associate_token = services
-		.rooms
-		.user
-		.associate_token_shortstatehash(room_id, next_batch, current_shortstatehash);
+	let associate_token =
+		services
+			.user
+			.associate_token_shortstatehash(room_id, next_batch, current_shortstatehash);
 
 	let lazy_loading_enabled = filter.room.state.lazy_load_options.is_enabled()
 		|| filter
@@ -751,12 +732,7 @@ async fn load_joined_room(
 
 	// Reset lazy loading because this is an initial sync
 	let lazy_load_reset: OptionFuture<_> = initial
-		.then(|| {
-			services
-				.rooms
-				.lazy_loading
-				.reset(lazy_loading_context)
-		})
+		.then(|| services.lazy_loading.reset(lazy_loading_context))
 		.into();
 
 	lazy_load_reset.await;
@@ -771,7 +747,6 @@ async fn load_joined_room(
 				.collect();
 
 			services
-				.rooms
 				.lazy_loading
 				.witness_retain(witness, lazy_loading_context)
 		})
@@ -781,7 +756,6 @@ async fn load_joined_room(
 		.is_empty()
 		.then(|| {
 			services
-				.rooms
 				.user
 				.last_notification_read(sender_user, room_id)
 		})
@@ -790,20 +764,15 @@ async fn load_joined_room(
 	let since_sender_member: OptionFuture<_> = since_shortstatehash
 		.map(|short| {
 			services
-				.rooms
 				.state_accessor
 				.state_get_content(short, &StateEventType::RoomMember, sender_user.as_str())
 				.ok()
 		})
 		.into();
 
-	let encrypted_room = services
-		.rooms
-		.state_accessor
-		.is_encrypted_room(room_id);
+	let encrypted_room = services.state_accessor.is_encrypted_room(room_id);
 
 	let last_privateread_update = services
-		.rooms
 		.read_receipt
 		.last_privateread_update(sender_user, room_id);
 
@@ -867,7 +836,6 @@ async fn load_joined_room(
 	let notification_count: OptionFuture<_> = send_notification_counts
 		.then(|| {
 			services
-				.rooms
 				.user
 				.notification_count(sender_user, room_id)
 				.map(TryInto::try_into)
@@ -878,7 +846,6 @@ async fn load_joined_room(
 	let highlight_count: OptionFuture<_> = send_notification_counts
 		.then(|| {
 			services
-				.rooms
 				.user
 				.highlight_count(sender_user, room_id)
 				.map(TryInto::try_into)
@@ -890,7 +857,6 @@ async fn load_joined_room(
 		.gt(&since)
 		.then(|| {
 			services
-				.rooms
 				.read_receipt
 				.private_read_get(room_id, sender_user)
 				.map(Result::ok)
@@ -898,7 +864,6 @@ async fn load_joined_room(
 		.into();
 
 	let typing_events = services
-		.rooms
 		.typing
 		.last_typing_update(room_id)
 		.and_then(async |count| {
@@ -1086,7 +1051,6 @@ async fn calculate_state_changes<'a>(
 
 	let state_get_shorteventid = |user_id: &'a UserId| {
 		services
-			.rooms
 			.state_accessor
 			.state_get_shortid(
 				horizon_shortstatehash,
@@ -1112,7 +1076,6 @@ async fn calculate_state_changes<'a>(
 		.then(|| {
 			StreamExt::into_future(
 				services
-					.rooms
 					.state_accessor
 					.state_added((since_shortstatehash, horizon_shortstatehash))
 					.boxed(),
@@ -1124,7 +1087,6 @@ async fn calculate_state_changes<'a>(
 		.then(|| {
 			StreamExt::into_future(
 				services
-					.rooms
 					.state_accessor
 					.state_full_shortids(horizon_shortstatehash)
 					.expect_ok(),
@@ -1145,18 +1107,12 @@ async fn calculate_state_changes<'a>(
 		.chain(lazy_state_ids.stream())
 		.broad_filter_map(|shorteventid| {
 			services
-				.rooms
 				.short
 				.get_eventid_from_short(shorteventid)
 				.ok()
 		})
 		.broad_filter_map(async |event_id: OwnedEventId| {
-			services
-				.rooms
-				.timeline
-				.get_pdu(&event_id)
-				.ok()
-				.await
+			services.timeline.get_pdu(&event_id).ok().await
 		})
 		.collect::<Vec<_>>()
 		.boxed()
@@ -1188,7 +1144,6 @@ async fn lazy_filter(
 	shorteventid: ShortEventId,
 ) -> Option<ShortEventId> {
 	let (event_type, state_key) = services
-		.rooms
 		.short
 		.get_statekey_from_short(shortstatekey)
 		.await
@@ -1204,13 +1159,11 @@ async fn calculate_counts(
 	sender_user: &UserId,
 ) -> (Option<u64>, Option<u64>, Option<Vec<OwnedUserId>>) {
 	let joined_member_count = services
-		.rooms
 		.state_cache
 		.room_joined_count(room_id)
 		.unwrap_or(0);
 
 	let invited_member_count = services
-		.rooms
 		.state_cache
 		.room_invited_count(room_id)
 		.unwrap_or(0);
@@ -1233,7 +1186,6 @@ async fn calculate_heroes(
 	sender_user: &UserId,
 ) -> Vec<OwnedUserId> {
 	services
-		.rooms
 		.timeline
 		.all_pdus(sender_user, room_id)
 		.ready_filter(|(_, pdu)| pdu.kind == RoomMember)
@@ -1277,14 +1229,8 @@ async fn fold_hero(
 	}
 
 	let (is_invited, is_joined) = join(
-		services
-			.rooms
-			.state_cache
-			.is_invited(user_id, room_id),
-		services
-			.rooms
-			.state_cache
-			.is_joined(user_id, room_id),
+		services.state_cache.is_invited(user_id, room_id),
+		services.state_cache.is_joined(user_id, room_id),
 	)
 	.await;
 
@@ -1304,7 +1250,6 @@ async fn typings_event_for_user(
 	Ok(SyncEphemeralRoomEvent {
 		content: TypingEventContent {
 			user_ids: services
-				.rooms
 				.typing
 				.typing_users_for_user(room_id, sender_user)
 				.await?,

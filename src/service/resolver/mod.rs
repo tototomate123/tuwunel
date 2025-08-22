@@ -9,21 +9,15 @@ mod well_known;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use tuwunel_core::{Result, Server, arrayvec::ArrayString, utils::MutexMap};
+use tuwunel_core::{Result, arrayvec::ArrayString, utils::MutexMap};
 
 use self::{cache::Cache, dns::Resolver};
-use crate::{Dep, client};
 
 pub struct Service {
 	pub cache: Arc<Cache>,
 	pub resolver: Arc<Resolver>,
 	resolving: Resolving,
-	services: Services,
-}
-
-struct Services {
-	server: Arc<Server>,
-	client: Dep<client::Service>,
+	services: Arc<crate::services::OnceServices>,
 }
 
 type Resolving = MutexMap<NameBuf, ()>;
@@ -42,10 +36,7 @@ impl crate::Service for Service {
 			cache: cache.clone(),
 			resolver: Resolver::build(args.server, cache)?,
 			resolving: MutexMap::new(),
-			services: Services {
-				server: args.server.clone(),
-				client: args.depend::<client::Service>("client"),
-			},
+			services: args.services.clone(),
 		}))
 	}
 

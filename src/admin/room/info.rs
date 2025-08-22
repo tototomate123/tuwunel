@@ -30,7 +30,6 @@ pub(crate) enum RoomInfoCommand {
 async fn list_joined_members(&self, room_id: OwnedRoomId, local_only: bool) -> Result {
 	let room_name = self
 		.services
-		.rooms
 		.state_accessor
 		.get_name(&room_id)
 		.await
@@ -38,7 +37,6 @@ async fn list_joined_members(&self, room_id: OwnedRoomId, local_only: bool) -> R
 
 	let member_info: Vec<_> = self
 		.services
-		.rooms
 		.state_cache
 		.room_members(&room_id)
 		.ready_filter(|user_id| {
@@ -75,7 +73,6 @@ async fn list_joined_members(&self, room_id: OwnedRoomId, local_only: bool) -> R
 async fn view_room_topic(&self, room_id: OwnedRoomId) -> Result {
 	let Ok(room_topic) = self
 		.services
-		.rooms
 		.state_accessor
 		.get_room_topic(&room_id)
 		.await

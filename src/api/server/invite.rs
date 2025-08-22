@@ -31,7 +31,6 @@ pub(crate) async fn create_invite_route(
 ) -> Result<create_invite::v2::Response> {
 	// ACL check origin
 	services
-		.rooms
 		.event_handler
 		.acl_check(body.origin(), &body.room_id)
 		.await?;
@@ -88,7 +87,6 @@ pub(crate) async fn create_invite_route(
 
 	// Make sure we're not ACL'ed from their room.
 	services
-		.rooms
 		.event_handler
 		.acl_check(invited_user.server_name(), &body.room_id)
 		.await?;
@@ -109,11 +107,8 @@ pub(crate) async fn create_invite_route(
 		.try_into()
 		.map_err(|e| err!(Request(InvalidParam("Invalid sender property: {e}"))))?;
 
-	if services
-		.rooms
-		.metadata
-		.is_banned(&body.room_id)
-		.await && !services.users.is_admin(&invited_user).await
+	if services.metadata.is_banned(&body.room_id).await
+		&& !services.users.is_admin(&invited_user).await
 	{
 		return Err!(Request(Forbidden("This room is banned on this homeserver.")));
 	}
@@ -144,13 +139,11 @@ pub(crate) async fn create_invite_route(
 	// record the invited state for client /sync through update_membership(), and
 	// send the invite PDU to the relevant appservices.
 	if !services
-		.rooms
 		.state_cache
 		.server_in_room(services.globals.server_name(), &body.room_id)
 		.await
 	{
 		services
-			.rooms
 			.state_cache
 			.update_membership(
 				&body.room_id,

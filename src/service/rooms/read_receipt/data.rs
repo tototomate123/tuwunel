@@ -12,17 +12,11 @@ use tuwunel_core::{
 };
 use tuwunel_database::{Deserialized, Json, Map};
 
-use crate::{Dep, globals};
-
 pub(super) struct Data {
 	roomuserid_privateread: Arc<Map>,
 	roomuserid_lastprivatereadupdate: Arc<Map>,
-	services: Services,
+	services: Arc<crate::services::OnceServices>,
 	readreceiptid_readreceipt: Arc<Map>,
-}
-
-struct Services {
-	globals: Dep<globals::Service>,
 }
 
 pub(super) type ReceiptItem<'a> = (&'a UserId, u64, Raw<AnySyncEphemeralRoomEvent>);
@@ -34,9 +28,7 @@ impl Data {
 			roomuserid_privateread: db["roomuserid_privateread"].clone(),
 			roomuserid_lastprivatereadupdate: db["roomuserid_lastprivatereadupdate"].clone(),
 			readreceiptid_readreceipt: db["readreceiptid_readreceipt"].clone(),
-			services: Services {
-				globals: args.depend::<globals::Service>("globals"),
-			},
+			services: args.services.clone(),
 		}
 	}
 

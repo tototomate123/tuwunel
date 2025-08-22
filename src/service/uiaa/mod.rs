@@ -16,18 +16,10 @@ use tuwunel_core::{
 };
 use tuwunel_database::{Deserialized, Json, Map};
 
-use crate::{Dep, config, globals, users};
-
 pub struct Service {
 	userdevicesessionid_uiaarequest: RwLock<RequestMap>,
 	db: Data,
-	services: Services,
-}
-
-struct Services {
-	globals: Dep<globals::Service>,
-	users: Dep<users::Service>,
-	config: Dep<config::Service>,
+	services: Arc<crate::services::OnceServices>,
 }
 
 struct Data {
@@ -46,11 +38,7 @@ impl crate::Service for Service {
 			db: Data {
 				userdevicesessionid_uiaainfo: args.db["userdevicesessionid_uiaainfo"].clone(),
 			},
-			services: Services {
-				globals: args.depend::<globals::Service>("globals"),
-				users: args.depend::<users::Service>("users"),
-				config: args.depend::<config::Service>("config"),
-			},
+			services: args.services.clone(),
 		}))
 	}
 

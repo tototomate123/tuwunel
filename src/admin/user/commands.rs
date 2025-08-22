@@ -122,7 +122,7 @@ pub(super) async fn create_user(&self, username: String, password: Option<String
 		.is_empty()
 	{
 		for room in &self.services.server.config.auto_join_rooms {
-			let Ok(room_id) = self.services.rooms.alias.resolve(room).await else {
+			let Ok(room_id) = self.services.alias.resolve(room).await else {
 				error!(
 					%user_id,
 					"Failed to resolve room alias to room ID when attempting to auto join {room}, skipping"
@@ -132,7 +132,6 @@ pub(super) async fn create_user(&self, username: String, password: Option<String
 
 			if !self
 				.services
-				.rooms
 				.state_cache
 				.server_in_room(self.services.globals.server_name(), &room_id)
 				.await
@@ -186,7 +185,6 @@ pub(super) async fn create_user(&self, username: String, password: Option<String
 	if let Ok(admin_room) = self.services.admin.get_admin_room().await {
 		if self
 			.services
-			.rooms
 			.state_cache
 			.room_joined_count(&admin_room)
 			.await
@@ -230,7 +228,6 @@ pub(super) async fn deactivate(&self, no_leave_rooms: bool, user_id: String) -> 
 
 		let all_joined_rooms: Vec<OwnedRoomId> = self
 			.services
-			.rooms
 			.state_cache
 			.rooms_joined(&user_id)
 			.map(Into::into)
@@ -355,7 +352,6 @@ pub(super) async fn deactivate_all(&self, no_leave_rooms: bool, force: bool) -> 
 					info!("Forcing user {user_id} to leave all rooms apart of deactivate-all");
 					let all_joined_rooms: Vec<OwnedRoomId> = self
 						.services
-						.rooms
 						.state_cache
 						.rooms_joined(&user_id)
 						.map(Into::into)
@@ -395,7 +391,6 @@ pub(super) async fn list_joined_rooms(&self, user_id: String) -> Result {
 
 	let mut rooms: Vec<(OwnedRoomId, u64, String)> = self
 		.services
-		.rooms
 		.state_cache
 		.rooms_joined(&user_id)
 		.then(|room_id| get_room_info(self.services, room_id))
@@ -445,14 +440,12 @@ pub(super) async fn force_join_list_of_local_users(
 
 	let (room_id, servers) = self
 		.services
-		.rooms
 		.alias
 		.resolve_with_servers(&room_id, None)
 		.await?;
 
 	if !self
 		.services
-		.rooms
 		.state_cache
 		.server_in_room(self.services.globals.server_name(), &room_id)
 		.await
@@ -462,7 +455,6 @@ pub(super) async fn force_join_list_of_local_users(
 
 	let server_admins: Vec<_> = self
 		.services
-		.rooms
 		.state_cache
 		.active_local_users_in_room(&admin_room)
 		.map(ToOwned::to_owned)
@@ -471,7 +463,6 @@ pub(super) async fn force_join_list_of_local_users(
 
 	if !self
 		.services
-		.rooms
 		.state_cache
 		.room_members(&room_id)
 		.ready_any(|user_id| server_admins.contains(&user_id.to_owned()))
@@ -567,14 +558,12 @@ pub(super) async fn force_join_all_local_users(
 
 	let (room_id, servers) = self
 		.services
-		.rooms
 		.alias
 		.resolve_with_servers(&room_id, None)
 		.await?;
 
 	if !self
 		.services
-		.rooms
 		.state_cache
 		.server_in_room(self.services.globals.server_name(), &room_id)
 		.await
@@ -584,7 +573,6 @@ pub(super) async fn force_join_all_local_users(
 
 	let server_admins: Vec<_> = self
 		.services
-		.rooms
 		.state_cache
 		.active_local_users_in_room(&admin_room)
 		.map(ToOwned::to_owned)
@@ -593,7 +581,6 @@ pub(super) async fn force_join_all_local_users(
 
 	if !self
 		.services
-		.rooms
 		.state_cache
 		.room_members(&room_id)
 		.ready_any(|user_id| server_admins.contains(&user_id.to_owned()))
@@ -650,7 +637,6 @@ pub(super) async fn force_join_room(
 	let user_id = parse_local_user_id(self.services, &user_id)?;
 	let (room_id, servers) = self
 		.services
-		.rooms
 		.alias
 		.resolve_with_servers(&room_id, None)
 		.await?;
@@ -673,12 +659,7 @@ pub(super) async fn force_leave_room(
 	room_id: OwnedRoomOrAliasId,
 ) -> Result {
 	let user_id = parse_local_user_id(self.services, &user_id)?;
-	let room_id = self
-		.services
-		.rooms
-		.alias
-		.resolve(&room_id)
-		.await?;
+	let room_id = self.services.alias.resolve(&room_id).await?;
 
 	assert!(
 		self.services.globals.user_is_local(&user_id),
@@ -687,7 +668,6 @@ pub(super) async fn force_leave_room(
 
 	if !self
 		.services
-		.rooms
 		.state_cache
 		.is_joined(&user_id, &room_id)
 		.await
@@ -706,29 +686,17 @@ pub(super) async fn force_leave_room(
 #[admin_command]
 pub(super) async fn force_demote(&self, user_id: String, room_id: OwnedRoomOrAliasId) -> Result {
 	let user_id = parse_local_user_id(self.services, &user_id)?;
-	let room_id = self
-		.services
-		.rooms
-		.alias
-		.resolve(&room_id)
-		.await?;
+	let room_id = self.services.alias.resolve(&room_id).await?;
 
 	assert!(
 		self.services.globals.user_is_local(&user_id),
 		"Parsed user_id must be a local user"
 	);
 
-	let state_lock = self
-		.services
-		.rooms
-		.state
-		.mutex
-		.lock(&room_id)
-		.await;
+	let state_lock = self.services.state.mutex.lock(&room_id).await;
 
 	let room_power_levels: Option<RoomPowerLevels> = self
 		.services
-		.rooms
 		.state_accessor
 		.get_power_levels(&room_id)
 		.await
@@ -743,7 +711,6 @@ pub(super) async fn force_demote(&self, user_id: String, room_id: OwnedRoomOrAli
 	let user_can_demote_self = user_can_change_self
 		|| self
 			.services
-			.rooms
 			.state_accessor
 			.room_state_get(&room_id, &StateEventType::RoomCreate, "")
 			.await
@@ -762,7 +729,6 @@ pub(super) async fn force_demote(&self, user_id: String, room_id: OwnedRoomOrAli
 
 	let event_id = self
 		.services
-		.rooms
 		.timeline
 		.build_and_append_pdu(
 			PduBuilder::state(String::new(), &power_levels_content),
@@ -897,7 +863,6 @@ pub(super) async fn get_room_tags(&self, user_id: String, room_id: OwnedRoomId) 
 pub(super) async fn redact_event(&self, event_id: OwnedEventId) -> Result {
 	let Ok(event) = self
 		.services
-		.rooms
 		.timeline
 		.get_non_outlier_pdu(&event_id)
 		.await
@@ -925,14 +890,12 @@ pub(super) async fn redact_event(&self, event_id: OwnedEventId) -> Result {
 	let redaction_event_id = {
 		let state_lock = self
 			.services
-			.rooms
 			.state
 			.mutex
 			.lock(event.room_id())
 			.await;
 
 		self.services
-			.rooms
 			.timeline
 			.build_and_append_pdu(
 				PduBuilder {

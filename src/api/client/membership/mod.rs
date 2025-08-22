@@ -42,7 +42,6 @@ pub(crate) async fn joined_rooms_route(
 ) -> Result<joined_rooms::v3::Response> {
 	Ok(joined_rooms::v3::Response {
 		joined_rooms: services
-			.rooms
 			.state_cache
 			.rooms_joined(body.sender_user())
 			.map(ToOwned::to_owned)
@@ -69,7 +68,7 @@ pub(crate) async fn banned_room_check(
 	}
 
 	if let Some(room_id) = room_id {
-		if services.rooms.metadata.is_banned(room_id).await
+		if services.metadata.is_banned(room_id).await
 			|| (room_id.server_name().is_some()
 				&& services
 					.config
@@ -105,7 +104,6 @@ pub(crate) async fn banned_room_check(
 				}
 
 				let all_joined_rooms: Vec<OwnedRoomId> = services
-					.rooms
 					.state_cache
 					.rooms_joined(user_id)
 					.map(Into::into)
@@ -150,7 +148,6 @@ pub(crate) async fn banned_room_check(
 				}
 
 				let all_joined_rooms: Vec<OwnedRoomId> = services
-					.rooms
 					.state_cache
 					.rooms_joined(user_id)
 					.map(Into::into)

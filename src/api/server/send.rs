@@ -92,12 +92,7 @@ pub(crate) async fn send_transaction_message_route(
 		.pdus
 		.iter()
 		.stream()
-		.broad_then(|pdu| {
-			services
-				.rooms
-				.event_handler
-				.parse_incoming_pdu(pdu)
-		})
+		.broad_then(|pdu| services.event_handler.parse_incoming_pdu(pdu))
 		.inspect_err(|e| debug_warn!("Could not parse PDU: {e}"))
 		.ready_filter_map(Result::ok);
 
@@ -186,7 +181,6 @@ async fn handle_room(
 	pdus: impl Iterator<Item = Pdu> + Send,
 ) -> Result<ResolvedMap> {
 	let _room_lock = services
-		.rooms
 		.event_handler
 		.mutex_federation
 		.lock(room_id)
@@ -197,7 +191,6 @@ async fn handle_room(
 			services.server.check_running()?;
 			let pdu_start_time = Instant::now();
 			let result = services
-				.rooms
 				.event_handler
 				.handle_incoming_pdu(origin, &room_id, &event_id, value, true)
 				.map_ok(|_| ())
@@ -311,7 +304,6 @@ async fn handle_edu_receipt_room(
 	room_updates: ReceiptMap,
 ) {
 	if services
-		.rooms
 		.event_handler
 		.acl_check(origin, &room_id)
 		.await
@@ -351,7 +343,6 @@ async fn handle_edu_receipt_room_user(
 	}
 
 	if !services
-		.rooms
 		.state_cache
 		.server_in_room(origin, room_id)
 		.await
@@ -373,7 +364,6 @@ async fn handle_edu_receipt_room_user(
 			let receipts = [(ReceiptType::Read, BTreeMap::from(user_data))];
 			let content = [(event_id.clone(), BTreeMap::from(receipts))];
 			services
-				.rooms
 				.read_receipt
 				.readreceipt_update(user_id, room_id, &ReceiptEvent {
 					content: ReceiptEventContent(content.into()),
@@ -399,7 +389,6 @@ async fn handle_edu_typing(
 	}
 
 	if services
-		.rooms
 		.event_handler
 		.acl_check(typing.user_id.server_name(), &typing.room_id)
 		.await
@@ -413,7 +402,6 @@ async fn handle_edu_typing(
 	}
 
 	if !services
-		.rooms
 		.state_cache
 		.is_joined(&typing.user_id, &typing.room_id)
 		.await
@@ -430,7 +418,6 @@ async fn handle_edu_typing(
 		let timeout = millis_since_unix_epoch().saturating_add(secs.saturating_mul(1000));
 
 		services
-			.rooms
 			.typing
 			.typing_add(&typing.user_id, &typing.room_id, timeout)
 			.await
@@ -438,7 +425,6 @@ async fn handle_edu_typing(
 			.ok();
 	} else {
 		services
-			.rooms
 			.typing
 			.typing_remove(&typing.user_id, &typing.room_id)
 			.await

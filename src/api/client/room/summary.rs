@@ -54,12 +54,11 @@ pub(crate) async fn get_room_summary(
 	body: Ruma<get_summary::v1::Request>,
 ) -> Result<get_summary::v1::Response> {
 	let (room_id, servers) = services
-		.rooms
 		.alias
 		.resolve_with_servers(&body.room_id_or_alias, Some(body.via.clone()))
 		.await?;
 
-	if services.rooms.metadata.is_banned(&room_id).await {
+	if services.metadata.is_banned(&room_id).await {
 		return Err!(Request(Forbidden("This room is banned on this homeserver.")));
 	}
 
@@ -75,7 +74,6 @@ async fn room_summary_response(
 	sender_user: Option<&UserId>,
 ) -> Result<get_summary::v1::Response> {
 	if services
-		.rooms
 		.state_cache
 		.server_in_room(services.globals.server_name(), room_id)
 		.await
@@ -103,20 +101,11 @@ async fn local_room_summary_response(
 	sender_user: Option<&UserId>,
 ) -> Result<get_summary::v1::Response> {
 	trace!(?sender_user, "Sending local room summary response for {room_id:?}");
-	let join_rule = services
-		.rooms
-		.state_accessor
-		.get_join_rules(room_id);
+	let join_rule = services.state_accessor.get_join_rules(room_id);
 
-	let world_readable = services
-		.rooms
-		.state_accessor
-		.is_world_readable(room_id);
+	let world_readable = services.state_accessor.is_world_readable(room_id);
 
-	let guest_can_join = services
-		.rooms
-		.state_accessor
-		.guest_can_join(room_id);
+	let guest_can_join = services.state_accessor.guest_can_join(room_id);
 
 	let (join_rule, world_readable, guest_can_join) =
 		join3(join_rule, world_readable, guest_can_join).await;
@@ -134,49 +123,35 @@ async fn local_room_summary_response(
 	.await?;
 
 	let canonical_alias = services
-		.rooms
 		.state_accessor
 		.get_canonical_alias(room_id)
 		.ok();
 
-	let name = services
-		.rooms
-		.state_accessor
-		.get_name(room_id)
-		.ok();
+	let name = services.state_accessor.get_name(room_id).ok();
 
 	let topic = services
-		.rooms
 		.state_accessor
 		.get_room_topic(room_id)
 		.ok();
 
 	let room_type = services
-		.rooms
 		.state_accessor
 		.get_room_type(room_id)
 		.ok();
 
 	let avatar_url = services
-		.rooms
 		.state_accessor
 		.get_avatar(room_id)
 		.map(|res| res.into_option().unwrap_or_default().url);
 
-	let room_version = services
-		.rooms
-		.state
-		.get_room_version(room_id)
-		.ok();
+	let room_version = services.state.get_room_version(room_id).ok();
 
 	let encryption = services
-		.rooms
 		.state_accessor
 		.get_room_encryption(room_id)
 		.ok();
 
 	let num_joined_members = services
-		.rooms
 		.state_cache
 		.room_joined_count(room_id)
 		.unwrap_or(0);
@@ -184,7 +159,6 @@ async fn local_room_summary_response(
 	let membership: OptionFuture<_> = sender_user
 		.map(|sender_user| {
 			services
-				.rooms
 				.state_accessor
 				.get_member(room_id, sender_user)
 				.map_ok_or(MembershipState::Leave, |content| content.membership)
@@ -244,7 +218,7 @@ async fn remote_room_summary_hierarchy_response(
 		return Err!(Request(Forbidden("Federation is disabled.")));
 	}
 
-	if services.rooms.metadata.is_disabled(room_id).await {
+	if services.metadata.is_disabled(room_id).await {
 		return Err!(Request(Forbidden(
 			"Federaton of room {room_id} is currently disabled on this server."
 		)));
@@ -313,7 +287,6 @@ where
 	match sender_user {
 		| Some(sender_user) => {
 			let user_can_see_state_events = services
-				.rooms
 				.state_accessor
 				.user_can_see_state_events(sender_user, room_id);
 
@@ -322,12 +295,9 @@ where
 				.is_deactivated(sender_user)
 				.unwrap_or(false);
 
-			let user_in_allowed_restricted_room = allowed_room_ids.stream().any(|room| {
-				services
-					.rooms
-					.state_cache
-					.is_joined(sender_user, room)
-			});
+			let user_in_allowed_restricted_room = allowed_room_ids
+				.stream()
+				.any(|room| services.state_cache.is_joined(sender_user, room));
 
 			let (user_can_see_state_events, is_guest, user_in_allowed_restricted_room) =
 				join3(user_can_see_state_events, is_guest, user_in_allowed_restricted_room)

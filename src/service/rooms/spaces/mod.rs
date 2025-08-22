@@ -32,20 +32,10 @@ use tuwunel_core::{
 };
 
 pub use self::pagination_token::PaginationToken;
-use crate::{Dep, rooms, sending};
 
 pub struct Service {
-	services: Services,
+	services: Arc<crate::services::OnceServices>,
 	pub roomid_spacehierarchy_cache: Mutex<Cache>,
-}
-
-struct Services {
-	state_accessor: Dep<rooms::state_accessor::Service>,
-	state_cache: Dep<rooms::state_cache::Service>,
-	state: Dep<rooms::state::Service>,
-	event_handler: Dep<rooms::event_handler::Service>,
-	timeline: Dep<rooms::timeline::Service>,
-	sending: Dep<sending::Service>,
 }
 
 pub struct CachedSpaceHierarchySummary {
@@ -74,16 +64,7 @@ impl crate::Service for Service {
 		let cache_size = f64::from(config.roomid_spacehierarchy_cache_capacity);
 		let cache_size = cache_size * config.cache_capacity_modifier;
 		Ok(Arc::new(Self {
-			services: Services {
-				state_accessor: args
-					.depend::<rooms::state_accessor::Service>("rooms::state_accessor"),
-				state_cache: args.depend::<rooms::state_cache::Service>("rooms::state_cache"),
-				state: args.depend::<rooms::state::Service>("rooms::state"),
-				event_handler: args
-					.depend::<rooms::event_handler::Service>("rooms::event_handler"),
-				timeline: args.depend::<rooms::timeline::Service>("rooms::timeline"),
-				sending: args.depend::<sending::Service>("sending"),
-			},
+			services: args.services.clone(),
 			roomid_spacehierarchy_cache: Mutex::new(LruCache::new(usize_from_f64(cache_size)?)),
 		}))
 	}

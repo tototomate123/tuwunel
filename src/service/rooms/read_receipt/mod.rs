@@ -21,27 +21,16 @@ use tuwunel_core::{
 };
 
 use self::data::{Data, ReceiptItem};
-use crate::{Dep, rooms, sending};
 
 pub struct Service {
-	services: Services,
+	services: Arc<crate::services::OnceServices>,
 	db: Data,
-}
-
-struct Services {
-	sending: Dep<sending::Service>,
-	short: Dep<rooms::short::Service>,
-	timeline: Dep<rooms::timeline::Service>,
 }
 
 impl crate::Service for Service {
 	fn build(args: crate::Args<'_>) -> Result<Arc<Self>> {
 		Ok(Arc::new(Self {
-			services: Services {
-				sending: args.depend::<sending::Service>("sending"),
-				short: args.depend::<rooms::short::Service>("rooms::short"),
-				timeline: args.depend::<rooms::timeline::Service>("rooms::timeline"),
-			},
+			services: args.services.clone(),
 			db: Data::new(&args),
 		}))
 	}

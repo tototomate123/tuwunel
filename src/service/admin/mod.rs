@@ -5,7 +5,7 @@ mod grant;
 
 use std::{
 	pin::Pin,
-	sync::{Arc, RwLock as StdRwLock, Weak},
+	sync::{Arc, RwLock as StdRwLock},
 };
 
 use async_trait::async_trait;
@@ -17,30 +17,18 @@ use ruma::{
 };
 use tokio::sync::{RwLock, mpsc};
 use tuwunel_core::{
-	Err, Error, Event, Result, Server, debug, err, error, error::default_log, pdu::PduBuilder,
+	Err, Error, Event, Result, debug, err, error, error::default_log, pdu::PduBuilder,
 };
 
-use crate::{Dep, account_data, globals, rooms, rooms::state::RoomMutexGuard};
+use crate::rooms::state::RoomMutexGuard;
 
 pub struct Service {
-	services: Services,
+	services: Arc<crate::services::OnceServices>,
 	channel: StdRwLock<Option<mpsc::Sender<CommandInput>>>,
 	pub handle: RwLock<Option<Processor>>,
 	pub complete: StdRwLock<Option<Completer>>,
 	#[cfg(feature = "console")]
 	pub console: Arc<console::Console>,
-}
-
-struct Services {
-	server: Arc<Server>,
-	globals: Dep<globals::Service>,
-	alias: Dep<rooms::alias::Service>,
-	timeline: Dep<rooms::timeline::Service>,
-	state: Dep<rooms::state::Service>,
-	state_cache: Dep<rooms::state_cache::Service>,
-	state_accessor: Dep<rooms::state_accessor::Service>,
-	account_data: Dep<account_data::Service>,
-	services: StdRwLock<Option<Weak<crate::Services>>>,
 }
 
 /// Inputs to a command are a multi-line string and optional reply_id.
@@ -77,18 +65,7 @@ const COMMAND_QUEUE_LIMIT: usize = 512;
 impl crate::Service for Service {
 	fn build(args: crate::Args<'_>) -> Result<Arc<Self>> {
 		Ok(Arc::new(Self {
-			services: Services {
-				server: args.server.clone(),
-				globals: args.depend::<globals::Service>("globals"),
-				alias: args.depend::<rooms::alias::Service>("rooms::alias"),
-				timeline: args.depend::<rooms::timeline::Service>("rooms::timeline"),
-				state: args.depend::<rooms::state::Service>("rooms::state"),
-				state_cache: args.depend::<rooms::state_cache::Service>("rooms::state_cache"),
-				state_accessor: args
-					.depend::<rooms::state_accessor::Service>("rooms::state_accessor"),
-				account_data: args.depend::<account_data::Service>("account_data"),
-				services: None.into(),
-			},
+			services: args.services.clone(),
 			channel: StdRwLock::new(None),
 			handle: RwLock::new(None),
 			complete: StdRwLock::new(None),
@@ -234,16 +211,7 @@ impl Service {
 			.await
 			.expect("Admin module is not loaded");
 
-		let services = self
-			.services
-			.services
-			.read()
-			.expect("locked")
-			.as_ref()
-			.and_then(Weak::upgrade)
-			.expect("Services self-reference not initialized.");
-
-		handle(services, command).await
+		handle(Arc::clone(self.services.get_services()), command).await
 	}
 
 	/// Checks whether a given user is an admin of this server
@@ -422,18 +390,5 @@ impl Service {
 			.map_ok(|room_id| room_id == room_id_)
 			.await
 			.unwrap_or(false)
-	}
-
-	/// Sets the self-reference to crate::Services which will provide context to
-	/// the admin commands.
-	pub(super) fn set_services(&self, services: Option<&Arc<crate::Services>>) {
-		let receiver = &mut *self
-			.services
-			.services
-			.write()
-			.expect("locked for writing");
-
-		let weak = services.map(Arc::downgrade);
-		*receiver = weak;
 	}
 }

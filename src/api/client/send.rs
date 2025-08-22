@@ -30,16 +30,10 @@ pub(crate) async fn send_message_event_route(
 		return Err!(Request(Forbidden("Encryption has been disabled")));
 	}
 
-	let state_lock = services
-		.rooms
-		.state
-		.mutex
-		.lock(&body.room_id)
-		.await;
+	let state_lock = services.state.mutex.lock(&body.room_id).await;
 
 	if body.event_type == MessageLikeEventType::CallInvite
 		&& services
-			.rooms
 			.directory
 			.is_public_room(&body.room_id)
 			.await
@@ -75,7 +69,6 @@ pub(crate) async fn send_message_event_route(
 		.map_err(|e| err!(Request(BadJson("Invalid JSON body: {e}"))))?;
 
 	let event_id = services
-		.rooms
 		.timeline
 		.build_and_append_pdu(
 			PduBuilder {

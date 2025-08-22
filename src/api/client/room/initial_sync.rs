@@ -17,7 +17,6 @@ pub(crate) async fn room_initial_sync_route(
 	let room_id = &body.room_id;
 
 	if !services
-		.rooms
 		.state_accessor
 		.user_can_see_state_events(body.sender_user(), room_id)
 		.await
@@ -26,19 +25,13 @@ pub(crate) async fn room_initial_sync_route(
 	}
 
 	let membership = services
-		.rooms
 		.state_cache
 		.user_membership(body.sender_user(), room_id)
 		.map(Ok);
 
-	let visibility = services
-		.rooms
-		.directory
-		.visibility(room_id)
-		.map(Ok);
+	let visibility = services.directory.visibility(room_id).map(Ok);
 
 	let state = services
-		.rooms
 		.state_accessor
 		.room_state_full_pdus(room_id)
 		.map_ok(Event::into_format)
@@ -46,7 +39,6 @@ pub(crate) async fn room_initial_sync_route(
 
 	let limit = LIMIT_MAX;
 	let events = services
-		.rooms
 		.timeline
 		.pdus_rev(None, room_id, None)
 		.try_take(limit)

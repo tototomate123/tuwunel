@@ -46,7 +46,6 @@ pub(crate) async fn get_backfill_route(
 		.stream()
 		.filter_map(|event_id| {
 			services
-				.rooms
 				.timeline
 				.get_pdu_count(event_id)
 				.map(Result::ok)
@@ -60,13 +59,11 @@ pub(crate) async fn get_backfill_route(
 		origin: services.globals.server_name().to_owned(),
 
 		pdus: services
-			.rooms
 			.timeline
 			.pdus_rev(None, &body.room_id, Some(from.saturating_add(1)))
 			.try_take(limit)
 			.try_filter_map(async |(_, pdu)| {
 				Ok(services
-					.rooms
 					.state_accessor
 					.server_can_see_event(body.origin(), &pdu.room_id, &pdu.event_id)
 					.await
@@ -74,7 +71,6 @@ pub(crate) async fn get_backfill_route(
 			})
 			.try_filter_map(async |pdu| {
 				Ok(services
-					.rooms
 					.timeline
 					.get_pdu_json(&pdu.event_id)
 					.await

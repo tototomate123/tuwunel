@@ -57,13 +57,11 @@ pub(crate) async fn search_users_route(
 			}
 
 			let user_in_public_room = services
-				.rooms
 				.state_cache
 				.rooms_joined(&user_id)
 				.map(ToOwned::to_owned)
 				.broad_any(async |room_id| {
 					services
-						.rooms
 						.state_accessor
 						.get_join_rules(&room_id)
 						.map(|rule| matches!(rule, JoinRule::Public))
@@ -71,7 +69,6 @@ pub(crate) async fn search_users_route(
 				});
 
 			let user_sees_user = services
-				.rooms
 				.state_cache
 				.user_sees_user(sender_user, &user_id);
 

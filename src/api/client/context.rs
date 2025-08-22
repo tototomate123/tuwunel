@@ -38,7 +38,7 @@ pub(crate) async fn get_context_route(
 	let event_id = &body.event_id;
 	let filter = &body.filter;
 
-	if !services.rooms.metadata.exists(room_id).await {
+	if !services.metadata.exists(room_id).await {
 		return Err!(Request(Forbidden("Room does not exist to this server")));
 	}
 
@@ -50,19 +50,16 @@ pub(crate) async fn get_context_route(
 		.min(LIMIT_MAX);
 
 	let base_id = services
-		.rooms
 		.timeline
 		.get_pdu_id(event_id)
 		.map_err(|_| err!(Request(NotFound("Event not found."))));
 
 	let base_pdu = services
-		.rooms
 		.timeline
 		.get_pdu(event_id)
 		.map_err(|_| err!(Request(NotFound("Base event not found."))));
 
 	let visible = services
-		.rooms
 		.state_accessor
 		.user_can_see_event(sender_user, room_id, event_id)
 		.map(Ok);
@@ -83,7 +80,6 @@ pub(crate) async fn get_context_route(
 	let base_event = ignored_filter(&services, (base_count, base_pdu), sender_user);
 
 	let events_before = services
-		.rooms
 		.timeline
 		.pdus_rev(Some(sender_user), room_id, Some(base_count))
 		.ignore_err()
@@ -94,7 +90,6 @@ pub(crate) async fn get_context_route(
 		.collect();
 
 	let events_after = services
-		.rooms
 		.timeline
 		.pdus(Some(sender_user), room_id, Some(base_count))
 		.ignore_err()
@@ -135,18 +130,11 @@ pub(crate) async fn get_context_route(
 		.map_or_else(|| body.event_id.as_ref(), |pdu| pdu.event_id.as_ref());
 
 	let state_ids = services
-		.rooms
 		.state_accessor
 		.pdu_shortstatehash(state_at)
-		.or_else(|_| {
-			services
-				.rooms
-				.state
-				.get_room_shortstatehash(room_id)
-		})
+		.or_else(|_| services.state.get_room_shortstatehash(room_id))
 		.map_ok(|shortstatehash| {
 			services
-				.rooms
 				.state_accessor
 				.state_full_ids(shortstatehash)
 				.map(Ok)
@@ -163,7 +151,6 @@ pub(crate) async fn get_context_route(
 	let shorteventids = state_ids.iter().map(ref_at!(1)).stream();
 	let lazy_loading_witnessed = lazy_loading_witnessed.unwrap_or_default();
 	let state: Vec<_> = services
-		.rooms
 		.short
 		.multi_get_statekey_from_short(shortstatekeys)
 		.zip(shorteventids)
@@ -182,11 +169,7 @@ pub(crate) async fn get_context_route(
 			Some(event_id)
 		})
 		.broad_filter_map(|event_id: &OwnedEventId| {
-			services
-				.rooms
-				.timeline
-				.get_pdu(event_id.as_ref())
-				.ok()
+			services.timeline.get_pdu(event_id.as_ref()).ok()
 		})
 		.map(Event::into_format)
 		.collect()

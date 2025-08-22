@@ -20,22 +20,15 @@ pub(crate) async fn ban_user_route(
 		return Err!(Request(Forbidden("You cannot ban yourself.")));
 	}
 
-	let state_lock = services
-		.rooms
-		.state
-		.mutex
-		.lock(&body.room_id)
-		.await;
+	let state_lock = services.state.mutex.lock(&body.room_id).await;
 
 	let current_member_content = services
-		.rooms
 		.state_accessor
 		.get_member(&body.room_id, &body.user_id)
 		.await
 		.unwrap_or_else(|_| RoomMemberEventContent::new(MembershipState::Ban));
 
 	services
-		.rooms
 		.timeline
 		.build_and_append_pdu(
 			PduBuilder::state(body.user_id.to_string(), &RoomMemberEventContent {

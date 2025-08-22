@@ -9,31 +9,14 @@ use ruma::{
 };
 use tuwunel_core::{Result, debug_warn, error, warn};
 
-use crate::{Dep, account_data, config, globals, users};
-
 pub struct Service {
-	services: Services,
-}
-
-struct Services {
-	account_data: Dep<account_data::Service>,
-	config: Dep<config::Service>,
-	globals: Dep<globals::Service>,
-	users: Dep<users::Service>,
+	services: Arc<crate::services::OnceServices>,
 }
 
 #[async_trait]
 impl crate::Service for Service {
 	fn build(args: crate::Args<'_>) -> Result<Arc<Self>> {
-		Ok(Arc::new(Self {
-			services: Services {
-				account_data: args.depend::<account_data::Service>("account_data"),
-				config: args.depend::<config::Service>("config"),
-
-				globals: args.depend::<globals::Service>("globals"),
-				users: args.depend::<users::Service>("users"),
-			},
-		}))
+		Ok(Arc::new(Self { services: args.services.clone() }))
 	}
 
 	async fn worker(self: Arc<Self>) -> Result {

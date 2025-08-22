@@ -7,7 +7,6 @@ use crate::{admin_command, get_room_info};
 #[admin_command]
 pub(super) async fn disable_room(&self, room_id: OwnedRoomId) -> Result {
 	self.services
-		.rooms
 		.metadata
 		.disable_room(&room_id, true);
 	self.write_str("Room disabled.").await
@@ -16,7 +15,6 @@ pub(super) async fn disable_room(&self, room_id: OwnedRoomId) -> Result {
 #[admin_command]
 pub(super) async fn enable_room(&self, room_id: OwnedRoomId) -> Result {
 	self.services
-		.rooms
 		.metadata
 		.disable_room(&room_id, false);
 	self.write_str("Room enabled.").await
@@ -82,7 +80,6 @@ pub(super) async fn remote_user_in_rooms(&self, user_id: OwnedUserId) -> Result 
 
 	let mut rooms: Vec<(OwnedRoomId, u64, String)> = self
 		.services
-		.rooms
 		.state_cache
 		.rooms_joined(&user_id)
 		.then(|room_id| get_room_info(self.services, room_id))

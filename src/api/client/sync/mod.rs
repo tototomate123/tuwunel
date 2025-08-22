@@ -29,7 +29,6 @@ async fn load_timeline(
 	limit: usize,
 ) -> Result<(Vec<(PduCount, PduEvent)>, bool, PduCount), Error> {
 	let last_timeline_count = services
-		.rooms
 		.timeline
 		.last_timeline_count(Some(sender_user), room_id, next_batch)
 		.await?;
@@ -39,7 +38,6 @@ async fn load_timeline(
 	}
 
 	let non_timeline_pdus = services
-		.rooms
 		.timeline
 		.pdus_rev(Some(sender_user), room_id, None)
 		.ready_filter_map(Result::ok)
@@ -70,14 +68,12 @@ async fn share_encrypted_room(
 	ignore_room: Option<&RoomId>,
 ) -> bool {
 	services
-		.rooms
 		.state_cache
 		.get_shared_rooms(sender_user, user_id)
 		.ready_filter(|&room_id| Some(room_id) != ignore_room)
 		.map(ToOwned::to_owned)
 		.broad_any(async |other_room_id| {
 			services
-				.rooms
 				.state_accessor
 				.is_encrypted_room(&other_room_id)
 				.await

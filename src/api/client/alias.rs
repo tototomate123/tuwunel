@@ -19,7 +19,6 @@ pub(crate) async fn create_alias_route(
 ) -> Result<create_alias::v3::Response> {
 	let sender_user = body.sender_user();
 	services
-		.rooms
 		.alias
 		.appservice_checks(&body.room_alias, &body.appservice_info)
 		.await?;
@@ -35,7 +34,6 @@ pub(crate) async fn create_alias_route(
 	}
 
 	if services
-		.rooms
 		.alias
 		.resolve_local_alias(&body.room_alias)
 		.await
@@ -45,7 +43,6 @@ pub(crate) async fn create_alias_route(
 	}
 
 	services
-		.rooms
 		.alias
 		.set_alias(&body.room_alias, &body.room_id, sender_user)?;
 
@@ -63,13 +60,11 @@ pub(crate) async fn delete_alias_route(
 ) -> Result<delete_alias::v3::Response> {
 	let sender_user = body.sender_user();
 	services
-		.rooms
 		.alias
 		.appservice_checks(&body.room_alias, &body.appservice_info)
 		.await?;
 
 	services
-		.rooms
 		.alias
 		.remove_alias(&body.room_alias, sender_user)
 		.await?;
@@ -89,7 +84,6 @@ pub(crate) async fn get_alias_route(
 	let room_alias = body.body.room_alias;
 
 	let Ok((room_id, servers)) = services
-		.rooms
 		.alias
 		.resolve_alias(&room_alias, None)
 		.await
@@ -111,7 +105,6 @@ async fn room_available_servers(
 ) -> Vec<OwnedServerName> {
 	// find active servers in room state cache to suggest
 	let mut servers: Vec<OwnedServerName> = services
-		.rooms
 		.state_cache
 		.room_servers(room_id)
 		.map(ToOwned::to_owned)

@@ -12,11 +12,9 @@ use termimad::MadSkin;
 use tokio::task::JoinHandle;
 use tuwunel_core::{Server, debug, defer, error, log, log::is_systemd_mode};
 
-use crate::{Dep, admin};
-
 pub struct Console {
 	server: Arc<Server>,
-	admin: Dep<admin::Service>,
+	services: Arc<crate::services::OnceServices>,
 	worker_join: Mutex<Option<JoinHandle<()>>>,
 	input_abort: Mutex<Option<AbortHandle>>,
 	command_abort: Mutex<Option<AbortHandle>>,
@@ -31,7 +29,7 @@ impl Console {
 	pub(super) fn new(args: &crate::Args<'_>) -> Arc<Self> {
 		Arc::new(Self {
 			server: args.server.clone(),
-			admin: args.depend::<admin::Service>("admin"),
+			services: args.services.clone(),
 			worker_join: None.into(),
 			input_abort: None.into(),
 			command_abort: None.into(),
@@ -177,7 +175,12 @@ impl Console {
 	}
 
 	async fn process(self: Arc<Self>, line: String) {
-		match self.admin.command_in_place(line, None).await {
+		match self
+			.services
+			.admin
+			.command_in_place(line, None)
+			.await
+		{
 			| Ok(Some(ref content)) => self.output(content),
 			| Err(ref content) => self.output_err(content),
 			| _ => unreachable!(),
@@ -213,7 +216,8 @@ impl Console {
 	}
 
 	fn tab_complete(&self, line: &str) -> String {
-		self.admin
+		self.services
+			.admin
 			.complete_command(line)
 			.unwrap_or_else(|| line.to_owned())
 	}

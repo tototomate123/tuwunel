@@ -9,7 +9,6 @@ use tuwunel_core::{
 use tuwunel_database::{Database, Deserialized, Map};
 
 use super::{Destination, SendingEvent};
-use crate::{Dep, globals};
 
 pub(super) type OutgoingItem = (Key, SendingEvent, Destination);
 pub(super) type SendingItem = (Key, SendingEvent);
@@ -21,11 +20,7 @@ pub struct Data {
 	servernameevent_data: Arc<Map>,
 	servername_educount: Arc<Map>,
 	pub(super) db: Arc<Database>,
-	services: Services,
-}
-
-struct Services {
-	globals: Dep<globals::Service>,
+	services: Arc<crate::services::OnceServices>,
 }
 
 impl Data {
@@ -36,9 +31,7 @@ impl Data {
 			servernameevent_data: db["servernameevent_data"].clone(),
 			servername_educount: db["servername_educount"].clone(),
 			db: args.db.clone(),
-			services: Services {
-				globals: args.depend::<globals::Service>("globals"),
-			},
+			services: args.services.clone(),
 		}
 	}
 

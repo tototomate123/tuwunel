@@ -12,26 +12,16 @@ use ruma::{
 	events::{GlobalAccountDataEventType, ignored_user_list::IgnoredUserListEvent},
 };
 use tuwunel_core::{
-	Err, Result, Server, debug_warn, err, is_equal_to, trace,
+	Err, Result, debug_warn, err, is_equal_to, trace,
 	utils::{self, ReadyExt, stream::TryIgnore},
 };
 use tuwunel_database::{Deserialized, Json, Map};
 
 pub use self::keys::parse_master_key;
-use crate::{Dep, account_data, admin, globals, rooms};
 
 pub struct Service {
-	services: Services,
+	services: Arc<crate::services::OnceServices>,
 	db: Data,
-}
-
-struct Services {
-	server: Arc<Server>,
-	account_data: Dep<account_data::Service>,
-	admin: Dep<admin::Service>,
-	globals: Dep<globals::Service>,
-	state_accessor: Dep<rooms::state_accessor::Service>,
-	state_cache: Dep<rooms::state_cache::Service>,
 }
 
 struct Data {
@@ -62,15 +52,7 @@ struct Data {
 impl crate::Service for Service {
 	fn build(args: crate::Args<'_>) -> Result<Arc<Self>> {
 		Ok(Arc::new(Self {
-			services: Services {
-				server: args.server.clone(),
-				account_data: args.depend::<account_data::Service>("account_data"),
-				admin: args.depend::<admin::Service>("admin"),
-				globals: args.depend::<globals::Service>("globals"),
-				state_accessor: args
-					.depend::<rooms::state_accessor::Service>("rooms::state_accessor"),
-				state_cache: args.depend::<rooms::state_cache::Service>("rooms::state_cache"),
-			},
+			services: args.services.clone(),
 			db: Data {
 				keychangeid_userid: args.db["keychangeid_userid"].clone(),
 				keyid_key: args.db["keyid_key"].clone(),

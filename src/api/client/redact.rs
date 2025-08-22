@@ -18,15 +18,9 @@ pub(crate) async fn redact_event_route(
 	let sender_user = body.sender_user();
 	let body = &body.body;
 
-	let state_lock = services
-		.rooms
-		.state
-		.mutex
-		.lock(&body.room_id)
-		.await;
+	let state_lock = services.state.mutex.lock(&body.room_id).await;
 
 	let event_id = services
-		.rooms
 		.timeline
 		.build_and_append_pdu(
 			PduBuilder {

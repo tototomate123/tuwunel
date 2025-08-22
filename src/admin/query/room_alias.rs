@@ -30,11 +30,7 @@ pub(super) async fn process(subcommand: RoomAliasCommand, context: &Context<'_>)
 	match subcommand {
 		| RoomAliasCommand::ResolveLocalAlias { alias } => {
 			let timer = tokio::time::Instant::now();
-			let results = services
-				.rooms
-				.alias
-				.resolve_local_alias(&alias)
-				.await;
+			let results = services.alias.resolve_local_alias(&alias).await;
 			let query_time = timer.elapsed();
 
 			write!(context, "Query completed in {query_time:?}:\n\n```rs\n{results:#?}\n```")
@@ -42,7 +38,6 @@ pub(super) async fn process(subcommand: RoomAliasCommand, context: &Context<'_>)
 		| RoomAliasCommand::LocalAliasesForRoom { room_id } => {
 			let timer = tokio::time::Instant::now();
 			let aliases: Vec<_> = services
-				.rooms
 				.alias
 				.local_aliases_for_room(&room_id)
 				.map(ToOwned::to_owned)
@@ -55,7 +50,6 @@ pub(super) async fn process(subcommand: RoomAliasCommand, context: &Context<'_>)
 		| RoomAliasCommand::AllLocalAliases => {
 			let timer = tokio::time::Instant::now();
 			let aliases = services
-				.rooms
 				.alias
 				.all_local_aliases()
 				.map(|(room_id, alias)| (room_id.to_owned(), alias.to_owned()))

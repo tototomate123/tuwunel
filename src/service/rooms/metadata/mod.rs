@@ -11,11 +11,9 @@ use tuwunel_core::{
 };
 use tuwunel_database::Map;
 
-use crate::{Dep, rooms};
-
 pub struct Service {
 	db: Data,
-	services: Services,
+	services: Arc<crate::services::OnceServices>,
 }
 
 struct Data {
@@ -23,12 +21,6 @@ struct Data {
 	bannedroomids: Arc<Map>,
 	roomid_shortroomid: Arc<Map>,
 	pduid_pdu: Arc<Map>,
-}
-
-struct Services {
-	directory: Dep<rooms::directory::Service>,
-	short: Dep<rooms::short::Service>,
-	state_accessor: Dep<rooms::state_accessor::Service>,
 }
 
 impl crate::Service for Service {
@@ -40,12 +32,7 @@ impl crate::Service for Service {
 				roomid_shortroomid: args.db["roomid_shortroomid"].clone(),
 				pduid_pdu: args.db["pduid_pdu"].clone(),
 			},
-			services: Services {
-				directory: args.depend::<rooms::directory::Service>("rooms::directory"),
-				short: args.depend::<rooms::short::Service>("rooms::short"),
-				state_accessor: args
-					.depend::<rooms::state_accessor::Service>("rooms::state_accessor"),
-			},
+			services: args.services.clone(),
 		}))
 	}
 

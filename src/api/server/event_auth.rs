@@ -30,7 +30,6 @@ pub(crate) async fn get_event_authorization_route(
 	.await?;
 
 	let event = services
-		.rooms
 		.timeline
 		.get_pdu_json(&body.event_id)
 		.await
@@ -45,18 +44,10 @@ pub(crate) async fn get_event_authorization_route(
 		.map_err(|_| Error::bad_database("Invalid room_id in event in database."))?;
 
 	let auth_chain = services
-		.rooms
 		.auth_chain
 		.event_ids_iter(room_id, once(body.event_id.borrow()))
 		.ready_filter_map(Result::ok)
-		.filter_map(async |id| {
-			services
-				.rooms
-				.timeline
-				.get_pdu_json(&id)
-				.await
-				.ok()
-		})
+		.filter_map(async |id| services.timeline.get_pdu_json(&id).await.ok())
 		.then(|pdu| {
 			services
 				.sending

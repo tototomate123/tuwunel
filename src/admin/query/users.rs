@@ -134,7 +134,6 @@ async fn get_shared_rooms(&self, user_a: OwnedUserId, user_b: OwnedUserId) -> Re
 	let timer = tokio::time::Instant::now();
 	let result: Vec<_> = self
 		.services
-		.rooms
 		.state_cache
 		.get_shared_rooms(&user_a, &user_b)
 		.map(ToOwned::to_owned)

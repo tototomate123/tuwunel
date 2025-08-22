@@ -63,17 +63,15 @@ pub(super) async fn process(command: RoomAliasCommand, context: &Context<'_>) ->
 					match (
 						force,
 						services
-							.rooms
 							.alias
 							.resolve_local_alias(&room_alias)
 							.await,
 					) {
 						| (true, Ok(id)) => {
-							match services.rooms.alias.set_alias(
-								&room_alias,
-								&room_id,
-								server_user,
-							) {
+							match services
+								.alias
+								.set_alias(&room_alias, &room_id, server_user)
+							{
 								| Err(err) => Err!("Failed to remove alias: {err}"),
 								| Ok(()) =>
 									context
@@ -88,11 +86,10 @@ pub(super) async fn process(command: RoomAliasCommand, context: &Context<'_>) ->
 							 overwrite"
 						),
 						| (_, Err(_)) => {
-							match services.rooms.alias.set_alias(
-								&room_alias,
-								&room_id,
-								server_user,
-							) {
+							match services
+								.alias
+								.set_alias(&room_alias, &room_id, server_user)
+							{
 								| Err(err) => Err!("Failed to remove alias: {err}"),
 								| Ok(()) => context.write_str("Successfully set alias").await,
 							}
@@ -101,14 +98,12 @@ pub(super) async fn process(command: RoomAliasCommand, context: &Context<'_>) ->
 				},
 				| RoomAliasCommand::Remove { .. } => {
 					match services
-						.rooms
 						.alias
 						.resolve_local_alias(&room_alias)
 						.await
 					{
 						| Err(_) => Err!("Alias isn't in use."),
 						| Ok(id) => match services
-							.rooms
 							.alias
 							.remove_alias(&room_alias, server_user)
 							.await
@@ -123,7 +118,6 @@ pub(super) async fn process(command: RoomAliasCommand, context: &Context<'_>) ->
 				},
 				| RoomAliasCommand::Which { .. } => {
 					match services
-						.rooms
 						.alias
 						.resolve_local_alias(&room_alias)
 						.await
@@ -141,7 +135,6 @@ pub(super) async fn process(command: RoomAliasCommand, context: &Context<'_>) ->
 		| RoomAliasCommand::List { room_id } =>
 			if let Some(room_id) = room_id {
 				let aliases: Vec<OwnedRoomAliasId> = services
-					.rooms
 					.alias
 					.local_aliases_for_room(&room_id)
 					.map(Into::into)
@@ -160,7 +153,6 @@ pub(super) async fn process(command: RoomAliasCommand, context: &Context<'_>) ->
 				context.write_str(&plain).await
 			} else {
 				let aliases = services
-					.rooms
 					.alias
 					.all_local_aliases()
 					.map(|(room_id, localpart)| (room_id.into(), localpart.into()))

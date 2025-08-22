@@ -11,11 +11,11 @@ use tuwunel_core::{
 	utils::{self, IterStream},
 };
 
-use crate::{Dep, globals, sending, sending::EduBuf, users};
+use crate::sending::EduBuf;
 
 pub struct Service {
 	server: Arc<Server>,
-	services: Services,
+	services: Arc<crate::services::OnceServices>,
 	/// u64 is unix timestamp of timeout
 	pub typing: RwLock<BTreeMap<OwnedRoomId, BTreeMap<OwnedUserId, u64>>>,
 	/// timestamp of the last change to typing users
@@ -23,21 +23,11 @@ pub struct Service {
 	pub typing_update_sender: broadcast::Sender<OwnedRoomId>,
 }
 
-struct Services {
-	globals: Dep<globals::Service>,
-	sending: Dep<sending::Service>,
-	users: Dep<users::Service>,
-}
-
 impl crate::Service for Service {
 	fn build(args: crate::Args<'_>) -> Result<Arc<Self>> {
 		Ok(Arc::new(Self {
 			server: args.server.clone(),
-			services: Services {
-				globals: args.depend::<globals::Service>("globals"),
-				sending: args.depend::<sending::Service>("sending"),
-				users: args.depend::<users::Service>("users"),
-			},
+			services: args.services.clone(),
 			typing: RwLock::new(BTreeMap::new()),
 			last_typing_update: RwLock::new(BTreeMap::new()),
 			typing_update_sender: broadcast::channel(100).0,

@@ -31,13 +31,12 @@ async fn create_join_event(
 	room_id: &RoomId,
 	pdu: &RawJsonValue,
 ) -> Result<create_join_event::v1::RoomState> {
-	if !services.rooms.metadata.exists(room_id).await {
+	if !services.metadata.exists(room_id).await {
 		return Err!(Request(NotFound("Room is unknown to this server.")));
 	}
 
 	// ACL check origin server
 	services
-		.rooms
 		.event_handler
 		.acl_check(origin, room_id)
 		.await?;
@@ -45,7 +44,6 @@ async fn create_join_event(
 	// We need to return the state prior to joining, let's keep a reference to that
 	// here
 	let shortstatehash = services
-		.rooms
 		.state
 		.get_room_shortstatehash(room_id)
 		.await
@@ -53,11 +51,7 @@ async fn create_join_event(
 
 	// We do not add the event_id field to the pdu here because of signature and
 	// hashes checks
-	let room_version_id = services
-		.rooms
-		.state
-		.get_room_version(room_id)
-		.await?;
+	let room_version_id = services.state.get_room_version(room_id).await?;
 
 	let Ok((event_id, mut value)) = gen_event_id_canonical_json(pdu, &room_version_id) else {
 		// Event could not be converted to canonical json
@@ -118,7 +112,6 @@ async fn create_join_event(
 	.map_err(|e| err!(Request(BadJson(warn!("sender property is not a valid user ID: {e}")))))?;
 
 	services
-		.rooms
 		.event_handler
 		.acl_check(sender.server_name(), room_id)
 		.await?;
@@ -159,7 +152,6 @@ async fn create_join_event(
 		}
 
 		if !services
-			.rooms
 			.state_cache
 			.is_joined(&authorising_user, room_id)
 			.await
@@ -199,14 +191,12 @@ async fn create_join_event(
 	.map_err(|e| err!(Request(BadJson("Event has an invalid origin server name: {e}"))))?;
 
 	let mutex_lock = services
-		.rooms
 		.event_handler
 		.mutex_federation
 		.lock(room_id)
 		.await;
 
 	let pdu_id = services
-		.rooms
 		.event_handler
 		.handle_incoming_pdu(&origin, room_id, &event_id, value.clone(), true)
 		.boxed()
@@ -216,7 +206,6 @@ async fn create_join_event(
 	drop(mutex_lock);
 
 	let state_ids: Vec<OwnedEventId> = services
-		.rooms
 		.state_accessor
 		.state_full_ids(shortstatehash)
 		.map(at!(1))
@@ -226,7 +215,7 @@ async fn create_join_event(
 	let state = state_ids
 		.iter()
 		.try_stream()
-		.broad_and_then(|event_id| services.rooms.timeline.get_pdu_json(event_id))
+		.broad_and_then(|event_id| services.timeline.get_pdu_json(event_id))
 		.broad_and_then(|pdu| {
 			services
 				.sending
@@ -239,16 +228,9 @@ async fn create_join_event(
 
 	let starting_events = state_ids.iter().map(Borrow::borrow);
 	let auth_chain = services
-		.rooms
 		.auth_chain
 		.event_ids_iter(room_id, starting_events)
-		.broad_and_then(async |event_id| {
-			services
-				.rooms
-				.timeline
-				.get_pdu_json(&event_id)
-				.await
-		})
+		.broad_and_then(async |event_id| services.timeline.get_pdu_json(&event_id).await)
 		.broad_and_then(|pdu| {
 			services
 				.sending

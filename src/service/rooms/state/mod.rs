@@ -25,27 +25,17 @@ use tuwunel_core::{
 use tuwunel_database::{Deserialized, Ignore, Interfix, Map};
 
 use crate::{
-	Dep, globals, rooms,
 	rooms::{
 		short::{ShortEventId, ShortStateHash, ShortStateKey},
 		state_compressor::{CompressedState, parse_compressed_state_event},
 	},
+	services::OnceServices,
 };
 
 pub struct Service {
 	pub mutex: RoomMutexMap,
-	services: Services,
+	services: Arc<OnceServices>,
 	db: Data,
-}
-
-struct Services {
-	globals: Dep<globals::Service>,
-	short: Dep<rooms::short::Service>,
-	spaces: Dep<rooms::spaces::Service>,
-	state_cache: Dep<rooms::state_cache::Service>,
-	state_accessor: Dep<rooms::state_accessor::Service>,
-	state_compressor: Dep<rooms::state_compressor::Service>,
-	timeline: Dep<rooms::timeline::Service>,
 }
 
 struct Data {
@@ -62,17 +52,7 @@ impl crate::Service for Service {
 	fn build(args: crate::Args<'_>) -> Result<Arc<Self>> {
 		Ok(Arc::new(Self {
 			mutex: RoomMutexMap::new(),
-			services: Services {
-				globals: args.depend::<globals::Service>("globals"),
-				short: args.depend::<rooms::short::Service>("rooms::short"),
-				spaces: args.depend::<rooms::spaces::Service>("rooms::spaces"),
-				state_cache: args.depend::<rooms::state_cache::Service>("rooms::state_cache"),
-				state_accessor: args
-					.depend::<rooms::state_accessor::Service>("rooms::state_accessor"),
-				state_compressor: args
-					.depend::<rooms::state_compressor::Service>("rooms::state_compressor"),
-				timeline: args.depend::<rooms::timeline::Service>("rooms::timeline"),
-			},
+			services: args.services.clone(),
 			db: Data {
 				shorteventid_shortstatehash: args.db["shorteventid_shortstatehash"].clone(),
 				roomid_shortstatehash: args.db["roomid_shortstatehash"].clone(),

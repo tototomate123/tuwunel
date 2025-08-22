@@ -26,12 +26,7 @@ pub(crate) async fn create_join_event_template_route(
 	State(services): State<crate::State>,
 	body: Ruma<prepare_join_event::v1::Request>,
 ) -> Result<prepare_join_event::v1::Response> {
-	if !services
-		.rooms
-		.metadata
-		.exists(&body.room_id)
-		.await
-	{
+	if !services.metadata.exists(&body.room_id).await {
 		return Err!(Request(NotFound("Room is unknown to this server.")));
 	}
 
@@ -41,7 +36,6 @@ pub(crate) async fn create_join_event_template_route(
 
 	// ACL check origin server
 	services
-		.rooms
 		.event_handler
 		.acl_check(body.origin(), &body.room_id)
 		.await?;
@@ -74,7 +68,6 @@ pub(crate) async fn create_join_event_template_route(
 	}
 
 	let room_version_id = services
-		.rooms
 		.state
 		.get_room_version(&body.room_id)
 		.await?;
@@ -85,12 +78,7 @@ pub(crate) async fn create_join_event_template_route(
 		));
 	}
 
-	let state_lock = services
-		.rooms
-		.state
-		.mutex
-		.lock(&body.room_id)
-		.await;
+	let state_lock = services.state.mutex.lock(&body.room_id).await;
 
 	let join_authorized_via_users_server: Option<OwnedUserId> = {
 		use RoomVersionId::*;
@@ -106,11 +94,10 @@ pub(crate) async fn create_join_event_template_route(
 		.await?
 		{
 			let users = services
-				.rooms
 				.state_cache
 				.local_users_in_room(&body.room_id)
 				.filter(|user| {
-					services.rooms.state_accessor.user_can_invite(
+					services.state_accessor.user_can_invite(
 						&body.room_id,
 						user,
 						&body.user_id,
@@ -133,7 +120,6 @@ pub(crate) async fn create_join_event_template_route(
 	};
 
 	let (_pdu, mut pdu_json) = services
-		.rooms
 		.timeline
 		.create_hash_and_sign_event(
 			PduBuilder::state(body.user_id.to_string(), &RoomMemberEventContent {
@@ -172,7 +158,6 @@ pub(crate) async fn user_can_perform_restricted_join(
 	}
 
 	if services
-		.rooms
 		.state_cache
 		.is_joined(user_id, room_id)
 		.await
@@ -182,7 +167,6 @@ pub(crate) async fn user_can_perform_restricted_join(
 	}
 
 	let Ok(join_rules_event_content) = services
-		.rooms
 		.state_accessor
 		.room_state_get_content::<RoomJoinRulesEventContent>(
 			room_id,
@@ -217,7 +201,6 @@ pub(crate) async fn user_can_perform_restricted_join(
 		.stream()
 		.any(|m| {
 			services
-				.rooms
 				.state_cache
 				.is_joined(user_id, &m.room_id)
 		})

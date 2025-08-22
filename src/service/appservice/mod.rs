@@ -11,21 +11,15 @@ use async_trait::async_trait;
 use futures::{Future, FutureExt, Stream, StreamExt, TryStreamExt};
 use ruma::{RoomAliasId, RoomId, UserId, api::appservice::Registration};
 use tokio::sync::{RwLock, RwLockReadGuard};
-use tuwunel_core::{Err, Result, Server, debug, err, utils::stream::IterStream};
+use tuwunel_core::{Err, Result, debug, err, utils::stream::IterStream};
 use tuwunel_database::Map;
 
 pub use self::{namespace_regex::NamespaceRegex, registration_info::RegistrationInfo};
-use crate::{Dep, sending};
 
 pub struct Service {
 	registration_info: RwLock<Registrations>,
-	services: Services,
+	services: Arc<crate::services::OnceServices>,
 	db: Data,
-}
-
-struct Services {
-	sending: Dep<sending::Service>,
-	server: Arc<Server>,
 }
 
 struct Data {
@@ -39,10 +33,7 @@ impl crate::Service for Service {
 	fn build(args: crate::Args<'_>) -> Result<Arc<Self>> {
 		Ok(Arc::new(Self {
 			registration_info: RwLock::new(BTreeMap::new()),
-			services: Services {
-				sending: args.depend::<sending::Service>("sending"),
-				server: args.server.clone(),
-			},
+			services: args.services.clone(),
 			db: Data {
 				id_appserviceregistrations: args.db["id_appserviceregistrations"].clone(),
 			},

@@ -14,27 +14,18 @@ use tuwunel_core::{
 };
 use tuwunel_database::{Map, keyval::Val};
 
-use crate::{
-	Dep, rooms,
-	rooms::{
-		short::ShortRoomId,
-		timeline::{PduId, RawPduId},
-	},
+use crate::rooms::{
+	short::ShortRoomId,
+	timeline::{PduId, RawPduId},
 };
 
 pub struct Service {
 	db: Data,
-	services: Services,
+	services: Arc<crate::services::OnceServices>,
 }
 
 struct Data {
 	tokenids: Arc<Map>,
-}
-
-struct Services {
-	short: Dep<rooms::short::Service>,
-	state_accessor: Dep<rooms::state_accessor::Service>,
-	timeline: Dep<rooms::timeline::Service>,
 }
 
 #[derive(Clone, Debug)]
@@ -56,12 +47,7 @@ impl crate::Service for Service {
 	fn build(args: crate::Args<'_>) -> Result<Arc<Self>> {
 		Ok(Arc::new(Self {
 			db: Data { tokenids: args.db["tokenids"].clone() },
-			services: Services {
-				short: args.depend::<rooms::short::Service>("rooms::short"),
-				state_accessor: args
-					.depend::<rooms::state_accessor::Service>("rooms::state_accessor"),
-				timeline: args.depend::<rooms::timeline::Service>("rooms::timeline"),
-			},
+			services: args.services.clone(),
 		}))
 	}
 

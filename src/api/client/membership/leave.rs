@@ -42,19 +42,16 @@ pub(crate) async fn leave_room_route(
 // and ignores errors
 pub async fn leave_all_rooms(services: &Services, user_id: &UserId) {
 	let rooms_joined = services
-		.rooms
 		.state_cache
 		.rooms_joined(user_id)
 		.map(ToOwned::to_owned);
 
 	let rooms_invited = services
-		.rooms
 		.state_cache
 		.rooms_invited(user_id)
 		.map(|(r, _)| r);
 
 	let rooms_knocked = services
-		.rooms
 		.state_cache
 		.rooms_knocked(user_id)
 		.map(|(r, _)| r);
@@ -74,10 +71,7 @@ pub async fn leave_all_rooms(services: &Services, user_id: &UserId) {
 			warn!(%user_id, "Failed to leave {room_id} remotely: {e}");
 		}
 
-		services
-			.rooms
-			.state_cache
-			.forget(&room_id, user_id);
+		services.state_cache.forget(&room_id, user_id);
 	}
 }
 
@@ -98,15 +92,14 @@ pub async fn leave_room(
 		blurhash: None,
 	};
 
-	let is_banned = services.rooms.metadata.is_banned(room_id);
-	let is_disabled = services.rooms.metadata.is_disabled(room_id);
+	let is_banned = services.metadata.is_banned(room_id);
+	let is_disabled = services.metadata.is_disabled(room_id);
 
 	pin_mut!(is_banned, is_disabled);
 	if is_banned.or(is_disabled).await {
 		// the room is banned/disabled, the room must be rejected locally since we
 		// cant/dont want to federate with this server
 		services
-			.rooms
 			.state_cache
 			.update_membership(
 				room_id,
@@ -123,13 +116,11 @@ pub async fn leave_room(
 	}
 
 	let dont_have_room = services
-		.rooms
 		.state_cache
 		.server_in_room(services.globals.server_name(), room_id)
 		.eq(&false);
 
 	let not_knocked = services
-		.rooms
 		.state_cache
 		.is_knocked(user_id, room_id)
 		.eq(&false);
@@ -145,27 +136,15 @@ pub async fn leave_room(
 		}
 
 		let last_state = services
-			.rooms
 			.state_cache
 			.invite_state(user_id, room_id)
-			.or_else(|_| {
-				services
-					.rooms
-					.state_cache
-					.knock_state(user_id, room_id)
-			})
-			.or_else(|_| {
-				services
-					.rooms
-					.state_cache
-					.left_state(user_id, room_id)
-			})
+			.or_else(|_| services.state_cache.knock_state(user_id, room_id))
+			.or_else(|_| services.state_cache.left_state(user_id, room_id))
 			.await
 			.ok();
 
 		// We always drop the invite, we can't rely on other servers
 		services
-			.rooms
 			.state_cache
 			.update_membership(
 				room_id,
@@ -178,10 +157,9 @@ pub async fn leave_room(
 			)
 			.await?;
 	} else {
-		let state_lock = services.rooms.state.mutex.lock(room_id).await;
+		let state_lock = services.state.mutex.lock(room_id).await;
 
 		let Ok(event) = services
-			.rooms
 			.state_accessor
 			.room_state_get_content::<RoomMemberEventContent>(
 				room_id,
@@ -195,7 +173,6 @@ pub async fn leave_room(
 			);
 
 			return services
-				.rooms
 				.state_cache
 				.update_membership(
 					room_id,
@@ -210,7 +187,6 @@ pub async fn leave_room(
 		};
 
 		services
-			.rooms
 			.timeline
 			.build_and_append_pdu(
 				PduBuilder::state(user_id.to_string(), &RoomMemberEventContent {
@@ -235,7 +211,6 @@ async fn remote_leave_room(services: &Services, user_id: &UserId, room_id: &Room
 		Err!(BadServerResponse("No remote server available to assist in leaving {room_id}."));
 
 	let mut servers: HashSet<OwnedServerName> = services
-		.rooms
 		.state_cache
 		.servers_invite_via(room_id)
 		.map(ToOwned::to_owned)
@@ -243,7 +218,6 @@ async fn remote_leave_room(services: &Services, user_id: &UserId, room_id: &Room
 		.await;
 
 	match services
-		.rooms
 		.state_cache
 		.invite_state(user_id, room_id)
 		.await
@@ -259,7 +233,6 @@ async fn remote_leave_room(services: &Services, user_id: &UserId, room_id: &Room
 		},
 		| _ => {
 			match services
-				.rooms
 				.state_cache
 				.knock_state(user_id, room_id)
 				.await

@@ -98,21 +98,18 @@ pub(crate) async fn sync_events_v5_route(
 		.update_snake_sync_request_with_cache(&snake_key, &mut cached);
 
 	let all_joined_rooms = services
-		.rooms
 		.state_cache
 		.rooms_joined(sender_user)
 		.map(ToOwned::to_owned)
 		.collect::<Vec<OwnedRoomId>>();
 
 	let all_invited_rooms = services
-		.rooms
 		.state_cache
 		.rooms_invited(sender_user)
 		.map(|r| r.0)
 		.collect::<Vec<OwnedRoomId>>();
 
 	let all_knocked_rooms = services
-		.rooms
 		.state_cache
 		.rooms_knocked(sender_user)
 		.map(|r| r.0)
@@ -234,11 +231,11 @@ async fn fetch_subscriptions(
 ) {
 	let mut known_subscription_rooms = BTreeSet::new();
 	for (room_id, room) in &body.room_subscriptions {
-		let not_exists = services.rooms.metadata.exists(room_id).eq(&false);
+		let not_exists = services.metadata.exists(room_id).eq(&false);
 
-		let is_disabled = services.rooms.metadata.is_disabled(room_id);
+		let is_disabled = services.metadata.is_disabled(room_id);
 
-		let is_banned = services.rooms.metadata.is_banned(room_id);
+		let is_banned = services.metadata.is_banned(room_id);
 
 		pin_mut!(not_exists, is_disabled, is_banned);
 		if not_exists.or(is_disabled).or(is_banned).await {
@@ -414,7 +411,6 @@ where
 		{
 			// TODO: figure out a timestamp we can use for remote invites
 			invite_state = services
-				.rooms
 				.state_cache
 				.invite_state(sender_user, room_id)
 				.await
@@ -453,7 +449,6 @@ where
 		}
 
 		let last_privateread_update = services
-			.rooms
 			.read_receipt
 			.last_privateread_update(sender_user, room_id)
 			.await;
@@ -461,7 +456,6 @@ where
 		let private_read_event: OptionFuture<_> = (last_privateread_update > *roomsince)
 			.then(|| {
 				services
-					.rooms
 					.read_receipt
 					.private_read_get(room_id, sender_user)
 					.ok()
@@ -469,7 +463,6 @@ where
 			.into();
 
 		let mut receipts: Vec<Raw<AnySyncEphemeralRoomEvent>> = services
-			.rooms
 			.read_receipt
 			.readreceipts_since(room_id, *roomsince, Some(next_batch))
 			.filter_map(async |(read_user, _ts, v)| {
@@ -552,7 +545,6 @@ where
 			.stream()
 			.filter_map(async |state| {
 				services
-					.rooms
 					.state_accessor
 					.room_state_get(room_id, &state.0, &state.1)
 					.await
@@ -563,7 +555,6 @@ where
 			.await;
 
 		let room_name = services
-			.rooms
 			.state_accessor
 			.get_name(room_id)
 			.await
@@ -572,13 +563,11 @@ where
 		// Heroes
 		let heroes: Vec<_> = if room_name.is_none() {
 			services
-				.rooms
 				.state_cache
 				.room_members(room_id)
 				.ready_filter(|member| *member != sender_user)
 				.filter_map(|user_id| {
 					services
-						.rooms
 						.state_accessor
 						.get_member(room_id, user_id)
 						.map_ok(|memberevent| sync_events::v5::response::Hero {
@@ -629,12 +618,7 @@ where
 			None
 		};
 
-		let room_avatar = match services
-			.rooms
-			.state_accessor
-			.get_avatar(room_id)
-			.await
-		{
+		let room_avatar = match services.state_accessor.get_avatar(room_id).await {
 			| ruma::JsOption::Some(avatar) => ruma::JsOption::from_option(avatar.url),
 			| ruma::JsOption::Null => ruma::JsOption::Null,
 			| ruma::JsOption::Undefined => ruma::JsOption::Undefined,
@@ -653,7 +637,6 @@ where
 			unread_notifications: UnreadNotificationsCount {
 				highlight_count: Some(
 					services
-						.rooms
 						.user
 						.highlight_count(sender_user, room_id)
 						.await
@@ -662,7 +645,6 @@ where
 				),
 				notification_count: Some(
 					services
-						.rooms
 						.user
 						.notification_count(sender_user, room_id)
 						.await
@@ -676,7 +658,6 @@ where
 			limited,
 			joined_count: Some(
 				services
-					.rooms
 					.state_cache
 					.room_joined_count(room_id)
 					.await
@@ -686,7 +667,6 @@ where
 			),
 			invited_count: Some(
 				services
-					.rooms
 					.state_cache
 					.room_invited_count(room_id)
 					.await
@@ -780,7 +760,6 @@ where
 
 	for room_id in all_joined_rooms {
 		let Ok(current_shortstatehash) = services
-			.rooms
 			.state
 			.get_room_shortstatehash(room_id)
 			.await
@@ -790,14 +769,12 @@ where
 		};
 
 		let since_shortstatehash = services
-			.rooms
 			.user
 			.get_token_shortstatehash(room_id, globalsince)
 			.await
 			.ok();
 
 		let encrypted_room = services
-			.rooms
 			.state_accessor
 			.state_get(current_shortstatehash, &StateEventType::RoomEncryption, "")
 			.await
@@ -810,13 +787,11 @@ where
 			}
 
 			let since_encryption = services
-				.rooms
 				.state_accessor
 				.state_get(since_shortstatehash, &StateEventType::RoomEncryption, "")
 				.await;
 
 			let since_sender_member: Option<RoomMemberEventContent> = services
-				.rooms
 				.state_accessor
 				.state_get_content(
 					since_shortstatehash,
@@ -834,14 +809,12 @@ where
 
 			if encrypted_room {
 				let current_state_ids: HashMap<_, OwnedEventId> = services
-					.rooms
 					.state_accessor
 					.state_full_ids(current_shortstatehash)
 					.collect()
 					.await;
 
 				let since_state_ids: HashMap<_, _> = services
-					.rooms
 					.state_accessor
 					.state_full_ids(since_shortstatehash)
 					.collect()
@@ -852,7 +825,7 @@ where
 						continue;
 					}
 
-					let Ok(pdu) = services.rooms.timeline.get_pdu(&id).await else {
+					let Ok(pdu) = services.timeline.get_pdu(&id).await else {
 						error!("Pdu in state not found: {id}");
 						continue;
 					};
@@ -897,7 +870,6 @@ where
 					// If the user is in a new encrypted room, give them all joined users
 					device_list_changes.extend(
 						services
-						.rooms
 						.state_cache
 						.room_members(room_id)
 						// Don't send key updates from the sender to the sender
@@ -995,7 +967,6 @@ where
 		.stream()
 		.filter_map(async |room_id| {
 			services
-				.rooms
 				.typing
 				.typing_users_for_user(room_id, sender_user)
 				.inspect_err(|e| warn!(%room_id, "Failed to get typing events for room: {e}"))
@@ -1037,7 +1008,6 @@ where
 {
 	rooms.filter_map(async |room_id| {
 		let room_type = services
-			.rooms
 			.state_accessor
 			.get_room_type(room_id)
 			.await;

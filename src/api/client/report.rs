@@ -43,7 +43,6 @@ pub(crate) async fn report_room_route(
 	delay_response().await;
 
 	if !services
-		.rooms
 		.state_cache
 		.server_in_room(&services.server.name, &body.room_id)
 		.await
@@ -92,12 +91,7 @@ pub(crate) async fn report_event_route(
 	delay_response().await;
 
 	// check if we know about the reported event ID or if it's invalid
-	let Ok(pdu) = services
-		.rooms
-		.timeline
-		.get_pdu(&body.event_id)
-		.await
-	else {
+	let Ok(pdu) = services.timeline.get_pdu(&body.event_id).await else {
 		return Err!(Request(NotFound("Event ID is not known to us or Event ID is invalid")));
 	};
 
@@ -167,7 +161,6 @@ async fn is_event_report_valid(
 	}
 
 	if !services
-		.rooms
 		.state_cache
 		.room_members(room_id)
 		.ready_any(|user_id| user_id == sender_user)

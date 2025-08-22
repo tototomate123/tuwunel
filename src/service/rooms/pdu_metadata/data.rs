@@ -14,23 +14,16 @@ use tuwunel_core::{
 };
 use tuwunel_database::Map;
 
-use crate::{
-	Dep, rooms,
-	rooms::{
-		short::{ShortEventId, ShortRoomId},
-		timeline::{PduId, RawPduId},
-	},
+use crate::rooms::{
+	short::{ShortEventId, ShortRoomId},
+	timeline::{PduId, RawPduId},
 };
 
 pub(super) struct Data {
 	tofrom_relation: Arc<Map>,
 	referencedevents: Arc<Map>,
 	softfailedeventids: Arc<Map>,
-	services: Services,
-}
-
-struct Services {
-	timeline: Dep<rooms::timeline::Service>,
+	services: Arc<crate::services::OnceServices>,
 }
 
 impl Data {
@@ -40,9 +33,7 @@ impl Data {
 			tofrom_relation: db["tofrom_relation"].clone(),
 			referencedevents: db["referencedevents"].clone(),
 			softfailedeventids: db["softfailedeventids"].clone(),
-			services: Services {
-				timeline: args.depend::<rooms::timeline::Service>("rooms::timeline"),
-			},
+			services: args.services.clone(),
 		}
 	}
 

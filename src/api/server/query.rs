@@ -23,14 +23,12 @@ pub(crate) async fn get_room_information_route(
 	body: Ruma<get_room_information::v1::Request>,
 ) -> Result<get_room_information::v1::Response> {
 	let room_id = services
-		.rooms
 		.alias
 		.resolve_local_alias(&body.room_alias)
 		.await
 		.map_err(|_| err!(Request(NotFound("Room alias not found."))))?;
 
 	let mut servers: Vec<OwnedServerName> = services
-		.rooms
 		.state_cache
 		.room_servers(&room_id)
 		.map(ToOwned::to_owned)

@@ -61,7 +61,6 @@ pub(crate) async fn invite_user_route(
 			}
 
 			if let Ok(target_user_membership) = services
-				.rooms
 				.state_accessor
 				.get_member(&body.room_id, user_id)
 				.await
@@ -111,7 +110,7 @@ pub(crate) async fn invite_helper(
 
 	if !services.globals.user_is_local(user_id) {
 		let (pdu, pdu_json, invite_room_state) = {
-			let state_lock = services.rooms.state.mutex.lock(room_id).await;
+			let state_lock = services.state.mutex.lock(room_id).await;
 
 			let content = RoomMemberEventContent {
 				avatar_url: services.users.avatar_url(user_id).await.ok(),
@@ -121,7 +120,6 @@ pub(crate) async fn invite_helper(
 			};
 
 			let (pdu, pdu_json) = services
-				.rooms
 				.timeline
 				.create_hash_and_sign_event(
 					PduBuilder::state(user_id.to_string(), &content),
@@ -131,18 +129,14 @@ pub(crate) async fn invite_helper(
 				)
 				.await?;
 
-			let invite_room_state = services.rooms.state.summary_stripped(&pdu).await;
+			let invite_room_state = services.state.summary_stripped(&pdu).await;
 
 			drop(state_lock);
 
 			(pdu, pdu_json, invite_room_state)
 		};
 
-		let room_version_id = services
-			.rooms
-			.state
-			.get_room_version(room_id)
-			.await?;
+		let room_version_id = services.state.get_room_version(room_id).await?;
 
 		let response = services
 			.sending
@@ -159,7 +153,6 @@ pub(crate) async fn invite_helper(
 					.map(Into::into)
 					.collect(),
 				via: services
-					.rooms
 					.state_cache
 					.servers_route_via(room_id)
 					.await
@@ -192,7 +185,6 @@ pub(crate) async fn invite_helper(
 		})?;
 
 		let pdu_id = services
-			.rooms
 			.event_handler
 			.handle_incoming_pdu(&origin, room_id, &event_id, value, true)
 			.boxed()
@@ -208,7 +200,6 @@ pub(crate) async fn invite_helper(
 	}
 
 	if !services
-		.rooms
 		.state_cache
 		.is_joined(sender_user, room_id)
 		.await
@@ -218,7 +209,7 @@ pub(crate) async fn invite_helper(
 		)));
 	}
 
-	let state_lock = services.rooms.state.mutex.lock(room_id).await;
+	let state_lock = services.state.mutex.lock(room_id).await;
 
 	let content = RoomMemberEventContent {
 		displayname: services.users.displayname(user_id).await.ok(),
@@ -230,7 +221,6 @@ pub(crate) async fn invite_helper(
 	};
 
 	services
-		.rooms
 		.timeline
 		.build_and_append_pdu(
 			PduBuilder::state(user_id.to_string(), &content),

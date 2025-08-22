@@ -83,7 +83,6 @@ pub(super) async fn process(subcommand: RoomStateCacheCommand, context: &Context
 		| RoomStateCacheCommand::ServerInRoom { server, room_id } => {
 			let timer = tokio::time::Instant::now();
 			let result = services
-				.rooms
 				.state_cache
 				.server_in_room(&server, &room_id)
 				.await;
@@ -98,7 +97,6 @@ pub(super) async fn process(subcommand: RoomStateCacheCommand, context: &Context
 		| RoomStateCacheCommand::RoomServers { room_id } => {
 			let timer = tokio::time::Instant::now();
 			let results: Vec<_> = services
-				.rooms
 				.state_cache
 				.room_servers(&room_id)
 				.map(ToOwned::to_owned)
@@ -115,7 +113,6 @@ pub(super) async fn process(subcommand: RoomStateCacheCommand, context: &Context
 		| RoomStateCacheCommand::ServerRooms { server } => {
 			let timer = tokio::time::Instant::now();
 			let results: Vec<_> = services
-				.rooms
 				.state_cache
 				.server_rooms(&server)
 				.map(ToOwned::to_owned)
@@ -132,7 +129,6 @@ pub(super) async fn process(subcommand: RoomStateCacheCommand, context: &Context
 		| RoomStateCacheCommand::RoomMembers { room_id } => {
 			let timer = tokio::time::Instant::now();
 			let results: Vec<_> = services
-				.rooms
 				.state_cache
 				.room_members(&room_id)
 				.map(ToOwned::to_owned)
@@ -149,7 +145,6 @@ pub(super) async fn process(subcommand: RoomStateCacheCommand, context: &Context
 		| RoomStateCacheCommand::LocalUsersInRoom { room_id } => {
 			let timer = tokio::time::Instant::now();
 			let results: Vec<_> = services
-				.rooms
 				.state_cache
 				.local_users_in_room(&room_id)
 				.map(ToOwned::to_owned)
@@ -166,7 +161,6 @@ pub(super) async fn process(subcommand: RoomStateCacheCommand, context: &Context
 		| RoomStateCacheCommand::ActiveLocalUsersInRoom { room_id } => {
 			let timer = tokio::time::Instant::now();
 			let results: Vec<_> = services
-				.rooms
 				.state_cache
 				.active_local_users_in_room(&room_id)
 				.map(ToOwned::to_owned)
@@ -183,7 +177,6 @@ pub(super) async fn process(subcommand: RoomStateCacheCommand, context: &Context
 		| RoomStateCacheCommand::RoomJoinedCount { room_id } => {
 			let timer = tokio::time::Instant::now();
 			let results = services
-				.rooms
 				.state_cache
 				.room_joined_count(&room_id)
 				.await;
@@ -198,7 +191,6 @@ pub(super) async fn process(subcommand: RoomStateCacheCommand, context: &Context
 		| RoomStateCacheCommand::RoomInvitedCount { room_id } => {
 			let timer = tokio::time::Instant::now();
 			let results = services
-				.rooms
 				.state_cache
 				.room_invited_count(&room_id)
 				.await;
@@ -213,7 +205,6 @@ pub(super) async fn process(subcommand: RoomStateCacheCommand, context: &Context
 		| RoomStateCacheCommand::RoomUserOnceJoined { room_id } => {
 			let timer = tokio::time::Instant::now();
 			let results: Vec<_> = services
-				.rooms
 				.state_cache
 				.room_useroncejoined(&room_id)
 				.map(ToOwned::to_owned)
@@ -230,7 +221,6 @@ pub(super) async fn process(subcommand: RoomStateCacheCommand, context: &Context
 		| RoomStateCacheCommand::RoomMembersInvited { room_id } => {
 			let timer = tokio::time::Instant::now();
 			let results: Vec<_> = services
-				.rooms
 				.state_cache
 				.room_members_invited(&room_id)
 				.map(ToOwned::to_owned)
@@ -247,7 +237,6 @@ pub(super) async fn process(subcommand: RoomStateCacheCommand, context: &Context
 		| RoomStateCacheCommand::GetInviteCount { room_id, user_id } => {
 			let timer = tokio::time::Instant::now();
 			let results = services
-				.rooms
 				.state_cache
 				.get_invite_count(&room_id, &user_id)
 				.await;
@@ -262,7 +251,6 @@ pub(super) async fn process(subcommand: RoomStateCacheCommand, context: &Context
 		| RoomStateCacheCommand::GetLeftCount { room_id, user_id } => {
 			let timer = tokio::time::Instant::now();
 			let results = services
-				.rooms
 				.state_cache
 				.get_left_count(&room_id, &user_id)
 				.await;
@@ -277,7 +265,6 @@ pub(super) async fn process(subcommand: RoomStateCacheCommand, context: &Context
 		| RoomStateCacheCommand::RoomsJoined { user_id } => {
 			let timer = tokio::time::Instant::now();
 			let results: Vec<_> = services
-				.rooms
 				.state_cache
 				.rooms_joined(&user_id)
 				.map(ToOwned::to_owned)
@@ -294,7 +281,6 @@ pub(super) async fn process(subcommand: RoomStateCacheCommand, context: &Context
 		| RoomStateCacheCommand::RoomsInvited { user_id } => {
 			let timer = tokio::time::Instant::now();
 			let results: Vec<_> = services
-				.rooms
 				.state_cache
 				.rooms_invited(&user_id)
 				.collect()
@@ -310,7 +296,6 @@ pub(super) async fn process(subcommand: RoomStateCacheCommand, context: &Context
 		| RoomStateCacheCommand::RoomsLeft { user_id } => {
 			let timer = tokio::time::Instant::now();
 			let results: Vec<_> = services
-				.rooms
 				.state_cache
 				.rooms_left(&user_id)
 				.collect()
@@ -326,7 +311,6 @@ pub(super) async fn process(subcommand: RoomStateCacheCommand, context: &Context
 		| RoomStateCacheCommand::InviteState { user_id, room_id } => {
 			let timer = tokio::time::Instant::now();
 			let results = services
-				.rooms
 				.state_cache
 				.invite_state(&user_id, &room_id)
 				.await;

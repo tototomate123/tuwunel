@@ -21,17 +21,11 @@ use tuwunel_core::{
 };
 
 use self::data::Data;
-use crate::{Dep, rooms, rooms::short::ShortEventId};
+use crate::rooms::short::ShortEventId;
 
 pub struct Service {
-	services: Services,
+	services: Arc<crate::services::OnceServices>,
 	db: Data,
-}
-
-struct Services {
-	short: Dep<rooms::short::Service>,
-	state: Dep<rooms::state::Service>,
-	timeline: Dep<rooms::timeline::Service>,
 }
 
 type Bucket<'a> = BTreeSet<(u64, &'a EventId)>;
@@ -39,11 +33,7 @@ type Bucket<'a> = BTreeSet<(u64, &'a EventId)>;
 impl crate::Service for Service {
 	fn build(args: crate::Args<'_>) -> Result<Arc<Self>> {
 		Ok(Arc::new(Self {
-			services: Services {
-				short: args.depend::<rooms::short::Service>("rooms::short"),
-				state: args.depend::<rooms::state::Service>("rooms::state"),
-				timeline: args.depend::<rooms::timeline::Service>("rooms::timeline"),
-			},
+			services: args.services.clone(),
 			db: Data::new(&args),
 		}))
 	}

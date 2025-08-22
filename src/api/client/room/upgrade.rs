@@ -81,23 +81,16 @@ pub(crate) async fn upgrade_room_route(
 	let replacement_room = RoomId::new_v1(services.globals.server_name());
 
 	let _short_id = services
-		.rooms
 		.short
 		.get_or_create_shortroomid(&replacement_room)
 		.await;
 
-	let state_lock = services
-		.rooms
-		.state
-		.mutex
-		.lock(&body.room_id)
-		.await;
+	let state_lock = services.state.mutex.lock(&body.room_id).await;
 
 	// Send a m.room.tombstone event to the old room to indicate that it is not
 	// intended to be used any further Fail if the sender does not have the required
 	// permissions
 	let tombstone_event_id = services
-		.rooms
 		.timeline
 		.build_and_append_pdu(
 			PduBuilder::state(StateKey::new(), &RoomTombstoneEventContent {
@@ -112,16 +105,10 @@ pub(crate) async fn upgrade_room_route(
 
 	// Change lock to replacement room
 	drop(state_lock);
-	let state_lock = services
-		.rooms
-		.state
-		.mutex
-		.lock(&replacement_room)
-		.await;
+	let state_lock = services.state.mutex.lock(&replacement_room).await;
 
 	// Get the old room creation event
 	let mut create_event_content: CanonicalJsonObject = services
-		.rooms
 		.state_accessor
 		.room_state_get_content(&body.room_id, &StateEventType::RoomCreate, "")
 		.await
@@ -174,7 +161,6 @@ pub(crate) async fn upgrade_room_route(
 	}
 
 	services
-		.rooms
 		.timeline
 		.build_and_append_pdu(
 			PduBuilder {
@@ -193,7 +179,6 @@ pub(crate) async fn upgrade_room_route(
 
 	// Join the new room
 	services
-		.rooms
 		.timeline
 		.build_and_append_pdu(
 			PduBuilder {
@@ -222,7 +207,6 @@ pub(crate) async fn upgrade_room_route(
 	// Replicate transferable state events to the new room
 	for event_type in TRANSFERABLE_STATE_EVENTS {
 		let event_content = match services
-			.rooms
 			.state_accessor
 			.room_state_get(&body.room_id, event_type, "")
 			.await
@@ -232,7 +216,6 @@ pub(crate) async fn upgrade_room_route(
 		};
 
 		services
-			.rooms
 			.timeline
 			.build_and_append_pdu(
 				PduBuilder {
@@ -250,27 +233,23 @@ pub(crate) async fn upgrade_room_route(
 
 	// Moves any local aliases to the new room
 	let mut local_aliases = services
-		.rooms
 		.alias
 		.local_aliases_for_room(&body.room_id)
 		.boxed();
 
 	while let Some(alias) = local_aliases.next().await {
 		services
-			.rooms
 			.alias
 			.remove_alias(alias, sender_user)
 			.await?;
 
 		services
-			.rooms
 			.alias
 			.set_alias(alias, &replacement_room, sender_user)?;
 	}
 
 	// Get the old room power levels
 	let power_levels_event_content: RoomPowerLevelsEventContent = services
-		.rooms
 		.state_accessor
 		.room_state_get_content(&body.room_id, &StateEventType::RoomPowerLevels, "")
 		.await
@@ -290,7 +269,6 @@ pub(crate) async fn upgrade_room_route(
 	// Modify the power levels in the old room to prevent sending of events and
 	// inviting new users
 	services
-		.rooms
 		.timeline
 		.build_and_append_pdu(
 			PduBuilder::state(StateKey::new(), &RoomPowerLevelsEventContent {

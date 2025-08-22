@@ -21,31 +21,14 @@ use std::{
 use async_trait::async_trait;
 use ruma::{EventId, OwnedRoomId, RoomId};
 use tuwunel_core::{
-	Err, Result, Server, implement,
+	Err, Result, implement,
 	matrix::{Event, PduEvent},
 	utils::{MutexMap, continue_exponential_backoff},
 };
 
-use crate::{Dep, globals, rooms, sending, server_keys};
-
 pub struct Service {
 	pub mutex_federation: RoomMutexMap,
-	services: Services,
-}
-
-struct Services {
-	globals: Dep<globals::Service>,
-	sending: Dep<sending::Service>,
-	auth_chain: Dep<rooms::auth_chain::Service>,
-	metadata: Dep<rooms::metadata::Service>,
-	pdu_metadata: Dep<rooms::pdu_metadata::Service>,
-	server_keys: Dep<server_keys::Service>,
-	short: Dep<rooms::short::Service>,
-	state: Dep<rooms::state::Service>,
-	state_accessor: Dep<rooms::state_accessor::Service>,
-	state_compressor: Dep<rooms::state_compressor::Service>,
-	timeline: Dep<rooms::timeline::Service>,
-	server: Arc<Server>,
+	services: Arc<crate::services::OnceServices>,
 }
 
 type RoomMutexMap = MutexMap<OwnedRoomId, ()>;
@@ -55,22 +38,7 @@ impl crate::Service for Service {
 	fn build(args: crate::Args<'_>) -> Result<Arc<Self>> {
 		Ok(Arc::new(Self {
 			mutex_federation: RoomMutexMap::new(),
-			services: Services {
-				globals: args.depend::<globals::Service>("globals"),
-				sending: args.depend::<sending::Service>("sending"),
-				auth_chain: args.depend::<rooms::auth_chain::Service>("rooms::auth_chain"),
-				metadata: args.depend::<rooms::metadata::Service>("rooms::metadata"),
-				server_keys: args.depend::<server_keys::Service>("server_keys"),
-				pdu_metadata: args.depend::<rooms::pdu_metadata::Service>("rooms::pdu_metadata"),
-				short: args.depend::<rooms::short::Service>("rooms::short"),
-				state: args.depend::<rooms::state::Service>("rooms::state"),
-				state_accessor: args
-					.depend::<rooms::state_accessor::Service>("rooms::state_accessor"),
-				state_compressor: args
-					.depend::<rooms::state_compressor::Service>("rooms::state_compressor"),
-				timeline: args.depend::<rooms::timeline::Service>("rooms::timeline"),
-				server: args.server.clone(),
-			},
+			services: args.services.clone(),
 		}))
 	}
 

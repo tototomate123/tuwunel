@@ -6,14 +6,12 @@ use std::{
 };
 
 use ruma::{OwnedDeviceId, OwnedRoomId, OwnedUserId, api::client::sync::sync_events::v5};
-use tuwunel_core::{Result, Server};
+use tuwunel_core::Result;
 use tuwunel_database::Map;
-
-use crate::{Dep, rooms};
 
 pub struct Service {
 	db: Data,
-	services: Services,
+	services: Arc<crate::services::OnceServices>,
 	snake_connections: DbConnections<SnakeConnectionsKey, SnakeConnectionsVal>,
 }
 
@@ -31,13 +29,6 @@ pub struct Data {
 	roomusertype_roomuserdataid: Arc<Map>,
 	readreceiptid_readreceipt: Arc<Map>,
 	userid_lastonetimekeyupdate: Arc<Map>,
-}
-
-struct Services {
-	server: Arc<Server>,
-	short: Dep<rooms::short::Service>,
-	state_cache: Dep<rooms::state_cache::Service>,
-	typing: Dep<rooms::typing::Service>,
 }
 
 #[derive(Default)]
@@ -70,12 +61,7 @@ impl crate::Service for Service {
 				readreceiptid_readreceipt: args.db["readreceiptid_readreceipt"].clone(),
 				userid_lastonetimekeyupdate: args.db["userid_lastonetimekeyupdate"].clone(),
 			},
-			services: Services {
-				server: args.server.clone(),
-				short: args.depend::<rooms::short::Service>("rooms::short"),
-				state_cache: args.depend::<rooms::state_cache::Service>("rooms::state_cache"),
-				typing: args.depend::<rooms::typing::Service>("rooms::typing"),
-			},
+			services: args.services.clone(),
 			snake_connections: StdMutex::new(BTreeMap::new()),
 		}))
 	}

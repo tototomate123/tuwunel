@@ -12,21 +12,15 @@ use tuwunel_core::{
 };
 use tuwunel_database::{Deserialized, Ignore, Interfix, Json, Map};
 
-use crate::{Dep, globals};
-
 pub struct Service {
 	db: Data,
-	services: Services,
+	services: Arc<crate::services::OnceServices>,
 }
 
 struct Data {
 	backupid_algorithm: Arc<Map>,
 	backupid_etag: Arc<Map>,
 	backupkeyid_backup: Arc<Map>,
-}
-
-struct Services {
-	globals: Dep<globals::Service>,
 }
 
 impl crate::Service for Service {
@@ -37,9 +31,7 @@ impl crate::Service for Service {
 				backupid_etag: args.db["backupid_etag"].clone(),
 				backupkeyid_backup: args.db["backupkeyid_backup"].clone(),
 			},
-			services: Services {
-				globals: args.depend::<globals::Service>("globals"),
-			},
+			services: args.services.clone(),
 		}))
 	}
 

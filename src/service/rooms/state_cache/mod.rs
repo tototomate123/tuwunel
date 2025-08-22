@@ -20,21 +20,12 @@ use tuwunel_core::{
 };
 use tuwunel_database::{Deserialized, Ignore, Interfix, Map};
 
-use crate::{Dep, account_data, appservice::RegistrationInfo, config, globals, rooms, users};
+use crate::appservice::RegistrationInfo;
 
 pub struct Service {
 	appservice_in_room_cache: AppServiceInRoomCache,
-	services: Services,
+	services: Arc<crate::services::OnceServices>,
 	db: Data,
-}
-
-struct Services {
-	account_data: Dep<account_data::Service>,
-	config: Dep<config::Service>,
-	globals: Dep<globals::Service>,
-	metadata: Dep<rooms::metadata::Service>,
-	state_accessor: Dep<rooms::state_accessor::Service>,
-	users: Dep<users::Service>,
 }
 
 struct Data {
@@ -63,15 +54,7 @@ impl crate::Service for Service {
 	fn build(args: crate::Args<'_>) -> Result<Arc<Self>> {
 		Ok(Arc::new(Self {
 			appservice_in_room_cache: RwLock::new(HashMap::new()),
-			services: Services {
-				account_data: args.depend::<account_data::Service>("account_data"),
-				config: args.depend::<config::Service>("config"),
-				globals: args.depend::<globals::Service>("globals"),
-				metadata: args.depend::<rooms::metadata::Service>("rooms::metadata"),
-				state_accessor: args
-					.depend::<rooms::state_accessor::Service>("rooms::state_accessor"),
-				users: args.depend::<users::Service>("users"),
-			},
+			services: args.services.clone(),
 			db: Data {
 				roomid_knockedcount: args.db["roomid_knockedcount"].clone(),
 				roomid_invitedcount: args.db["roomid_invitedcount"].clone(),

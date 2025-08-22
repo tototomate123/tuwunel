@@ -78,7 +78,6 @@ pub(crate) async fn get_state_events_route(
 	let sender_user = body.sender_user();
 
 	if !services
-		.rooms
 		.state_accessor
 		.user_can_see_state_events(sender_user, &body.room_id)
 		.await
@@ -88,7 +87,6 @@ pub(crate) async fn get_state_events_route(
 
 	Ok(get_state_events::v3::Response {
 		room_state: services
-			.rooms
 			.state_accessor
 			.room_state_full_pdus(&body.room_id)
 			.map_ok(Event::into_format)
@@ -112,7 +110,6 @@ pub(crate) async fn get_state_events_for_key_route(
 	let sender_user = body.sender_user();
 
 	if !services
-		.rooms
 		.state_accessor
 		.user_can_see_state_events(sender_user, &body.room_id)
 		.await
@@ -123,7 +120,6 @@ pub(crate) async fn get_state_events_for_key_route(
 	}
 
 	let event = services
-		.rooms
 		.state_accessor
 		.room_state_get(&body.room_id, &body.event_type, &body.state_key)
 		.await
@@ -184,9 +180,8 @@ async fn send_state_event_for_key_helper(
 	timestamp: Option<ruma::MilliSecondsSinceUnixEpoch>,
 ) -> Result<OwnedEventId> {
 	allowed_to_send_state_event(services, room_id, event_type, state_key, json).await?;
-	let state_lock = services.rooms.state.mutex.lock(room_id).await;
+	let state_lock = services.state.mutex.lock(room_id).await;
 	let event_id = services
-		.rooms
 		.timeline
 		.build_and_append_pdu(
 			PduBuilder {
@@ -332,7 +327,6 @@ async fn allowed_to_send_state_event(
 
 					for alias in aliases {
 						let (alias_room_id, _servers) = services
-							.rooms
 							.alias
 							.resolve_alias(&alias, None)
 							.await
@@ -380,7 +374,6 @@ async fn allowed_to_send_state_event(
 						}
 
 						services
-							.rooms
 							.state_cache
 							.is_joined(&authorising_user, room_id)
 							.map(is_false!())

@@ -27,7 +27,7 @@ pub mod transaction_ids;
 pub mod uiaa;
 pub mod users;
 
-pub(crate) use service::{Args, Dep, Service};
+pub(crate) use service::{Args, Service};
 
 pub use crate::services::Services;
 

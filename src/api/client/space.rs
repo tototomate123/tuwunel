@@ -90,7 +90,6 @@ where
 			.collect::<Vec<_>>();
 
 		let summary = services
-			.rooms
 			.spaces
 			.get_summary_and_children_client(room_id, suggested_only, sender_user, &via)
 			.await;
@@ -139,7 +138,6 @@ where
 						.stream()
 						.skip_while(|(room, _)| {
 							services
-								.rooms
 								.short
 								.get_shortroomid(room)
 								.map_ok(|short| {
@@ -172,7 +170,6 @@ where
 					.into_iter()
 					.map(|(room_id, via)| async move {
 						let summary = services
-							.rooms
 							.spaces
 							.get_summary_and_children_client(
 								&room_id,
@@ -199,7 +196,7 @@ where
 			let next_short_room_ids: Vec<_> = parents
 				.iter()
 				.stream()
-				.filter_map(|room_id| services.rooms.short.get_shortroomid(room_id).ok())
+				.filter_map(|room_id| services.short.get_shortroomid(room_id).ok())
 				.collect()
 				.await;
 

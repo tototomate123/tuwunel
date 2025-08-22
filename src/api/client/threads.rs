@@ -32,13 +32,11 @@ pub(crate) async fn get_threads_route(
 		.unwrap_or_else(PduCount::max);
 
 	let threads: Vec<(PduCount, PduEvent)> = services
-		.rooms
 		.threads
 		.threads_until(body.sender_user(), &body.room_id, from, &body.include)
 		.take(limit)
 		.try_filter_map(async |(count, pdu)| {
 			Ok(services
-				.rooms
 				.state_accessor
 				.user_can_see_event(body.sender_user(), &body.room_id, &pdu.event_id)
 				.await

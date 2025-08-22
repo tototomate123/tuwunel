@@ -15,14 +15,13 @@ use tokio::{
 	io::{AsyncReadExt, AsyncWriteExt, BufReader},
 };
 use tuwunel_core::{
-	Err, Result, Server, debug, debug_error, debug_info, debug_warn, err, error, trace,
+	Err, Result, debug, debug_error, debug_info, debug_warn, err, error, trace,
 	utils::{self, MutexMap},
 	warn,
 };
 
 use self::data::{Data, Metadata};
 pub use self::thumbnail::Dim;
-use crate::{Dep, client, globals, sending};
 
 #[derive(Debug)]
 pub struct FileMeta {
@@ -34,14 +33,7 @@ pub struct FileMeta {
 pub struct Service {
 	url_preview_mutex: MutexMap<String, ()>,
 	pub(super) db: Data,
-	services: Services,
-}
-
-struct Services {
-	server: Arc<Server>,
-	client: Dep<client::Service>,
-	globals: Dep<globals::Service>,
-	sending: Dep<sending::Service>,
+	services: Arc<crate::services::OnceServices>,
 }
 
 /// generated MXC ID (`media-id`) length
@@ -59,12 +51,7 @@ impl crate::Service for Service {
 		Ok(Arc::new(Self {
 			url_preview_mutex: MutexMap::new(),
 			db: Data::new(args.db),
-			services: Services {
-				server: args.server.clone(),
-				client: args.depend::<client::Service>("client"),
-				globals: args.depend::<globals::Service>("globals"),
-				sending: args.depend::<sending::Service>("sending"),
-			},
+			services: args.services.clone(),
 		}))
 	}
 

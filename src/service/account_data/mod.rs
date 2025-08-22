@@ -16,10 +16,8 @@ use tuwunel_core::{
 };
 use tuwunel_database::{Deserialized, Handle, Ignore, Json, Map};
 
-use crate::{Dep, globals};
-
 pub struct Service {
-	services: Services,
+	services: Arc<crate::services::OnceServices>,
 	db: Data,
 }
 
@@ -28,16 +26,10 @@ struct Data {
 	roomusertype_roomuserdataid: Arc<Map>,
 }
 
-struct Services {
-	globals: Dep<globals::Service>,
-}
-
 impl crate::Service for Service {
 	fn build(args: crate::Args<'_>) -> Result<Arc<Self>> {
 		Ok(Arc::new(Self {
-			services: Services {
-				globals: args.depend::<globals::Service>("globals"),
-			},
+			services: args.services.clone(),
 			db: Data {
 				roomuserdataid_accountdata: args.db["roomuserdataid_accountdata"].clone(),
 				roomusertype_roomuserdataid: args.db["roomusertype_roomuserdataid"].clone(),

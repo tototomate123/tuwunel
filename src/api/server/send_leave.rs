@@ -46,24 +46,19 @@ async fn create_leave_event(
 	room_id: &RoomId,
 	pdu: &RawJsonValue,
 ) -> Result {
-	if !services.rooms.metadata.exists(room_id).await {
+	if !services.metadata.exists(room_id).await {
 		return Err!(Request(NotFound("Room is unknown to this server.")));
 	}
 
 	// ACL check origin
 	services
-		.rooms
 		.event_handler
 		.acl_check(origin, room_id)
 		.await?;
 
 	// We do not add the event_id field to the pdu here because of signature and
 	// hashes checks
-	let room_version_id = services
-		.rooms
-		.state
-		.get_room_version(room_id)
-		.await?;
+	let room_version_id = services.state.get_room_version(room_id).await?;
 	let Ok((event_id, value)) = gen_event_id_canonical_json(pdu, &room_version_id) else {
 		// Event could not be converted to canonical json
 		return Err!(Request(BadJson("Could not convert event to canonical json.")));
@@ -124,7 +119,6 @@ async fn create_leave_event(
 	.map_err(|e| err!(Request(BadJson(warn!("sender property is not a valid user ID: {e}")))))?;
 
 	services
-		.rooms
 		.event_handler
 		.acl_check(sender.server_name(), room_id)
 		.await?;
@@ -147,14 +141,12 @@ async fn create_leave_event(
 	}
 
 	let mutex_lock = services
-		.rooms
 		.event_handler
 		.mutex_federation
 		.lock(room_id)
 		.await;
 
 	let pdu_id = services
-		.rooms
 		.event_handler
 		.handle_incoming_pdu(origin, room_id, &event_id, value, true)
 		.boxed()

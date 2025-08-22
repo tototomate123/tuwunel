@@ -7,11 +7,9 @@ pub use tuwunel_core::matrix::pdu::{ShortEventId, ShortId, ShortRoomId, ShortSta
 use tuwunel_core::{Result, err, implement, matrix::StateKey, utils, utils::IterStream};
 use tuwunel_database::{Deserialized, Get, Map, Qry};
 
-use crate::{Dep, globals};
-
 pub struct Service {
 	db: Data,
-	services: Services,
+	services: Arc<crate::services::OnceServices>,
 }
 
 struct Data {
@@ -21,10 +19,6 @@ struct Data {
 	shortstatekey_statekey: Arc<Map>,
 	roomid_shortroomid: Arc<Map>,
 	statehash_shortstatehash: Arc<Map>,
-}
-
-struct Services {
-	globals: Dep<globals::Service>,
 }
 
 pub type ShortStateHash = ShortId;
@@ -40,9 +34,7 @@ impl crate::Service for Service {
 				roomid_shortroomid: args.db["roomid_shortroomid"].clone(),
 				statehash_shortstatehash: args.db["statehash_shortstatehash"].clone(),
 			},
-			services: Services {
-				globals: args.depend::<globals::Service>("globals"),
-			},
+			services: args.services.clone(),
 		}))
 	}
 

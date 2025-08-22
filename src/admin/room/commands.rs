@@ -16,27 +16,14 @@ pub(super) async fn list_rooms(
 	let page = page.unwrap_or(1);
 	let mut rooms = self
 		.services
-		.rooms
 		.metadata
 		.iter_ids()
 		.filter_map(async |room_id| {
-			(!exclude_disabled
-				|| !self
-					.services
-					.rooms
-					.metadata
-					.is_disabled(room_id)
-					.await)
+			(!exclude_disabled || !self.services.metadata.is_disabled(room_id).await)
 				.then_some(room_id)
 		})
 		.filter_map(async |room_id| {
-			(!exclude_banned
-				|| !self
-					.services
-					.rooms
-					.metadata
-					.is_banned(room_id)
-					.await)
+			(!exclude_banned || !self.services.metadata.is_banned(room_id).await)
 				.then_some(room_id)
 		})
 		.then(|room_id| get_room_info(self.services, room_id))
@@ -74,12 +61,7 @@ pub(super) async fn list_rooms(
 
 #[admin_command]
 pub(super) async fn exists(&self, room_id: OwnedRoomId) -> Result {
-	let result = self
-		.services
-		.rooms
-		.metadata
-		.exists(&room_id)
-		.await;
+	let result = self.services.metadata.exists(&room_id).await;
 
 	self.write_str(&format!("{result}")).await
 }

@@ -29,18 +29,17 @@ pub(super) async fn process(command: RoomDirectoryCommand, context: &Context<'_>
 	let services = context.services;
 	match command {
 		| RoomDirectoryCommand::Publish { room_id } => {
-			services.rooms.directory.set_public(&room_id);
+			services.directory.set_public(&room_id);
 			context.write_str("Room published").await
 		},
 		| RoomDirectoryCommand::Unpublish { room_id } => {
-			services.rooms.directory.set_not_public(&room_id);
+			services.directory.set_not_public(&room_id);
 			context.write_str("Room unpublished").await
 		},
 		| RoomDirectoryCommand::List { page } => {
 			// TODO: i know there's a way to do this with clap, but i can't seem to find it
 			let page = page.unwrap_or(1);
 			let mut rooms: Vec<_> = services
-				.rooms
 				.directory
 				.public_rooms()
 				.then(|room_id| get_room_info(services, room_id))

@@ -38,12 +38,7 @@ pub(crate) async fn get_missing_events_route(
 
 	let mut i: usize = 0;
 	while i < queued_events.len() && events.len() < limit {
-		let Ok(pdu) = services
-			.rooms
-			.timeline
-			.get_pdu(&queued_events[i])
-			.await
-		else {
+		let Ok(pdu) = services.timeline.get_pdu(&queued_events[i]).await else {
 			debug!(
 				?body.origin,
 				"Event {} does not exist locally, skipping", &queued_events[i]
@@ -58,7 +53,6 @@ pub(crate) async fn get_missing_events_route(
 		}
 
 		if !services
-			.rooms
 			.state_accessor
 			.server_can_see_event(body.origin(), &body.room_id, &queued_events[i])
 			.await

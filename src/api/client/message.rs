@@ -73,7 +73,7 @@ pub(crate) async fn get_message_events_route(
 	let room_id = &body.room_id;
 	let filter = &body.filter;
 
-	if !services.rooms.metadata.exists(room_id).await {
+	if !services.metadata.exists(room_id).await {
 		return Err!(Request(Forbidden("Room does not exist to this server")));
 	}
 
@@ -97,7 +97,6 @@ pub(crate) async fn get_message_events_route(
 
 	if matches!(body.dir, Direction::Backward) {
 		services
-			.rooms
 			.timeline
 			.backfill_if_required(room_id, from)
 			.await
@@ -107,14 +106,12 @@ pub(crate) async fn get_message_events_route(
 
 	let it = match body.dir {
 		| Direction::Forward => services
-			.rooms
 			.timeline
 			.pdus(Some(sender_user), room_id, Some(from))
 			.ignore_err()
 			.boxed(),
 
 		| Direction::Backward => services
-			.rooms
 			.timeline
 			.pdus_rev(Some(sender_user), room_id, Some(from))
 			.ignore_err()
@@ -192,7 +189,7 @@ where
 		.max()
 		.unwrap_or_else(PduCount::max);
 
-	let receipts = services.rooms.read_receipt.readreceipts_since(
+	let receipts = services.read_receipt.readreceipts_since(
 		lazy_loading_context.room_id,
 		oldest.into_unsigned(),
 		Some(newest.into_unsigned()),
@@ -213,7 +210,6 @@ where
 		.await;
 
 	services
-		.rooms
 		.lazy_loading
 		.witness_retain(witness, lazy_loading_context)
 		.await
@@ -225,7 +221,6 @@ async fn get_member_event(
 	user_id: &UserId,
 ) -> Option<Raw<AnyStateEvent>> {
 	services
-		.rooms
 		.state_accessor
 		.room_state_get(room_id, &StateEventType::RoomMember, user_id.as_str())
 		.map_ok(Event::into_format)
@@ -293,7 +288,6 @@ pub(crate) async fn visibility_filter(
 	let (_, pdu) = &item;
 
 	services
-		.rooms
 		.state_accessor
 		.user_can_see_event(user_id, pdu.room_id(), pdu.event_id())
 		.await

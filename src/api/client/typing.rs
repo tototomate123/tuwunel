@@ -19,7 +19,6 @@ pub(crate) async fn create_typing_event_route(
 	}
 
 	if !services
-		.rooms
 		.state_cache
 		.is_joined(sender_user, &body.room_id)
 		.await
@@ -46,7 +45,6 @@ pub(crate) async fn create_typing_event_route(
 					.try_mul(1000)?,
 			);
 			services
-				.rooms
 				.typing
 				.typing_add(
 					sender_user,
@@ -59,7 +57,6 @@ pub(crate) async fn create_typing_event_route(
 		},
 		| _ => {
 			services
-				.rooms
 				.typing
 				.typing_remove(sender_user, &body.room_id)
 				.await?;

@@ -44,7 +44,6 @@ pub(crate) async fn set_read_marker_route(
 
 	if body.private_read_receipt.is_some() || body.read_receipt.is_some() {
 		services
-			.rooms
 			.user
 			.reset_notification_counts(sender_user, &body.room_id);
 	}
@@ -70,7 +69,6 @@ pub(crate) async fn set_read_marker_route(
 		)]);
 
 		services
-			.rooms
 			.read_receipt
 			.readreceipt_update(
 				sender_user,
@@ -85,7 +83,6 @@ pub(crate) async fn set_read_marker_route(
 
 	if let Some(event) = &body.private_read_receipt {
 		let count = services
-			.rooms
 			.timeline
 			.get_pdu_count(event)
 			.await
@@ -98,7 +95,6 @@ pub(crate) async fn set_read_marker_route(
 		};
 
 		services
-			.rooms
 			.read_receipt
 			.private_read_set(&body.room_id, sender_user, count);
 	}
@@ -120,7 +116,6 @@ pub(crate) async fn create_receipt_route(
 		create_receipt::v3::ReceiptType::Read | create_receipt::v3::ReceiptType::ReadPrivate
 	) {
 		services
-			.rooms
 			.user
 			.reset_notification_counts(sender_user, &body.room_id);
 	}
@@ -166,7 +161,6 @@ pub(crate) async fn create_receipt_route(
 			)]);
 
 			services
-				.rooms
 				.read_receipt
 				.readreceipt_update(
 					sender_user,
@@ -180,7 +174,6 @@ pub(crate) async fn create_receipt_route(
 		},
 		| create_receipt::v3::ReceiptType::ReadPrivate => {
 			let count = services
-				.rooms
 				.timeline
 				.get_pdu_count(&body.event_id)
 				.await
@@ -193,7 +186,6 @@ pub(crate) async fn create_receipt_route(
 			};
 
 			services
-				.rooms
 				.read_receipt
 				.private_read_set(&body.room_id, sender_user, count);
 		},

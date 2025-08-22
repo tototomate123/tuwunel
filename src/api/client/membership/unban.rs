@@ -14,15 +14,9 @@ pub(crate) async fn unban_user_route(
 	State(services): State<crate::State>,
 	body: Ruma<unban_user::v3::Request>,
 ) -> Result<unban_user::v3::Response> {
-	let state_lock = services
-		.rooms
-		.state
-		.mutex
-		.lock(&body.room_id)
-		.await;
+	let state_lock = services.state.mutex.lock(&body.room_id).await;
 
 	let current_member_content = services
-		.rooms
 		.state_accessor
 		.get_member(&body.room_id, &body.user_id)
 		.await
@@ -36,7 +30,6 @@ pub(crate) async fn unban_user_route(
 	}
 
 	services
-		.rooms
 		.timeline
 		.build_and_append_pdu(
 			PduBuilder::state(body.user_id.to_string(), &RoomMemberEventContent {

@@ -394,7 +394,6 @@ pub(crate) async fn get_key_changes_route(
 	);
 
 	let mut rooms_joined = services
-		.rooms
 		.state_cache
 		.rooms_joined(sender_user)
 		.boxed();

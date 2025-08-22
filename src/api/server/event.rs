@@ -16,7 +16,6 @@ pub(crate) async fn get_event_route(
 	body: Ruma<get_event::v1::Request>,
 ) -> Result<get_event::v1::Response> {
 	let event = services
-		.rooms
 		.timeline
 		.get_pdu_json(&body.event_id)
 		.await

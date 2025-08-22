@@ -16,16 +16,9 @@ use tuwunel_core::{
 };
 use tuwunel_database::{Deserialized, Map};
 
-use crate::{Dep, rooms};
-
 pub struct Service {
 	db: Data,
-	services: Services,
-}
-
-struct Services {
-	short: Dep<rooms::short::Service>,
-	timeline: Dep<rooms::timeline::Service>,
+	services: Arc<crate::services::OnceServices>,
 }
 
 pub(super) struct Data {
@@ -38,10 +31,7 @@ impl crate::Service for Service {
 			db: Data {
 				threadid_userids: args.db["threadid_userids"].clone(),
 			},
-			services: Services {
-				short: args.depend::<rooms::short::Service>("rooms::short"),
-				timeline: args.depend::<rooms::timeline::Service>("rooms::timeline"),
-			},
+			services: args.services.clone(),
 		}))
 	}
 

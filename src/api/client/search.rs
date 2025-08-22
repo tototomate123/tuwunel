@@ -87,7 +87,6 @@ async fn category_room_events(
 		.map(StreamExt::boxed)
 		.unwrap_or_else(|| {
 			services
-				.rooms
 				.state_cache
 				.rooms_joined(sender_user)
 				.map(ToOwned::to_owned)
@@ -110,12 +109,7 @@ async fn category_room_events(
 				limit,
 			};
 
-			let (count, results) = services
-				.rooms
-				.search
-				.search_pdus(&query)
-				.await
-				.ok()?;
+			let (count, results) = services.search.search_pdus(&query).await.ok()?;
 
 			results
 				.collect::<Vec<_>>()
@@ -187,7 +181,6 @@ async fn category_room_events(
 
 async fn procure_room_state(services: &Services, room_id: &RoomId) -> Result<RoomState> {
 	let state = services
-		.rooms
 		.state_accessor
 		.room_state_full_pdus(room_id)
 		.map_ok(Event::into_format)
@@ -208,14 +201,12 @@ async fn check_room_visible(
 
 	let is_joined = !check_visible
 		|| services
-			.rooms
 			.state_cache
 			.is_joined(user_id, room_id)
 			.await;
 
 	let state_visible = !check_state
 		|| services
-			.rooms
 			.state_accessor
 			.user_can_see_state_events(user_id, room_id)
 			.await;

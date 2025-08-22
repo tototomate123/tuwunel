@@ -22,7 +22,7 @@ use ruma::{
 use serde::Deserialize;
 pub use tuwunel_core::matrix::pdu::{PduId, RawPduId};
 use tuwunel_core::{
-	Err, Result, Server, at, err, implement,
+	Err, Result, at, err, implement,
 	matrix::pdu::{PduCount, PduEvent},
 	utils::{
 		MutexMap, MutexMapGuard,
@@ -33,39 +33,12 @@ use tuwunel_core::{
 };
 use tuwunel_database::{Database, Deserialized, Json, KeyVal, Map};
 
-use crate::{
-	Dep, account_data, admin, appservice, globals, pusher, rooms, rooms::short::ShortRoomId,
-	sending, server_keys, users,
-};
+use crate::rooms::short::ShortRoomId;
 
 pub struct Service {
-	services: Services,
+	services: Arc<crate::services::OnceServices>,
 	db: Data,
 	pub mutex_insert: RoomMutexMap,
-}
-
-struct Services {
-	server: Arc<Server>,
-	account_data: Dep<account_data::Service>,
-	appservice: Dep<appservice::Service>,
-	admin: Dep<admin::Service>,
-	alias: Dep<rooms::alias::Service>,
-	globals: Dep<globals::Service>,
-	short: Dep<rooms::short::Service>,
-	state: Dep<rooms::state::Service>,
-	state_cache: Dep<rooms::state_cache::Service>,
-	state_accessor: Dep<rooms::state_accessor::Service>,
-	pdu_metadata: Dep<rooms::pdu_metadata::Service>,
-	read_receipt: Dep<rooms::read_receipt::Service>,
-	sending: Dep<sending::Service>,
-	server_keys: Dep<server_keys::Service>,
-	user: Dep<rooms::user::Service>,
-	users: Dep<users::Service>,
-	pusher: Dep<pusher::Service>,
-	threads: Dep<rooms::threads::Service>,
-	search: Dep<rooms::search::Service>,
-	spaces: Dep<rooms::spaces::Service>,
-	event_handler: Dep<rooms::event_handler::Service>,
 }
 
 struct Data {
@@ -107,31 +80,7 @@ pub type PdusIterItem = (PduCount, PduEvent);
 impl crate::Service for Service {
 	fn build(args: crate::Args<'_>) -> Result<Arc<Self>> {
 		Ok(Arc::new(Self {
-			services: Services {
-				server: args.server.clone(),
-				account_data: args.depend::<account_data::Service>("account_data"),
-				appservice: args.depend::<appservice::Service>("appservice"),
-				admin: args.depend::<admin::Service>("admin"),
-				alias: args.depend::<rooms::alias::Service>("rooms::alias"),
-				globals: args.depend::<globals::Service>("globals"),
-				short: args.depend::<rooms::short::Service>("rooms::short"),
-				state: args.depend::<rooms::state::Service>("rooms::state"),
-				state_cache: args.depend::<rooms::state_cache::Service>("rooms::state_cache"),
-				state_accessor: args
-					.depend::<rooms::state_accessor::Service>("rooms::state_accessor"),
-				pdu_metadata: args.depend::<rooms::pdu_metadata::Service>("rooms::pdu_metadata"),
-				read_receipt: args.depend::<rooms::read_receipt::Service>("rooms::read_receipt"),
-				sending: args.depend::<sending::Service>("sending"),
-				server_keys: args.depend::<server_keys::Service>("server_keys"),
-				user: args.depend::<rooms::user::Service>("rooms::user"),
-				users: args.depend::<users::Service>("users"),
-				pusher: args.depend::<pusher::Service>("pusher"),
-				threads: args.depend::<rooms::threads::Service>("rooms::threads"),
-				search: args.depend::<rooms::search::Service>("rooms::search"),
-				spaces: args.depend::<rooms::spaces::Service>("rooms::spaces"),
-				event_handler: args
-					.depend::<rooms::event_handler::Service>("rooms::event_handler"),
-			},
+			services: args.services.clone(),
 			db: Data {
 				eventid_outlierpdu: args.db["eventid_outlierpdu"].clone(),
 				eventid_pduid: args.db["eventid_pduid"].clone(),

@@ -133,7 +133,6 @@ async fn paginate_relations_with_filter(
 	let depth: u8 = if recurse { 3 } else { 1 };
 
 	let events: Vec<_> = services
-		.rooms
 		.pdu_metadata
 		.get_relations(sender_user, room_id, target, start, limit, depth, dir)
 		.await
@@ -183,7 +182,6 @@ async fn visibility_filter<Pdu: Event>(
 	let (_, pdu) = &item;
 
 	services
-		.rooms
 		.state_accessor
 		.user_can_see_event(sender_user, pdu.room_id(), pdu.event_id())
 		.await

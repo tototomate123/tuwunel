@@ -25,7 +25,6 @@ pub(crate) async fn get_member_events_route(
 	body: Ruma<get_member_events::v3::Request>,
 ) -> Result<get_member_events::v3::Response> {
 	if !services
-		.rooms
 		.state_accessor
 		.user_can_see_state_events(body.sender_user(), &body.room_id)
 		.await
@@ -37,7 +36,6 @@ pub(crate) async fn get_member_events_route(
 	let not_membership = body.not_membership.as_ref();
 	Ok(get_member_events::v3::Response {
 		chunk: services
-			.rooms
 			.state_accessor
 			.room_state_full(&body.room_id)
 			.ready_filter_map(Result::ok)
@@ -62,7 +60,6 @@ pub(crate) async fn joined_members_route(
 	body: Ruma<joined_members::v3::Request>,
 ) -> Result<joined_members::v3::Response> {
 	if !services
-		.rooms
 		.state_accessor
 		.user_can_see_state_events(body.sender_user(), &body.room_id)
 		.await
@@ -72,7 +69,6 @@ pub(crate) async fn joined_members_route(
 
 	Ok(joined_members::v3::Response {
 		joined: services
-			.rooms
 			.state_accessor
 			.room_state_full(&body.room_id)
 			.ready_filter_map(Result::ok)
