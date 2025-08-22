@@ -9,12 +9,13 @@ use serde_json::json;
 use tuwunel_core::{
 	Event, Result, err,
 	matrix::pdu::{PduCount, PduEvent, PduId, RawPduId},
+	trace,
 	utils::{
 		ReadyExt,
 		stream::{TryIgnore, WidebandExt},
 	},
 };
-use tuwunel_database::{Deserialized, Map};
+use tuwunel_database::{Deserialized, Interfix, Map};
 
 pub struct Service {
 	db: Data,
@@ -190,5 +191,21 @@ impl Service {
 			.get(root_id)
 			.await
 			.deserialized()
+	}
+
+	pub(super) async fn delete_all_rooms_threads(&self, room_id: &RoomId) -> Result {
+		let prefix = (room_id, Interfix);
+
+		self.db
+			.threadid_userids
+			.keys_prefix_raw(&prefix)
+			.ignore_err()
+			.ready_for_each(|key| {
+				trace!("Removing key: {key:?}");
+				self.db.threadid_userids.remove(key);
+			})
+			.await;
+
+		Ok(())
 	}
 }

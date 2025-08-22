@@ -24,6 +24,7 @@ pub use tuwunel_core::matrix::pdu::{PduId, RawPduId};
 use tuwunel_core::{
 	Err, Result, at, err, implement,
 	matrix::pdu::{PduCount, PduEvent},
+	trace,
 	utils::{
 		MutexMap, MutexMapGuard,
 		result::{LogErr, NotFound},
@@ -412,4 +413,31 @@ pub async fn get_pdu_id(&self, event_id: &EventId) -> Result<RawPduId> {
 		.get(event_id)
 		.await
 		.map(|handle| RawPduId::from(&*handle))
+}
+
+#[implement(Service)]
+pub async fn delete_pdus(&self, room_id: &RoomId) -> Result {
+	self.count_to_id(room_id, PduCount::min(), Direction::Forward)
+		.map_ok(move |current| {
+			let prefix = current.shortroomid();
+			self.db
+				.pduid_pdu
+				.raw_stream_from(&current)
+				.ready_try_take_while(move |(key, _)| Ok(key.starts_with(&prefix)))
+				.ready_try_for_each(|(key, value)| {
+					trace!("Removing PDU {key:?}");
+					self.db.pduid_pdu.remove(key);
+					let pdu = serde_json::from_slice::<PduEvent>(value)?;
+
+					let event_id = &pdu.event_id;
+					let room_id2 = &pdu.room_id;
+					trace!("Removed {event_id} {room_id2}");
+					self.db.eventid_pduid.remove(event_id);
+					self.db.eventid_outlierpdu.remove(event_id);
+					Ok(())
+				})
+		})
+		.try_flatten()
+		.await?;
+	Ok(())
 }

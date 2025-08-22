@@ -16,8 +16,10 @@ use tuwunel_core::{
 	matrix::{RoomVersionRules, StateKey, TypeStateKey, room_version},
 	result::{AndThenRef, FlatOk},
 	state_res::{StateMap, auth_types_for_event},
+	trace,
 	utils::{
 		IterStream, MutexMap, MutexMapGuard, ReadyExt, calculate_hash,
+		mutex_map::Guard,
 		stream::{BroadbandExt, TryIgnore},
 	},
 	warn,
@@ -522,5 +524,31 @@ impl Service {
 			let key = (room_id, event_id);
 			self.db.roomid_pduleaves.put_raw(key, event_id);
 		}
+	}
+
+	pub(super) async fn delete_all_rooms_forward_extremities(&self, room_id: &RoomId) -> Result {
+		let prefix = (room_id, Interfix);
+
+		self.db
+			.roomid_pduleaves
+			.keys_prefix_raw(&prefix)
+			.ignore_err()
+			.ready_for_each(|key| {
+				trace!("Removing key: {key:?}");
+				self.db.roomid_pduleaves.remove(key);
+			})
+			.await;
+
+		Ok(())
+	}
+
+	pub(super) async fn delete_room_shortstatehash(
+		&self,
+		room_id: &RoomId,
+		_mutex_lock: &Guard<OwnedRoomId, ()>,
+	) -> Result {
+		self.db.roomid_shortstatehash.remove(room_id);
+
+		Ok(())
 	}
 }

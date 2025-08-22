@@ -32,6 +32,7 @@ pub struct Services {
 	pub resolver: Arc<resolver::Service>,
 	pub alias: Arc<rooms::alias::Service>,
 	pub auth_chain: Arc<rooms::auth_chain::Service>,
+	pub delete: Arc<rooms::delete::Service>,
 	pub directory: Arc<rooms::directory::Service>,
 	pub event_handler: Arc<rooms::event_handler::Service>,
 	pub lazy_loading: Arc<rooms::lazy_loading::Service>,
@@ -112,6 +113,7 @@ impl Services {
 			pusher: build!(pusher::Service),
 			alias: build!(rooms::alias::Service),
 			auth_chain: build!(rooms::auth_chain::Service),
+			delete: build!(rooms::delete::Service),
 			directory: build!(rooms::directory::Service),
 			event_handler: build!(rooms::event_handler::Service),
 			lazy_loading: build!(rooms::lazy_loading::Service),
@@ -189,7 +191,7 @@ impl Services {
 		Ok(())
 	}
 
-	pub(crate) fn services(&self) -> [Arc<dyn Service>; 40] {
+	pub(crate) fn services(&self) -> [Arc<dyn Service>; 41] {
 		[
 			self.account_data.clone(),
 			self.admin.clone(),
@@ -205,6 +207,7 @@ impl Services {
 			self.pusher.clone(),
 			self.alias.clone(),
 			self.auth_chain.clone(),
+			self.delete.clone(),
 			self.directory.clone(),
 			self.event_handler.clone(),
 			self.lazy_loading.clone(),

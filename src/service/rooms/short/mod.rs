@@ -4,7 +4,7 @@ use futures::{Stream, StreamExt};
 use ruma::{EventId, RoomId, events::StateEventType};
 use serde::Deserialize;
 pub use tuwunel_core::matrix::pdu::{ShortEventId, ShortId, ShortRoomId, ShortStateKey};
-use tuwunel_core::{Result, err, implement, matrix::StateKey, utils, utils::IterStream};
+use tuwunel_core::{Err, Result, err, implement, matrix::StateKey, utils, utils::IterStream};
 use tuwunel_database::{Deserialized, Get, Map, Qry};
 
 pub struct Service {
@@ -257,4 +257,20 @@ pub async fn get_or_create_shortroomid(&self, room_id: &RoomId) -> ShortRoomId {
 
 			*short
 		})
+}
+
+#[implement(Service)]
+pub async fn delete_shortroomid(&self, room_id: &RoomId) -> Result {
+	if self
+		.db
+		.roomid_shortroomid
+		.exists(room_id)
+		.await
+		.is_ok()
+	{
+		self.db.roomid_shortroomid.remove(room_id);
+		Ok(())
+	} else {
+		Err!(Database("not found"))
+	}
 }

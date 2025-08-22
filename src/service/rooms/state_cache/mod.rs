@@ -15,6 +15,7 @@ use ruma::{
 use tuwunel_core::{
 	Result, implement,
 	result::LogErr,
+	trace,
 	utils::{ReadyExt, stream::TryIgnore},
 	warn,
 };
@@ -561,4 +562,90 @@ pub async fn is_left(&self, user_id: &UserId, room_id: &RoomId) -> bool {
 		.qry(&key)
 		.await
 		.is_ok()
+}
+
+#[implement(Service)]
+#[tracing::instrument(skip(self), level = "trace")]
+pub async fn delete_room_join_counts(&self, room_id: &RoomId) -> Result {
+	let prefix = (room_id, Interfix);
+
+	self.db.roomid_knockedcount.remove(room_id);
+
+	self.db.roomid_invitedcount.remove(room_id);
+
+	self.db.roomid_inviteviaservers.remove(room_id);
+
+	self.db.roomid_joinedcount.remove(room_id);
+
+	self.db
+		.roomserverids
+		.keys_prefix(&prefix)
+		.ignore_err()
+		.ready_for_each(|key: (&RoomId, &ServerName)| {
+			trace!("Removing key: {key:?}");
+			self.db.roomserverids.del(key);
+
+			let reverse_key = (key.1, key.0);
+			trace!("Removing reverse key: {reverse_key:?}");
+			self.db.serverroomids.del(reverse_key);
+		})
+		.await;
+
+	self.db
+		.roomuserid_invitecount
+		.keys_prefix(&prefix)
+		.ignore_err()
+		.ready_for_each(|key: (&RoomId, &UserId)| {
+			trace!("Removing key: {key:?}");
+			self.db.roomuserid_invitecount.del(key);
+
+			let reverse_key = (key.1, key.0);
+			trace!("Removing reverse key: {reverse_key:?}");
+			self.db.userroomid_invitestate.del(reverse_key);
+		})
+		.await;
+
+	self.db
+		.roomuserid_joined
+		.keys_prefix(&prefix)
+		.ignore_err()
+		.ready_for_each(|key: (&RoomId, &UserId)| {
+			trace!("Removing key: {key:?}");
+			self.db.roomuserid_joined.del(key);
+
+			let reverse_key = (key.1, key.0);
+			trace!("Removing reverse key: {reverse_key:?}");
+			self.db.userroomid_joined.del(reverse_key);
+		})
+		.await;
+
+	self.db
+		.roomuserid_knockedcount
+		.keys_prefix(&prefix)
+		.ignore_err()
+		.ready_for_each(|key: (&RoomId, &UserId)| {
+			trace!("Removing key: {key:?}");
+			self.db.roomuserid_knockedcount.del(key);
+
+			let reverse_key = (key.1, key.0);
+			trace!("Removing reverse key: {reverse_key:?}");
+			self.db.userroomid_knockedstate.del(reverse_key);
+		})
+		.await;
+
+	self.db
+		.roomuserid_leftcount
+		.keys_prefix(&prefix)
+		.ignore_err()
+		.ready_for_each(|key: (&RoomId, &UserId)| {
+			trace!("Removing key: {key:?}");
+			self.db.roomuserid_leftcount.del(key);
+
+			let reverse_key = (key.1, key.0);
+			trace!("Removing reverse key: {reverse_key:?}");
+			self.db.userroomid_leftstate.del(reverse_key);
+		})
+		.await;
+
+	Ok(())
 }

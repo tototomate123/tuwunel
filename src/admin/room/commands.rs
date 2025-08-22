@@ -65,3 +65,17 @@ pub(super) async fn exists(&self, room_id: OwnedRoomId) -> Result {
 
 	self.write_str(&format!("{result}")).await
 }
+
+#[admin_command]
+pub(super) async fn delete_room(&self, room_id: OwnedRoomId) -> Result {
+	if self.services.admin.is_admin_room(&room_id).await {
+		return Err!("Cannot delete admin room");
+	}
+
+	self.services.delete.delete_room(room_id).await?;
+
+	self.write_str("Successfully deleted the room from our database.")
+		.await?;
+
+	Ok(())
+}

@@ -7,10 +7,10 @@ use ruma::{
 	serde::Raw,
 };
 use tuwunel_core::{
-	Result,
+	Result, trace,
 	utils::{ReadyExt, stream::TryIgnore},
 };
-use tuwunel_database::{Deserialized, Json, Map};
+use tuwunel_database::{Deserialized, Interfix, Json, Map};
 
 pub(super) struct Data {
 	roomuserid_privateread: Arc<Map>,
@@ -119,5 +119,39 @@ impl Data {
 			.await
 			.deserialized()
 			.unwrap_or(0)
+	}
+
+	#[inline]
+	pub(super) async fn delete_all_read_receipts(&self, room_id: &RoomId) -> Result {
+		let prefix = (room_id, Interfix);
+
+		self.roomuserid_privateread
+			.keys_prefix_raw(&prefix)
+			.ignore_err()
+			.ready_for_each(|key| {
+				trace!("Removing key: {key:?}");
+				self.roomuserid_privateread.remove(key);
+			})
+			.await;
+
+		self.roomuserid_lastprivatereadupdate
+			.keys_prefix_raw(&prefix)
+			.ignore_err()
+			.ready_for_each(|key| {
+				trace!("Removing key: {key:?}");
+				self.roomuserid_lastprivatereadupdate.remove(key);
+			})
+			.await;
+
+		self.readreceiptid_readreceipt
+			.keys_prefix_raw(&prefix)
+			.ignore_err()
+			.ready_for_each(|key| {
+				trace!("Removing key: {key:?}");
+				self.readreceiptid_readreceipt.remove(key);
+			})
+			.await;
+
+		Ok(())
 	}
 }

@@ -126,4 +126,11 @@ impl Service {
 	pub async fn is_event_soft_failed(&self, event_id: &EventId) -> bool {
 		self.db.is_event_soft_failed(event_id).await
 	}
+
+	#[tracing::instrument(skip(self), level = "debug")]
+	pub async fn delete_all_referenced_for_room(&self, room_id: &RoomId) -> Result {
+		self.db
+			.delete_all_referenced_for_room(room_id)
+			.await
+	}
 }
