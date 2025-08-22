@@ -70,7 +70,7 @@ async fn ban_room(&self, room: OwnedRoomOrAliasId) -> Result {
 		};
 
 		debug!("Room specified is a room ID, banning room ID");
-		self.services.metadata.ban_room(room_id, true);
+		self.services.metadata.ban_room(room_id);
 
 		room_id.to_owned()
 	} else if room.is_room_alias_id() {
@@ -126,7 +126,7 @@ async fn ban_room(&self, room: OwnedRoomOrAliasId) -> Result {
 			},
 		};
 
-		self.services.metadata.ban_room(&room_id, true);
+		self.services.metadata.ban_room(&room_id);
 
 		room_id
 	} else {
@@ -180,9 +180,7 @@ async fn ban_room(&self, room: OwnedRoomOrAliasId) -> Result {
 	// unpublish from room directory
 	self.services.directory.set_not_public(&room_id);
 
-	self.services
-		.metadata
-		.disable_room(&room_id, true);
+	self.services.metadata.disable_room(&room_id);
 
 	self.write_str(
 		"Room banned, removed all our local users, and disabled incoming federation with room.",
@@ -302,7 +300,7 @@ async fn ban_list_of_rooms(&self) -> Result {
 	}
 
 	for room_id in room_ids {
-		self.services.metadata.ban_room(&room_id, true);
+		self.services.metadata.ban_room(&room_id);
 
 		debug!("Banned {room_id} successfully");
 		room_ban_count = room_ban_count.saturating_add(1);
@@ -351,9 +349,7 @@ async fn ban_list_of_rooms(&self) -> Result {
 		// unpublish from room directory, ignore errors
 		self.services.directory.set_not_public(&room_id);
 
-		self.services
-			.metadata
-			.disable_room(&room_id, true);
+		self.services.metadata.disable_room(&room_id);
 	}
 
 	self.write_str(&format!(
@@ -378,7 +374,7 @@ async fn unban_room(&self, room: OwnedRoomOrAliasId) -> Result {
 		};
 
 		debug!("Room specified is a room ID, unbanning room ID");
-		self.services.metadata.ban_room(room_id, false);
+		self.services.metadata.unban_room(room_id);
 
 		room_id.to_owned()
 	} else if room.is_room_alias_id() {
@@ -432,7 +428,7 @@ async fn unban_room(&self, room: OwnedRoomOrAliasId) -> Result {
 			},
 		};
 
-		self.services.metadata.ban_room(&room_id, false);
+		self.services.metadata.unban_room(&room_id);
 
 		room_id
 	} else {
@@ -443,9 +439,7 @@ async fn unban_room(&self, room: OwnedRoomOrAliasId) -> Result {
 		);
 	};
 
-	self.services
-		.metadata
-		.disable_room(&room_id, false);
+	self.services.metadata.enable_room(&room_id);
 	self.write_str("Room unbanned and federation re-enabled.")
 		.await
 }

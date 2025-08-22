@@ -94,23 +94,19 @@ pub async fn is_public(&self, room_id: &RoomId) -> bool {
 
 #[implement(Service)]
 #[inline]
-pub fn disable_room(&self, room_id: &RoomId, disabled: bool) {
-	if disabled {
-		self.db.disabledroomids.insert(room_id, []);
-	} else {
-		self.db.disabledroomids.remove(room_id);
-	}
-}
+pub fn disable_room(&self, room_id: &RoomId) { self.db.disabledroomids.insert(room_id, []); }
 
 #[implement(Service)]
 #[inline]
-pub fn ban_room(&self, room_id: &RoomId, banned: bool) {
-	if banned {
-		self.db.bannedroomids.insert(room_id, []);
-	} else {
-		self.db.bannedroomids.remove(room_id);
-	}
-}
+pub fn enable_room(&self, room_id: &RoomId) { self.db.disabledroomids.remove(room_id); }
+
+#[implement(Service)]
+#[inline]
+pub fn ban_room(&self, room_id: &RoomId) { self.db.bannedroomids.insert(room_id, []); }
+
+#[implement(Service)]
+#[inline]
+pub fn unban_room(&self, room_id: &RoomId) { self.db.bannedroomids.remove(room_id); }
 
 #[implement(Service)]
 pub fn list_banned_rooms(&self) -> impl Stream<Item = &RoomId> + Send + '_ {

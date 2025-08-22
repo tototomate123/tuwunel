@@ -6,17 +6,13 @@ use crate::{admin_command, get_room_info};
 
 #[admin_command]
 pub(super) async fn disable_room(&self, room_id: OwnedRoomId) -> Result {
-	self.services
-		.metadata
-		.disable_room(&room_id, true);
+	self.services.metadata.disable_room(&room_id);
 	self.write_str("Room disabled.").await
 }
 
 #[admin_command]
 pub(super) async fn enable_room(&self, room_id: OwnedRoomId) -> Result {
-	self.services
-		.metadata
-		.disable_room(&room_id, false);
+	self.services.metadata.enable_room(&room_id);
 	self.write_str("Room enabled.").await
 }
 
