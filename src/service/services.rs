@@ -160,16 +160,6 @@ impl Services {
 			.start()
 			.await?;
 
-		// reset dormant online/away statuses to offline, and set the server user as
-		// online
-		if self.server.config.allow_local_presence && !self.db.is_read_only() {
-			self.presence.unset_all_presence().await;
-			_ = self
-				.presence
-				.ping_presence(&self.globals.server_user, &ruma::presence::PresenceState::Online)
-				.await;
-		}
-
 		debug_info!("Services startup complete.");
 
 		Ok(Arc::clone(self))
@@ -177,14 +167,6 @@ impl Services {
 
 	pub async fn stop(&self) {
 		info!("Shutting down services...");
-
-		// set the server user as offline
-		if self.server.config.allow_local_presence && !self.db.is_read_only() {
-			_ = self
-				.presence
-				.ping_presence(&self.globals.server_user, &ruma::presence::PresenceState::Offline)
-				.await;
-		}
 
 		self.interrupt().await;
 		if let Some(manager) = self.manager.lock().await.as_ref() {

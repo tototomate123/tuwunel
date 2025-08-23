@@ -40,6 +40,15 @@ impl crate::Service for Service {
 	}
 
 	async fn worker(self: Arc<Self>) -> Result {
+		// reset dormant online/away statuses to offline, and set the server user as
+		// online
+		if self.services.server.config.allow_local_presence && !self.services.db.is_read_only() {
+			self.unset_all_presence().await;
+			_ = self
+				.ping_presence(&self.services.globals.server_user, &PresenceState::Online)
+				.await;
+		}
+
 		let receiver = self.timer_channel.1.clone();
 
 		let mut presence_timers = FuturesUnordered::new();
@@ -62,6 +71,13 @@ impl crate::Service for Service {
 	}
 
 	async fn interrupt(&self) {
+		// set the server user as offline
+		if self.services.server.config.allow_local_presence && !self.services.db.is_read_only() {
+			_ = self
+				.ping_presence(&self.services.globals.server_user, &PresenceState::Offline)
+				.await;
+		}
+
 		let (timer_sender, _) = &self.timer_channel;
 		if !timer_sender.is_closed() {
 			timer_sender.close();
