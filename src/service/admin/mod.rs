@@ -100,13 +100,13 @@ impl crate::Service for Service {
 		}
 
 		//TODO: not unwind safe
-		self.interrupt();
+		self.interrupt().await;
 		self.console_auto_stop().await;
 
 		Ok(())
 	}
 
-	fn interrupt(&self) {
+	async fn interrupt(&self) {
 		#[cfg(feature = "console")]
 		self.console.interrupt();
 

@@ -186,7 +186,7 @@ impl Services {
 				.await;
 		}
 
-		self.interrupt();
+		self.interrupt().await;
 		if let Some(manager) = self.manager.lock().await.as_ref() {
 			manager.stop().await;
 		}
@@ -263,12 +263,12 @@ impl Services {
 			.await
 	}
 
-	fn interrupt(&self) {
+	async fn interrupt(&self) {
 		debug!("Interrupting services...");
 		for service in self.services() {
 			let name = service.name();
 			trace!("Interrupting {name}");
-			service.interrupt();
+			service.interrupt().await;
 		}
 	}
 }

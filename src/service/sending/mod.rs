@@ -106,7 +106,7 @@ impl crate::Service for Service {
 		Ok(())
 	}
 
-	fn interrupt(&self) {
+	async fn interrupt(&self) {
 		for (sender, _) in &self.channels {
 			if !sender.is_closed() {
 				sender.close();

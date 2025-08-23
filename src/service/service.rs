@@ -24,7 +24,7 @@ pub(crate) trait Service: Any + Send + Sync {
 
 	/// Interrupt the service. This is sent to initiate a graceful shutdown.
 	/// The service worker should return from its work loop.
-	fn interrupt(&self) {}
+	async fn interrupt(&self) {}
 
 	/// Clear any caches or similar runtime state.
 	async fn clear_cache(&self) {}

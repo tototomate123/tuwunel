@@ -61,7 +61,7 @@ impl crate::Service for Service {
 		Ok(())
 	}
 
-	fn interrupt(&self) {
+	async fn interrupt(&self) {
 		let (timer_sender, _) = &self.timer_channel;
 		if !timer_sender.is_closed() {
 			timer_sender.close();
