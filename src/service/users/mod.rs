@@ -313,6 +313,7 @@ impl Service {
 	}
 
 	/// Creates a new sync filter. Returns the filter id.
+	#[must_use]
 	pub fn create_filter(&self, user_id: &UserId, filter: &FilterDefinition) -> String {
 		let filter_id = utils::random_string(4);
 
@@ -388,6 +389,7 @@ impl Service {
 
 	/// Creates a short-lived login token, which can be used to log in using the
 	/// `m.login.token` mechanism.
+	#[must_use]
 	pub fn create_login_token(&self, user_id: &UserId, token: &str) -> u64 {
 		use std::num::Saturating as Sat;
 

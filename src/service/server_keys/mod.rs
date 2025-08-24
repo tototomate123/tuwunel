@@ -62,14 +62,17 @@ impl crate::Service for Service {
 
 #[implement(Service)]
 #[inline]
+#[must_use]
 pub fn keypair(&self) -> &Ed25519KeyPair { &self.keypair }
 
 #[implement(Service)]
 #[inline]
+#[must_use]
 pub fn active_key_id(&self) -> &ServerSigningKeyId { self.active_verify_key().0 }
 
 #[implement(Service)]
 #[inline]
+#[must_use]
 pub fn active_verify_key(&self) -> (&ServerSigningKeyId, &VerifyKey) {
 	debug_assert!(self.verify_keys.len() <= 1, "more than one active verify_key");
 	self.verify_keys
