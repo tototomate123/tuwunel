@@ -12,8 +12,11 @@ use std::net::IpAddr;
 
 use axum::extract::State;
 use futures::{FutureExt, StreamExt};
-use ruma::{OwnedRoomId, RoomId, ServerName, UserId, api::client::membership::joined_rooms};
-use tuwunel_core::{Err, Result, warn};
+use ruma::{
+	OwnedRoomId, OwnedServerName, RoomId, RoomOrAliasId, ServerName, UserId,
+	api::client::membership::joined_rooms,
+};
+use tuwunel_core::{Err, Result, result::LogErr, utils::shuffle, warn};
 use tuwunel_service::Services;
 
 pub(crate) use self::{
@@ -67,6 +70,7 @@ pub(crate) async fn banned_room_check(
 		return Ok(());
 	}
 
+	// TODO: weird condition
 	if let Some(room_id) = room_id {
 		if services.metadata.is_banned(room_id).await
 			|| (room_id.server_name().is_some()
@@ -84,36 +88,10 @@ pub(crate) async fn banned_room_check(
 				 attempted to join a banned room or banned room server name: {room_id}"
 			);
 
-			if services
-				.server
-				.config
-				.auto_deactivate_banned_room_attempts
-			{
-				warn!(
-					"Automatically deactivating user {user_id} due to attempted banned room join"
-				);
-
-				if services.server.config.admin_room_notices {
-					services
-						.admin
-						.send_text(&format!(
-							"Automatically deactivating user {user_id} due to attempted banned \
-							 room join from IP {client_ip}"
-						))
-						.await;
-				}
-
-				let all_joined_rooms: Vec<OwnedRoomId> = services
-					.state_cache
-					.rooms_joined(user_id)
-					.map(Into::into)
-					.collect()
-					.await;
-
-				full_user_deactivate(services, user_id, &all_joined_rooms)
-					.boxed()
-					.await?;
-			}
+			maybe_deactivate(services, user_id, client_ip)
+				.await
+				.log_err()
+				.ok();
 
 			return Err!(Request(Forbidden("This room is banned on this homeserver.")));
 		}
@@ -128,39 +106,46 @@ pub(crate) async fn banned_room_check(
 				 name {server_name} that is globally forbidden. Rejecting.",
 			);
 
-			if services
-				.server
-				.config
-				.auto_deactivate_banned_room_attempts
-			{
-				warn!(
-					"Automatically deactivating user {user_id} due to attempted banned room join"
-				);
-
-				if services.server.config.admin_room_notices {
-					services
-						.admin
-						.send_text(&format!(
-							"Automatically deactivating user {user_id} due to attempted banned \
-							 room join from IP {client_ip}"
-						))
-						.await;
-				}
-
-				let all_joined_rooms: Vec<OwnedRoomId> = services
-					.state_cache
-					.rooms_joined(user_id)
-					.map(Into::into)
-					.collect()
-					.await;
-
-				full_user_deactivate(services, user_id, &all_joined_rooms)
-					.boxed()
-					.await?;
-			}
+			maybe_deactivate(services, user_id, client_ip)
+				.await
+				.log_err()
+				.ok();
 
 			return Err!(Request(Forbidden("This remote server is banned on this homeserver.")));
 		}
+	}
+
+	Ok(())
+}
+
+async fn maybe_deactivate(services: &Services, user_id: &UserId, client_ip: IpAddr) -> Result {
+	if services
+		.server
+		.config
+		.auto_deactivate_banned_room_attempts
+	{
+		warn!("Automatically deactivating user {user_id} due to attempted banned room join");
+
+		if services.server.config.admin_room_notices {
+			services
+				.admin
+				.send_text(&format!(
+					"Automatically deactivating user {user_id} due to attempted banned room \
+					 join from IP {client_ip}"
+				))
+				.await;
+		}
+
+		let all_joined_rooms: Vec<OwnedRoomId> = services
+			.state_cache
+			.rooms_joined(user_id)
+			.map(Into::into)
+			.collect()
+			.await;
+
+		full_user_deactivate(services, user_id, &all_joined_rooms)
+			.boxed()
+			.await?;
 	}
 
 	Ok(())
