@@ -4,7 +4,7 @@ use axum::extract::State;
 use axum_client_ip::InsecureClientIp;
 use futures::{FutureExt, StreamExt};
 use ruma::{
-	CanonicalJsonObject, CanonicalJsonValue, OwnedEventId, OwnedRoomId, OwnedServerName, RoomId,
+	CanonicalJsonObject, CanonicalJsonValue, OwnedEventId, OwnedServerName, RoomId,
 	RoomVersionId, UserId,
 	api::{
 		client::knock::knock_room,
@@ -25,9 +25,8 @@ use tuwunel_core::{
 		event::{Event, gen_event_id},
 		pdu::{PduBuilder, PduEvent},
 	},
-	result::FlatOk,
 	trace,
-	utils::{self, shuffle, stream::IterStream},
+	utils::{self},
 	warn,
 };
 use tuwunel_service::{
@@ -39,7 +38,7 @@ use tuwunel_service::{
 };
 
 use super::banned_room_check;
-use crate::Ruma;
+use crate::{Ruma, client::membership::get_join_params};
 
 /// # `POST /_matrix/client/*/knock/{roomIdOrAlias}`
 ///
@@ -53,97 +52,13 @@ pub(crate) async fn knock_room_route(
 	let sender_user = body.sender_user();
 	let body = &body.body;
 
-	let (servers, room_id) = match OwnedRoomId::try_from(body.room_id_or_alias.clone()) {
-		| Ok(room_id) => {
-			banned_room_check(
-				&services,
-				sender_user,
-				Some(&room_id),
-				room_id.server_name(),
-				client,
-			)
-			.await?;
+	let (room_id, servers) =
+		get_join_params(&services, sender_user, &body.room_id_or_alias, &body.via).await?;
 
-			let mut servers = body.via.clone();
-			servers.extend(
-				services
-					.state_cache
-					.servers_invite_via(&room_id)
-					.map(ToOwned::to_owned)
-					.collect::<Vec<_>>()
-					.await,
-			);
+	banned_room_check(&services, sender_user, Some(&room_id), room_id.server_name(), client)
+		.await?;
 
-			servers.extend(
-				services
-					.state_cache
-					.invite_state(sender_user, &room_id)
-					.await
-					.unwrap_or_default()
-					.iter()
-					.filter_map(|event| event.get_field("sender").ok().flatten())
-					.filter_map(|sender: &str| UserId::parse(sender).ok())
-					.map(|user| user.server_name().to_owned()),
-			);
-
-			if let Some(server) = room_id.server_name() {
-				servers.push(server.to_owned());
-			}
-
-			servers.sort_unstable();
-			servers.dedup();
-			shuffle(&mut servers);
-
-			(servers, room_id)
-		},
-		| Err(room_alias) => {
-			let (room_id, mut servers) = services
-				.alias
-				.resolve_alias(&room_alias, Some(body.via.clone()))
-				.await?;
-
-			banned_room_check(
-				&services,
-				sender_user,
-				Some(&room_id),
-				Some(room_alias.server_name()),
-				client,
-			)
-			.await?;
-
-			let addl_via_servers = services
-				.state_cache
-				.servers_invite_via(&room_id)
-				.map(ToOwned::to_owned);
-
-			let addl_state_servers = services
-				.state_cache
-				.invite_state(sender_user, &room_id)
-				.await
-				.unwrap_or_default();
-
-			let mut addl_servers: Vec<_> = addl_state_servers
-				.iter()
-				.map(|event| event.get_field("sender"))
-				.filter_map(FlatOk::flat_ok)
-				.map(|user: &UserId| user.server_name().to_owned())
-				.stream()
-				.chain(addl_via_servers)
-				.collect()
-				.await;
-
-			addl_servers.sort_unstable();
-			addl_servers.dedup();
-			shuffle(&mut addl_servers);
-			servers.append(&mut addl_servers);
-
-			(servers, room_id)
-		},
-	};
-
-	knock_room_by_id_helper(&services, sender_user, &room_id, body.reason.clone(), &servers)
-		.boxed()
-		.await
+	knock_room_by_id_helper(&services, sender_user, &room_id, body.reason.clone(), &servers).await
 }
 
 async fn knock_room_by_id_helper(

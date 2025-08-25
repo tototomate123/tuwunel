@@ -40,7 +40,8 @@ pub(super) mod user_directory;
 pub(super) mod voip;
 pub(super) mod well_known;
 
-pub use account::full_user_deactivate;
+mod utils;
+
 pub(super) use account::*;
 pub(super) use account_data::*;
 pub(super) use alias::*;
@@ -55,12 +56,10 @@ pub(super) use keys::*;
 pub(super) use media::*;
 pub(super) use media_legacy::*;
 pub(super) use membership::*;
-pub use membership::{join_room_by_id_helper, leave_all_rooms, leave_room};
 pub(super) use message::*;
 pub(super) use openid::*;
 pub(super) use presence::*;
 pub(super) use profile::*;
-pub use profile::{update_avatar_url, update_displayname};
 pub(super) use push::*;
 pub(super) use read_marker::*;
 pub(super) use redact::*;

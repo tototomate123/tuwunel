@@ -9,9 +9,10 @@ use tuwunel_core::{Result, Server, debug, debug_info, err, info, trace};
 use tuwunel_database::Database;
 
 use crate::{
-	account_data, admin, appservice, client, config, emergency, federation, globals, key_backups,
+	account_data, admin, appservice, client, config, deactivate, emergency, federation, globals,
+	key_backups,
 	manager::Manager,
-	media, presence, pusher, resolver, rooms, sending, server_keys,
+	media, membership, presence, pusher, resolver, rooms, sending, server_keys,
 	service::{Args, Service},
 	sync, transaction_ids, uiaa, users,
 };
@@ -55,6 +56,8 @@ pub struct Services {
 	pub transaction_ids: Arc<transaction_ids::Service>,
 	pub uiaa: Arc<uiaa::Service>,
 	pub users: Arc<users::Service>,
+	pub membership: Arc<membership::Service>,
+	pub deactivate: Arc<deactivate::Service>,
 
 	manager: Mutex<Option<Arc<Manager>>>,
 	pub server: Arc<Server>,
@@ -133,6 +136,8 @@ impl Services {
 			transaction_ids: build!(transaction_ids::Service),
 			uiaa: build!(uiaa::Service),
 			users: build!(users::Service),
+			membership: build!(membership::Service),
+			deactivate: build!(deactivate::Service),
 
 			manager: Mutex::new(None),
 			server,
@@ -184,7 +189,7 @@ impl Services {
 		Ok(())
 	}
 
-	pub(crate) fn services(&self) -> [Arc<dyn Service>; 38] {
+	pub(crate) fn services(&self) -> [Arc<dyn Service>; 40] {
 		[
 			self.account_data.clone(),
 			self.admin.clone(),
@@ -224,6 +229,8 @@ impl Services {
 			self.transaction_ids.clone(),
 			self.uiaa.clone(),
 			self.users.clone(),
+			self.membership.clone(),
+			self.deactivate.clone(),
 		]
 	}
 

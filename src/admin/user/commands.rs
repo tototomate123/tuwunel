@@ -12,16 +12,13 @@ use ruma::{
 		tag::{TagEvent, TagEventContent, TagInfo},
 	},
 };
-use tuwunel_api::client::{
-	full_user_deactivate, join_room_by_id_helper, leave_all_rooms, leave_room, update_avatar_url,
-	update_displayname,
-};
 use tuwunel_core::{
 	Err, Result, debug, debug_warn, error, info, is_equal_to,
 	matrix::{Event, pdu::PduBuilder},
 	utils::{self, ReadyExt},
 	warn,
 };
+use tuwunel_service::Services;
 
 use crate::{
 	admin_command, get_room_info,
@@ -142,20 +139,24 @@ pub(super) async fn create_user(&self, username: String, password: Option<String
 				continue;
 			}
 
+			let state_lock = self.services.state.mutex.lock(&room_id).await;
+
 			if let Some(room_server_name) = room.server_name() {
-				match join_room_by_id_helper(
-					self.services,
-					&user_id,
-					&room_id,
-					Some("Automatically joining this room upon registration".to_owned()),
-					&[
-						self.services.globals.server_name().to_owned(),
-						room_server_name.to_owned(),
-					],
-					None,
-					&None,
-				)
-				.await
+				match self
+					.services
+					.membership
+					.join(
+						&user_id,
+						&room_id,
+						Some("Automatically joining this room upon registration".to_owned()),
+						&[
+							self.services.globals.server_name().to_owned(),
+							room_server_name.to_owned(),
+						],
+						&None,
+						&state_lock,
+					)
+					.await
 				{
 					| Ok(_response) => {
 						info!("Automatically joined room {room} for user {user_id}");
@@ -174,6 +175,8 @@ pub(super) async fn create_user(&self, username: String, password: Option<String
 							.await;
 					},
 				}
+
+				drop(state_lock);
 			}
 		}
 	}
@@ -215,33 +218,7 @@ pub(super) async fn deactivate(&self, no_leave_rooms: bool, user_id: String) -> 
 		return Err!("Not allowed to deactivate the server service account.",);
 	}
 
-	self.services
-		.users
-		.deactivate_account(&user_id)
-		.await?;
-
-	if !no_leave_rooms {
-		self.services
-			.admin
-			.send_text(&format!("Making {user_id} leave all rooms after deactivation..."))
-			.await;
-
-		let all_joined_rooms: Vec<OwnedRoomId> = self
-			.services
-			.state_cache
-			.rooms_joined(&user_id)
-			.map(Into::into)
-			.collect()
-			.await;
-
-		full_user_deactivate(self.services, &user_id, &all_joined_rooms)
-			.boxed()
-			.await?;
-
-		update_displayname(self.services, &user_id, None, &all_joined_rooms).await;
-		update_avatar_url(self.services, &user_id, None, None, &all_joined_rooms).await;
-		leave_all_rooms(self.services, &user_id).await;
-	}
+	deactivate_user(self.services, &user_id, no_leave_rooms).await?;
 
 	self.write_str(&format!("User {user_id} has been deactivated"))
 		.await
@@ -334,39 +311,15 @@ pub(super) async fn deactivate_all(&self, no_leave_rooms: bool, force: bool) -> 
 	let mut deactivation_count: usize = 0;
 
 	for user_id in user_ids {
-		match self
-			.services
-			.users
-			.deactivate_account(&user_id)
-			.await
-		{
+		match deactivate_user(self.services, &user_id, no_leave_rooms).await {
+			| Ok(()) => {
+				deactivation_count = deactivation_count.saturating_add(1);
+			},
 			| Err(e) => {
 				self.services
 					.admin
 					.send_text(&format!("Failed deactivating user: {e}"))
 					.await;
-			},
-			| Ok(()) => {
-				deactivation_count = deactivation_count.saturating_add(1);
-				if !no_leave_rooms {
-					info!("Forcing user {user_id} to leave all rooms apart of deactivate-all");
-					let all_joined_rooms: Vec<OwnedRoomId> = self
-						.services
-						.state_cache
-						.rooms_joined(&user_id)
-						.map(Into::into)
-						.collect()
-						.await;
-
-					full_user_deactivate(self.services, &user_id, &all_joined_rooms)
-						.boxed()
-						.await?;
-
-					update_displayname(self.services, &user_id, None, &all_joined_rooms).await;
-					update_avatar_url(self.services, &user_id, None, None, &all_joined_rooms)
-						.await;
-					leave_all_rooms(self.services, &user_id).await;
-				}
 			},
 		}
 	}
@@ -382,6 +335,20 @@ pub(super) async fn deactivate_all(&self, no_leave_rooms: bool, force: bool) -> 
 		)
 	}
 	.await
+}
+
+async fn deactivate_user(services: &Services, user_id: &UserId, no_leave_rooms: bool) -> Result {
+	if !no_leave_rooms {
+		services
+			.deactivate
+			.full_deactivate(user_id)
+			.boxed()
+			.await?;
+	} else {
+		services.users.deactivate_account(user_id).await?;
+	}
+
+	Ok(())
 }
 
 #[admin_command]
@@ -510,17 +477,21 @@ pub(super) async fn force_join_list_of_local_users(
 	let mut failed_joins: usize = 0;
 	let mut successful_joins: usize = 0;
 
+	let state_lock = self.services.state.mutex.lock(&room_id).await;
+
 	for user_id in user_ids {
-		match join_room_by_id_helper(
-			self.services,
-			&user_id,
-			&room_id,
-			Some(String::from(BULK_JOIN_REASON)),
-			&servers,
-			None,
-			&None,
-		)
-		.await
+		match self
+			.services
+			.membership
+			.join(
+				&user_id,
+				&room_id,
+				Some(String::from(BULK_JOIN_REASON)),
+				&servers,
+				&None,
+				&state_lock,
+			)
+			.await
 		{
 			| Ok(_res) => {
 				successful_joins = successful_joins.saturating_add(1);
@@ -531,6 +502,8 @@ pub(super) async fn force_join_list_of_local_users(
 			},
 		}
 	}
+
+	drop(state_lock);
 
 	self.write_str(&format!(
 		"{successful_joins} local users have been joined to {room_id}. {failed_joins} joins \
@@ -592,6 +565,8 @@ pub(super) async fn force_join_all_local_users(
 	let mut failed_joins: usize = 0;
 	let mut successful_joins: usize = 0;
 
+	let state_lock = self.services.state.mutex.lock(&room_id).await;
+
 	for user_id in &self
 		.services
 		.users
@@ -600,16 +575,18 @@ pub(super) async fn force_join_all_local_users(
 		.collect::<Vec<_>>()
 		.await
 	{
-		match join_room_by_id_helper(
-			self.services,
-			user_id,
-			&room_id,
-			Some(String::from(BULK_JOIN_REASON)),
-			&servers,
-			None,
-			&None,
-		)
-		.await
+		match self
+			.services
+			.membership
+			.join(
+				user_id,
+				&room_id,
+				Some(String::from(BULK_JOIN_REASON)),
+				&servers,
+				&None,
+				&state_lock,
+			)
+			.await
 		{
 			| Ok(_res) => {
 				successful_joins = successful_joins.saturating_add(1);
@@ -620,6 +597,8 @@ pub(super) async fn force_join_all_local_users(
 			},
 		}
 	}
+
+	drop(state_lock);
 
 	self.write_str(&format!(
 		"{successful_joins} local users have been joined to {room_id}. {failed_joins} joins \
@@ -645,8 +624,15 @@ pub(super) async fn force_join_room(
 		self.services.globals.user_is_local(&user_id),
 		"Parsed user_id must be a local user"
 	);
-	join_room_by_id_helper(self.services, &user_id, &room_id, None, &servers, None, &None)
+
+	let state_lock = self.services.state.mutex.lock(&room_id).await;
+
+	self.services
+		.membership
+		.join(&user_id, &room_id, None, &servers, &None, &state_lock)
 		.await?;
+
+	drop(state_lock);
 
 	self.write_str(&format!("{user_id} has been joined to {room_id}.",))
 		.await
@@ -675,9 +661,15 @@ pub(super) async fn force_leave_room(
 		return Err!("{user_id} is not joined in the room");
 	}
 
-	leave_room(self.services, &user_id, &room_id, None)
+	let state_lock = self.services.state.mutex.lock(&room_id).await;
+
+	self.services
+		.membership
+		.leave(&user_id, &room_id, None, &state_lock)
 		.boxed()
 		.await?;
+
+	drop(state_lock);
 
 	self.write_str(&format!("{user_id} has left {room_id}.",))
 		.await

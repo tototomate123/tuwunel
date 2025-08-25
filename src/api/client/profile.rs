@@ -2,27 +2,20 @@ use std::collections::BTreeMap;
 
 use axum::extract::State;
 use futures::{
-	FutureExt, StreamExt, TryStreamExt,
-	future::{join, join3, join4},
+	StreamExt,
+	future::{join, join4},
 };
 use ruma::{
-	OwnedMxcUri, OwnedRoomId, UserId,
+	OwnedRoomId,
 	api::{
 		client::profile::{
 			get_avatar_url, get_display_name, get_profile, set_avatar_url, set_display_name,
 		},
 		federation,
 	},
-	events::room::member::{MembershipState, RoomMemberEventContent},
 	presence::PresenceState,
 };
-use tuwunel_core::{
-	Err, Result,
-	matrix::pdu::PduBuilder,
-	utils::{IterStream, future::TryExtExt, stream::TryIgnore},
-	warn,
-};
-use tuwunel_service::Services;
+use tuwunel_core::{Err, Result, utils::future::TryExtExt};
 
 use crate::Ruma;
 
@@ -48,7 +41,9 @@ pub(crate) async fn set_displayname_route(
 		.collect()
 		.await;
 
-	update_displayname(&services, &body.user_id, body.displayname.clone(), &all_joined_rooms)
+	services
+		.users
+		.update_displayname(&body.user_id, body.displayname.clone(), &all_joined_rooms)
 		.await;
 
 	if services.config.allow_local_presence {
@@ -143,14 +138,15 @@ pub(crate) async fn set_avatar_url_route(
 		.collect()
 		.await;
 
-	update_avatar_url(
-		&services,
-		&body.user_id,
-		body.avatar_url.clone(),
-		body.blurhash.clone(),
-		&all_joined_rooms,
-	)
-	.await;
+	services
+		.users
+		.update_avatar_url(
+			&body.user_id,
+			body.avatar_url.clone(),
+			body.blurhash.clone(),
+			&all_joined_rooms,
+		)
+		.await;
 
 	if services.config.allow_local_presence {
 		// Presence update
@@ -332,127 +328,4 @@ pub(crate) async fn get_profile_route(
 		.chain(custom_profile_fields.into_iter());
 
 	Ok(response.collect::<get_profile::v3::Response>())
-}
-
-pub async fn update_displayname(
-	services: &Services,
-	user_id: &UserId,
-	displayname: Option<String>,
-	all_joined_rooms: &[OwnedRoomId],
-) {
-	let (current_avatar_url, current_blurhash, current_displayname) = join3(
-		services.users.avatar_url(user_id).ok(),
-		services.users.blurhash(user_id).ok(),
-		services.users.displayname(user_id).ok(),
-	)
-	.await;
-
-	if displayname == current_displayname {
-		return;
-	}
-
-	services
-		.users
-		.set_displayname(user_id, displayname.clone());
-
-	// Send a new join membership event into all joined rooms
-	let avatar_url = &current_avatar_url;
-	let blurhash = &current_blurhash;
-	let displayname = &displayname;
-	let all_joined_rooms: Vec<_> = all_joined_rooms
-		.iter()
-		.try_stream()
-		.and_then(async |room_id: &OwnedRoomId| {
-			let pdu = PduBuilder::state(user_id.to_string(), &RoomMemberEventContent {
-				displayname: displayname.clone(),
-				membership: MembershipState::Join,
-				avatar_url: avatar_url.clone(),
-				blurhash: blurhash.clone(),
-				join_authorized_via_users_server: None,
-				reason: None,
-				is_direct: None,
-				third_party_invite: None,
-			});
-
-			Ok((pdu, room_id))
-		})
-		.ignore_err()
-		.collect()
-		.await;
-
-	update_all_rooms(services, all_joined_rooms, user_id)
-		.boxed()
-		.await;
-}
-
-pub async fn update_avatar_url(
-	services: &Services,
-	user_id: &UserId,
-	avatar_url: Option<OwnedMxcUri>,
-	blurhash: Option<String>,
-	all_joined_rooms: &[OwnedRoomId],
-) {
-	let (current_avatar_url, current_blurhash, current_displayname) = join3(
-		services.users.avatar_url(user_id).ok(),
-		services.users.blurhash(user_id).ok(),
-		services.users.displayname(user_id).ok(),
-	)
-	.await;
-
-	if current_avatar_url == avatar_url && current_blurhash == blurhash {
-		return;
-	}
-
-	services
-		.users
-		.set_avatar_url(user_id, avatar_url.clone());
-	services
-		.users
-		.set_blurhash(user_id, blurhash.clone());
-
-	// Send a new join membership event into all joined rooms
-	let avatar_url = &avatar_url;
-	let blurhash = &blurhash;
-	let displayname = &current_displayname;
-	let all_joined_rooms: Vec<_> = all_joined_rooms
-		.iter()
-		.try_stream()
-		.and_then(async |room_id: &OwnedRoomId| {
-			let pdu = PduBuilder::state(user_id.to_string(), &RoomMemberEventContent {
-				avatar_url: avatar_url.clone(),
-				blurhash: blurhash.clone(),
-				membership: MembershipState::Join,
-				displayname: displayname.clone(),
-				join_authorized_via_users_server: None,
-				reason: None,
-				is_direct: None,
-				third_party_invite: None,
-			});
-
-			Ok((pdu, room_id))
-		})
-		.ignore_err()
-		.collect()
-		.await;
-
-	update_all_rooms(services, all_joined_rooms, user_id)
-		.boxed()
-		.await;
-}
-
-async fn update_all_rooms(
-	services: &Services,
-	all_joined_rooms: Vec<(PduBuilder, &OwnedRoomId)>,
-	user_id: &UserId,
-) {
-	for (pdu_builder, room_id) in all_joined_rooms {
-		let state_lock = services.state.mutex.lock(room_id).await;
-		if let Err(e) = services
-			.timeline
-			.build_and_append_pdu(pdu_builder, user_id, room_id, &state_lock)
-			.await
-		{
-			warn!(%user_id, %room_id, "Failed to update/send new profile join membership update in room: {e}");
-		}
-	}
 }

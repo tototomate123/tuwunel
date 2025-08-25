@@ -19,7 +19,7 @@ use ruma::{
 use tuwunel_core::{Err, Error, Result, debug_info, error, info, is_equal_to, utils, warn};
 use tuwunel_service::users::device::generate_refresh_token;
 
-use super::{DEVICE_ID_LENGTH, SESSION_ID_LENGTH, join_room_by_id_helper};
+use super::{DEVICE_ID_LENGTH, SESSION_ID_LENGTH};
 use crate::Ruma;
 
 const RANDOM_USER_ID_LENGTH: usize = 10;
@@ -555,17 +555,20 @@ pub(crate) async fn register_route(
 			}
 
 			if let Some(room_server_name) = room.server_name() {
-				match join_room_by_id_helper(
-					&services,
-					&user_id,
-					&room_id,
-					Some("Automatically joining this room upon registration".to_owned()),
-					&[services.globals.server_name().to_owned(), room_server_name.to_owned()],
-					None,
-					&body.appservice_info,
-				)
-				.boxed()
-				.await
+				let state_lock = services.state.mutex.lock(&room_id).await;
+
+				match services
+					.membership
+					.join(
+						&user_id,
+						&room_id,
+						Some("Automatically joining this room upon registration".to_owned()),
+						&[services.globals.server_name().to_owned(), room_server_name.to_owned()],
+						&body.appservice_info,
+						&state_lock,
+					)
+					.boxed()
+					.await
 				{
 					| Err(e) => {
 						// don't return this error so we don't fail registrations
@@ -577,6 +580,8 @@ pub(crate) async fn register_route(
 						info!("Automatically joined room {room} for user {user_id}");
 					},
 				}
+
+				drop(state_lock);
 			}
 		}
 	}

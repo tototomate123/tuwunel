@@ -1,9 +1,7 @@
 use axum::extract::State;
-use ruma::{
-	api::client::membership::ban_user,
-	events::room::member::{MembershipState, RoomMemberEventContent},
-};
-use tuwunel_core::{Err, Result, matrix::pdu::PduBuilder};
+use futures::FutureExt;
+use ruma::api::client::membership::ban_user;
+use tuwunel_core::{Err, Result};
 
 use crate::Ruma;
 
@@ -22,29 +20,10 @@ pub(crate) async fn ban_user_route(
 
 	let state_lock = services.state.mutex.lock(&body.room_id).await;
 
-	let current_member_content = services
-		.state_accessor
-		.get_member(&body.room_id, &body.user_id)
-		.await
-		.unwrap_or_else(|_| RoomMemberEventContent::new(MembershipState::Ban));
-
 	services
-		.timeline
-		.build_and_append_pdu(
-			PduBuilder::state(body.user_id.to_string(), &RoomMemberEventContent {
-				membership: MembershipState::Ban,
-				reason: body.reason.clone(),
-				displayname: None, // display name may be offensive
-				avatar_url: None,  // avatar may be offensive
-				is_direct: None,
-				join_authorized_via_users_server: None,
-				third_party_invite: None,
-				..current_member_content
-			}),
-			sender_user,
-			&body.room_id,
-			&state_lock,
-		)
+		.membership
+		.ban(&body.room_id, &body.user_id, body.reason.as_ref(), sender_user, &state_lock)
+		.boxed()
 		.await?;
 
 	drop(state_lock);

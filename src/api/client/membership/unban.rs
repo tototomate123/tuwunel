@@ -1,9 +1,7 @@
 use axum::extract::State;
-use ruma::{
-	api::client::membership::unban_user,
-	events::room::member::{MembershipState, RoomMemberEventContent},
-};
-use tuwunel_core::{Err, Result, matrix::pdu::PduBuilder};
+use futures::FutureExt;
+use ruma::api::client::membership::unban_user;
+use tuwunel_core::Result;
 
 use crate::Ruma;
 
@@ -16,34 +14,16 @@ pub(crate) async fn unban_user_route(
 ) -> Result<unban_user::v3::Response> {
 	let state_lock = services.state.mutex.lock(&body.room_id).await;
 
-	let current_member_content = services
-		.state_accessor
-		.get_member(&body.room_id, &body.user_id)
-		.await
-		.unwrap_or_else(|_| RoomMemberEventContent::new(MembershipState::Leave));
-
-	if current_member_content.membership != MembershipState::Ban {
-		return Err!(Request(Forbidden(
-			"Cannot unban a user who is not banned (current membership: {})",
-			current_member_content.membership
-		)));
-	}
-
 	services
-		.timeline
-		.build_and_append_pdu(
-			PduBuilder::state(body.user_id.to_string(), &RoomMemberEventContent {
-				membership: MembershipState::Leave,
-				reason: body.reason.clone(),
-				join_authorized_via_users_server: None,
-				third_party_invite: None,
-				is_direct: None,
-				..current_member_content
-			}),
-			body.sender_user(),
+		.membership
+		.unban(
 			&body.room_id,
+			&body.user_id,
+			body.reason.as_ref(),
+			body.sender_user(),
 			&state_lock,
 		)
+		.boxed()
 		.await?;
 
 	drop(state_lock);

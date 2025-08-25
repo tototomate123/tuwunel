@@ -1,26 +1,18 @@
 use axum::extract::State;
 use axum_client_ip::InsecureClientIp;
 use futures::{FutureExt, StreamExt};
-use ruma::{
-	OwnedRoomId, UserId,
-	api::client::{
-		account::{
-			ThirdPartyIdRemovalStatus, change_password, deactivate, get_3pids,
-			request_3pid_management_token_via_email, request_3pid_management_token_via_msisdn,
-			whoami,
-		},
-		uiaa::{AuthFlow, AuthType, UiaaInfo},
+use ruma::api::client::{
+	account::{
+		ThirdPartyIdRemovalStatus, change_password, deactivate, get_3pids,
+		request_3pid_management_token_via_email, request_3pid_management_token_via_msisdn,
+		whoami,
 	},
-	events::{StateEventType, room::power_levels::RoomPowerLevelsEventContent},
+	uiaa::{AuthFlow, AuthType, UiaaInfo},
 };
 use tuwunel_core::{
-	Err, Error, Result, err, info,
-	matrix::{Event, pdu::PduBuilder},
-	utils,
+	Err, Error, Result, err, info, utils,
 	utils::{ReadyExt, stream::BroadbandExt},
-	warn,
 };
-use tuwunel_service::Services;
 
 use super::SESSION_ID_LENGTH;
 use crate::Ruma;
@@ -213,18 +205,9 @@ pub(crate) async fn deactivate_route(
 		},
 	}
 
-	// Remove profile pictures and display name
-	let all_joined_rooms: Vec<OwnedRoomId> = services
-		.state_cache
-		.rooms_joined(sender_user)
-		.map(Into::into)
-		.collect()
-		.await;
-
-	super::update_displayname(&services, sender_user, None, &all_joined_rooms).await;
-	super::update_avatar_url(&services, sender_user, None, None, &all_joined_rooms).await;
-
-	full_user_deactivate(&services, sender_user, &all_joined_rooms)
+	services
+		.deactivate
+		.full_deactivate(sender_user)
 		.boxed()
 		.await?;
 
@@ -282,93 +265,4 @@ pub(crate) async fn request_3pid_management_token_via_msisdn_route(
 	_body: Ruma<request_3pid_management_token_via_msisdn::v3::Request>,
 ) -> Result<request_3pid_management_token_via_msisdn::v3::Response> {
 	Err!(Request(ThreepidDenied("Third party identifiers are not implemented")))
-}
-
-/// Runs through all the deactivation steps:
-///
-/// - Mark as deactivated
-/// - Removing display name
-/// - Removing avatar URL and blurhash
-/// - Removing all profile data
-/// - Leaving all rooms (and forgets all of them)
-pub async fn full_user_deactivate(
-	services: &Services,
-	user_id: &UserId,
-	all_joined_rooms: &[OwnedRoomId],
-) -> Result {
-	services
-		.users
-		.deactivate_account(user_id)
-		.await
-		.ok();
-
-	super::update_displayname(services, user_id, None, all_joined_rooms).await;
-	super::update_avatar_url(services, user_id, None, None, all_joined_rooms).await;
-
-	services
-		.users
-		.all_profile_keys(user_id)
-		.ready_for_each(|(profile_key, _)| {
-			services
-				.users
-				.set_profile_key(user_id, &profile_key, None);
-		})
-		.await;
-
-	for room_id in all_joined_rooms {
-		let state_lock = services.state.mutex.lock(room_id).await;
-
-		let room_power_levels = services
-			.state_accessor
-			.get_power_levels(room_id)
-			.await
-			.ok();
-
-		let user_can_change_self = room_power_levels
-			.as_ref()
-			.is_some_and(|power_levels| {
-				power_levels.user_can_change_user_power_level(user_id, user_id)
-			});
-
-		let user_can_demote_self = user_can_change_self
-			|| services
-				.state_accessor
-				.room_state_get(room_id, &StateEventType::RoomCreate, "")
-				.await
-				.is_ok_and(|event| event.sender() == user_id);
-
-		if user_can_demote_self {
-			let mut power_levels_content: RoomPowerLevelsEventContent = room_power_levels
-				.map(TryInto::try_into)
-				.transpose()?
-				.unwrap_or_default();
-
-			power_levels_content.users.remove(user_id);
-
-			// ignore errors so deactivation doesn't fail
-			match services
-				.timeline
-				.build_and_append_pdu(
-					PduBuilder::state(String::new(), &power_levels_content),
-					user_id,
-					room_id,
-					&state_lock,
-				)
-				.await
-			{
-				| Err(e) => {
-					warn!(%room_id, %user_id, "Failed to demote user's own power level: {e}");
-				},
-				| _ => {
-					info!("Demoted {user_id} in {room_id} as part of account deactivation");
-				},
-			}
-		}
-	}
-
-	super::leave_all_rooms(services, user_id)
-		.boxed()
-		.await;
-
-	Ok(())
 }

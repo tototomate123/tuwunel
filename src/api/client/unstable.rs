@@ -18,7 +18,6 @@ use ruma::{
 };
 use tuwunel_core::{Err, Error, Result};
 
-use super::{update_avatar_url, update_displayname};
 use crate::Ruma;
 
 /// # `GET /_matrix/client/unstable/uk.half-shot.msc2666/user/mutual_rooms`
@@ -142,13 +141,14 @@ pub(crate) async fn set_profile_field_route(
 			.collect()
 			.await;
 
-		update_displayname(
-			&services,
-			&body.user_id,
-			Some(body.value.value().to_string()),
-			&all_joined_rooms,
-		)
-		.await;
+		services
+			.users
+			.update_displayname(
+				&body.user_id,
+				Some(body.value.value().to_string()),
+				&all_joined_rooms,
+			)
+			.await;
 	} else if body.value.field_name() == ProfileFieldName::AvatarUrl {
 		let mxc = ruma::OwnedMxcUri::from(body.value.value().to_string());
 
@@ -159,7 +159,10 @@ pub(crate) async fn set_profile_field_route(
 			.collect()
 			.await;
 
-		update_avatar_url(&services, &body.user_id, Some(mxc), None, &all_joined_rooms).await;
+		services
+			.users
+			.update_avatar_url(&body.user_id, Some(mxc), None, &all_joined_rooms)
+			.await;
 	} else {
 		services.users.set_profile_key(
 			&body.user_id,
@@ -202,7 +205,10 @@ pub(crate) async fn delete_profile_field_route(
 			.collect()
 			.await;
 
-		update_displayname(&services, &body.user_id, None, &all_joined_rooms).await;
+		services
+			.users
+			.update_displayname(&body.user_id, None, &all_joined_rooms)
+			.await;
 	} else if body.field == ProfileFieldName::AvatarUrl {
 		let all_joined_rooms: Vec<OwnedRoomId> = services
 			.state_cache
@@ -211,7 +217,10 @@ pub(crate) async fn delete_profile_field_route(
 			.collect()
 			.await;
 
-		update_avatar_url(&services, &body.user_id, None, None, &all_joined_rooms).await;
+		services
+			.users
+			.update_avatar_url(&body.user_id, None, None, &all_joined_rooms)
+			.await;
 	} else {
 		services
 			.users

@@ -1,9 +1,7 @@
 use axum::extract::State;
-use ruma::{
-	api::client::membership::kick_user,
-	events::room::member::{MembershipState, RoomMemberEventContent},
-};
-use tuwunel_core::{Err, Result, matrix::pdu::PduBuilder};
+use futures::FutureExt;
+use ruma::api::client::membership::kick_user;
+use tuwunel_core::{Err, Result};
 
 use crate::Ruma;
 
@@ -14,43 +12,18 @@ pub(crate) async fn kick_user_route(
 	State(services): State<crate::State>,
 	body: Ruma<kick_user::v3::Request>,
 ) -> Result<kick_user::v3::Response> {
-	let state_lock = services.state.mutex.lock(&body.room_id).await;
+	let sender_user = body.sender_user();
 
-	let Ok(event) = services
-		.state_accessor
-		.get_member(&body.room_id, &body.user_id)
-		.await
-	else {
-		// copy synapse's behaviour of returning 200 without any change to the state
-		// instead of erroring on left users
-		return Ok(kick_user::v3::Response::new());
-	};
-
-	if !matches!(
-		event.membership,
-		MembershipState::Invite | MembershipState::Knock | MembershipState::Join,
-	) {
-		return Err!(Request(Forbidden(
-			"Cannot kick a user who is not apart of the room (current membership: {})",
-			event.membership
-		)));
+	if sender_user == body.user_id {
+		return Err!(Request(Forbidden("You cannot kick yourself.")));
 	}
 
+	let state_lock = services.state.mutex.lock(&body.room_id).await;
+
 	services
-		.timeline
-		.build_and_append_pdu(
-			PduBuilder::state(body.user_id.to_string(), &RoomMemberEventContent {
-				membership: MembershipState::Leave,
-				reason: body.reason.clone(),
-				is_direct: None,
-				join_authorized_via_users_server: None,
-				third_party_invite: None,
-				..event
-			}),
-			body.sender_user(),
-			&body.room_id,
-			&state_lock,
-		)
+		.membership
+		.kick(&body.room_id, &body.user_id, body.reason.as_ref(), sender_user, &state_lock)
+		.boxed()
 		.await?;
 
 	drop(state_lock);

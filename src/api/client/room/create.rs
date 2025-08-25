@@ -35,7 +35,7 @@ use tuwunel_core::{
 };
 use tuwunel_service::{Services, appservice::RegistrationInfo, rooms::state::RoomMutexGuard};
 
-use crate::{Ruma, client::invite_helper};
+use crate::{Ruma, client::utils::invite_check};
 
 /// # `POST /_matrix/client/v3/createRoom`
 ///
@@ -332,30 +332,38 @@ pub(crate) async fn create_room_route(
 	drop(next_count);
 	drop(state_lock);
 
-	// 8. Events implied by invite (and TODO: invite_3pid)
-	for user_id in &body.invite {
-		if services
-			.users
-			.user_is_ignored(sender_user, user_id)
+	// if inviting anyone with room creation and invite check passes
+	if (!body.invite.is_empty() || !body.invite_3pid.is_empty())
+		&& invite_check(&services, sender_user, &room_id)
 			.await
-		{
-			continue;
-		} else if services
-			.users
-			.user_is_ignored(user_id, sender_user)
-			.await
-		{
-			// silently drop the invite to the recipient if they've been ignored by the
-			// sender, pretend it worked
-			continue;
-		}
+			.is_ok()
+	{
+		// 8. Events implied by invite (and TODO: invite_3pid)
+		for user_id in &body.invite {
+			if services
+				.users
+				.user_is_ignored(sender_user, user_id)
+				.await
+			{
+				continue;
+			} else if services
+				.users
+				.user_is_ignored(user_id, sender_user)
+				.await
+			{
+				// silently drop the invite to the recipient if they've been ignored by the
+				// sender, pretend it worked
+				continue;
+			}
 
-		if let Err(e) =
-			invite_helper(&services, sender_user, user_id, &room_id, None, body.is_direct)
+			if let Err(e) = services
+				.membership
+				.invite(sender_user, user_id, &room_id, None, body.is_direct)
 				.boxed()
 				.await
-		{
-			warn!(%e, "Failed to send invite");
+			{
+				warn!(%e, "Failed to send invite");
+			}
 		}
 	}
 

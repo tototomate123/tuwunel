@@ -22,7 +22,7 @@ use tuwunel_service::Services;
 pub(crate) use self::{
 	ban::ban_user_route,
 	forget::forget_room_route,
-	invite::{invite_helper, invite_user_route},
+	invite::invite_user_route,
 	join::{join_room_by_id_or_alias_route, join_room_by_id_route},
 	kick::kick_user_route,
 	knock::knock_room_route,
@@ -30,11 +30,7 @@ pub(crate) use self::{
 	members::{get_member_events_route, joined_members_route},
 	unban::unban_user_route,
 };
-pub use self::{
-	join::join_room_by_id_helper,
-	leave::{leave_all_rooms, leave_room},
-};
-use crate::{Ruma, client::full_user_deactivate};
+use crate::Ruma;
 
 /// # `POST /_matrix/client/r0/joined_rooms`
 ///
@@ -136,17 +132,76 @@ async fn maybe_deactivate(services: &Services, user_id: &UserId, client_ip: IpAd
 				.await;
 		}
 
-		let all_joined_rooms: Vec<OwnedRoomId> = services
-			.state_cache
-			.rooms_joined(user_id)
-			.map(Into::into)
-			.collect()
-			.await;
-
-		full_user_deactivate(services, user_id, &all_joined_rooms)
+		services
+			.deactivate
+			.full_deactivate(user_id)
 			.boxed()
 			.await?;
 	}
 
 	Ok(())
+}
+
+// TODO: should this be in services? banned check would have to resolve again if
+// room_id is not available at callsite
+async fn get_join_params(
+	services: &Services,
+	user_id: &UserId,
+	room_id_or_alias: &RoomOrAliasId,
+	via: &[OwnedServerName],
+) -> Result<(OwnedRoomId, Vec<OwnedServerName>)> {
+	// servers tried first, additional_servers shuffled then tried after
+	let (room_id, mut servers, mut additional_servers) =
+		match OwnedRoomId::try_from(room_id_or_alias.to_owned()) {
+			// if room id, shuffle via + room_id server_name ...
+			| Ok(room_id) => {
+				let mut additional_servers = via.to_vec();
+
+				if let Some(server) = room_id.server_name() {
+					additional_servers.push(server.to_owned());
+				}
+
+				(room_id, Vec::new(), additional_servers)
+			},
+			// ... if room alias, resolve and don't shuffle ...
+			| Err(room_alias) => {
+				let (room_id, servers) = services
+					.alias
+					.resolve_alias(&room_alias, Some(via.to_vec()))
+					.await?;
+
+				(room_id, servers, Vec::new())
+			},
+		};
+
+	// either way, add invited vias
+	additional_servers.extend(
+		services
+			.state_cache
+			.servers_invite_via(&room_id)
+			.map(ToOwned::to_owned)
+			.collect::<Vec<_>>()
+			.await,
+	);
+
+	// either way, add invite senders' servers
+	additional_servers.extend(
+		services
+			.state_cache
+			.invite_state(user_id, &room_id)
+			.await
+			.unwrap_or_default()
+			.iter()
+			.filter_map(|event| event.get_field("sender").ok().flatten())
+			.filter_map(|sender: &str| UserId::parse(sender).ok())
+			.map(|user| user.server_name().to_owned()),
+	);
+
+	// shuffle additionals, append to base servers
+	additional_servers.sort_unstable();
+	additional_servers.dedup();
+	shuffle(&mut additional_servers);
+	servers.append(&mut additional_servers);
+
+	Ok((room_id, servers))
 }
