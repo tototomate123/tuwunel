@@ -4889,7 +4889,6 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
- "tuwunel_api",
  "tuwunel_core",
  "tuwunel_database",
  "tuwunel_macros",
