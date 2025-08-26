@@ -22,7 +22,8 @@ use ruma::{
 			directory::get_public_rooms,
 			error::ErrorKind,
 			profile::{
-				get_avatar_url, get_display_name, get_profile, get_profile_key, get_timezone_key,
+				get_avatar_url, get_display_name, get_profile, get_profile_field,
+				get_timezone_key,
 			},
 			voip::get_turn_server_info,
 		},
@@ -172,7 +173,7 @@ fn check_auth_still_required(services: &Services, metadata: &Metadata, token: &T
 
 	match metadata {
 		| &get_profile::v3::Request::METADATA
-		| &get_profile_key::unstable::Request::METADATA
+		| &get_profile_field::v3::Request::METADATA
 		| &get_display_name::v3::Request::METADATA
 		| &get_avatar_url::v3::Request::METADATA
 		| &get_timezone_key::unstable::Request::METADATA

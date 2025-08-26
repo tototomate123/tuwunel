@@ -279,13 +279,20 @@ pub(crate) async fn get_profile_route(
 				);
 			}
 
-			return Ok(get_profile::v3::Response {
-				displayname: response.displayname,
-				avatar_url: response.avatar_url,
-				blurhash: response.blurhash,
-				tz: response.tz,
-				custom_profile_fields: response.custom_profile_fields,
-			});
+			let canonical_fields = [
+				("avatar_url", response.avatar_url.map(Into::into)),
+				("blurhash", response.blurhash),
+				("displayname", response.displayname),
+				("tz", response.tz),
+			];
+
+			let response = canonical_fields
+				.into_iter()
+				.filter_map(|(key, val)| val.map(|val| (key, val)))
+				.map(|(key, val)| (key.to_owned(), val.into()))
+				.chain(response.custom_profile_fields.into_iter());
+
+			return Ok(response.collect::<get_profile::v3::Response>());
 		}
 	}
 
@@ -313,13 +320,20 @@ pub(crate) async fn get_profile_route(
 	)
 	.await;
 
-	Ok(get_profile::v3::Response {
-		avatar_url,
-		blurhash,
-		displayname,
-		tz,
-		custom_profile_fields,
-	})
+	let canonical_fields = [
+		("avatar_url", avatar_url.map(Into::into)),
+		("blurhash", blurhash),
+		("displayname", displayname),
+		("tz", tz),
+	];
+
+	let response = canonical_fields
+		.into_iter()
+		.filter_map(|(key, val)| val.map(|val| (key, val)))
+		.map(|(key, val)| (key.to_owned(), val.into()))
+		.chain(custom_profile_fields.into_iter());
+
+	Ok(response.collect::<get_profile::v3::Response>())
 }
 
 pub async fn update_displayname(

@@ -14,7 +14,7 @@ use ruma::{
 	api::client::{
 		filter::FilterDefinition,
 		sync::sync_events::{
-			self, DeviceLists, StrippedState, UnreadNotificationsCount,
+			self, DeviceLists, UnreadNotificationsCount,
 			v3::{
 				Ephemeral, Filter, GlobalAccountData, InviteState, InvitedRoom, JoinedRoom,
 				KnockState, KnockedRoom, LeftRoom, Presence, RoomAccountData, RoomSummary, Rooms,
@@ -295,12 +295,7 @@ async fn build_sync_events(
 			}
 
 			let invited_room = InvitedRoom {
-				invite_state: InviteState {
-					events: invite_state
-						.into_iter()
-						.map(Raw::cast::<StrippedState>)
-						.collect(),
-				},
+				invite_state: InviteState { events: invite_state },
 			};
 
 			invited_rooms.insert(room_id, invited_room);
@@ -325,12 +320,7 @@ async fn build_sync_events(
 			}
 
 			let knocked_room = KnockedRoom {
-				knock_state: KnockState {
-					events: knock_state
-						.into_iter()
-						.map(Raw::cast::<StrippedState>)
-						.collect(),
-				},
+				knock_state: KnockState { events: knock_state },
 			};
 
 			knocked_rooms.insert(room_id, knocked_room);

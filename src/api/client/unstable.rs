@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use axum::extract::State;
 use axum_client_ip::InsecureClientIp;
 use futures::StreamExt;
@@ -10,8 +8,8 @@ use ruma::{
 			error::ErrorKind,
 			membership::mutual_rooms,
 			profile::{
-				delete_profile_key, delete_timezone_key, get_profile_key, get_timezone_key,
-				set_profile_key, set_timezone_key,
+				ProfileFieldName, ProfileFieldValue, delete_profile_field, delete_timezone_key,
+				get_profile_field, get_timezone_key, set_profile_field, set_timezone_key,
 			},
 		},
 		federation,
@@ -123,48 +121,21 @@ pub(crate) async fn set_timezone_key_route(
 /// Updates the profile key-value field of a user, as per MSC4133.
 ///
 /// This also handles the avatar_url and displayname being updated.
-pub(crate) async fn set_profile_key_route(
+pub(crate) async fn set_profile_field_route(
 	State(services): State<crate::State>,
-	body: Ruma<set_profile_key::unstable::Request>,
-) -> Result<set_profile_key::unstable::Response> {
+	body: Ruma<set_profile_field::v3::Request>,
+) -> Result<set_profile_field::v3::Response> {
 	let sender_user = body.sender_user();
 
 	if *sender_user != body.user_id && body.appservice_info.is_none() {
 		return Err!(Request(Forbidden("You cannot update the profile of another user")));
 	}
 
-	if body.kv_pair.is_empty() {
-		return Err!(Request(BadJson(
-			"The key-value pair JSON body is empty. Use DELETE to delete a key"
-		)));
-	}
-
-	if body.kv_pair.len() > 1 {
-		// TODO: support PATCH or "recursively" adding keys in some sort
-		return Err!(Request(BadJson(
-			"This endpoint can only take one key-value pair at a time"
-		)));
-	}
-
-	let Some(profile_key_value) = body.kv_pair.get(&body.key) else {
-		return Err!(Request(BadJson(
-			"The key does not match the URL field key, or JSON body is empty (use DELETE)"
-		)));
-	};
-
-	if body
-		.kv_pair
-		.keys()
-		.any(|key| key.starts_with("u.") && !profile_key_value.is_string())
-	{
-		return Err!(Request(BadJson("u.* profile key fields must be strings")));
-	}
-
-	if body.kv_pair.keys().any(|key| key.len() > 128) {
+	if body.value.field_name().as_str().len() > 128 {
 		return Err!(Request(BadJson("Key names cannot be longer than 128 bytes")));
 	}
 
-	if body.key == "displayname" {
+	if body.value.field_name() == ProfileFieldName::DisplayName {
 		let all_joined_rooms: Vec<OwnedRoomId> = services
 			.rooms
 			.state_cache
@@ -176,12 +147,12 @@ pub(crate) async fn set_profile_key_route(
 		update_displayname(
 			&services,
 			&body.user_id,
-			Some(profile_key_value.to_string()),
+			Some(body.value.value().to_string()),
 			&all_joined_rooms,
 		)
 		.await;
-	} else if body.key == "avatar_url" {
-		let mxc = ruma::OwnedMxcUri::from(profile_key_value.to_string());
+	} else if body.value.field_name() == ProfileFieldName::AvatarUrl {
+		let mxc = ruma::OwnedMxcUri::from(body.value.value().to_string());
 
 		let all_joined_rooms: Vec<OwnedRoomId> = services
 			.rooms
@@ -193,9 +164,11 @@ pub(crate) async fn set_profile_key_route(
 
 		update_avatar_url(&services, &body.user_id, Some(mxc), None, &all_joined_rooms).await;
 	} else {
-		services
-			.users
-			.set_profile_key(&body.user_id, &body.key, Some(profile_key_value.clone()));
+		services.users.set_profile_key(
+			&body.user_id,
+			body.value.field_name().as_str(),
+			Some(body.value.value().into_owned()),
+		);
 	}
 
 	if services.config.allow_local_presence {
@@ -206,7 +179,7 @@ pub(crate) async fn set_profile_key_route(
 			.await?;
 	}
 
-	Ok(set_profile_key::unstable::Response {})
+	Ok(set_profile_field::v3::Response {})
 }
 
 /// # `DELETE /_matrix/client/unstable/uk.tcpip.msc4133/profile/{user_id}/{field}`
@@ -214,24 +187,17 @@ pub(crate) async fn set_profile_key_route(
 /// Deletes the profile key-value field of a user, as per MSC4133.
 ///
 /// This also handles the avatar_url and displayname being updated.
-pub(crate) async fn delete_profile_key_route(
+pub(crate) async fn delete_profile_field_route(
 	State(services): State<crate::State>,
-	body: Ruma<delete_profile_key::unstable::Request>,
-) -> Result<delete_profile_key::unstable::Response> {
+	body: Ruma<delete_profile_field::v3::Request>,
+) -> Result<delete_profile_field::v3::Response> {
 	let sender_user = body.sender_user();
 
 	if *sender_user != body.user_id && body.appservice_info.is_none() {
 		return Err!(Request(Forbidden("You cannot update the profile of another user")));
 	}
 
-	if body.kv_pair.len() > 1 {
-		// TODO: support PATCH or "recursively" adding keys in some sort
-		return Err!(Request(BadJson(
-			"This endpoint can only take one key-value pair at a time"
-		)));
-	}
-
-	if body.key == "displayname" {
+	if body.field == ProfileFieldName::DisplayName {
 		let all_joined_rooms: Vec<OwnedRoomId> = services
 			.rooms
 			.state_cache
@@ -241,7 +207,7 @@ pub(crate) async fn delete_profile_key_route(
 			.await;
 
 		update_displayname(&services, &body.user_id, None, &all_joined_rooms).await;
-	} else if body.key == "avatar_url" {
+	} else if body.field == ProfileFieldName::AvatarUrl {
 		let all_joined_rooms: Vec<OwnedRoomId> = services
 			.rooms
 			.state_cache
@@ -254,7 +220,7 @@ pub(crate) async fn delete_profile_key_route(
 	} else {
 		services
 			.users
-			.set_profile_key(&body.user_id, &body.key, None);
+			.set_profile_key(&body.user_id, body.field.as_str(), None);
 	}
 
 	if services.config.allow_local_presence {
@@ -265,7 +231,7 @@ pub(crate) async fn delete_profile_key_route(
 			.await?;
 	}
 
-	Ok(delete_profile_key::unstable::Response {})
+	Ok(delete_profile_field::v3::Response {})
 }
 
 /// # `GET /_matrix/client/unstable/uk.tcpip.msc4133/profile/{user_id}/us.cloke.msc4175.tz`
@@ -335,12 +301,10 @@ pub(crate) async fn get_timezone_key_route(
 ///
 /// - If user is on another server and we do not have a local copy already fetch
 ///   `timezone` over federation
-pub(crate) async fn get_profile_key_route(
+pub(crate) async fn get_profile_field_route(
 	State(services): State<crate::State>,
-	body: Ruma<get_profile_key::unstable::Request>,
-) -> Result<get_profile_key::unstable::Response> {
-	let mut profile_key_value: BTreeMap<String, serde_json::Value> = BTreeMap::new();
-
+	body: Ruma<get_profile_field::v3::Request>,
+) -> Result<get_profile_field::v3::Response> {
 	if !services.globals.user_is_local(&body.user_id) {
 		// Create and update our local copy of the user
 		if let Ok(response) = services
@@ -377,23 +341,29 @@ pub(crate) async fn get_profile_key_route(
 				.users
 				.set_timezone(&body.user_id, response.tz.clone());
 
-			match response.custom_profile_fields.get(&body.key) {
+			let profile_key_value: Option<ProfileFieldValue> = match response
+				.custom_profile_fields
+				.get(body.field.as_str())
+			{
 				| Some(value) => {
-					profile_key_value.insert(body.key.clone(), value.clone());
-					services
-						.users
-						.set_profile_key(&body.user_id, &body.key, Some(value.clone()));
+					services.users.set_profile_key(
+						&body.user_id,
+						body.field.as_str(),
+						Some(value.clone()),
+					);
+
+					Some(ProfileFieldValue::new(body.field.as_str(), value.clone())?)
 				},
 				| _ => {
 					return Err!(Request(NotFound("The requested profile key does not exist.")));
 				},
-			}
+			};
 
-			if profile_key_value.is_empty() {
+			if profile_key_value.is_none() {
 				return Err!(Request(NotFound("The requested profile key does not exist.")));
 			}
 
-			return Ok(get_profile_key::unstable::Response { value: profile_key_value });
+			return Ok(get_profile_field::v3::Response { value: profile_key_value });
 		}
 	}
 
@@ -403,22 +373,20 @@ pub(crate) async fn get_profile_key_route(
 		return Err!(Request(NotFound("Profile was not found.")));
 	}
 
-	match services
+	let profile_key_value: Option<ProfileFieldValue> = match services
 		.users
-		.profile_key(&body.user_id, &body.key)
+		.profile_key(&body.user_id, body.field.as_str())
 		.await
 	{
-		| Ok(value) => {
-			profile_key_value.insert(body.key.clone(), value);
-		},
+		| Ok(value) => Some(ProfileFieldValue::new(body.field.as_str(), value)?),
 		| _ => {
 			return Err!(Request(NotFound("The requested profile key does not exist.")));
 		},
-	}
+	};
 
-	if profile_key_value.is_empty() {
+	if profile_key_value.is_none() {
 		return Err!(Request(NotFound("The requested profile key does not exist.")));
 	}
 
-	Ok(get_profile_key::unstable::Response { value: profile_key_value })
+	Ok(get_profile_field::v3::Response { value: profile_key_value })
 }

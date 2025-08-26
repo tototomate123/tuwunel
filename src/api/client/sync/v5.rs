@@ -14,8 +14,7 @@ use futures::{
 use ruma::{
 	DeviceId, OwnedEventId, OwnedRoomId, RoomId, UInt, UserId,
 	api::client::sync::sync_events::{
-		self, DeviceLists, StrippedState, UnreadNotificationsCount,
-		v5::request::ExtensionRoomConfig,
+		self, DeviceLists, UnreadNotificationsCount, v5::request::ExtensionRoomConfig,
 	},
 	directory::RoomTypeFilter,
 	events::{
@@ -650,11 +649,7 @@ where
 			name: room_name.or(hero_name),
 			initial: Some(roomsince == &0),
 			is_dm: None,
-			invite_state: invite_state.map(|s| {
-				s.into_iter()
-					.map(Raw::cast::<StrippedState>)
-					.collect()
-			}),
+			invite_state,
 			unread_notifications: UnreadNotificationsCount {
 				highlight_count: Some(
 					services
