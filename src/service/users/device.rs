@@ -13,7 +13,7 @@ use tuwunel_core::{
 	Err, Result, at, implement,
 	utils::{
 		self, ReadyExt,
-		stream::TryIgnore,
+		stream::{IterStream, TryIgnore},
 		time::{duration_since_epoch, timepoint_from_epoch, timepoint_from_now},
 	},
 };
@@ -68,6 +68,21 @@ pub async fn remove_device(&self, user_id: &UserId, device_id: &DeviceId) {
 		.keys_prefix_raw(&prefix)
 		.ignore_err()
 		.ready_for_each(|key| self.db.todeviceid_events.remove(key))
+		.await;
+
+	// Remove pushers
+	self.services
+		.pusher
+		.get_device_pushkeys(user_id, device_id)
+		.map(Vec::into_iter)
+		.map(IterStream::stream)
+		.flatten_stream()
+		.for_each(async |pushkey| {
+			self.services
+				.pusher
+				.delete_pusher(user_id, &pushkey)
+				.await;
+		})
 		.await;
 
 	// TODO: Remove onetimekeys

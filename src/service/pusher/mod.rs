@@ -24,7 +24,10 @@ use tuwunel_core::{
 	Err, Result, debug_warn, err,
 	matrix::Event,
 	trace,
-	utils::{stream::TryIgnore, string_from_bytes},
+	utils::{
+		stream::{BroadbandExt, TryIgnore},
+		string_from_bytes,
+	},
 	warn,
 };
 use tuwunel_database::{Deserialized, Ignore, Interfix, Json, Map};
@@ -132,6 +135,25 @@ impl Service {
 			.cleanup_events(None, Some(sender), Some(pushkey))
 			.await
 			.ok();
+	}
+
+	pub async fn get_device_pushkeys(
+		&self,
+		sender: &UserId,
+		device_id: &DeviceId,
+	) -> Vec<String> {
+		self.get_pushkeys(sender)
+			.map(ToOwned::to_owned)
+			.broad_filter_map(async |pushkey| {
+				self.get_pusher_device(&pushkey)
+					.await
+					.ok()
+					.filter(|pusher_device| pusher_device == device_id)
+					.is_some()
+					.then_some(pushkey)
+			})
+			.collect()
+			.await
 	}
 
 	pub async fn get_pusher_device(&self, pushkey: &str) -> Result<OwnedDeviceId> {

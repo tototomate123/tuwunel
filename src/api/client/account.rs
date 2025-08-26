@@ -9,10 +9,7 @@ use ruma::api::client::{
 	},
 	uiaa::{AuthFlow, AuthType, UiaaInfo},
 };
-use tuwunel_core::{
-	Err, Error, Result, err, info, utils,
-	utils::{ReadyExt, stream::BroadbandExt},
-};
+use tuwunel_core::{Err, Error, Result, err, info, utils, utils::ReadyExt};
 
 use super::SESSION_ID_LENGTH;
 use crate::Ruma;
@@ -92,29 +89,6 @@ pub(crate) async fn change_password_route(
 			.all_device_ids(sender_user)
 			.ready_filter(|id| *id != body.sender_device())
 			.for_each(|id| services.users.remove_device(sender_user, id))
-			.await;
-
-		// Remove all pushers except the ones associated with this session
-		services
-			.pusher
-			.get_pushkeys(sender_user)
-			.map(ToOwned::to_owned)
-			.broad_filter_map(async |pushkey| {
-				services
-					.pusher
-					.get_pusher_device(&pushkey)
-					.await
-					.ok()
-					.filter(|pusher_device| pusher_device != body.sender_device())
-					.is_some()
-					.then_some(pushkey)
-			})
-			.for_each(async |pushkey| {
-				services
-					.pusher
-					.delete_pusher(sender_user, &pushkey)
-					.await;
-			})
 			.await;
 	}
 
