@@ -138,7 +138,7 @@ impl Service {
 		// remove the appservice from the database
 		self.db
 			.id_appserviceregistrations
-			.del(appservice_id);
+			.remove(appservice_id);
 
 		// deletes all active requests for the appservice if there are any so we stop
 		// sending to the URL
