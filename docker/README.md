@@ -1,5 +1,10 @@
 # Docker Builder
 
+> [!NOTE]
+> This directory is for building docker images. For [deploying](https://github.com/matrix-construct/tuwunel/tree/main/docs/deploying)
+> [docker](https://github.com/matrix-construct/tuwunel/blob/main/docs/deploying/docker.md) visit
+> the appropriate documentation instead.
+
 All Docker images for the project are built here. All images are
 [Docker Bake](https://docs.docker.com/build/bake/) targets. All targets are leaves and
 branches of a unified tree leading to a single root. It is a combinatorial matrix
