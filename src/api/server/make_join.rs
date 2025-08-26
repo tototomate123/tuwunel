@@ -166,6 +166,14 @@ pub(crate) async fn user_can_perform_restricted_join(
 		return Ok(false);
 	}
 
+	if services
+		.state_cache
+		.is_invited(user_id, room_id)
+		.await
+	{
+		return Ok(true);
+	}
+
 	let Ok(join_rules_event_content) = services
 		.state_accessor
 		.room_state_get_content::<RoomJoinRulesEventContent>(
