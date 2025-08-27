@@ -1,6 +1,6 @@
 use std::{borrow::Borrow, collections::HashMap, iter::once, sync::Arc};
 
-use futures::{FutureExt, StreamExt, pin_mut};
+use futures::{FutureExt, StreamExt, TryFutureExt, pin_mut};
 use ruma::{
 	CanonicalJsonObject, CanonicalJsonValue, OwnedServerName, OwnedUserId, RoomId, RoomVersionId,
 	UserId,
@@ -443,6 +443,7 @@ pub async fn join_remote(
 			self.services.timeline.get_pdu(event_id).await
 		},
 	)
+	.inspect_err(|e| error!("send_join auth check failed: {e:?}"))
 	.boxed()
 	.await?;
 
