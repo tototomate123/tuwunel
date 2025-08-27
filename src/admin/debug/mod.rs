@@ -72,15 +72,6 @@ pub(super) enum DebugCommand {
 	},
 
 	/// - Gets all the room state events for the specified room.
-	///
-	/// This is functionally equivalent to `GET
-	/// /_matrix/client/v3/rooms/{roomid}/state`, except the admin command does
-	/// *not* check if the sender user is allowed to see state events. This is
-	/// done because it's implied that server admins here have database access
-	/// and can see/get room info themselves anyways if they were malicious
-	/// admins.
-	///
-	/// Of course the check is still done on the actual client API.
 	GetRoomState {
 		/// Room ID
 		room_id: OwnedRoomOrAliasId,
