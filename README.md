@@ -21,7 +21,7 @@ with your favorite [client](https://matrix.org/ecosystem/clients/),
 [bot](https://matrix.org/ecosystem/integrations/). It is written entirely in Rust to be a scalable,
 lightweight, low-cost, community-driven alternative covering all but the most niche uses.
 
-This project is the official successor to [conduwuit](https://github.com/girlbossceo/conduwuit), which
+This project is the official successor to conduwuit, which
 was a featureful and high-performance fork of [Conduit](https://gitlab.com/famedly/conduit), all
 community-lead homeservers implementing the compatible
 [Matrix Specification](https://spec.matrix.org/latest/).
