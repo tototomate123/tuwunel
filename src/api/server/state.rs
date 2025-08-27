@@ -43,8 +43,8 @@ pub(crate) async fn get_room_state_route(
 		.and_then(|id| services.timeline.get_pdu_json(id))
 		.and_then(|pdu| {
 			services
-				.sending
-				.convert_to_outgoing_federation_event(pdu)
+				.federation
+				.format_pdu_into(pdu, None)
 				.map(Ok)
 		})
 		.try_collect()
@@ -56,8 +56,8 @@ pub(crate) async fn get_room_state_route(
 		.and_then(async |id| services.timeline.get_pdu_json(&id).await)
 		.and_then(|pdu| {
 			services
-				.sending
-				.convert_to_outgoing_federation_event(pdu)
+				.federation
+				.format_pdu_into(pdu, None)
 				.map(Ok)
 		})
 		.try_collect()

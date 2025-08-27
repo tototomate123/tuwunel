@@ -16,8 +16,8 @@ use futures::{
 	stream::FuturesUnordered,
 };
 use ruma::{
-	CanonicalJsonObject, CanonicalJsonValue, MilliSecondsSinceUnixEpoch, OwnedRoomId,
-	OwnedServerName, OwnedUserId, RoomId, ServerName, UInt,
+	MilliSecondsSinceUnixEpoch, OwnedRoomId, OwnedServerName, OwnedUserId, RoomId, ServerName,
+	UInt,
 	api::{
 		appservice::event::push_events::v1::EphemeralData,
 		federation::transactions::{
@@ -37,10 +37,8 @@ use ruma::{
 	serde::Raw,
 	uint,
 };
-use serde_json::value::{RawValue as RawJsonValue, to_raw_value};
 use tuwunel_core::{
-	Error, Event, Result, debug, err, error, implement, is_equal_to,
-	matrix::room_version,
+	Error, Event, Result, debug, err, error,
 	result::LogErr,
 	trace,
 	utils::{
@@ -883,7 +881,11 @@ impl Service {
 					.get_pdu_json_from_id(pdu_id)
 					.ok()
 			})
-			.wide_then(|pdu| self.convert_to_outgoing_federation_event(pdu))
+			.wide_then(|pdu| {
+				self.services
+					.federation
+					.format_pdu_into(pdu, None)
+			})
 			.collect()
 			.await;
 
@@ -934,67 +936,6 @@ impl Service {
 		match result {
 			| Err(error) => Err((Destination::Federation(server), error)),
 			| Ok(_) => Ok(Destination::Federation(server)),
-		}
-	}
-}
-
-/// This does not return a full `Pdu` it is only to satisfy ruma's types.
-#[implement(Service)]
-pub async fn convert_to_outgoing_federation_event(
-	&self,
-	mut pdu_json: CanonicalJsonObject,
-) -> Box<RawJsonValue> {
-	self.strip_outgoing_federation_event(&mut pdu_json)
-		.await;
-
-	to_raw_value(&pdu_json).expect("CanonicalJson is valid serde_json::Value")
-}
-
-#[implement(Service)]
-async fn strip_outgoing_federation_event(&self, pdu_json: &mut CanonicalJsonObject) {
-	if let Some(unsigned) = pdu_json
-		.get_mut("unsigned")
-		.and_then(|val| val.as_object_mut())
-	{
-		unsigned.remove("transaction_id");
-	}
-
-	let Some(room_id) = pdu_json
-		.get("room_id")
-		.and_then(CanonicalJsonValue::as_str)
-		.map(RoomId::parse)
-		.transpose()
-		.ok()
-		.flatten()
-	else {
-		return;
-	};
-
-	let Ok(room_rules) = self
-		.services
-		.state
-		.get_room_version(room_id)
-		.await
-		.and_then(|ref ver| room_version::rules(ver))
-	else {
-		pdu_json.remove("event_id");
-		return;
-	};
-
-	if !room_rules.event_format.require_event_id {
-		pdu_json.remove("event_id");
-	}
-
-	if !room_rules
-		.event_format
-		.require_room_create_room_id
-	{
-		if pdu_json
-			.get("type")
-			.and_then(CanonicalJsonValue::as_str)
-			.is_some_and(is_equal_to!("m.room.create"))
-		{
-			pdu_json.remove("room_id");
 		}
 	}
 }

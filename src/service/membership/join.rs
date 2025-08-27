@@ -253,8 +253,8 @@ pub async fn join_remote(
 		omit_members: false,
 		pdu: self
 			.services
-			.sending
-			.convert_to_outgoing_federation_event(join_event.clone())
+			.federation
+			.format_pdu_into(join_event.clone(), Some(&room_version_id))
 			.await,
 	};
 
@@ -742,8 +742,8 @@ pub async fn join_local(
 				omit_members: false,
 				pdu: self
 					.services
-					.sending
-					.convert_to_outgoing_federation_event(join_event.clone())
+					.federation
+					.format_pdu_into(join_event.clone(), Some(&room_version_id))
 					.await,
 			},
 		)

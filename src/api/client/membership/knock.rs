@@ -253,8 +253,8 @@ async fn knock_room_helper_local(
 		room_id: room_id.to_owned(),
 		event_id: event_id.clone(),
 		pdu: services
-			.sending
-			.convert_to_outgoing_federation_event(knock_event.clone())
+			.federation
+			.format_pdu_into(knock_event.clone(), Some(&room_version_id))
 			.await,
 	};
 
@@ -387,8 +387,8 @@ async fn knock_room_helper_remote(
 		room_id: room_id.to_owned(),
 		event_id: event_id.clone(),
 		pdu: services
-			.sending
-			.convert_to_outgoing_federation_event(knock_event.clone())
+			.federation
+			.format_pdu_into(knock_event.clone(), Some(&room_version_id))
 			.await,
 	};
 

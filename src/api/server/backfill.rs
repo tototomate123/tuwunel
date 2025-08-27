@@ -78,8 +78,8 @@ pub(crate) async fn get_backfill_route(
 			})
 			.and_then(|pdu| {
 				services
-					.sending
-					.convert_to_outgoing_federation_event(pdu)
+					.federation
+					.format_pdu_into(pdu, None)
 					.map(Ok)
 			})
 			.try_collect()

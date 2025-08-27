@@ -329,8 +329,8 @@ pub async fn remote_leave(&self, user_id: &UserId, room_id: &RoomId) -> Result {
 				event_id,
 				pdu: self
 					.services
-					.sending
-					.convert_to_outgoing_federation_event(leave_event.clone())
+					.federation
+					.format_pdu_into(leave_event.clone(), Some(&room_version_id))
 					.await,
 			},
 		)

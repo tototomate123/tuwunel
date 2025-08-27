@@ -218,8 +218,8 @@ async fn create_join_event(
 		.broad_and_then(|event_id| services.timeline.get_pdu_json(event_id))
 		.broad_and_then(|pdu| {
 			services
-				.sending
-				.convert_to_outgoing_federation_event(pdu)
+				.federation
+				.format_pdu_into(pdu, Some(&room_version_id))
 				.map(Ok)
 		})
 		.try_collect()
@@ -233,8 +233,8 @@ async fn create_join_event(
 		.broad_and_then(async |event_id| services.timeline.get_pdu_json(&event_id).await)
 		.broad_and_then(|pdu| {
 			services
-				.sending
-				.convert_to_outgoing_federation_event(pdu)
+				.federation
+				.format_pdu_into(pdu, Some(&room_version_id))
 				.map(Ok)
 		})
 		.try_collect()

@@ -77,8 +77,8 @@ pub(crate) async fn get_missing_events_route(
 		let prev_events = pdu.prev_events.iter().map(ToOwned::to_owned);
 
 		let event = services
-			.sending
-			.convert_to_outgoing_federation_event(event)
+			.federation
+			.format_pdu_into(event, None)
 			.await;
 
 		queued_events.extend(prev_events);

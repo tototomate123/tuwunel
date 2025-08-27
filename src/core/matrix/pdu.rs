@@ -1,5 +1,6 @@
 mod builder;
 mod count;
+pub mod format;
 mod hashes;
 mod id;
 mod raw_id;

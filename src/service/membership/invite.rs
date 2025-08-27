@@ -90,8 +90,8 @@ async fn remote_invite(
 			room_version: room_version_id.clone(),
 			event: self
 				.services
-				.sending
-				.convert_to_outgoing_federation_event(pdu_json.clone())
+				.federation
+				.format_pdu_into(pdu_json.clone(), Some(&room_version_id))
 				.await,
 			invite_room_state: invite_room_state
 				.into_iter()

@@ -178,8 +178,8 @@ pub(crate) async fn create_invite_route(
 
 	Ok(create_invite::v2::Response {
 		event: services
-			.sending
-			.convert_to_outgoing_federation_event(signed_event)
+			.federation
+			.format_pdu_into(signed_event, Some(&body.room_version))
 			.await,
 	})
 }
