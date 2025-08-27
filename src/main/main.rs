@@ -1,4 +1,4 @@
-#![type_length_limit = "49152"] //TODO: reduce me
+#![type_length_limit = "4096"] //TODO: reduce me
 
 pub(crate) mod clap;
 mod logging;
