@@ -88,6 +88,12 @@ pub(super) enum UserCommand {
 		room_id: OwnedRoomOrAliasId,
 	},
 
+	/// - Force promote
+	ForcePromote {
+		user_id: String,
+		room_id: OwnedRoomOrAliasId,
+	},
+
 	/// - Grant server-admin privileges to a user.
 	MakeUserAdmin {
 		user_id: String,
