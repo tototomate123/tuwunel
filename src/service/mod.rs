@@ -3,6 +3,7 @@
 
 mod manager;
 mod migrations;
+mod once_services;
 mod service;
 pub mod services;
 
@@ -29,6 +30,7 @@ pub mod transaction_ids;
 pub mod uiaa;
 pub mod users;
 
+pub(crate) use once_services::OnceServices;
 pub(crate) use service::{Args, Service};
 
 pub use crate::services::Services;

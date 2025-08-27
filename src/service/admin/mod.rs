@@ -211,7 +211,7 @@ impl Service {
 			.await
 			.expect("Admin module is not loaded");
 
-		handle(Arc::clone(self.services.get_services()), command).await
+		handle(Arc::clone(self.services.get()), command).await
 	}
 
 	/// Checks whether a given user is an admin of this server
