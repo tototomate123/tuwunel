@@ -106,6 +106,7 @@ jobs:
       excludes: ${{inputs.excludes}}
       includes: ${{inputs.includes}}
 
+  # disabled due to excessive build time issue installing cargo lychee
   lychee:
     if: >
       !failure() && !cancelled()
@@ -113,6 +114,7 @@ jobs:
       && contains(fromJSON(inputs.feat_sets), fromJSON('["all"]')[0])
       && contains(fromJSON(inputs.rust_toolchains), fromJSON('["nightly"]')[0])
       && contains(fromJSON(inputs.sys_targets), fromJSON('["x86_64-v1-linux-gnu"]')[0])
+      && false
 
     name: Lychee
     uses: ./.github/workflows/bake.yml

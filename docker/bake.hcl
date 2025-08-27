@@ -1504,7 +1504,7 @@ cargo_installs = [
     "cargo-deb",
     #"cargo-arch",
     "cargo-generate-rpm",
-    "lychee",
+    #"lychee",
     "mdbook",
     "typos-cli",
 ]
