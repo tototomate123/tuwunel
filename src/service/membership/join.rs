@@ -367,8 +367,13 @@ pub async fn join_remote(
 				.validate_and_add_event_id_no_fetch(pdu, &room_version_id)
 		})
 		.ready_filter_map(Result::ok)
-		.fold(HashMap::new(), async |mut state, (event_id, value)| {
+		.fold(HashMap::new(), async |mut state, (event_id, mut value)| {
 			let pdu = if value["type"] == "m.room.create" {
+				if !value.contains_key("room_id") {
+					let room_id = CanonicalJsonValue::String(room_id.as_str().into());
+					value.insert("room_id".into(), room_id);
+				}
+
 				PduEvent::from_rid_val(room_id, &event_id, value.clone())
 			} else {
 				PduEvent::from_id_val(&event_id, value.clone())
@@ -415,7 +420,12 @@ pub async fn join_remote(
 				.validate_and_add_event_id_no_fetch(pdu, &room_version_id)
 		})
 		.ready_filter_map(Result::ok)
-		.ready_for_each(|(event_id, value)| {
+		.ready_for_each(|(event_id, mut value)| {
+			if !value.contains_key("room_id") {
+				let room_id = CanonicalJsonValue::String(room_id.as_str().into());
+				value.insert("room_id".into(), room_id);
+			}
+
 			self.services
 				.timeline
 				.add_pdu_outlier(&event_id, &value);

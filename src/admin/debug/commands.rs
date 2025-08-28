@@ -612,14 +612,25 @@ pub(super) async fn force_set_room_state_from_server(
 			.server_keys
 			.validate_and_add_event_id(pdu, &room_version)
 	}) {
-		let Ok((event_id, value)) = result.await else {
+		let Ok((event_id, mut value)) = result.await else {
 			continue;
 		};
 
-		let pdu = PduEvent::from_id_val(&event_id, value.clone()).map_err(|e| {
+		let invalid_pdu_err = |e| {
 			debug_error!("Invalid PDU in fetching remote room state PDUs response: {value:#?}");
 			err!(BadServerResponse(debug_error!("Invalid PDU in send_join response: {e:?}")))
-		})?;
+		};
+
+		let pdu = if value["type"] == "m.room.create" {
+			PduEvent::from_rid_val(&room_id, &event_id, value.clone()).map_err(invalid_pdu_err)?
+		} else {
+			PduEvent::from_id_val(&event_id, value.clone()).map_err(invalid_pdu_err)?
+		};
+
+		if !value.contains_key("room_id") {
+			let room_id = CanonicalJsonValue::String(room_id.as_str().into());
+			value.insert("room_id".into(), room_id);
+		}
 
 		self.services
 			.timeline
