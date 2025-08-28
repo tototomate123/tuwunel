@@ -1,4 +1,7 @@
-use std::{net::SocketAddr, sync::Arc};
+use std::{
+	net::SocketAddr,
+	sync::{Arc, atomic::Ordering},
+};
 
 use axum::Router;
 use axum_server::Handle as ServerHandle;
@@ -7,7 +10,7 @@ use axum_server_dual_protocol::{
 	axum_server::{bind_rustls, tls_rustls::RustlsConfig},
 };
 use tokio::task::JoinSet;
-use tuwunel_core::{Result, Server, debug, err, info, warn};
+use tuwunel_core::{Result, Server, debug, debug_info, err, info, warn};
 
 pub(super) async fn serve(
 	server: &Arc<Server>,
@@ -72,6 +75,25 @@ pub(super) async fn serve(
 	}
 
 	while join_set.join_next().await.is_some() {}
+
+	let handle_active = server
+		.metrics
+		.requests_handle_active
+		.load(Ordering::Relaxed);
+	debug_info!(
+		handle_finished = server
+			.metrics
+			.requests_handle_finished
+			.load(Ordering::Relaxed),
+		panics = server
+			.metrics
+			.requests_panic
+			.load(Ordering::Relaxed),
+		handle_active,
+		"Stopped listening on {addrs:?}",
+	);
+
+	debug_assert!(handle_active == 0, "active request handles still pending");
 
 	Ok(())
 }
