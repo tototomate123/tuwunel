@@ -1,13 +1,14 @@
-use std::collections::{HashMap, hash_map};
-
+use futures::{StreamExt, TryFutureExt};
 use ruma::{
 	CanonicalJsonObject, CanonicalJsonValue, EventId, RoomId, RoomVersionId, ServerName,
-	events::{StateEventType, TimelineEventType},
+	events::TimelineEventType,
 };
 use tuwunel_core::{
 	Err, Result, debug, debug_info, err, implement,
 	matrix::{Event, PduEvent, event::TypeExt, room_version},
-	state_res, trace, warn,
+	ref_at, state_res, trace,
+	utils::{future::TryExtExt, stream::IterStream},
+	warn,
 };
 
 use super::check_room_id;
@@ -89,67 +90,51 @@ pub(super) async fn handle_outlier_pdu(
 	debug!("Checking based on auth events");
 
 	let room_rules = room_version::rules(room_version)?;
-	let is_create = *event.kind() == TimelineEventType::RoomCreate;
-	let is_hydra = room_rules
-		.authorization
-		.room_create_event_id_as_room_id;
+	let is_hydra = !room_rules
+		.event_format
+		.allow_room_create_in_auth_events;
 
-	let hydra_create_id = (is_hydra && !is_create).then_some(event.room_id().as_event_id()?);
-	let auth_event_ids = event
+	let not_create = *event.kind() != TimelineEventType::RoomCreate;
+	let hydra_create_id = (not_create && is_hydra)
+		.then(|| event.room_id().as_event_id().ok())
+		.flatten();
+
+	let auth_events: Vec<_> = event
 		.auth_events()
-		.map(ToOwned::to_owned)
-		.chain(hydra_create_id.into_iter());
+		.chain(hydra_create_id.as_deref().into_iter())
+		.stream()
+		.filter_map(|auth_event_id| {
+			self.event_fetch(auth_event_id)
+				.inspect_err(move |e| warn!("Missing auth_event {auth_event_id}: {e}"))
+				.ok()
+		})
+		.map(|auth_event| {
+			let event_type = auth_event.event_type();
+			let state_key = auth_event
+				.state_key()
+				.expect("all auth events have state_key");
 
-	// Build map of auth events
-	let mut auth_events = HashMap::with_capacity(event.auth_events().count().saturating_add(1));
-	for id in auth_event_ids {
-		let Ok(auth_event) = self.services.timeline.get_pdu(&id).await else {
-			warn!("Could not find auth event {id}");
-			continue;
-		};
-
-		check_room_id(room_id, &auth_event)?;
-		match auth_events.entry((
-			auth_event.kind.to_string().into(),
-			auth_event
-				.state_key
-				.clone()
-				.expect("all auth events have state keys"),
-		)) {
-			| hash_map::Entry::Vacant(v) => {
-				v.insert(auth_event);
-			},
-			| hash_map::Entry::Occupied(_) => {
-				return Err!(Request(InvalidParam(
-					"Auth event's type and state_key combination exists multiple times.",
-				)));
-			},
-		}
-	}
-
-	// The original create event must be in the auth events
-	if !matches!(
-		auth_events.get(&(StateEventType::RoomCreate, String::new().into())),
-		Some(_) | None
-	) {
-		return Err!(Request(InvalidParam("Incoming event refers to wrong create event.")));
-	}
+			(event_type.with_state_key(state_key), auth_event)
+		})
+		.collect()
+		.await;
 
 	state_res::auth_check(
 		&room_rules,
 		&event,
 		&async |event_id| self.event_fetch(&event_id).await,
 		&async |event_type, state_key| {
+			let target = event_type.with_state_key(state_key);
 			auth_events
-				.get(&event_type.with_state_key(state_key.as_str()))
-				.map(ToOwned::to_owned)
+				.iter()
+				.find(|(type_state_key, _)| *type_state_key == target)
+				.map(ref_at!(1))
+				.cloned()
 				.ok_or_else(|| err!(Request(NotFound("state not found"))))
 		},
 	)
-	.await
-	.map_err(|e| err!(Request(Forbidden("Auth check failed: {e:?}"))))?;
-
-	trace!("Validation successful.");
+	.inspect_ok(|()| trace!("Validation successful."))
+	.await?;
 
 	// 7. Persist the event as an outlier.
 	self.services

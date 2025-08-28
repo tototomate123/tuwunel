@@ -60,9 +60,12 @@ pub(super) async fn fetch_state(
 				v.insert(pdu.event_id().to_owned());
 			},
 			| hash_map::Entry::Occupied(_) => {
-				return Err!(Database(
-					"State event's type and state_key combination exists multiple times.",
-				));
+				return Err!(Request(InvalidParam(
+					"State event's type and state_key ({:?},{:?}) exists multiple times.",
+					pdu.event_type(),
+					pdu.state_key()
+						.expect("all state events have state_key"),
+				)));
 			},
 		}
 	}
