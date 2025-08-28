@@ -88,23 +88,21 @@ pub const MAX_PREV_EVENTS: usize = 20;
 pub const MAX_AUTH_EVENTS: usize = 10;
 
 impl Pdu {
-	pub fn from_id_val(event_id: &EventId, mut json: CanonicalJsonObject) -> Result<Self> {
-		let event_id = CanonicalJsonValue::String(event_id.into());
-		json.insert("event_id".into(), event_id);
-		serde_json::to_value(json)
-			.and_then(serde_json::from_value)
-			.map_err(Into::into)
-	}
-
 	pub fn from_rid_val(
 		room_id: &RoomId,
 		event_id: &EventId,
 		mut json: CanonicalJsonObject,
 	) -> Result<Self> {
-		let event_id = CanonicalJsonValue::String(event_id.into());
 		let room_id = CanonicalJsonValue::String(room_id.into());
-		json.insert("event_id".into(), event_id);
 		json.insert("room_id".into(), room_id);
+
+		Self::from_id_val(event_id, json)
+	}
+
+	pub fn from_id_val(event_id: &EventId, mut json: CanonicalJsonObject) -> Result<Self> {
+		let event_id = CanonicalJsonValue::String(event_id.into());
+		json.insert("event_id".into(), event_id);
+
 		serde_json::to_value(json)
 			.and_then(serde_json::from_value)
 			.map_err(Into::into)
