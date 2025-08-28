@@ -106,16 +106,23 @@ pub async fn update_backup<'a>(
 pub async fn get_latest_backup_version(&self, user_id: &UserId) -> Result<String> {
 	type Key<'a> = (&'a UserId, &'a str);
 
-	let last_possible_key = (user_id, u64::MAX);
-	self.db
+	let key = (user_id, Interfix);
+	let mut versions: Vec<_> = self
+		.db
 		.backupid_algorithm
-		.rev_keys_from(&last_possible_key)
+		.keys_from(&key)
 		.ignore_err()
 		.ready_take_while(|(user_id_, _): &Key<'_>| *user_id_ == user_id)
-		.map(|(_, version): Key<'_>| version.to_owned())
-		.next()
-		.await
-		.ok_or_else(|| err!(Request(NotFound("No backup versions found"))))
+		.ready_filter_map(|(_, version): Key<'_>| version.parse::<u64>().ok())
+		.collect()
+		.await;
+
+	versions.sort_unstable();
+	let Some(latest) = versions.last() else {
+		return Err!(Request(NotFound("No backup versions found")));
+	};
+
+	Ok(latest.to_string())
 }
 
 #[implement(Service)]
@@ -123,19 +130,16 @@ pub async fn get_latest_backup(
 	&self,
 	user_id: &UserId,
 ) -> Result<(String, Raw<BackupAlgorithm>)> {
-	type Key<'a> = (&'a UserId, &'a str);
-	type KeyVal<'a> = (Key<'a>, Raw<BackupAlgorithm>);
+	let version = self.get_latest_backup_version(user_id).await?;
 
-	let last_possible_key = (user_id, u64::MAX);
+	let key = (user_id, version.as_str());
 	self.db
 		.backupid_algorithm
-		.rev_stream_from(&last_possible_key)
-		.ignore_err()
-		.ready_take_while(|((user_id_, _), _): &KeyVal<'_>| *user_id_ == user_id)
-		.map(|((_, version), algorithm): KeyVal<'_>| (version.to_owned(), algorithm))
-		.next()
+		.qry(&key)
 		.await
-		.ok_or_else(|| err!(Request(NotFound("No backup found"))))
+		.deserialized()
+		.map(|algorithm| (version, algorithm))
+		.map_err(|e| err!(Request(NotFound("No backup found: {e}"))))
 }
 
 #[implement(Service)]
