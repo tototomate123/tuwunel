@@ -6,8 +6,8 @@ use ruma::{
 	api::client::discovery::{
 		get_capabilities,
 		get_capabilities::v3::{
-			Capabilities, GetLoginTokenCapability, RoomVersionStability, RoomVersionsCapability,
-			ThirdPartyIdChangesCapability,
+			Capabilities, GetLoginTokenCapability, ProfileFieldsCapability, RoomVersionStability,
+			RoomVersionsCapability, ThirdPartyIdChangesCapability,
 		},
 	},
 };
@@ -44,8 +44,7 @@ pub(crate) async fn get_capabilities_route(
 		enabled: services.server.config.login_via_existing_session,
 	};
 
-	// MSC4133 capability
-	capabilities.set("uk.tcpip.msc4133.profile_fields", json!({"enabled": true}))?;
+	capabilities.profile_fields = ProfileFieldsCapability::new(true).into();
 
 	capabilities.set(
 		"org.matrix.msc4267.forget_forced_upon_leave",
