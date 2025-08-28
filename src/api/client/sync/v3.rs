@@ -177,7 +177,7 @@ pub(crate) async fn sync_events_route(
 		}
 
 		// Wait for activity
-		if time::timeout_at(stop_at, watchers).await.is_err() {
+		if time::timeout_at(stop_at, watchers).await.is_err() || services.server.is_stopping() {
 			trace!(since, next_batch, "empty response");
 			return Ok(sync_events::v3::Response::new(next_batch.to_string()));
 		}
