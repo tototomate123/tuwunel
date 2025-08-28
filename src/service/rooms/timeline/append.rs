@@ -293,6 +293,7 @@ where
 				.state
 				.get_room_version(pdu.room_id())
 				.await?;
+
 			match room_version_id {
 				| V1 | V2 | V3 | V4 | V5 | V6 | V7 | V8 | V9 | V10 => {
 					if let Some(redact_id) = pdu.redacts() {
@@ -434,6 +435,7 @@ where
 			self.services
 				.sending
 				.send_pdu_appservice(appservice.registration.id.clone(), pdu_id)?;
+
 			continue;
 		}
 
@@ -450,6 +452,7 @@ where
 					self.services
 						.sending
 						.send_pdu_appservice(appservice.registration.id.clone(), pdu_id)?;
+
 					continue;
 				}
 			}

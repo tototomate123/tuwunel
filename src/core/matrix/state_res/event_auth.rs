@@ -3,10 +3,8 @@ mod room_member;
 #[cfg(test)]
 mod tests;
 
-use std::collections::HashSet;
-
 use futures::{
-	TryFutureExt, TryStreamExt,
+	FutureExt, TryFutureExt, TryStreamExt,
 	future::{join3, try_join},
 };
 use ruma::{
@@ -107,20 +105,17 @@ where
 		return check_room_create(&room_create_event, &rules.authorization);
 	}
 
-	let expected_auth_types: HashSet<_> = auth_types_for_event(
+	let expected_auth_types = auth_types_for_event(
 		incoming_event.event_type(),
 		incoming_event.sender(),
 		incoming_event.state_key(),
 		incoming_event.content(),
 		&rules.authorization,
 		false,
-	)?
-	.into_iter()
-	.collect();
-
-	let room_id = incoming_event.room_id();
+	)?;
 
 	// Since v1, considering auth_events:
+	let seen_auth_types = Vec::with_capacity(expected_auth_types.len());
 	let seen_auth_types = incoming_event
 		.auth_events()
 		.try_stream()
@@ -128,11 +123,11 @@ where
 			fetch_event(event_id.to_owned())
 				.map_err(|_| err!(Request(NotFound("failed to find auth event"))))
 		})
-		.ready_try_fold_default(|mut seen_auth_types: HashSet<TypeStateKey>, auth_event| {
+		.ready_try_fold(seen_auth_types, |mut seen_auth_types, auth_event| {
 			let event_id = auth_event.event_id();
 
 			// The auth event must be in the same room as the incoming event.
-			if auth_event.room_id() != room_id {
+			if auth_event.room_id() != incoming_event.room_id() {
 				return Err!("auth event {event_id} not in the same room");
 			}
 
@@ -141,7 +136,7 @@ where
 				.ok_or_else(|| err!("auth event {event_id} has no `state_key`"))?;
 
 			let event_type = auth_event.event_type();
-			let key = (event_type.to_cow_str().into(), state_key.into());
+			let key: TypeStateKey = (event_type.to_cow_str().into(), state_key.into());
 
 			// Since v1, if there are duplicate entries for a given type and state_key pair,
 			// reject.
@@ -166,7 +161,7 @@ where
 				return Err!("rejected auth event {event_id}");
 			}
 
-			seen_auth_types.insert(key);
+			seen_auth_types.push(key);
 			Ok(seen_auth_types)
 		})
 		.await?;
@@ -188,11 +183,14 @@ where
 		.authorization
 		.room_create_event_id_as_room_id
 	{
-		let room_create_event_id = room_id.as_event_id().map_err(|e| {
-			err!(Request(InvalidParam(
-				"could not construct `m.room.create` event ID from room ID: {e}"
-			)))
-		})?;
+		let room_create_event_id = incoming_event
+			.room_id()
+			.as_event_id()
+			.map_err(|e| {
+				err!(Request(InvalidParam(
+					"could not construct `m.room.create` event ID from room ID: {e}"
+				)))
+			})?;
 
 		let Ok(room_create_event) = fetch_event(room_create_event_id.clone()).await else {
 			return Err!(Request(NotFound(
@@ -307,6 +305,7 @@ where
 			&room_create_event,
 			fetch_state,
 		)
+		.boxed()
 		.await;
 	}
 

@@ -132,7 +132,6 @@ pub async fn build_and_append_pdu(
 			once(pdu.event_id()),
 			state_lock,
 		)
-		.boxed()
 		.await?;
 
 	// We set the room state after inserting the pdu, so that we never have a moment
