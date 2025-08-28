@@ -598,19 +598,17 @@ fn add_unsigned_device_display_name(
 	if let Some(display_name) = metadata.display_name {
 		let mut object = keys.deserialize_as_unchecked::<CanonicalJsonObject>()?;
 
-		let unsigned = object
+		if let CanonicalJsonValue::Object(unsigned) = object
 			.entry("unsigned".into())
-			.or_insert_with(CanonicalJsonValue::default);
-
-		if let CanonicalJsonValue::Object(unsigned_object) = unsigned {
-			if include_display_names {
-				unsigned_object.insert("device_display_name".to_owned(), display_name.into());
+			.or_insert_with(|| CanonicalJsonObject::default().into())
+		{
+			let display_name = if include_display_names {
+				CanonicalJsonValue::String(display_name)
 			} else {
-				unsigned_object.insert(
-					"device_display_name".to_owned(),
-					CanonicalJsonValue::String(metadata.device_id.as_str().to_owned()),
-				);
-			}
+				CanonicalJsonValue::String(metadata.device_id.into())
+			};
+
+			unsigned.insert("device_display_name".into(), display_name);
 		}
 
 		*keys = Raw::from_json(serde_json::value::to_raw_value(&object)?);
