@@ -270,7 +270,7 @@ pub(super) async fn get_remote_pdu(
 				})?;
 
 			trace!("Attempting to parse PDU: {:?}", &response.pdu);
-			let _parsed_pdu = {
+			let (room_id, ..) = {
 				let parsed_result = self
 					.services
 					.event_handler
@@ -278,22 +278,20 @@ pub(super) async fn get_remote_pdu(
 					.boxed()
 					.await;
 
-				let (event_id, value, room_id) = match parsed_result {
+				match parsed_result {
 					| Ok(t) => t,
 					| Err(e) => {
 						warn!("Failed to parse PDU: {e}");
 						info!("Full PDU: {:?}", &response.pdu);
 						return Err!("Failed to parse PDU remote server {server} sent us: {e}");
 					},
-				};
-
-				vec![(event_id, value, room_id)]
+				}
 			};
 
 			info!("Attempting to handle event ID {event_id} as backfilled PDU");
 			self.services
 				.timeline
-				.backfill_pdu(&server, response.pdu)
+				.backfill_pdu(&room_id, &server, response.pdu)
 				.await?;
 
 			let text = serde_json::to_string_pretty(&json)?;

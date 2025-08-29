@@ -8,6 +8,7 @@ use tuwunel_core::{
 	debug::INFO_SPAN_LEVEL,
 	err, implement,
 	matrix::{Event, room_version},
+	trace,
 	utils::stream::IterStream,
 	warn,
 };
@@ -59,6 +60,7 @@ pub async fn handle_incoming_pdu<'a>(
 ) -> Result<Option<RawPduId>> {
 	// 1. Skip the PDU if we already have it as a timeline event
 	if let Ok(pdu_id) = self.services.timeline.get_pdu_id(event_id).await {
+		trace!(?event_id, "exists");
 		return Ok(Some(pdu_id));
 	}
 
