@@ -86,7 +86,7 @@ where
 		name = "ar",
 		level = "debug",
 		skip(services),
-		err(level = "warn")
+		err(level = "debug")
 		ret,
 	)]
 	async fn from_request(

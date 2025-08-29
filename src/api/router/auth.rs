@@ -61,7 +61,7 @@ pub(super) struct Auth {
 #[tracing::instrument(
 	level = "trace",
 	skip(services, request, json_body),
-	err(level = "warn"),
+	err(level = "debug"),
 	ret
 )]
 pub(super) async fn auth(
@@ -309,7 +309,9 @@ async fn auth_server(
 		.server_keys
 		.get_verify_key(origin, &x_matrix.key)
 		.await
-		.map_err(|e| err!(Request(Forbidden(warn!("Failed to fetch signing keys: {e}")))))?;
+		.map_err(|e| {
+			err!(Request(Forbidden(debug_warn!("Failed to fetch signing keys: {e}"))))
+		})?;
 
 	let keys: PubKeys = [(x_matrix.key.to_string(), key.key)].into();
 	let keys: PubKeyMap = [(origin.as_str().into(), keys)].into();
@@ -367,7 +369,7 @@ async fn parse_x_matrix(request: &mut Request) -> Result<XMatrix> {
 				| _ => "Unknown header-related error",
 			};
 
-			err!(Request(Forbidden(warn!("{msg}: {e}"))))
+			err!(Request(Forbidden(debug_warn!("{msg}: {e}"))))
 		})?;
 
 	Ok(x_matrix)
