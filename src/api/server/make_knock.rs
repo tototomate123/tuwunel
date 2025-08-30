@@ -1,12 +1,12 @@
 use RoomVersionId::*;
 use axum::extract::State;
+use futures::TryFutureExt;
 use ruma::{
 	RoomVersionId,
 	api::{client::error::ErrorKind, federation::membership::prepare_knock_event},
 	events::room::member::{MembershipState, RoomMemberEventContent},
 };
-use serde_json::value::to_raw_value;
-use tuwunel_core::{Err, Error, Result, debug_warn, matrix::pdu::PduBuilder, warn};
+use tuwunel_core::{Err, Error, Result, at, debug_warn, matrix::pdu::PduBuilder, warn};
 
 use crate::Ruma;
 
@@ -56,21 +56,21 @@ pub(crate) async fn create_knock_event_template_route(
 		}
 	}
 
-	let room_version_id = services
+	let room_version = services
 		.state
 		.get_room_version(&body.room_id)
 		.await?;
 
-	if matches!(room_version_id, V1 | V2 | V3 | V4 | V5 | V6) {
+	if matches!(room_version, V1 | V2 | V3 | V4 | V5 | V6) {
 		return Err(Error::BadRequest(
-			ErrorKind::IncompatibleRoomVersion { room_version: room_version_id },
+			ErrorKind::IncompatibleRoomVersion { room_version },
 			"Room version does not support knocking.",
 		));
 	}
 
-	if !body.ver.contains(&room_version_id) {
+	if !body.ver.contains(&room_version) {
 		return Err(Error::BadRequest(
-			ErrorKind::IncompatibleRoomVersion { room_version: room_version_id },
+			ErrorKind::IncompatibleRoomVersion { room_version },
 			"Your homeserver does not support the features required to knock on this room.",
 		));
 	}
@@ -88,11 +88,12 @@ pub(crate) async fn create_knock_event_template_route(
 				&body.user_id,
 				&body.room_id
 			);
+
 			return Err!(Request(Forbidden("You cannot knock on a room you are banned from.")));
 		}
 	}
 
-	let (_pdu, mut pdu_json) = services
+	let pdu_json = services
 		.timeline
 		.create_hash_and_sign_event(
 			PduBuilder::state(
@@ -103,15 +104,16 @@ pub(crate) async fn create_knock_event_template_route(
 			&body.room_id,
 			&state_lock,
 		)
+		.map_ok(at!(1))
 		.await?;
 
 	drop(state_lock);
 
-	// room v3 and above removed the "event_id" field from remote PDU format
-	super::maybe_strip_event_id(&mut pdu_json, &room_version_id)?;
+	let event = services
+		.federation
+		.format_pdu_into(pdu_json, Some(&room_version))
+		.await;
 
-	Ok(prepare_knock_event::v1::Response {
-		room_version: room_version_id,
-		event: to_raw_value(&pdu_json).expect("CanonicalJson can be serialized to JSON"),
-	})
+	// room v3 and above removed the "event_id" field from remote PDU format
+	Ok(prepare_knock_event::v1::Response { room_version, event })
 }

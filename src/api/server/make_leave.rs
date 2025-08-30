@@ -1,12 +1,11 @@
 use axum::extract::State;
+use futures::TryFutureExt;
 use ruma::{
 	api::federation::membership::prepare_leave_event,
 	events::room::member::{MembershipState, RoomMemberEventContent},
 };
-use serde_json::value::to_raw_value;
-use tuwunel_core::{Err, Result, matrix::pdu::PduBuilder};
+use tuwunel_core::{Err, Result, at, matrix::pdu::PduBuilder};
 
-use super::make_join::maybe_strip_event_id;
 use crate::Ruma;
 
 /// # `GET /_matrix/federation/v1/make_leave/{roomId}/{eventId}`
@@ -32,13 +31,15 @@ pub(crate) async fn create_leave_event_template_route(
 		.acl_check(body.origin(), &body.room_id)
 		.await?;
 
-	let room_version_id = services
+	let room_version = services
 		.state
 		.get_room_version(&body.room_id)
+		.map_ok(Some)
 		.await?;
+
 	let state_lock = services.state.mutex.lock(&body.room_id).await;
 
-	let (_pdu, mut pdu_json) = services
+	let pdu_json = services
 		.timeline
 		.create_hash_and_sign_event(
 			PduBuilder::state(
@@ -49,15 +50,15 @@ pub(crate) async fn create_leave_event_template_route(
 			&body.room_id,
 			&state_lock,
 		)
+		.map_ok(at!(1))
 		.await?;
 
 	drop(state_lock);
 
-	// room v3 and above removed the "event_id" field from remote PDU format
-	maybe_strip_event_id(&mut pdu_json, &room_version_id)?;
+	let event = services
+		.federation
+		.format_pdu_into(pdu_json, room_version.as_ref())
+		.await;
 
-	Ok(prepare_leave_event::v1::Response {
-		room_version: Some(room_version_id),
-		event: to_raw_value(&pdu_json).expect("CanonicalJson can be serialized to JSON"),
-	})
+	Ok(prepare_leave_event::v1::Response { room_version, event })
 }

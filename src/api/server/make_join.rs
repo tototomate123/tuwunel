@@ -1,7 +1,7 @@
 use axum::extract::State;
-use futures::{StreamExt, pin_mut};
+use futures::{StreamExt, TryFutureExt, pin_mut};
 use ruma::{
-	CanonicalJsonObject, OwnedUserId, RoomId, RoomVersionId, UserId,
+	OwnedUserId, RoomId, RoomVersionId, UserId,
 	api::{client::error::ErrorKind, federation::membership::prepare_join_event},
 	events::{
 		StateEventType,
@@ -11,9 +11,8 @@ use ruma::{
 		},
 	},
 };
-use serde_json::value::to_raw_value;
 use tuwunel_core::{
-	Err, Error, Result, debug_info, matrix::pdu::PduBuilder, utils::IterStream, warn,
+	Err, Error, Result, at, debug_info, matrix::pdu::PduBuilder, utils::IterStream, warn,
 };
 use tuwunel_service::Services;
 
@@ -71,6 +70,7 @@ pub(crate) async fn create_join_event_template_route(
 		.state
 		.get_room_version(&body.room_id)
 		.await?;
+
 	if !body.ver.contains(&room_version_id) {
 		return Err(Error::BadRequest(
 			ErrorKind::IncompatibleRoomVersion { room_version: room_version_id },
@@ -119,7 +119,7 @@ pub(crate) async fn create_join_event_template_route(
 		}
 	};
 
-	let (_pdu, mut pdu_json) = services
+	let pdu_json = services
 		.timeline
 		.create_hash_and_sign_event(
 			PduBuilder::state(body.user_id.to_string(), &RoomMemberEventContent {
@@ -130,16 +130,17 @@ pub(crate) async fn create_join_event_template_route(
 			&body.room_id,
 			&state_lock,
 		)
+		.map_ok(at!(1))
 		.await?;
 
 	drop(state_lock);
 
-	// room v3 and above removed the "event_id" field from remote PDU format
-	maybe_strip_event_id(&mut pdu_json, &room_version_id)?;
-
 	Ok(prepare_join_event::v1::Response {
-		room_version: Some(room_version_id),
-		event: to_raw_value(&pdu_json).expect("CanonicalJson can be serialized to JSON"),
+		room_version: Some(room_version_id.clone()),
+		event: services
+			.federation
+			.format_pdu_into(pdu_json, Some(&room_version_id))
+			.await,
 	})
 }
 
@@ -219,20 +220,5 @@ pub(crate) async fn user_can_perform_restricted_join(
 		Err!(Request(UnableToAuthorizeJoin(
 			"Joining user is not known to be in any required room."
 		)))
-	}
-}
-
-pub(crate) fn maybe_strip_event_id(
-	pdu_json: &mut CanonicalJsonObject,
-	room_version_id: &RoomVersionId,
-) -> Result {
-	use RoomVersionId::*;
-
-	match room_version_id {
-		| V1 | V2 => Ok(()),
-		| _ => {
-			pdu_json.remove("event_id");
-			Ok(())
-		},
 	}
 }
