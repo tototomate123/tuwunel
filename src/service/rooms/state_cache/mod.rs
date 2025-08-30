@@ -257,10 +257,22 @@ pub async fn room_knocked_count(&self, room_id: &RoomId) -> Result<u64> {
 		.deserialized()
 }
 
+/// Returns an iterator of all our local joined users in a room who are
+/// active (not deactivated, not guest)
 #[implement(Service)]
 #[tracing::instrument(skip(self), level = "debug")]
+pub fn active_local_users_in_room<'a>(
+	&'a self,
+	room_id: &'a RoomId,
+) -> impl Stream<Item = &UserId> + Send + 'a {
+	self.local_users_in_room(room_id)
+		.filter(|user| self.services.users.is_active(user))
+}
+
 /// Returns an iterator of all our local users in the room, even if they're
 /// deactivated/guests
+#[implement(Service)]
+#[tracing::instrument(skip(self), level = "debug")]
 pub fn local_users_in_room<'a>(
 	&'a self,
 	room_id: &'a RoomId,
@@ -269,16 +281,15 @@ pub fn local_users_in_room<'a>(
 		.ready_filter(|user| self.services.globals.user_is_local(user))
 }
 
-/// Returns an iterator of all our local joined users in a room who are
-/// active (not deactivated, not guest)
+/// Returns an iterator of only our users invited to this room.
 #[implement(Service)]
-#[tracing::instrument(skip(self), level = "trace")]
-pub fn active_local_users_in_room<'a>(
+#[tracing::instrument(skip(self), level = "debug")]
+pub fn local_users_invited_to_room<'a>(
 	&'a self,
 	room_id: &'a RoomId,
 ) -> impl Stream<Item = &UserId> + Send + 'a {
-	self.local_users_in_room(room_id)
-		.filter(|user| self.services.users.is_active(user))
+	self.room_members_invited(room_id)
+		.ready_filter(|user| self.services.globals.user_is_local(user))
 }
 
 /// Returns an iterator over all User IDs who ever joined a room.
