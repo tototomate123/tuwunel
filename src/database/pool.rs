@@ -188,7 +188,7 @@ fn spawn_one(
 	let handle = thread::Builder::new()
 		.name(WORKER_NAME.into())
 		.stack_size(WORKER_STACK_SIZE)
-		.spawn(move || self.worker(id, recv))?;
+		.spawn(move || self.worker(id, &recv))?;
 
 	workers.push(handle);
 
@@ -267,9 +267,9 @@ async fn execute(&self, queue: &Sender<Cmd>, cmd: Cmd) -> Result {
 		tid = ?thread::current().id(),
 	),
 )]
-fn worker(self: Arc<Self>, id: usize, recv: Receiver<Cmd>) {
+fn worker(self: Arc<Self>, id: usize, recv: &Receiver<Cmd>) {
 	self.worker_init(id);
-	self.worker_loop(&recv);
+	self.worker_loop(recv);
 }
 
 #[implement(Pool)]
@@ -316,7 +316,7 @@ fn worker_loop(self: &Arc<Self>, recv: &Receiver<Cmd>) {
 	self.busy.fetch_add(1, Ordering::Relaxed);
 
 	while let Ok(cmd) = self.worker_wait(recv) {
-		self.worker_handle(cmd);
+		worker_handle(cmd);
 	}
 }
 
@@ -337,23 +337,21 @@ fn worker_wait(self: &Arc<Self>, recv: &Receiver<Cmd>) -> Result<Cmd, RecvError>
 	})
 }
 
-#[implement(Pool)]
-fn worker_handle(self: &Arc<Self>, cmd: Cmd) {
+fn worker_handle(cmd: Cmd) {
 	match cmd {
-		| Cmd::Get(cmd) if cmd.key.len() == 1 => self.handle_get(cmd),
-		| Cmd::Get(cmd) => self.handle_batch(cmd),
-		| Cmd::Iter(cmd) => self.handle_iter(cmd),
+		| Cmd::Get(cmd) if cmd.key.len() == 1 => handle_get(cmd),
+		| Cmd::Get(cmd) => handle_batch(cmd),
+		| Cmd::Iter(cmd) => handle_iter(cmd),
 	}
 }
 
-#[implement(Pool)]
 #[tracing::instrument(
 	name = "iter",
 	level = "trace",
 	skip_all,
 	fields(%cmd.map),
 )]
-fn handle_iter(&self, mut cmd: Seek) {
+fn handle_iter(mut cmd: Seek) {
 	let chan = cmd.res.take().expect("missing result channel");
 
 	if chan.is_canceled() {
@@ -372,7 +370,6 @@ fn handle_iter(&self, mut cmd: Seek) {
 	let _chan_sent = chan_result.is_ok();
 }
 
-#[implement(Pool)]
 #[tracing::instrument(
 	name = "batch",
 	level = "trace",
@@ -382,7 +379,7 @@ fn handle_iter(&self, mut cmd: Seek) {
 		keys = %cmd.key.len(),
 	),
 )]
-fn handle_batch(self: &Arc<Self>, mut cmd: Get) {
+fn handle_batch(mut cmd: Get) {
 	debug_assert!(cmd.key.len() > 1, "should have more than one key");
 	debug_assert!(!cmd.key.iter().any(SmallVec::is_empty), "querying for empty key");
 
@@ -401,14 +398,13 @@ fn handle_batch(self: &Arc<Self>, mut cmd: Get) {
 	let _chan_sent = chan_result.is_ok();
 }
 
-#[implement(Pool)]
 #[tracing::instrument(
 	name = "get",
 	level = "trace",
 	skip_all,
 	fields(%cmd.map),
 )]
-fn handle_get(&self, mut cmd: Get) {
+fn handle_get(mut cmd: Get) {
 	debug_assert!(!cmd.key[0].is_empty(), "querying for empty key");
 
 	// Obtain the result channel.

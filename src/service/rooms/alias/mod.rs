@@ -173,7 +173,7 @@ impl Service {
 	}
 
 	#[tracing::instrument(skip(self), level = "debug")]
-	pub fn all_local_aliases<'a>(&'a self) -> impl Stream<Item = (&RoomId, &str)> + Send + 'a {
+	pub fn all_local_aliases(&self) -> impl Stream<Item = (&RoomId, &str)> + Send + '_ {
 		self.db
 			.alias_roomid
 			.stream()

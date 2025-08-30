@@ -455,7 +455,7 @@ where
 /// Check whether the given event passes the `m.room.power_levels` authorization
 /// rules.
 #[tracing::instrument(level = "trace", skip_all)]
-fn check_room_power_levels<'a, Creators, Pdu>(
+fn check_room_power_levels<Creators, Pdu>(
 	room_power_levels_event: &RoomPowerLevelsEvent<Pdu>,
 	current_room_power_levels_event: Option<&RoomPowerLevelsEvent<Pdu>>,
 	rules: &AuthorizationRules,

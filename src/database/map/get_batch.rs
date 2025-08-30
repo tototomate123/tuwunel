@@ -64,7 +64,7 @@ where
 
 #[implement(super::Map)]
 #[tracing::instrument(name = "batch_cached", level = "trace", skip_all)]
-pub(crate) fn get_batch_cached<'a, I, K>(
+pub(crate) fn _get_batch_cached<'a, I, K>(
 	&self,
 	keys: I,
 ) -> impl Iterator<Item = Result<Option<Handle<'_>>>> + Send + use<'_, I, K>

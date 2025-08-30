@@ -67,7 +67,7 @@ type ConflictVec = Vec<OwnedEventId>;
 ///
 /// [state resolution]: https://spec.matrix.org/latest/rooms/v2/#state-resolution
 #[tracing::instrument(level = "debug", skip_all)]
-pub async fn resolve<'a, States, AuthSets, FetchExists, ExistsFut, FetchEvent, EventFut, Pdu>(
+pub async fn resolve<States, AuthSets, FetchExists, ExistsFut, FetchEvent, EventFut, Pdu>(
 	rules: &RoomVersionRules,
 	state_maps: States,
 	auth_sets: AuthSets,
