@@ -58,8 +58,8 @@ jobs:
     - name: Initialize Builder
       env:
         runner: ${{matrix.runner}}
-        reserved_space: '{"het": "384GB", "aws": "48GB", "gcp": "160GB"}'
-        max_used_space: '{"het": "512GB", "aws": "64GB", "gcp": "192GB"}'
+        reserved_space: '{"het": "128GB", "aws": "48GB", "gcp": "160GB"}'
+        max_used_space: '{"het": "256GB", "aws": "64GB", "gcp": "192GB"}'
       run: |
         set +e
         docker buildx inspect "${GITHUB_ACTOR}"
