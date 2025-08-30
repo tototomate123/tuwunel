@@ -93,48 +93,79 @@ reliability at a slight performance cost due to TCP overhead.
 
 #### Database corruption
 
-If your database is corrupted *and* is failing to start (e.g. checksum
-mismatch), it may be recoverable but careful steps must be taken, and there is
-no guarantee it may be recoverable.
+There are many causes and varieties of database corruption. There are several
+methods for mitigation, each with outcomes ranging from a recovered state down
+to a savage state. This guide has been simplified into a set of universal steps
+which everyone can follow from the top until they have recovered or reach the
+end. The details and implications will be explained within each step.
 
-The first thing that can be done is launching Tuwunel with the
-`rocksdb_repair` config option set to true. This will tell RocksDB to attempt to
-repair itself at launch. If this does not work, disable the option and continue
-reading.
+> [!NOTE]
+> All command-line `-O` options can be expressed as environment variables or in
+> the config file based on your deployment's requirements. Note that
+> `--maintenance` is only available on the command-line, but is equivalent to
+> configuring `startup_netburst = false` and `listening = false`.
 
-RocksDB has the following recovery modes:
+0. Start the server with the following options:
 
-- `TolerateCorruptedTailRecords`
-- `AbsoluteConsistency`
-- `PointInTime`
-- `SkipAnyCorruptedRecord`
+`tuwunel --maintenance -O rocksdb_recovery_mode=0`
 
-By default, Tuwunel uses `TolerateCorruptedTailRecords` as generally these may
-be due to bad federation and we can re-fetch the correct data over federation.
-The RocksDB default is `PointInTime` which will attempt to restore a "snapshot"
-of the data when it was last known to be good. This data can be either a few
-seconds old, or multiple minutes prior. `PointInTime` may not be suitable for
-default usage due to clients and servers possibly not being able to handle
-sudden "backwards time travels", and `AbsoluteConsistency` may be too strict.
+This is actually a "control" and not a method of recovery. If the server starts
+you either do not have corruption or have deep corruption indicated by very
+specific errors from rocksdb citing corruption during runtime. If you are
+certain there is deep corruption skip to step 4, otherwise you are finished
+without any modifications.
 
-`AbsoluteConsistency` will fail to start the database if any sign of corruption
-is detected. `SkipAnyCorruptedRecord` will skip all forms of corruption unless
-it forbids the database from opening (e.g. too severe). Usage of
-`SkipAnyCorruptedRecord` voids any support as this may cause more damage and/or
-leave your database in a permanently inconsistent state, but it may do something
-if `PointInTime` does not work as a last ditch effort.
+1. Start the server in Tolerate-Corrupted-Tail-Records mode:
 
-With this in mind:
+`tuwunel --maintenance -O rocksdb_recovery_mode=1`
 
-- First start Tuwunel with the `PointInTime` recovery method. See the [example
-config](configuration/examples.md) for how to do this using
-`rocksdb_recovery_mode`
-- If your database successfully opens, clients are recommended to clear their
-client cache to account for the rollback
-- Leave your Tuwunel running in `PointInTime` for at least 30-60 minutes so as
-much possible corruption is restored
-- If all goes will, you should be able to restore back to using
-`TolerateCorruptedTailRecords` and you have successfully recovered your database
+The most common corruption scenario is from a loss of power to the hardware
+(not an application crash, though it is still possible). This is remediated
+by dropping the most recently written record. It is highly unlikely there will
+be any impact on the application from this loss. In the best-case the same data
+is often re-requested over the federation or replaced by a client. In the
+worst-case clients may need to clear-cache & reload to guarantee correctness.
+If the server starts you are finished.
+
+2. Start the server in Point-In-Time mode:
+
+`tuwunel --maintenance -O rocksdb_recovery_mode=2`
+
+Similar to the corruption scenario above but for more severe cases. The most
+recent records are discarded back to the point where there is no corruption.
+It is highly unlikely there will be any impact on the application from this
+loss, but it is more likely than above that clients may need to clear-cache
+& reload to correctly resynchronize with the server.
+
+3. Start the server in Skip-Any-Corrupted-Record mode:
+
+> [!CAUTION]
+> Salvage mode potentially impacting the application's ability to function.
+> We cannot provide any further support for users who have entered this mode.
+
+`tuwunel --maintenance -O rocksdb_recovery_mode=3`
+
+Similar to the prior corruption scenarios but for the most severe cases.
+The database will be inconsistent. It is theoretically possible for the
+server to continue functioning without notable issue in the best case, but
+it is completely uncertain what the effect of this operation will be. If
+the server starts you should immediately export your messages, encryption
+keys, etc, in a salvage effort and prepare to reinstall.
+
+4. Start the server in repair mode.
+
+> [!CAUTION]
+> Salvage mode potentially impacting the application's ability to function.
+> We cannot provide any further support for users who have entered this mode.
+
+`tuwunel --maintenance -O rocksdb_repair=true`
+
+For corruption affecting the bulk database tables not covered by any journal.
+This will leave the database in an inconsistent and unpredictable state. It
+is theoretically possible to continue operating the server depending on which
+records were dropped, such as some historical records which are no longer
+essential. Nevertheless the impact of this operation is impossible to assess
+and a successful recovery should be used to salvage data prior to reinstall.
 
 ## Debugging
 
