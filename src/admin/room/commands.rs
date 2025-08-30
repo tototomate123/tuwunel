@@ -72,7 +72,12 @@ pub(super) async fn delete_room(&self, room_id: OwnedRoomId) -> Result {
 		return Err!("Cannot delete admin room");
 	}
 
-	self.services.delete.delete_room(room_id).await?;
+	let state_lock = self.services.state.mutex.lock(&room_id).await;
+
+	self.services
+		.delete
+		.delete_room(&room_id, state_lock)
+		.await?;
 
 	self.write_str("Successfully deleted the room from our database.")
 		.await?;

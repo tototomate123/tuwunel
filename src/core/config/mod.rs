@@ -1929,6 +1929,19 @@ pub struct Config {
 	#[serde(default)]
 	pub hydra_backports: bool,
 
+	/// Delete rooms when the last user from this server leaves. This feature is
+	/// experimental and for the purpose of least-surprise is not enabled by
+	/// default but can be enabled for deployments interested in conserving
+	/// space. It may eventually default to true in a future release.
+	///
+	/// Note that not all pathways which can remove the last local user
+	/// currently invoke this operation, so in some cases you may find the room
+	/// still exists.
+	///
+	/// default: false
+	#[serde(default)]
+	pub delete_rooms_after_leave: bool,
+
 	// external structure; separate section
 	#[serde(default)]
 	pub blurhashing: BlurhashConfig,

@@ -14,17 +14,21 @@ pub(crate) async fn leave_room_route(
 	State(services): State<crate::State>,
 	body: Ruma<leave_room::v3::Request>,
 ) -> Result<leave_room::v3::Response> {
-	let room_id = &body.room_id;
-
-	let state_lock = services.state.mutex.lock(room_id).await;
+	let state_lock = services.state.mutex.lock(&body.room_id).await;
 
 	services
 		.membership
-		.leave(body.sender_user(), room_id, body.reason.clone(), &state_lock)
+		.leave(body.sender_user(), &body.room_id, body.reason.clone(), &state_lock)
 		.boxed()
 		.await?;
 
-	drop(state_lock);
+	if services.config.delete_rooms_after_leave {
+		services
+			.delete
+			.delete_if_empty_local(&body.room_id, state_lock)
+			.boxed()
+			.await;
+	}
 
 	Ok(leave_room::v3::Response {})
 }
