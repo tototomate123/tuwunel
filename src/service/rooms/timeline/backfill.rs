@@ -32,13 +32,18 @@ use super::ExtractBody;
 #[implement(super::Service)]
 #[tracing::instrument(name = "backfill", level = "debug", skip(self))]
 pub async fn backfill_if_required(&self, room_id: &RoomId, from: PduCount) -> Result {
-	let first_pdu = self
+	let (first_pdu_count, first_pdu) = self
 		.first_item_in_room(room_id)
 		.await
 		.expect("Room is not empty");
 
 	// No backfill required, there are still events between them
-	if first_pdu.0 < from {
+	if first_pdu_count < from {
+		return Ok(());
+	}
+
+	// No backfill required, reached the end.
+	if *first_pdu.event_type() == TimelineEventType::RoomCreate {
 		return Ok(());
 	}
 
@@ -77,13 +82,8 @@ pub async fn backfill_if_required(&self, room_id: &RoomId, from: PduCount) -> Re
 		.users
 		.iter()
 		.filter_map(|(user_id, level)| {
-			if level > &power_levels.users_default
-				&& !self.services.globals.user_is_local(user_id)
-			{
-				Some(user_id.server_name())
-			} else {
-				None
-			}
+			(*level > power_levels.users_default && !self.services.globals.user_is_local(user_id))
+				.then_some(user_id.server_name())
 		});
 
 	let canonical_room_alias_server = once(canonical_alias)
@@ -118,7 +118,7 @@ pub async fn backfill_if_required(&self, room_id: &RoomId, from: PduCount) -> Re
 	while let Some(ref backfill_server) = servers.next().await {
 		let request = federation::backfill::get_backfill::v1::Request {
 			room_id: room_id.to_owned(),
-			v: vec![first_pdu.1.event_id().to_owned()],
+			v: vec![first_pdu.event_id().to_owned()],
 			limit: uint!(100),
 		};
 
