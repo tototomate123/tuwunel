@@ -1,4 +1,4 @@
-use ruma::{CanonicalJsonObject, OwnedEventId, RoomVersionId};
+use ruma::{CanonicalJsonObject, CanonicalJsonValue, OwnedEventId, RoomVersionId};
 use serde_json::value::RawValue as RawJsonValue;
 
 use crate::{Result, debug_error, err, matrix::room_version};
@@ -20,13 +20,36 @@ pub fn gen_event_id_canonical_json(
 	Ok((event_id, value))
 }
 
-/// Generates a correct eventId for the incoming pdu.
+/// Generates a correct eventId for the PDU. For v1/v2 incoming PDU's the
+/// value's event_id is passed through. For all outgoing PDU's and for v3+
+/// incoming PDU's it is generated.
 pub fn gen_event_id(
 	value: &CanonicalJsonObject,
 	room_version_id: &RoomVersionId,
 ) -> Result<OwnedEventId> {
 	let room_version_rules = room_version::rules(room_version_id)?;
+	let require_event_id = room_version_rules.event_format.require_event_id;
+
+	// We don't actually generate any event_id for incoming events in v1/v2 rooms,
+	// just pass them through.
+	if let Some(event_id) = require_event_id
+		.then(|| value.get("event_id"))
+		.flatten()
+		.and_then(CanonicalJsonValue::as_str)
+		.map(OwnedEventId::try_from)
+		.transpose()?
+	{
+		return Ok(event_id);
+	}
+
+	// For outgoing v1/v2 add the server part. This has to be our origin but we
+	// can't assert that here.
+	let server_name = require_event_id
+		.then(|| value.get("origin"))
+		.flatten()
+		.and_then(CanonicalJsonValue::as_str);
+
 	let reference_hash = ruma::signatures::reference_hash(value, &room_version_rules)?;
 
-	OwnedEventId::from_parts('$', &reference_hash, None).map_err(Into::into)
+	OwnedEventId::from_parts('$', &reference_hash, server_name).map_err(Into::into)
 }
