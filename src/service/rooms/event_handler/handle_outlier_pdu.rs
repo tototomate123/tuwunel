@@ -1,11 +1,11 @@
 use futures::{StreamExt, TryFutureExt};
 use ruma::{
-	CanonicalJsonObject, CanonicalJsonValue, EventId, RoomId, RoomVersionId, ServerName,
-	events::TimelineEventType,
+	CanonicalJsonObject, EventId, RoomId, RoomVersionId, ServerName, events::TimelineEventType,
 };
 use tuwunel_core::{
 	Err, Result, debug, debug_info, err, implement,
 	matrix::{Event, PduEvent, event::TypeExt, room_version},
+	pdu::format::from_incoming_federation,
 	ref_at, state_res, trace,
 	utils::{future::TryExtExt, stream::IterStream},
 	warn,
@@ -66,12 +66,11 @@ pub(super) async fn handle_outlier_pdu(
 		},
 	};
 
-	// Now that we have checked the signature and hashes we can add the eventID and
-	// convert to our PduEvent type
-	pdu_json.insert("event_id".to_owned(), CanonicalJsonValue::String(event_id.to_string()));
+	let room_rules = room_version::rules(room_version)?;
 
-	let event = serde_json::from_value::<PduEvent>(serde_json::to_value(&pdu_json)?)
-		.map_err(|e| err!(Request(BadJson(debug_warn!("Event is not a valid PDU: {e}")))))?;
+	// Now that we have checked the signature and hashes we can make mutations and
+	// convert to our PduEvent type.
+	let event = from_incoming_federation(event_id, &mut pdu_json, &room_rules)?;
 
 	check_room_id(room_id, &event)?;
 
@@ -89,7 +88,6 @@ pub(super) async fn handle_outlier_pdu(
 	//    auth events
 	debug!("Checking based on auth events");
 
-	let room_rules = room_version::rules(room_version)?;
 	let is_hydra = !room_rules
 		.event_format
 		.allow_room_create_in_auth_events;
