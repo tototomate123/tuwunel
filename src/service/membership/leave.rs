@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use futures::{FutureExt, StreamExt, TryFutureExt, pin_mut};
 use ruma::{
-	CanonicalJsonObject, CanonicalJsonValue, OwnedServerName, RoomId, RoomVersionId, UserId,
+	CanonicalJsonObject, CanonicalJsonValue, OwnedServerName, RoomId, UserId,
 	api::federation,
 	events::{
 		StateEventType,
@@ -11,7 +11,6 @@ use ruma::{
 };
 use tuwunel_core::{
 	Err, Result, debug_info, debug_warn, err, implement,
-	matrix::event::gen_event_id,
 	pdu::PduBuilder,
 	utils::{self, FutureBoolExt, future::ReadyEqExt},
 	warn,
@@ -296,26 +295,10 @@ pub async fn remote_leave(&self, user_id: &UserId, room_id: &RoomId) -> Result {
 		),
 	);
 
-	// room v3 and above removed the "event_id" field from remote PDU format
-	match room_version_id {
-		| RoomVersionId::V1 | RoomVersionId::V2 => {},
-		| _ => {
-			leave_event_stub.remove("event_id");
-		},
-	}
-
-	// In order to create a compatible ref hash (EventID) the `hashes` field needs
-	// to be present
-	self.services
+	let event_id = self
+		.services
 		.server_keys
-		.hash_and_sign_event(&mut leave_event_stub, &room_version_id)?;
-
-	// Generate event id
-	let event_id = gen_event_id(&leave_event_stub, &room_version_id)?;
-
-	// Add event_id back
-	leave_event_stub
-		.insert("event_id".to_owned(), CanonicalJsonValue::String(event_id.clone().into()));
+		.gen_id_hash_and_sign_event(&mut leave_event_stub, &room_version_id)?;
 
 	// It has enough fields to be called a proper event now
 	let leave_event = leave_event_stub;

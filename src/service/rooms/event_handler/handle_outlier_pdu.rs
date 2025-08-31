@@ -70,7 +70,7 @@ pub(super) async fn handle_outlier_pdu(
 
 	// Now that we have checked the signature and hashes we can make mutations and
 	// convert to our PduEvent type.
-	let event = from_incoming_federation(event_id, &mut pdu_json, &room_rules)?;
+	let event = from_incoming_federation(room_id, event_id, &mut pdu_json, &room_rules)?;
 
 	check_room_id(room_id, &event)?;
 

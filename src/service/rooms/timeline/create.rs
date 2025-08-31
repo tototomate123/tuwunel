@@ -3,16 +3,16 @@ use std::cmp;
 use futures::{StreamExt, TryStreamExt};
 use ruma::{
 	CanonicalJsonObject, CanonicalJsonValue, MilliSecondsSinceUnixEpoch, OwnedEventId,
-	OwnedRoomId, RoomId, RoomVersionId, UserId,
+	OwnedRoomId, RoomId, UserId,
 	events::{StateEventType, TimelineEventType, room::create::RoomCreateEventContent},
 	room_version_rules::RoomIdFormatVersion,
 	uint,
 };
 use serde_json::value::to_raw_value;
 use tuwunel_core::{
-	Err, Error, Result, err, implement,
+	Error, Result, err, implement,
 	matrix::{
-		event::{Event, StateKey, TypeExt, gen_event_id},
+		event::{Event, StateKey, TypeExt},
 		pdu::{EventHash, PduBuilder, PduEvent},
 		room_version,
 		state_res::{self},
@@ -175,36 +175,29 @@ pub async fn create_hash_and_sign_event(
 		err!(Request(BadJson(warn!("Failed to convert PDU to canonical JSON: {e}"))))
 	})?;
 
-	// room v3 and above removed the "event_id" field from remote PDU format
-	if !matches!(room_version, RoomVersionId::V1 | RoomVersionId::V2) {
-		pdu_json.remove("event_id");
-	}
-
 	// room v12 and above removed the placeholder "room_id" field from m.room.create
-	if matches!(version_rules.room_id_format, RoomIdFormatVersion::V2)
+	if !version_rules
+		.event_format
+		.require_room_create_room_id
 		&& pdu.kind == TimelineEventType::RoomCreate
 	{
 		pdu_json.remove("room_id");
 	}
 
-	if let Err(e) = self
+	pdu.event_id = self
 		.services
 		.server_keys
-		.hash_and_sign_event(&mut pdu_json, &room_version)
-	{
-		use ruma::signatures::Error::PduSize;
-
-		return match e {
-			| Error::Signatures(PduSize) => {
-				Err!(Request(TooLarge("Message/PDU is too long (exceeds 65535 bytes)")))
-			},
-			| _ => Err!(Request(Unknown(warn!("Signing event failed: {e}")))),
-		};
-	}
-
-	// Generate event id
-	pdu.event_id = gen_event_id(&pdu_json, &room_version)?;
-	pdu_json.insert("event_id".into(), CanonicalJsonValue::String(pdu.event_id.clone().into()));
+		.gen_id_hash_and_sign_event(&mut pdu_json, &room_version)
+		.map_err(|e| {
+			use Error::Signatures;
+			use ruma::signatures::Error::PduSize;
+			match e {
+				| Signatures(PduSize) => {
+					err!(Request(TooLarge("PDU exceeds 65535 bytes")))
+				},
+				| _ => err!(Request(Unknown(warn!("Signing event failed: {e}")))),
+			}
+		})?;
 
 	// Room id is event id for V12+
 	if matches!(version_rules.room_id_format, RoomIdFormatVersion::V2)

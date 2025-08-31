@@ -103,6 +103,10 @@ impl Pdu {
 		let event_id = CanonicalJsonValue::String(event_id.into());
 		json.insert("event_id".into(), event_id);
 
+		Self::from_val(&json)
+	}
+
+	pub fn from_val(json: &CanonicalJsonObject) -> Result<Self> {
 		serde_json::to_value(json)
 			.and_then(serde_json::from_value)
 			.map_err(Into::into)

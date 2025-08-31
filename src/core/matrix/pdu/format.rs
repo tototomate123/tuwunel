@@ -1,10 +1,10 @@
 use ruma::{
-	CanonicalJsonObject, CanonicalJsonValue, EventId, RoomVersionId,
+	CanonicalJsonObject, CanonicalJsonValue, EventId, RoomId, RoomVersionId,
 	room_version_rules::{EventsReferenceFormatVersion, RoomVersionRules},
 };
 
 use crate::{
-	Result, err, extract_variant, is_equal_to,
+	Result, extract_variant, is_equal_to,
 	matrix::{PduEvent, room_version},
 };
 
@@ -69,6 +69,7 @@ fn mutate_outgoing_reference_format(value: &mut CanonicalJsonValue) {
 }
 
 pub fn from_incoming_federation(
+	room_id: &RoomId,
 	event_id: &EventId,
 	pdu_json: &mut CanonicalJsonObject,
 	room_rules: &RoomVersionRules,
@@ -82,10 +83,19 @@ pub fn from_incoming_federation(
 		}
 	}
 
-	pdu_json.insert("event_id".to_owned(), CanonicalJsonValue::String(event_id.into()));
+	if !room_rules
+		.event_format
+		.require_room_create_room_id
+		&& pdu_json["type"] == "m.room.create"
+	{
+		pdu_json.insert("room_id".into(), CanonicalJsonValue::String(room_id.as_str().into()));
+	}
 
-	serde_json::from_value::<PduEvent>(serde_json::to_value(&pdu_json)?)
-		.map_err(|e| err!(Request(BadJson(debug_warn!("Event is not a valid PDU: {e}")))))
+	if !room_rules.event_format.require_event_id {
+		pdu_json.insert("event_id".to_owned(), CanonicalJsonValue::String(event_id.into()));
+	}
+
+	PduEvent::from_val(pdu_json)
 }
 
 fn mutate_incoming_reference_format(value: &mut CanonicalJsonValue) {

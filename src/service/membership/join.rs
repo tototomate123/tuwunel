@@ -17,11 +17,8 @@ use ruma::{
 };
 use tuwunel_core::{
 	Err, Result, debug, debug_error, debug_info, debug_warn, err, error, implement, info,
-	matrix::{
-		event::{gen_event_id, gen_event_id_canonical_json},
-		room_version,
-	},
-	pdu::{PduBuilder, PduEvent},
+	matrix::{event::gen_event_id_canonical_json, room_version},
+	pdu::{PduBuilder, format::from_incoming_federation},
 	state_res, trace,
 	utils::{self, IterStream, ReadyExt},
 	warn,
@@ -152,6 +149,8 @@ pub async fn join_remote(
 		));
 	}
 
+	let room_version_rules = room_version::rules(&room_version_id)?;
+
 	let mut join_event_stub: CanonicalJsonObject =
 		serde_json::from_str(make_join_response.event.get()).map_err(|e| {
 			err!(BadServerResponse(warn!(
@@ -221,27 +220,10 @@ pub async fn join_remote(
 		.expect("event is valid, we just created it"),
 	);
 
-	// We keep the "event_id" in the pdu only in v1 or
-	// v2 rooms
-	match room_version_id {
-		| RoomVersionId::V1 | RoomVersionId::V2 => {},
-		| _ => {
-			join_event_stub.remove("event_id");
-		},
-	}
-
-	// In order to create a compatible ref hash (EventID) the `hashes` field needs
-	// to be present
-	self.services
+	let event_id = self
+		.services
 		.server_keys
-		.hash_and_sign_event(&mut join_event_stub, &room_version_id)?;
-
-	// Generate event id
-	let event_id = gen_event_id(&join_event_stub, &room_version_id)?;
-
-	// Add event_id back
-	join_event_stub
-		.insert("event_id".to_owned(), CanonicalJsonValue::String(event_id.clone().into()));
+		.gen_id_hash_and_sign_event(&mut join_event_stub, &room_version_id)?;
 
 	// It has enough fields to be called a proper event now
 	let mut join_event = join_event_stub;
@@ -342,8 +324,8 @@ pub async fn join_remote(
 		.await;
 
 	info!("Parsing join event");
-	let parsed_join_pdu = PduEvent::from_id_val(&event_id, join_event.clone())
-		.map_err(|e| err!(BadServerResponse("Invalid join event PDU: {e:?}")))?;
+	let parsed_join_pdu =
+		from_incoming_federation(room_id, &event_id, &mut join_event, &room_version_rules)?;
 
 	info!("Acquiring server signing keys for response events");
 	let resp_events = &send_join_response.room_state;
@@ -368,26 +350,15 @@ pub async fn join_remote(
 		})
 		.inspect_err(|e| debug_error!("Invalid send_join state event: {e:?}"))
 		.ready_filter_map(Result::ok)
-		.fold(HashMap::new(), async |mut state, (event_id, mut value)| {
-			let pdu = if value["type"] == "m.room.create" {
-				if !value.contains_key("room_id") {
-					let room_id = CanonicalJsonValue::String(room_id.as_str().into());
-					value.insert("room_id".into(), room_id);
-				}
-
-				PduEvent::from_rid_val(room_id, &event_id, value.clone())
-			} else {
-				PduEvent::from_id_val(&event_id, value.clone())
-			};
-
-			let pdu = match pdu {
-				| Ok(pdu) => pdu,
-				| Err(e) => {
+		.ready_filter_map(|(event_id, mut value)| {
+			from_incoming_federation(room_id, &event_id, &mut value, &room_version_rules)
+				.inspect_err(|e| {
 					debug_warn!("Invalid PDU in send_join response: {e:?}: {value:#?}");
-					return state;
-				},
-			};
-
+				})
+				.map(move |pdu| (event_id, pdu, value))
+				.ok()
+		})
+		.fold(HashMap::new(), async |mut state, (event_id, pdu, value)| {
 			self.services
 				.timeline
 				.add_pdu_outlier(&event_id, &value);
@@ -423,7 +394,11 @@ pub async fn join_remote(
 		.inspect_err(|e| debug_error!("Invalid send_join auth_chain event: {e:?}"))
 		.ready_filter_map(Result::ok)
 		.ready_for_each(|(event_id, mut value)| {
-			if !value.contains_key("room_id") {
+			if !room_version_rules
+				.event_format
+				.require_room_create_room_id
+				&& value["type"] == "m.room.create"
+			{
 				let room_id = CanonicalJsonValue::String(room_id.as_str().into());
 				value.insert("room_id".into(), room_id);
 			}
@@ -438,7 +413,7 @@ pub async fn join_remote(
 
 	debug!("Running send_join auth check");
 	state_res::auth_check(
-		&room_version::rules(&room_version_id)?,
+		&room_version_rules,
 		&parsed_join_pdu,
 		&async |event_id| self.services.timeline.get_pdu(&event_id).await,
 		&async |event_type, state_key| {
@@ -719,27 +694,10 @@ pub async fn join_local(
 		.expect("event is valid, we just created it"),
 	);
 
-	// We keep the "event_id" in the pdu only in v1 or
-	// v2 rooms
-	match room_version_id {
-		| RoomVersionId::V1 | RoomVersionId::V2 => {},
-		| _ => {
-			join_event_stub.remove("event_id");
-		},
-	}
-
-	// In order to create a compatible ref hash (EventID) the `hashes` field needs
-	// to be present
-	self.services
+	let event_id = self
+		.services
 		.server_keys
-		.hash_and_sign_event(&mut join_event_stub, &room_version_id)?;
-
-	// Generate event id
-	let event_id = gen_event_id(&join_event_stub, &room_version_id)?;
-
-	// Add event_id back
-	join_event_stub
-		.insert("event_id".to_owned(), CanonicalJsonValue::String(event_id.clone().into()));
+		.gen_id_hash_and_sign_event(&mut join_event_stub, &room_version_id)?;
 
 	// It has enough fields to be called a proper event now
 	let join_event = join_event_stub;
