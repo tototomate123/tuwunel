@@ -1,7 +1,7 @@
 use ruma::{CanonicalJsonObject, OwnedEventId, RoomVersionId};
 use serde_json::value::RawValue as RawJsonValue;
 
-use crate::{Result, err, matrix::room_version};
+use crate::{Result, debug_error, err, matrix::room_version};
 
 /// Generates a correct eventId for the incoming pdu.
 ///
@@ -12,7 +12,8 @@ pub fn gen_event_id_canonical_json(
 	room_version_id: &RoomVersionId,
 ) -> Result<(OwnedEventId, CanonicalJsonObject)> {
 	let value: CanonicalJsonObject = serde_json::from_str(pdu.get())
-		.map_err(|e| err!(BadServerResponse(warn!("Error parsing incoming event: {e:?}"))))?;
+		.map_err(|e| err!(BadServerResponse(warn!("Error parsing canonical event: {e}"))))
+		.inspect_err(|e| debug_error!("{pdu:#?} {e:?}"))?;
 
 	let event_id = gen_event_id(&value, room_version_id)?;
 

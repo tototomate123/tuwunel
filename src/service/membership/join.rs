@@ -1,6 +1,6 @@
 use std::{borrow::Borrow, collections::HashMap, iter::once, sync::Arc};
 
-use futures::{FutureExt, StreamExt, TryFutureExt, pin_mut};
+use futures::{FutureExt, StreamExt, TryFutureExt, TryStreamExt, pin_mut};
 use ruma::{
 	CanonicalJsonObject, CanonicalJsonValue, OwnedServerName, OwnedUserId, RoomId, RoomVersionId,
 	UserId,
@@ -16,7 +16,7 @@ use ruma::{
 	room::{AllowRule, JoinRule},
 };
 use tuwunel_core::{
-	Err, Result, debug, debug_info, debug_warn, err, error, implement, info,
+	Err, Result, debug, debug_error, debug_info, debug_warn, err, error, implement, info,
 	matrix::{
 		event::{gen_event_id, gen_event_id_canonical_json},
 		room_version,
@@ -366,6 +366,7 @@ pub async fn join_remote(
 				.server_keys
 				.validate_and_add_event_id_no_fetch(pdu, &room_version_id)
 		})
+		.inspect_err(|e| debug_error!("Invalid send_join state event: {e:?}"))
 		.ready_filter_map(Result::ok)
 		.fold(HashMap::new(), async |mut state, (event_id, mut value)| {
 			let pdu = if value["type"] == "m.room.create" {
@@ -419,6 +420,7 @@ pub async fn join_remote(
 				.server_keys
 				.validate_and_add_event_id_no_fetch(pdu, &room_version_id)
 		})
+		.inspect_err(|e| debug_error!("Invalid send_join auth_chain event: {e:?}"))
 		.ready_filter_map(Result::ok)
 		.ready_for_each(|(event_id, mut value)| {
 			if !value.contains_key("room_id") {

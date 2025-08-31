@@ -4,7 +4,7 @@ mod room_member;
 mod tests;
 
 use futures::{
-	FutureExt, TryFutureExt, TryStreamExt,
+	FutureExt, TryStreamExt,
 	future::{join3, try_join},
 };
 use ruma::{
@@ -119,9 +119,10 @@ where
 	let seen_auth_types = incoming_event
 		.auth_events()
 		.try_stream()
-		.and_then(|event_id: &EventId| {
-			fetch_event(event_id.to_owned())
-				.map_err(|_| err!(Request(NotFound("failed to find auth event"))))
+		.and_then(async |event_id: &EventId| match fetch_event(event_id.to_owned()).await {
+			| Ok(auth_event) => Ok(auth_event),
+			| Err(e) if e.is_not_found() => Err!(Request(NotFound("auth event {event_id}: {e}"))),
+			| Err(e) => Err(e),
 		})
 		.ready_try_fold(seen_auth_types, |mut seen_auth_types, auth_event| {
 			let event_id = auth_event.event_id();

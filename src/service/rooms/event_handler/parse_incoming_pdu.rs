@@ -9,7 +9,7 @@ type Parsed = (OwnedRoomId, OwnedEventId, CanonicalJsonObject);
 #[implement(super::Service)]
 pub async fn parse_incoming_pdu(&self, pdu: &RawJsonValue) -> Result<Parsed> {
 	let value = serde_json::from_str::<CanonicalJsonObject>(pdu.get()).map_err(|e| {
-		err!(BadServerResponse(debug_warn!("Error parsing incoming event {e:?}")))
+		err!(BadServerResponse(debug_error!("Error parsing incoming event: {e} {pdu:#?}")))
 	})?;
 
 	let room_id: OwnedRoomId = value
