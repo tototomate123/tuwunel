@@ -61,7 +61,7 @@ toolchain_toml="$docker_dir/../rust-toolchain.toml"
 rust_msrv=$(grep "channel = " "$toolchain_toml" | cut -d'=' -f2 | sed 's/\s"\|"$//g')
 rocksdb_opt_level=3
 rocksdb_portable=1
-git_checkout="HEAD"
+git_checkout="${git_checkout:-HEAD}"
 use_chef="true"
 set +a
 
