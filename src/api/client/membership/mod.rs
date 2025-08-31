@@ -201,6 +201,8 @@ async fn get_join_params(
 	additional_servers.sort_unstable();
 	additional_servers.dedup();
 	shuffle(&mut additional_servers);
+	servers.sort_unstable();
+	servers.dedup();
 	servers.append(&mut additional_servers);
 
 	Ok((room_id, servers))
