@@ -1382,6 +1382,16 @@
 #
 #forbidden_usernames = []
 
+# List of server names to deprioritize joining through.
+#
+# If a client requests a join through one of these servers,
+# they will be tried last.
+#
+# Useful for preventing failed joins due to timeouts
+# from a certain homeserver.
+#
+#deprioritize_joins_through_servers = ["matrix\.org"]
+
 # Retry failed and incomplete messages to remote servers immediately upon
 # startup. This is called bursting. If this is disabled, said messages may
 # not be delivered until more messages are queued for that server. Do not

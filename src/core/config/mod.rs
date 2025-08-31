@@ -1604,6 +1604,21 @@ pub struct Config {
 	#[serde(default, with = "serde_regex")]
 	pub forbidden_usernames: RegexSet,
 
+	/// List of server names to deprioritize joining through.
+	///
+	/// If a client requests a join through one of these servers,
+	/// they will be tried last.
+	///
+	/// Useful for preventing failed joins due to timeouts
+	/// from a certain homeserver.
+	///
+	/// default: ["matrix\.org"]
+	#[serde(
+		default = "default_deprioritize_joins_through_servers",
+		with = "serde_regex"
+	)]
+	pub deprioritize_joins_through_servers: RegexSet,
+
 	/// Retry failed and incomplete messages to remote servers immediately upon
 	/// startup. This is called bursting. If this is disabled, said messages may
 	/// not be delivered until more messages are queued for that server. Do not
@@ -2761,3 +2776,7 @@ fn default_client_sync_timeout_default() -> u64 { 30000 }
 fn default_client_sync_timeout_max() -> u64 { 90000 }
 
 fn default_access_token_ttl() -> u64 { 604_800 }
+
+fn default_deprioritize_joins_through_servers() -> RegexSet {
+	RegexSet::new([r"matrix\.org"]).unwrap()
+}

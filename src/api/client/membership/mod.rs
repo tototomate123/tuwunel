@@ -8,7 +8,7 @@ mod leave;
 mod members;
 mod unban;
 
-use std::net::IpAddr;
+use std::{cmp::Ordering, net::IpAddr};
 
 use axum::extract::State;
 use futures::{FutureExt, StreamExt};
@@ -204,6 +204,28 @@ async fn get_join_params(
 	servers.sort_unstable();
 	servers.dedup();
 	servers.append(&mut additional_servers);
+
+	// sort deprioritized servers last
+	servers.sort_by(|a, b| {
+		let a_matches = services
+			.server
+			.config
+			.deprioritize_joins_through_servers
+			.is_match(a.host());
+		let b_matches = services
+			.server
+			.config
+			.deprioritize_joins_through_servers
+			.is_match(b.host());
+
+		if a_matches && !b_matches {
+			Ordering::Greater
+		} else if !a_matches && b_matches {
+			Ordering::Less
+		} else {
+			Ordering::Equal
+		}
+	});
 
 	Ok((room_id, servers))
 }
