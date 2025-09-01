@@ -2,17 +2,21 @@ use ruma::{
 	CanonicalJsonObject, CanonicalJsonValue, OwnedEventId, RoomVersionId, signatures::Verified,
 };
 use serde_json::value::RawValue as RawJsonValue;
-use tuwunel_core::{Err, Result, err, implement, matrix::event::gen_event_id_canonical_json};
+use tuwunel_core::{
+	Err, Result, implement,
+	matrix::{event::gen_event_id_canonical_json, room_version},
+};
 
 #[implement(super::Service)]
 pub async fn validate_and_add_event_id(
 	&self,
 	pdu: &RawJsonValue,
-	room_version: &RoomVersionId,
+	room_version_id: &RoomVersionId,
 ) -> Result<(OwnedEventId, CanonicalJsonObject)> {
-	let (event_id, mut value) = gen_event_id_canonical_json(pdu, room_version)?;
+	let (event_id, mut value) = gen_event_id_canonical_json(pdu, room_version_id)?;
+
 	if let Err(e) = self
-		.verify_event(&value, Some(room_version))
+		.verify_event(&value, Some(room_version_id))
 		.await
 	{
 		return Err!(BadServerResponse(debug_error!(
@@ -20,7 +24,13 @@ pub async fn validate_and_add_event_id(
 		)));
 	}
 
-	value.insert("event_id".into(), CanonicalJsonValue::String(event_id.as_str().into()));
+	// For v3+ rooms we add the event_id, but for v1/v2 rooms it's already present.
+	if !room_version::rules(room_version_id)?
+		.event_format
+		.require_event_id
+	{
+		value.insert("event_id".into(), CanonicalJsonValue::String(event_id.as_str().into()));
+	}
 
 	Ok((event_id, value))
 }
@@ -29,14 +39,10 @@ pub async fn validate_and_add_event_id(
 pub async fn validate_and_add_event_id_no_fetch(
 	&self,
 	pdu: &RawJsonValue,
-	room_version: &RoomVersionId,
+	room_version_id: &RoomVersionId,
 ) -> Result<(OwnedEventId, CanonicalJsonObject)> {
-	let (event_id, mut value) = gen_event_id_canonical_json(pdu, room_version)?;
-	let room_version_rules = room_version.rules().ok_or_else(|| {
-		err!(Request(UnsupportedRoomVersion(
-			"Cannot verify event for unknown room version {room_version:?}."
-		)))
-	})?;
+	let (event_id, mut value) = gen_event_id_canonical_json(pdu, room_version_id)?;
+	let room_version_rules = room_version::rules(room_version_id)?;
 
 	if !self
 		.required_keys_exist(&value, &room_version_rules)
@@ -48,7 +54,7 @@ pub async fn validate_and_add_event_id_no_fetch(
 	}
 
 	if let Err(e) = self
-		.verify_event(&value, Some(room_version))
+		.verify_event(&value, Some(room_version_id))
 		.await
 	{
 		return Err!(BadServerResponse(debug_error!(
@@ -56,7 +62,10 @@ pub async fn validate_and_add_event_id_no_fetch(
 		)));
 	}
 
-	value.insert("event_id".into(), CanonicalJsonValue::String(event_id.as_str().into()));
+	// For v3+ rooms we add the event_id, but for v1/v2 rooms it's already present.
+	if !room_version_rules.event_format.require_event_id {
+		value.insert("event_id".into(), CanonicalJsonValue::String(event_id.as_str().into()));
+	}
 
 	Ok((event_id, value))
 }
@@ -65,14 +74,10 @@ pub async fn validate_and_add_event_id_no_fetch(
 pub async fn verify_event(
 	&self,
 	event: &CanonicalJsonObject,
-	room_version: Option<&RoomVersionId>,
+	room_version_id: Option<&RoomVersionId>,
 ) -> Result<Verified> {
-	let room_version = room_version.unwrap_or(&RoomVersionId::V11);
-	let room_version_rules = room_version.rules().ok_or_else(|| {
-		err!(Request(UnsupportedRoomVersion(
-			"Cannot verify event for unknown room version {room_version:?}."
-		)))
-	})?;
+	let room_version_id = room_version_id.unwrap_or(&RoomVersionId::V11);
+	let room_version_rules = room_version::rules(room_version_id)?;
 
 	let event_keys = self
 		.get_event_keys(event, &room_version_rules)
@@ -85,14 +90,10 @@ pub async fn verify_event(
 pub async fn verify_json(
 	&self,
 	event: &CanonicalJsonObject,
-	room_version: Option<&RoomVersionId>,
+	room_version_id: Option<&RoomVersionId>,
 ) -> Result {
-	let room_version = room_version.unwrap_or(&RoomVersionId::V11);
-	let room_version_rules = room_version.rules().ok_or_else(|| {
-		err!(Request(UnsupportedRoomVersion(
-			"Cannot verify json for unknown room version {room_version:?}."
-		)))
-	})?;
+	let room_version_id = room_version_id.unwrap_or(&RoomVersionId::V11);
+	let room_version_rules = room_version::rules(room_version_id)?;
 
 	let event_keys = self
 		.get_event_keys(event, &room_version_rules)
