@@ -1,5 +1,5 @@
 use axum::extract::State;
-use futures::{FutureExt, StreamExt};
+use futures::{FutureExt, StreamExt, pin_mut};
 use ruma::{
 	api::client::membership::{
 		get_member_events::{self, v3::MembershipEventFilter},
@@ -7,10 +7,20 @@ use ruma::{
 	},
 	events::{
 		StateEventType,
-		room::member::{MembershipState, RoomMemberEventContent},
+		room::{
+			history_visibility::{HistoryVisibility, RoomHistoryVisibilityEventContent},
+			member::{MembershipState, RoomMemberEventContent},
+		},
 	},
 };
-use tuwunel_core::{Err, Result, at, matrix::Event, utils::stream::ReadyExt};
+use tuwunel_core::{
+	Err, Result, at,
+	matrix::Event,
+	utils::{
+		future::{BoolExt, TryExtExt},
+		stream::ReadyExt,
+	},
+};
 
 use crate::Ruma;
 
@@ -29,7 +39,9 @@ pub(crate) async fn get_member_events_route(
 		.user_can_see_state_events(body.sender_user(), &body.room_id)
 		.await
 	{
-		return Err!(Request(Forbidden("You don't have permission to view this room.")));
+		return Err!(Request(Forbidden(
+			"You aren't a member of the room and weren't previously a member of the room."
+		)));
 	}
 
 	let membership = body.membership.as_ref();
@@ -59,12 +71,20 @@ pub(crate) async fn joined_members_route(
 	State(services): State<crate::State>,
 	body: Ruma<joined_members::v3::Request>,
 ) -> Result<joined_members::v3::Response> {
-	if !services
+	let is_joined = services
+		.state_cache
+		.is_joined(body.sender_user(), &body.room_id);
+
+	let is_world_readable = services
 		.state_accessor
-		.user_can_see_state_events(body.sender_user(), &body.room_id)
-		.await
-	{
-		return Err!(Request(Forbidden("You don't have permission to view this room.")));
+		.room_state_get_content(&body.room_id, &StateEventType::RoomHistoryVisibility, "")
+		.map_ok_or(false, |c: RoomHistoryVisibilityEventContent| {
+			c.history_visibility == HistoryVisibility::WorldReadable
+		});
+
+	pin_mut!(is_joined, is_world_readable);
+	if !is_joined.or(is_world_readable).await {
+		return Err!(Request(Forbidden("You aren't a member of the room.")));
 	}
 
 	Ok(joined_members::v3::Response {
