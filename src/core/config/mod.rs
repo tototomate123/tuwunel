@@ -1287,6 +1287,19 @@ pub struct Config {
 	#[serde(default = "true_fn")]
 	pub presence_timeout_remote_users: bool,
 
+
+	/// Supress sending notifications to mobile devices if user is online on any account.
+	/// Defaults to false to keep legacy behaviour.
+	#[serde(default)]
+	pub suppress_push_when_active: bool,
+
+	/// Activity freshness window in milliseconds for
+	/// `suppress_push_when_active`.
+	/// Changes for how long after a user goes offline wont receive notifications.
+	/// defaults to 1000.
+	#[serde(default = "default_supress_push_active_within_ms")]
+	pub suppress_push_active_within_ms: u64,
+
 	/// Allow receiving incoming read receipts from remote servers.
 	#[serde(default = "true_fn")]
 	pub allow_incoming_read_receipts: bool,
@@ -2606,6 +2619,8 @@ fn default_turn_ttl() -> u64 { 60 * 60 * 24 }
 fn default_presence_idle_timeout_s() -> u64 { 5 * 60 }
 
 fn default_presence_offline_timeout_s() -> u64 { 30 * 60 }
+
+fn default_supress_push_active_within_ms() -> u64 { 1000 }
 
 fn default_typing_federation_timeout_s() -> u64 { 30 }
 

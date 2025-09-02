@@ -19,14 +19,13 @@ use ruma::{
 	MilliSecondsSinceUnixEpoch, OwnedRoomId, OwnedServerName, OwnedUserId, RoomId, ServerName,
 	UInt,
 	api::{
-		appservice::event::push_events::v1::EphemeralData,
-		federation::transactions::{
+		appservice::event::push_events::v1::EphemeralData, client::presence, federation::transactions::{
 			edu::{
 				DeviceListUpdateContent, Edu, PresenceContent, PresenceUpdate, ReceiptContent,
 				ReceiptData, ReceiptMap,
 			},
 			send_transaction_message,
-		},
+		}
 	},
 	device_id,
 	events::{
@@ -832,6 +831,22 @@ impl Service {
 			// Redacted events are not notification targets (we don't send push for them)
 			if pdu.contains_unsigned_property("redacted_because", serde_json::Value::is_string) {
 				continue;
+			}
+
+			// optional suppression: skip push if user is considered active recently.
+			if self.services.server.config.suppress_push_when_active {
+				if let Ok(presence) = self.services.presence.get_presence(&user_id).await {
+					let is_online = presence.content.presence == ruma::presence::PresenceState::Online;
+					let currently_active = presence.content.currently_active.unwrap_or(false);
+					let recent = presence
+						.content.last_active_ago
+						.map(|ago| u64::from(ago) > self.services.server.config.suppress_push_active_within_ms)
+						.unwrap_or(false);
+					if is_online && (currently_active || recent) {
+						debug!("skipping notification");
+						continue;
+					}
+				}
 			}
 
 			let rules_for_user = self
