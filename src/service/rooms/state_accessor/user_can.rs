@@ -138,12 +138,17 @@ pub async fn user_can_see_state_events(&self, user_id: &UserId, room_id: &RoomId
 		});
 
 	match history_visibility {
+		| HistoryVisibility::WorldReadable => true,
+		| HistoryVisibility::Shared =>
+			self.services
+				.state_cache
+				.once_joined(user_id, room_id)
+				.await,
 		| HistoryVisibility::Invited =>
 			self.services
 				.state_cache
 				.is_invited(user_id, room_id)
 				.await,
-		| HistoryVisibility::WorldReadable => true,
 		| _ => false,
 	}
 }
