@@ -8,7 +8,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use futures::{FutureExt, TryFutureExt, future::try_join};
 use ruma::{
-	EventEncryptionAlgorithm, JsOption, OwnedRoomAliasId, RoomId, UserId,
+	EventEncryptionAlgorithm, OwnedRoomAliasId, RoomId, UserId,
 	events::{
 		StateEventType,
 		room::{
@@ -88,13 +88,9 @@ impl Service {
 			.map(|c: RoomNameEventContent| c.name)
 	}
 
-	pub async fn get_avatar(&self, room_id: &RoomId) -> JsOption<RoomAvatarEventContent> {
-		let content = self
-			.room_state_get_content(room_id, &StateEventType::RoomAvatar, "")
+	pub async fn get_avatar(&self, room_id: &RoomId) -> Result<RoomAvatarEventContent> {
+		self.room_state_get_content(room_id, &StateEventType::RoomAvatar, "")
 			.await
-			.ok();
-
-		JsOption::from_option(content)
 	}
 
 	pub async fn get_member(

@@ -405,7 +405,11 @@ async fn public_rooms_chunk(services: &Services, room_id: OwnedRoomId) -> Public
 		.get_canonical_alias(&room_id)
 		.ok();
 
-	let avatar_url = services.state_accessor.get_avatar(&room_id);
+	let avatar_url = services
+		.state_accessor
+		.get_avatar(&room_id)
+		.map_ok(|content| content.url)
+		.ok();
 
 	let topic = services
 		.state_accessor
@@ -441,7 +445,7 @@ async fn public_rooms_chunk(services: &Services, room_id: OwnedRoomId) -> Public
 	.await;
 
 	PublicRoomsChunk {
-		avatar_url: avatar_url.into_option().unwrap_or_default().url,
+		avatar_url: avatar_url.flatten(),
 		canonical_alias,
 		guest_can_join,
 		join_rule: join_rule.unwrap_or_default(),

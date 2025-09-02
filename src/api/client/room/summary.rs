@@ -1,7 +1,7 @@
 use axum::extract::State;
 use axum_client_ip::InsecureClientIp;
 use futures::{
-	FutureExt, StreamExt,
+	FutureExt, StreamExt, TryFutureExt,
 	future::{OptionFuture, join3},
 	stream::FuturesUnordered,
 };
@@ -142,7 +142,9 @@ async fn local_room_summary_response(
 	let avatar_url = services
 		.state_accessor
 		.get_avatar(room_id)
-		.map(|res| res.into_option().unwrap_or_default().url);
+		.map_ok(|content| content.url)
+		.ok()
+		.map(Option::flatten);
 
 	let room_version = services.state.get_room_version(room_id).ok();
 

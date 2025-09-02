@@ -612,24 +612,26 @@ where
 			| Ordering::Less => None,
 		};
 
-		let heroes_avatar = if heroes.len() == 1 {
-			heroes[0].avatar.clone()
-		} else {
-			None
-		};
+		let room_avatar = services
+			.state_accessor
+			.get_avatar(room_id)
+			.map_ok(|content| content.url)
+			.ok()
+			.map(Option::flatten)
+			.await;
 
-		let room_avatar = match services.state_accessor.get_avatar(room_id).await {
-			| ruma::JsOption::Some(avatar) => ruma::JsOption::from_option(avatar.url),
-			| ruma::JsOption::Null => ruma::JsOption::Null,
-			| ruma::JsOption::Undefined => ruma::JsOption::Undefined,
-		};
+		let heroes_avatar = (room_avatar.is_none() && room_name.is_none())
+			.then(|| {
+				heroes
+					.first()
+					.and_then(|hero| hero.avatar.clone())
+			})
+			.flatten();
+
+		let avatar = ruma::JsOption::from_option(room_avatar.or(heroes_avatar));
 
 		rooms.insert(room_id.clone(), sync_events::v5::response::Room {
-			avatar: if room_name.is_some() {
-				room_avatar
-			} else {
-				ruma::JsOption::from_option(heroes_avatar)
-			},
+			avatar,
 			name: room_name.or(hero_name),
 			initial: Some(roomsince == &0),
 			is_dm: None,

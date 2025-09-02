@@ -360,7 +360,8 @@ async fn get_room_summary(
 		.services
 		.state_accessor
 		.get_avatar(room_id)
-		.map(|res| res.into_option().unwrap_or_default().url);
+		.map_ok(|content| content.url)
+		.ok();
 
 	let room_version = self.services.state.get_room_version(room_id).ok();
 
@@ -397,12 +398,12 @@ async fn get_room_summary(
 	let summary = SpaceHierarchyParentSummary {
 		children_state,
 		summary: RoomSummary {
+			avatar_url: avatar_url.flatten(),
 			canonical_alias,
 			name,
 			topic,
 			world_readable,
 			guest_can_join,
-			avatar_url,
 			room_type,
 			encryption,
 			room_version,
