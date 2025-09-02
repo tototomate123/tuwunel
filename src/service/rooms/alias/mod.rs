@@ -150,13 +150,22 @@ impl Service {
 		)
 	}
 
-	#[tracing::instrument(skip(self), level = "debug")]
+	#[tracing::instrument(skip(self), level = "trace")]
 	pub async fn resolve_local_alias(&self, alias: &RoomAliasId) -> Result<OwnedRoomId> {
 		self.db
 			.alias_roomid
 			.get(alias.alias())
 			.await
 			.deserialized()
+	}
+
+	#[tracing::instrument(skip(self), level = "trace")]
+	pub async fn local_alias_exists(&self, alias: &RoomAliasId) -> bool {
+		self.db
+			.alias_roomid
+			.exists(alias.alias())
+			.await
+			.is_ok()
 	}
 
 	#[tracing::instrument(skip(self), level = "debug")]
@@ -264,6 +273,7 @@ impl Service {
 		Ok(None)
 	}
 
+	#[tracing::instrument(skip(self, appservice_info), level = "trace")]
 	pub async fn appservice_checks(
 		&self,
 		room_alias: &RoomAliasId,
