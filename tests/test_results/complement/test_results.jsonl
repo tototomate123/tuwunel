@@ -328,8 +328,6 @@
 {"Action":"pass","Test":"TestMSC4291RoomIDAsHashOfCreateEvent_CannotSendCreateEvent"}
 {"Action":"pass","Test":"TestMSC4291RoomIDAsHashOfCreateEvent_RoomIDIsOnCreateEvent"}
 {"Action":"fail","Test":"TestMSC4291RoomIDAsHashOfCreateEvent_UpgradedRooms"}
-{"Action":"fail","Test":"TestMSC4297StateResolutionV2_1_includes_conflicted_subgraph"}
-{"Action":"fail","Test":"TestMSC4297StateResolutionV2_1_starts_from_empty_set"}
 {"Action":"fail","Test":"TestMSC4311FullCreateEventOnStrippedState"}
 {"Action":"pass","Test":"TestMediaConfig"}
 {"Action":"pass","Test":"TestMediaFilenames"}

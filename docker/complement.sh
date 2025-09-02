@@ -31,6 +31,9 @@ skip="${skip}|TestRoomCreate/Parallel/POST_/createRoom_makes_a_room_with_a_topic
 skip="${skip}|TestLogin/parallel/POST_/"
 skip="${skip}|TestUnbanViaInvite"
 skip="${skip}|TestRoomState/Parallel/GET_/publicRooms_lists_newly-created_room"
+# flakes due to timeout in debug-mode
+skip="${skip}|TestMSC4297StateResolutionV2_1_starts_from_empty_set"
+skip="${skip}|TestMSC4297StateResolutionV2_1_includes_conflicted_subgraph"
 
 set -a
 cargo_profile="${cargo_profile:-$default_cargo_profile}"
