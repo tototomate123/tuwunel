@@ -1093,17 +1093,16 @@
 #
 #presence_timeout_remote_users = true
 
-# Supress sending notifications to mobile devices if user is online on any account.
-# Defaults to false to keep legacy behaviour.
+# Suppresses push notifications for users marked as active.
+#
+# When enabled, users with `Online` presence and recent activity
+# (based on presence state and sync activity) won’t receive push
+# notifications, reducing duplicate alerts while they're active
+# elsewhere.
+#
+# Disabled by default to preserve legacy behavior.
 #
 #suppress_push_when_active = false
-
-# Activity freshness window in milliseconds for
-# `suppress_push_when_active`.
-# Changes for how long after a user goes offline wont receive notifications.
-# defaults to 1000.
-#
-#suppress_push_active_within_ms =
 
 # Allow receiving incoming read receipts from remote servers.
 #

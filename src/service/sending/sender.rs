@@ -19,7 +19,7 @@ use ruma::{
 	MilliSecondsSinceUnixEpoch, OwnedRoomId, OwnedServerName, OwnedUserId, RoomId, ServerName,
 	UInt,
 	api::{
-		appservice::event::push_events::v1::EphemeralData, client::presence, federation::transactions::{
+		appservice::event::push_events::v1::EphemeralData, federation::transactions::{
 			edu::{
 				DeviceListUpdateContent, Edu, PresenceContent, PresenceUpdate, ReceiptContent,
 				ReceiptData, ReceiptMap,
@@ -833,17 +833,21 @@ impl Service {
 				continue;
 			}
 
-			// optional suppression: skip push if user is considered active recently.
+			// optional suppression: heuristic combining presence age and recent sync activity.
 			if self.services.server.config.suppress_push_when_active {
 				if let Ok(presence) = self.services.presence.get_presence(&user_id).await {
 					let is_online = presence.content.presence == ruma::presence::PresenceState::Online;
-					let currently_active = presence.content.currently_active.unwrap_or(false);
-					let recent = presence
-						.content.last_active_ago
-						.map(|ago| u64::from(ago) > self.services.server.config.suppress_push_active_within_ms)
-						.unwrap_or(false);
-					if is_online && (currently_active || recent) {
-						debug!("skipping notification");
+					let presence_age_ms = presence
+						.content
+						.last_active_ago
+						.map(u64::from)
+						.unwrap_or(u64::MAX);
+					let sync_gap_ms = self.services.presence.last_sync_gap_ms(&user_id).await;
+					let considered_active = is_online
+						&& presence_age_ms < 65_000
+						&& sync_gap_ms.is_some_and(|gap| gap < 32_000);
+					if considered_active {
+						trace!(?user_id, presence_age_ms, sync_gap_ms, "suppressing push: active heuristic");
 						continue;
 					}
 				}
