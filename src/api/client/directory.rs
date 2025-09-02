@@ -403,6 +403,17 @@ async fn public_rooms_chunk(services: &Services, room_id: OwnedRoomId) -> Public
 	let canonical_alias = services
 		.state_accessor
 		.get_canonical_alias(&room_id)
+		.and_then(async |alias| {
+			if services
+				.globals
+				.server_is_ours(alias.server_name())
+				&& !services.alias.local_alias_exists(&alias).await
+			{
+				return Err!(Request(NotFound("Canonical alias not found.")));
+			}
+
+			Ok(alias)
+		})
 		.ok();
 
 	let avatar_url = services
