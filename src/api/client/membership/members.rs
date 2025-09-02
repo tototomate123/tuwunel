@@ -75,6 +75,9 @@ pub(crate) async fn joined_members_route(
 			.ready_filter(|((ty, _), _)| *ty == StateEventType::RoomMember)
 			.map(at!(1))
 			.ready_filter_map(|pdu| {
+				membership_filter(pdu, Some(&MembershipEventFilter::Join), None)
+			})
+			.ready_filter_map(|pdu| {
 				let content = pdu.get_content::<RoomMemberEventContent>().ok()?;
 				let sender = pdu.sender().to_owned();
 				let member = RoomMember {
