@@ -99,11 +99,15 @@ to a savage state. This guide has been simplified into a set of universal steps
 which everyone can follow from the top until they have recovered or reach the
 end. The details and implications will be explained within each step.
 
-> [!NOTE]
+> [!TIP]
 > All command-line `-O` options can be expressed as environment variables or in
 > the config file based on your deployment's requirements. Note that
 > `--maintenance` is only available on the command-line, but is equivalent to
 > configuring `startup_netburst = false` and `listening = false`.
+
+> [!IMPORTANT]
+> Always create a backup of the database before running any operation. This is
+> critical for steps 3 and above.
 
 0. Start the server with the following options:
 
@@ -139,7 +143,7 @@ loss, but it is more likely than above that clients may need to clear-cache
 
 3. Start the server in Skip-Any-Corrupted-Record mode:
 
-> [!CAUTION]
+> [!WARNING]
 > Salvage mode potentially impacting the application's ability to function.
 > We cannot provide any further support for users who have entered this mode.
 
@@ -154,9 +158,14 @@ keys, etc, in a salvage effort and prepare to reinstall.
 
 4. Start the server in repair mode.
 
-> [!CAUTION]
+> [!WARNING]
 > Salvage mode potentially impacting the application's ability to function.
 > We cannot provide any further support for users who have entered this mode.
+
+> [!CAUTION]
+> Always create a backup of the database before entering this mode. The repair
+> is not configurable and not interactive. It may automatically remove more
+> data than anticipated, preventing further salvage efforts.
 
 `tuwunel --maintenance -O rocksdb_repair=true`
 
@@ -166,6 +175,19 @@ is theoretically possible to continue operating the server depending on which
 records were dropped, such as some historical records which are no longer
 essential. Nevertheless the impact of this operation is impossible to assess
 and a successful recovery should be used to salvage data prior to reinstall.
+
+5. Utilize an external repair tool.
+
+> [!WARNING]
+> Salvage mode potentially impacting the application's ability to function.
+> We cannot provide any further support for users who have entered this mode.
+
+	1. `git clone https://github.com/facebook/rocksdb`
+	2. `make -j$(nproc) ldb`
+	3. `./ldb repair --db=/var/lib/tuwunel/ 2>./repair-log.txt`
+
+For situations when the repair mode in step 4 is not successful or produces
+unexpected results.
 
 ## Debugging
 
