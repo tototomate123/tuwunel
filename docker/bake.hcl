@@ -233,6 +233,7 @@ group "lints" {
 
 group "tests" {
     targets = [
+        "docs",
         "unit",
         "smoke",
         "complement",
@@ -809,6 +810,25 @@ target "unit" {
     }
 }
 
+target "docs" {
+    name = elem("docs", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+    tags = [
+        elem_tag("docs", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
+    ]
+    target = "cargo"
+    matrix = cargo_rust_feat_sys
+    inherits = [
+        elem("build-tests", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target]),
+    ]
+    contexts = {
+        input = elem("target:build-tests", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+    }
+    args = {
+        cargo_cmd = "test"
+        cargo_args = "--doc --no-fail-fast"
+    }
+}
+
 #
 # Workspace builds
 #
@@ -835,10 +855,10 @@ target "book" {
 EOF
 }
 
-target "docs" {
-    name = elem("docs", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
+target "build-docs" {
+    name = elem("build-docs", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     tags = [
-        elem_tag("docs", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
+        elem_tag("build-docs", [cargo_profile, rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target], "latest"),
     ]
     matrix = cargo_rust_feat_sys
     inherits = [
@@ -1035,7 +1055,7 @@ target "fmt" {
         input = elem("target:ingredients", [rust_toolchain, rust_target, feat_set, sys_name, sys_version, sys_target])
     }
     args = {
-        fmt_args = "-- --color always"
+        fmt_args = "-- --color=always"
     }
 }
 
