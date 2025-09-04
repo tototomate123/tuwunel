@@ -220,7 +220,7 @@ features = [
 ]
 
 [workspace.dependencies.insta]
-version = "1.43.1"
+version = "1.43"
 features = [
 	"json",
 ]
@@ -430,7 +430,7 @@ version = "0.10"
 default-features = false
 
 [workspace.dependencies.similar]
-version = "2.7.0"
+version = "2.7"
 
 [workspace.dependencies.smallstr]
 version = "0.3"
@@ -536,21 +536,21 @@ features = [
 ]
 
 [workspace.dependencies.tracing]
-version = "0.1.41"
+version = "0.1"
 default-features = false
 
 [workspace.dependencies.tracing-core]
-version = "0.1.33"
+version = "0.1"
 default-features = false
 
 [workspace.dependencies.tracing-flame]
-version = "0.2.0"
+version = "0.2"
 
 [workspace.dependencies.tracing-opentelemetry]
-version = "0.31.0"
+version = "0.31"
 
 [workspace.dependencies.tracing-subscriber]
-version = "0.3.20"
+version = "0.3"
 default-features = false
 features = [
 	"ansi",
