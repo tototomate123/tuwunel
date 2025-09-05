@@ -102,14 +102,14 @@ end. The details and implications will be explained within each step.
 > [!TIP]
 > All command-line `-O` options can be expressed as environment variables or in
 > the config file based on your deployment's requirements. Note that
-> `--maintenance` is only available on the command-line, but is equivalent to
-> configuring `startup_netburst = false` and `listening = false`.
+> `--maintenance` is equivalent to configuring `startup_netburst = false` and
+> `listening = false`.
 
 > [!IMPORTANT]
 > Always create a backup of the database before running any operation. This is
 > critical for steps 3 and above.
 
-0. Start the server with the following options:
+**0. Start the server with the following options:**
 
 `tuwunel --maintenance -O rocksdb_recovery_mode=0`
 
@@ -119,7 +119,7 @@ specific errors from rocksdb citing corruption during runtime. If you are
 certain there is deep corruption skip to step 4, otherwise you are finished
 without any modifications.
 
-1. Start the server in Tolerate-Corrupted-Tail-Records mode:
+**1. Start the server in Tolerate-Corrupted-Tail-Records mode:**
 
 `tuwunel --maintenance -O rocksdb_recovery_mode=1`
 
@@ -131,7 +131,7 @@ is often re-requested over the federation or replaced by a client. In the
 worst-case clients may need to clear-cache & reload to guarantee correctness.
 If the server starts you are finished.
 
-2. Start the server in Point-In-Time mode:
+**2. Start the server in Point-In-Time mode:**
 
 `tuwunel --maintenance -O rocksdb_recovery_mode=2`
 
@@ -141,11 +141,11 @@ It is highly unlikely there will be any impact on the application from this
 loss, but it is more likely than above that clients may need to clear-cache
 & reload to correctly resynchronize with the server.
 
-3. Start the server in Skip-Any-Corrupted-Record mode:
+**3. Start the server in Skip-Any-Corrupted-Record mode:**
 
 > [!WARNING]
 > Salvage mode potentially impacting the application's ability to function.
-> We cannot provide any further support for users who have entered this mode.
+> We cannot provide support for users who have entered this mode.
 
 `tuwunel --maintenance -O rocksdb_recovery_mode=3`
 
@@ -156,11 +156,11 @@ it is completely uncertain what the effect of this operation will be. If
 the server starts you should immediately export your messages, encryption
 keys, etc, in a salvage effort and prepare to reinstall.
 
-4. Start the server in repair mode.
+**4. Start the server in repair mode.**
 
 > [!WARNING]
 > Salvage mode potentially impacting the application's ability to function.
-> We cannot provide any further support for users who have entered this mode.
+> We cannot provide support for users who have entered this mode.
 
 > [!CAUTION]
 > Always create a backup of the database before entering this mode. The repair
@@ -176,18 +176,24 @@ records were dropped, such as some historical records which are no longer
 essential. Nevertheless the impact of this operation is impossible to assess
 and a successful recovery should be used to salvage data prior to reinstall.
 
-5. Utilize an external repair tool.
+Once finished, restart the server without `rocksdb_repair`. If no errors
+persist, restart the server again without maintenance mode.
+
+**5. Utilize an external repair tool.**
 
 > [!WARNING]
 > Salvage mode potentially impacting the application's ability to function.
-> We cannot provide any further support for users who have entered this mode.
+> We cannot provide support for users who have entered this mode.
 
-	1. `git clone https://github.com/facebook/rocksdb`
-	2. `make -j$(nproc) ldb`
-	3. `./ldb repair --db=/var/lib/tuwunel/ 2>./repair-log.txt`
+```
+git clone https://github.com/facebook/rocksdb
+cd rocksdb
+make -j$(nproc) ldb
+./ldb repair --db=/var/lib/tuwunel/ 2>./repair-log.txt
+```
 
-For situations when the repair mode in step 4 is not successful or produces
-unexpected results.
+For situations when the repair mode in step 4 failed or produced unexpected
+results.
 
 ## Debugging
 
