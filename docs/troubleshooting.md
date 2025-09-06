@@ -200,7 +200,8 @@ Various debug commands can be found in `!admin debug`.
 Tuwunel builds without debug or trace log levels at compile time by default
 for substantial performance gains in CPU usage and improved compile times. If
 you need to access debug/trace log levels, you will need to build without the
-`release_max_log_level` feature or use our provided static debug binaries.
+`release_max_log_level` feature or use our provided release-logging binaries
+and images.
 
 #### Changing log level dynamically
 
