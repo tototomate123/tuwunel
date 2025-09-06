@@ -48,15 +48,14 @@ pub(crate) async fn set_read_marker_route(
 			.reset_notification_counts(sender_user, &body.room_id);
 	}
 
-	// ping presence
-	if services.config.allow_local_presence {
-		services
-			.presence
-			.ping_presence(sender_user, &ruma::presence::PresenceState::Online)
-			.await?;
-	}
-
 	if let Some(event) = &body.read_receipt {
+		if services.config.allow_local_presence {
+			services
+				.presence
+				.ping_presence(sender_user, &ruma::presence::PresenceState::Online)
+				.await?;
+		}
+
 		let receipt_content = BTreeMap::from_iter([(
 			event.to_owned(),
 			BTreeMap::from_iter([(
@@ -120,14 +119,6 @@ pub(crate) async fn create_receipt_route(
 			.reset_notification_counts(sender_user, &body.room_id);
 	}
 
-	// ping presence
-	if services.config.allow_local_presence {
-		services
-			.presence
-			.ping_presence(sender_user, &ruma::presence::PresenceState::Online)
-			.await?;
-	}
-
 	match body.receipt_type {
 		| create_receipt::v3::ReceiptType::FullyRead => {
 			let fully_read_event = ruma::events::fully_read::FullyReadEvent {
@@ -146,6 +137,13 @@ pub(crate) async fn create_receipt_route(
 				.await?;
 		},
 		| create_receipt::v3::ReceiptType::Read => {
+			if services.config.allow_local_presence {
+				services
+					.presence
+					.ping_presence(sender_user, &ruma::presence::PresenceState::Online)
+					.await?;
+			}
+
 			let receipt_content = BTreeMap::from_iter([(
 				body.event_id.clone(),
 				BTreeMap::from_iter([(
