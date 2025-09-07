@@ -129,17 +129,21 @@ jobs:
       machines: ${{needs.init.outputs.machines}}
       excludes: >
         [
+          {"cargo_profile": "test", "feat_set": "logging"},
           {"cargo_profile": "test", "rust_toolchain": "stable", "feat_set": "none"},
           {"cargo_profile": "test", "rust_target": "aarch64-unknown-linux-gnu"},
           {"cargo_profile": "release", "rust_toolchain": "nightly", "feat_set": "none"},
           {"cargo_profile": "release", "rust_toolchain": "nightly", "feat_set": "default"},
+          {"cargo_profile": "release", "rust_toolchain": "nightly", "feat_set": "logging"},
           {"cargo_profile": "release-debuginfo"},
-          {"cargo_profile": "release-native", "rust_toolchain": "stable"},
           {"cargo_profile": "release-native", "feat_set": "none"},
           {"cargo_profile": "release-native", "feat_set": "default"},
+          {"cargo_profile": "release-native", "feat_set": "logging"},
+          {"cargo_profile": "release-native", "rust_toolchain": "stable"},
           {"cargo_profile": "release-native", "rust_target": "aarch64-unknown-linux-gnu"},
           {"rust_target": "aarch64-unknown-linux-gnu", "feat_set": "none"},
           {"rust_target": "aarch64-unknown-linux-gnu", "feat_set": "default"},
+          {"rust_target": "aarch64-unknown-linux-gnu", "feat_set": "logging"},
           {"rust_target": "aarch64-unknown-linux-gnu", "rust_toolchain": "nightly"},
           {"rust_target": "aarch64-unknown-linux-gnu", "sys_target": "x86_64-v1-linux-gnu"},
           {"rust_target": "aarch64-unknown-linux-gnu", "sys_target": "x86_64-v2-linux-gnu"},
@@ -174,15 +178,17 @@ jobs:
       machines: ${{needs.init.outputs.machines}}
       excludes: >
         [
+          {"feat_set": "logging"},
           {"cargo_profile": "test", "rust_toolchain": "stable", "feat_set": "none"},
           {"cargo_profile": "test", "rust_target": "aarch64-unknown-linux-gnu"},
           {"cargo_profile": "release-debuginfo"},
-          {"cargo_profile": "release-native", "rust_toolchain": "stable"},
-          {"cargo_profile": "release-native", "feat_set": "default"},
           {"cargo_profile": "release-native", "feat_set": "none"},
+          {"cargo_profile": "release-native", "feat_set": "default"},
+          {"cargo_profile": "release-native", "rust_toolchain": "stable"},
           {"cargo_profile": "release-native", "rust_target": "aarch64-unknown-linux-gnu"},
           {"rust_target": "aarch64-unknown-linux-gnu", "feat_set": "none"},
           {"rust_target": "aarch64-unknown-linux-gnu", "feat_set": "default"},
+          {"rust_target": "aarch64-unknown-linux-gnu", "feat_set": "logging"},
           {"rust_target": "aarch64-unknown-linux-gnu", "rust_toolchain": "nightly"},
           {"rust_target": "aarch64-unknown-linux-gnu", "sys_target": "x86_64-v1-linux-gnu"},
           {"rust_target": "aarch64-unknown-linux-gnu", "sys_target": "x86_64-v2-linux-gnu"},
@@ -228,6 +234,7 @@ jobs:
           {"cargo_profile": "test"},
           {"cargo_profile": "release-native"},
           {"cargo_profile": "release-debuginfo", "feat_set": "default"},
+          {"cargo_profile": "release-debuginfo", "feat_set": "logging"},
           {"cargo_profile": "release-debuginfo", "rust_toolchain": "nightly"},
           {"cargo_profile": "release-debuginfo", "bake_target": "oci"},
           {"cargo_profile": "release-debuginfo", "rust_target": "aarch64-unknown-linux-gnu"},
@@ -236,6 +243,7 @@ jobs:
           {"cargo_profile": "release-debuginfo", "sys_target": "x86_64-v4-linux-gnu"},
           {"cargo_profile": "release", "rust_toolchain": "nightly"},
           {"rust_target": "aarch64-unknown-linux-gnu", "feat_set": "default"},
+          {"rust_target": "aarch64-unknown-linux-gnu", "feat_set": "logging"},
           {"rust_target": "aarch64-unknown-linux-gnu", "sys_target": "x86_64-v1-linux-gnu"},
           {"rust_target": "aarch64-unknown-linux-gnu", "sys_target": "x86_64-v2-linux-gnu"},
           {"rust_target": "aarch64-unknown-linux-gnu", "sys_target": "x86_64-v3-linux-gnu"},
@@ -245,10 +253,13 @@ jobs:
           {"sys_target": "x86_64-v1-linux-gnu", "machine": "ARM64"},
           {"sys_target": "x86_64-v2-linux-gnu", "machine": "ARM64"},
           {"sys_target": "x86_64-v2-linux-gnu", "feat_set": "default"},
+          {"sys_target": "x86_64-v2-linux-gnu", "feat_set": "logging"},
           {"sys_target": "x86_64-v3-linux-gnu", "machine": "ARM64"},
           {"sys_target": "x86_64-v3-linux-gnu", "feat_set": "default"},
+          {"sys_target": "x86_64-v3-linux-gnu", "feat_set": "logging"},
           {"sys_target": "x86_64-v4-linux-gnu", "machine": "ARM64"},
           {"sys_target": "x86_64-v4-linux-gnu", "feat_set": "default"},
+          {"sys_target": "x86_64-v4-linux-gnu", "feat_set": "logging"},
         ]
 
   publish:
@@ -273,6 +284,7 @@ jobs:
       excludes: >
         [
           {"feat_set": "none"},
+          {"feat_set": "logging"},
           {"cargo_profile": "test"},
           {"cargo_profile": "release-debuginfo"},
           {"cargo_profile": "release-native"},

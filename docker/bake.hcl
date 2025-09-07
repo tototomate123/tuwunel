@@ -29,8 +29,12 @@ variable "git_ref_name" {
 
 cargo_feat_sets = {
     none = ""
+    # Default features
     default = "brotli_compression,element_hacks,gzip_compression,io_uring,jemalloc,jemalloc_conf,media_thumbnail,release_max_log_level,systemd,url_preview,zstd_compression"
-    all = "blurhashing,brotli_compression,bzip2_compression,tuwunel_mods,console,default,direct_tls,element_hacks,gzip_compression,hardened_malloc,io_uring,jemalloc,jemalloc_conf,jemalloc_prof,jemalloc_stats,ldap,lz4_compression,media_thumbnail,perf_measurements,release_max_log_level,sentry_telemetry,systemd,tokio_console,url_preview,zstd_compression"
+    # All features sans release_max_log_level
+    logging = "blurhashing,brotli_compression,bzip2_compression,console,default,direct_tls,element_hacks,gzip_compression,hardened_malloc,io_uring,jemalloc,jemalloc_conf,jemalloc_prof,jemalloc_stats,ldap,lz4_compression,media_thumbnail,perf_measurements,sentry_telemetry,systemd,tokio_console,tuwunel_mods,url_preview,zstd_compression"
+    # All features
+    all = "blurhashing,brotli_compression,bzip2_compression,console,default,direct_tls,element_hacks,gzip_compression,hardened_malloc,io_uring,jemalloc,jemalloc_conf,jemalloc_prof,jemalloc_stats,ldap,lz4_compression,media_thumbnail,perf_measurements,release_max_log_level,sentry_telemetry,systemd,tokio_console,tuwunel_mods,url_preview,zstd_compression"
 }
 variable "cargo_features_always" {
     default = "direct_tls"
