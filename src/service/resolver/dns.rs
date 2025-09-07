@@ -1,7 +1,11 @@
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use futures::FutureExt;
-use hickory_resolver::{TokioResolver, lookup_ip::LookupIp};
+use hickory_resolver::{
+	TokioResolver,
+	config::{LookupIpStrategy, ResolverConfig, ResolverOpts},
+	lookup_ip::LookupIp,
+};
 use reqwest::dns::{Addrs, Name, Resolve, Resolving};
 use tuwunel_core::{Result, Server, err};
 
@@ -22,18 +26,31 @@ pub(crate) struct Hooked {
 type ResolvingResult = Result<Addrs, Box<dyn std::error::Error + Send + Sync>>;
 
 impl Resolver {
-	#[allow(
-		clippy::as_conversions,
-		clippy::cast_sign_loss,
-		clippy::cast_possible_truncation
-	)]
 	pub(super) fn build(server: &Arc<Server>, cache: Arc<Cache>) -> Result<Arc<Self>> {
+		let (conf, opts) = Self::configure(server)?;
+		let rt_prov = hickory_resolver::proto::runtime::TokioRuntimeProvider::new();
+		let conn_prov = hickory_resolver::name_server::TokioConnectionProvider::new(rt_prov);
+		let mut builder = TokioResolver::builder_with_config(conf, conn_prov);
+		*builder.options_mut() = Self::configure_opts(server, opts);
+		let resolver = Arc::new(builder.build());
+
+		Ok(Arc::new(Self {
+			hooked: Arc::new(Hooked {
+				server: server.clone(),
+				resolver: resolver.clone(),
+				cache,
+			}),
+			server: server.clone(),
+			resolver,
+		}))
+	}
+
+	fn configure(server: &Arc<Server>) -> Result<(ResolverConfig, ResolverOpts)> {
 		let config = &server.config;
-		let (sys_conf, mut opts) = hickory_resolver::system_conf::read_system_conf()
+		let (sys_conf, opts) = hickory_resolver::system_conf::read_system_conf()
 			.map_err(|e| err!(error!("Failed to configure DNS resolver from system: {e}")))?;
 
-		let mut conf = hickory_resolver::config::ResolverConfig::new();
-
+		let mut conf = ResolverConfig::new();
 		if let Some(domain) = sys_conf.domain() {
 			conf.set_domain(domain.clone());
 		}
@@ -44,18 +61,26 @@ impl Resolver {
 
 		for sys_conf in sys_conf.name_servers() {
 			let mut ns = sys_conf.clone();
-
+			ns.trust_negative_responses = !config.query_all_nameservers;
 			if config.query_over_tcp_only {
 				ns.protocol = hickory_resolver::proto::xfer::Protocol::Tcp;
 			}
 
-			ns.trust_negative_responses = !config.query_all_nameservers;
-
 			conf.add_name_server(ns);
 		}
 
+		Ok((conf, opts))
+	}
+
+	#[allow(
+		clippy::as_conversions,
+		clippy::cast_sign_loss,
+		clippy::cast_possible_truncation
+	)]
+	fn configure_opts(server: &Arc<Server>, mut opts: ResolverOpts) -> ResolverOpts {
+		let config = &server.config;
+
 		opts.cache_size = config.dns_cache_entries as usize;
-		opts.preserve_intermediates = true;
 		opts.negative_min_ttl = Some(Duration::from_secs(config.dns_min_ttl_nxdomain));
 		opts.negative_max_ttl = Some(Duration::from_secs(60 * 60 * 24 * 30));
 		opts.positive_min_ttl = Some(Duration::from_secs(config.dns_min_ttl));
@@ -66,25 +91,16 @@ impl Resolver {
 		opts.num_concurrent_reqs = 1;
 		opts.edns0 = true;
 		opts.case_randomization = true;
+		opts.preserve_intermediates = true;
 		opts.ip_strategy = match config.ip_lookup_strategy {
-			| 1 => hickory_resolver::config::LookupIpStrategy::Ipv4Only,
-			| 2 => hickory_resolver::config::LookupIpStrategy::Ipv6Only,
-			| 3 => hickory_resolver::config::LookupIpStrategy::Ipv4AndIpv6,
-			| 4 => hickory_resolver::config::LookupIpStrategy::Ipv6thenIpv4,
-			| _ => hickory_resolver::config::LookupIpStrategy::Ipv4thenIpv6,
+			| 1 => LookupIpStrategy::Ipv4Only,
+			| 2 => LookupIpStrategy::Ipv6Only,
+			| 3 => LookupIpStrategy::Ipv4AndIpv6,
+			| 4 => LookupIpStrategy::Ipv6thenIpv4,
+			| _ => LookupIpStrategy::Ipv4thenIpv6,
 		};
 
-		let rt_prov = hickory_resolver::proto::runtime::TokioRuntimeProvider::new();
-		let conn_prov = hickory_resolver::name_server::TokioConnectionProvider::new(rt_prov);
-		let mut builder = TokioResolver::builder_with_config(conf, conn_prov);
-		*builder.options_mut() = opts;
-		let resolver = Arc::new(builder.build());
-
-		Ok(Arc::new(Self {
-			resolver: resolver.clone(),
-			hooked: Arc::new(Hooked { resolver, cache, server: server.clone() }),
-			server: server.clone(),
-		}))
+		opts
 	}
 
 	/// Clear the in-memory hickory-dns caches
