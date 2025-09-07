@@ -1666,7 +1666,7 @@
 # jeopardize existing rooms, but otherwise will default to true at the
 # next point release or patch.
 #
-#hydra_backports = false
+#hydra_backports = true
 
 # Delete rooms when the last user from this server leaves. This feature is
 # experimental and for the purpose of least-surprise is not enabled by

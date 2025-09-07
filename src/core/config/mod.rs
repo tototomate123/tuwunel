@@ -1942,7 +1942,7 @@ pub struct Config {
 	/// real-world testing can shake out any implementation issues rather than
 	/// jeopardize existing rooms, but otherwise will default to true at the
 	/// next point release or patch.
-	#[serde(default)]
+	#[serde(default = "true_fn")]
 	pub hydra_backports: bool,
 
 	/// Delete rooms when the last user from this server leaves. This feature is
