@@ -285,9 +285,10 @@ pub struct Config {
 
 	/// Minimum time-to-live in seconds for entries in the DNS cache. The
 	/// default may appear high to most administrators; this is by design as the
-	/// majority of NXDOMAINs are correct for a long time (e.g. the server is no
-	/// longer running Matrix). Only decrease this if you are using an external
-	/// DNS cache.
+	/// exotic loads of federating to many other servers require a higher TTL
+	/// than many domains have set. Even when using an external DNS cache the
+	/// problem is shifted to that cache which is ignorant of its role for
+	/// this application and can adhere to many low TTL's increasing its load.
 	///
 	/// default: 10800
 	#[serde(default = "default_dns_min_ttl")]
