@@ -53,11 +53,7 @@ macro_rules! debug_info {
 	}
 }
 
-pub const INFO_SPAN_LEVEL: Level = if cfg!(debug_assertions) {
-	Level::INFO
-} else {
-	Level::DEBUG
-};
+pub const INFO_SPAN_LEVEL: Level = if logging() { Level::INFO } else { Level::DEBUG };
 
 pub static DEBUGGER: LazyLock<bool> =
 	LazyLock::new(|| env::var("_").unwrap_or_default().ends_with("gdb"));
@@ -121,5 +117,7 @@ pub fn type_name<T: ?Sized>() -> &'static str { std::any::type_name::<T>() }
 #[must_use]
 #[inline]
 pub const fn logging() -> bool {
-	cfg!(debug_assertions) || cfg!(tuwunel_debug) || cfg!(not(feature = "release_max_log_level"))
+	cfg!(debug_assertions)
+		|| cfg!(tuwunel_debug_logging)
+		|| !cfg!(feature = "release_max_log_level")
 }
