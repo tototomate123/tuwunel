@@ -125,47 +125,35 @@ impl Service {
 		room_alias: &RoomAliasId,
 		servers: Option<Vec<OwnedServerName>>,
 	) -> Result<(OwnedRoomId, Vec<OwnedServerName>)> {
-		let server_name = room_alias.server_name();
-		let server_is_ours = self.services.globals.server_is_ours(server_name);
-		let servers_contains_ours = || {
-			servers
-				.as_ref()
-				.is_some_and(|servers| servers.contains(&self.services.server.name))
-		};
+		if self
+			.services
+			.globals
+			.server_is_ours(room_alias.server_name())
+		{
+			if let Ok(room_id) = self.resolve_local_alias(room_alias).await {
+				return Ok((room_id, Vec::new()));
+			}
 
-		if !server_is_ours && !servers_contains_ours() {
-			return self
-				.remote_resolve(room_alias, servers.unwrap_or_default())
-				.await;
+			if let Ok(room_id) = self.resolve_appservice_alias(room_alias).await {
+				return Ok((room_id, Vec::new()));
+			}
+
+			return Err!(Request(NotFound("Room with alias not found.")));
 		}
 
-		let room_id = match self.resolve_local_alias(room_alias).await {
-			| Ok(r) => Some(r),
-			| Err(_) => self.resolve_appservice_alias(room_alias).await?,
-		};
-
-		room_id.map_or_else(
-			|| Err!(Request(NotFound("Room with alias not found."))),
-			|room_id| Ok((room_id, Vec::new())),
-		)
+		return self
+			.remote_resolve(room_alias, servers.unwrap_or_default())
+			.await;
 	}
 
 	#[tracing::instrument(skip(self), level = "trace")]
 	pub async fn resolve_local_alias(&self, alias: &RoomAliasId) -> Result<OwnedRoomId> {
+		self.check_alias_local(alias)?;
 		self.db
 			.alias_roomid
 			.get(alias.alias())
 			.await
 			.deserialized()
-	}
-
-	#[tracing::instrument(skip(self), level = "trace")]
-	pub async fn local_alias_exists(&self, alias: &RoomAliasId) -> bool {
-		self.db
-			.alias_roomid
-			.exists(alias.alias())
-			.await
-			.is_ok()
 	}
 
 	#[tracing::instrument(skip(self), level = "debug")]
@@ -191,6 +179,8 @@ impl Service {
 	}
 
 	async fn user_can_remove_alias(&self, alias: &RoomAliasId, user_id: &UserId) -> Result<bool> {
+		self.check_alias_local(alias)?;
+
 		let room_id = self
 			.resolve_local_alias(alias)
 			.await
@@ -237,6 +227,8 @@ impl Service {
 	}
 
 	async fn who_created_alias(&self, alias: &RoomAliasId) -> Result<OwnedUserId> {
+		self.check_alias_local(alias)?;
+
 		self.db
 			.alias_userid
 			.get(alias.alias())
@@ -244,11 +236,10 @@ impl Service {
 			.deserialized()
 	}
 
-	async fn resolve_appservice_alias(
-		&self,
-		room_alias: &RoomAliasId,
-	) -> Result<Option<OwnedRoomId>> {
+	async fn resolve_appservice_alias(&self, room_alias: &RoomAliasId) -> Result<OwnedRoomId> {
 		use ruma::api::appservice::query::query_room_alias;
+
+		self.check_alias_local(room_alias)?;
 
 		for appservice in self.services.appservice.read().await.values() {
 			if appservice.aliases.is_match(room_alias.as_str())
@@ -265,12 +256,19 @@ impl Service {
 				return self
 					.resolve_local_alias(room_alias)
 					.await
-					.map_err(|_| err!(Request(NotFound("Room does not exist."))))
-					.map(Some);
+					.map_err(|_| err!(Request(NotFound("Room does not exist."))));
 			}
 		}
 
-		Ok(None)
+		Err!(Request(NotFound("Room does not exist.")))
+	}
+
+	fn check_alias_local(&self, alias: &RoomAliasId) -> Result {
+		if !self.services.globals.alias_is_local(alias) {
+			return Err!(Request(InvalidParam("Alias is from another server.")));
+		}
+
+		Ok(())
 	}
 
 	#[tracing::instrument(skip(self, appservice_info), level = "trace")]
@@ -279,14 +277,7 @@ impl Service {
 		room_alias: &RoomAliasId,
 		appservice_info: &Option<RegistrationInfo>,
 	) -> Result {
-		if !self
-			.services
-			.globals
-			.server_is_ours(room_alias.server_name())
-		{
-			return Err!(Request(InvalidParam("Alias is from another server.")));
-		}
-
+		self.check_alias_local(room_alias)?;
 		if let Some(info) = appservice_info {
 			if !info.aliases.is_match(room_alias.as_str()) {
 				return Err!(Request(Exclusive("Room alias is not in namespace.")));

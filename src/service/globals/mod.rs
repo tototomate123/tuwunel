@@ -11,7 +11,9 @@ use std::{
 use async_trait::async_trait;
 use data::Data;
 use regex::RegexSet;
-use ruma::{OwnedEventId, OwnedRoomAliasId, OwnedServerName, OwnedUserId, ServerName, UserId};
+use ruma::{
+	OwnedEventId, OwnedRoomAliasId, OwnedServerName, OwnedUserId, RoomAliasId, ServerName, UserId,
+};
 use tuwunel_core::{Result, Server, error, utils::bytes::pretty};
 
 use crate::service;
@@ -248,6 +250,12 @@ impl Service {
 	#[must_use]
 	pub fn user_is_local(&self, user_id: &UserId) -> bool {
 		self.server_is_ours(user_id.server_name())
+	}
+
+	#[inline]
+	#[must_use]
+	pub fn alias_is_local(&self, alias: &RoomAliasId) -> bool {
+		self.server_is_ours(alias.server_name())
 	}
 
 	#[inline]
