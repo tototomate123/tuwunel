@@ -285,6 +285,16 @@
 #
 #ip_lookup_strategy = 5
 
+# List of domain patterns resolved via the alternative path without any
+# persistent cache, very small memory cache, and no enforced TTL. This
+# is intended for internal network and application services which require
+# these specific properties. This path does not support federation or
+# general purposes.
+#
+# example: ["*\.dns\.podman$"]
+#
+#dns_passthru_domains = []
+
 # Max request size for file uploads in bytes. Defaults to 20MB.
 #
 #max_request_size = 20971520

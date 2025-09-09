@@ -366,6 +366,18 @@ pub struct Config {
 	#[serde(default = "default_ip_lookup_strategy")]
 	pub ip_lookup_strategy: u8,
 
+	/// List of domain patterns resolved via the alternative path without any
+	/// persistent cache, very small memory cache, and no enforced TTL. This
+	/// is intended for internal network and application services which require
+	/// these specific properties. This path does not support federation or
+	/// general purposes.
+	///
+	/// example: ["*\.dns\.podman$"]
+	///
+	/// default: []
+	#[serde(default, with = "serde_regex")]
+	pub dns_passthru_domains: RegexSet,
+
 	/// Max request size for file uploads in bytes. Defaults to 20MB.
 	///
 	/// default: 20971520

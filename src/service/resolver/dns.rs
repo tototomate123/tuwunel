@@ -13,6 +13,7 @@ use super::cache::{Cache, CachedOverride};
 
 pub struct Resolver {
 	pub(crate) resolver: Arc<TokioResolver>,
+	pub(crate) passthru: Arc<TokioResolver>,
 	pub(crate) hooked: Arc<Hooked>,
 	server: Arc<Server>,
 }
@@ -27,12 +28,18 @@ type ResolvingResult = Result<Addrs, Box<dyn std::error::Error + Send + Sync>>;
 
 impl Resolver {
 	pub(super) fn build(server: &Arc<Server>, cache: Arc<Cache>) -> Result<Arc<Self>> {
+		// Create the primary resolver.
 		let (conf, opts) = Self::configure(server)?;
-		let rt_prov = hickory_resolver::proto::runtime::TokioRuntimeProvider::new();
-		let conn_prov = hickory_resolver::name_server::TokioConnectionProvider::new(rt_prov);
-		let mut builder = TokioResolver::builder_with_config(conf, conn_prov);
-		*builder.options_mut() = Self::configure_opts(server, opts);
-		let resolver = Arc::new(builder.build());
+		let resolver = Self::create(server, conf.clone(), opts.clone())?;
+
+		// Create the passthru resolver with modified options.
+		let (conf, mut opts) = (conf, opts);
+		opts.negative_min_ttl = None;
+		opts.negative_max_ttl = None;
+		opts.positive_min_ttl = None;
+		opts.positive_max_ttl = None;
+		opts.cache_size = ResolverOpts::default().cache_size;
+		let passthru = Self::create(server, conf, opts)?;
 
 		Ok(Arc::new(Self {
 			hooked: Arc::new(Hooked {
@@ -42,7 +49,21 @@ impl Resolver {
 			}),
 			server: server.clone(),
 			resolver,
+			passthru,
 		}))
+	}
+
+	fn create(
+		server: &Arc<Server>,
+		conf: ResolverConfig,
+		opts: ResolverOpts,
+	) -> Result<Arc<TokioResolver>> {
+		let rt_prov = hickory_resolver::proto::runtime::TokioRuntimeProvider::new();
+		let conn_prov = hickory_resolver::name_server::TokioConnectionProvider::new(rt_prov);
+		let mut builder = TokioResolver::builder_with_config(conf, conn_prov);
+		*builder.options_mut() = Self::configure_opts(server, opts);
+
+		Ok(Arc::new(builder.build()))
 	}
 
 	fn configure(server: &Arc<Server>) -> Result<(ResolverConfig, ResolverOpts)> {
@@ -110,7 +131,18 @@ impl Resolver {
 
 impl Resolve for Resolver {
 	fn resolve(&self, name: Name) -> Resolving {
-		resolve_to_reqwest(self.server.clone(), self.resolver.clone(), name).boxed()
+		let resolver = if self
+			.server
+			.config
+			.dns_passthru_domains
+			.is_match(name.as_str())
+		{
+			&self.passthru
+		} else {
+			&self.resolver
+		};
+
+		resolve_to_reqwest(self.server.clone(), resolver.clone(), name).boxed()
 	}
 }
 
