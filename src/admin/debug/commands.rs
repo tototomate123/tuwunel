@@ -974,10 +974,10 @@ pub(super) async fn create_jwt(
 	#[derive(Serialize)]
 	struct Claim {
 		sub: String,
-		iss: String,
-		aud: String,
-		exp: usize,
-		nbf: usize,
+		iss: Option<String>,
+		aud: Option<String>,
+		exp: Option<usize>,
+		nbf: Option<usize>,
 	}
 
 	let config = &self.services.config.jwt;
@@ -994,21 +994,19 @@ pub(super) async fn create_jwt(
 	let claim = Claim {
 		sub: user,
 
-		iss: issuer.unwrap_or_default(),
+		iss: issuer,
 
-		aud: audience.unwrap_or_default(),
+		aud: audience,
 
 		exp: exp_from_now
 			.and_then(|val| now_secs().checked_add(val))
 			.map(TryInto::try_into)
-			.and_then(Result::ok)
-			.unwrap_or(usize::MAX),
+			.and_then(Result::ok),
 
 		nbf: nbf_from_now
 			.and_then(|val| now_secs().checked_add(val))
 			.map(TryInto::try_into)
-			.and_then(Result::ok)
-			.unwrap_or(0),
+			.and_then(Result::ok),
 	};
 
 	encode(&header, &claim, &key)
