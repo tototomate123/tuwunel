@@ -413,6 +413,12 @@ async fn create_create_event(
 					))))
 				})?;
 
+			if !services.config.federate_created_rooms {
+				if !services.config.allow_federation || !content.contains_key("m.federate") {
+					content.insert("m.federate".into(), json!(false).try_into()?);
+				}
+			}
+
 			content.insert(
 				"room_version".into(),
 				json!(room_version.as_str())
@@ -427,6 +433,10 @@ async fn create_create_event(
 
 			let mut content =
 				serde_json::from_str::<CanonicalJsonObject>(to_raw_value(&content)?.get())?;
+
+			if !services.config.federate_created_rooms {
+				content.insert("m.federate".into(), json!(false).try_into()?);
+			}
 
 			content.insert("room_version".into(), json!(room_version.as_str()).try_into()?);
 			content
@@ -535,6 +545,12 @@ async fn create_create_event_legacy(
 				},
 			}
 
+			if !services.config.federate_created_rooms {
+				if !services.config.allow_federation || !content.contains_key("m.federate") {
+					content.insert("m.federate".into(), json!(false).try_into()?);
+				}
+			}
+
 			content.insert(
 				"room_version".into(),
 				json!(room_version.as_str())
@@ -555,6 +571,10 @@ async fn create_create_event_legacy(
 
 			let mut content =
 				serde_json::from_str::<CanonicalJsonObject>(to_raw_value(&content)?.get())?;
+
+			if !services.config.federate_created_rooms {
+				content.insert("m.federate".into(), json!(false).try_into()?);
+			}
 
 			content.insert("room_version".into(), json!(room_version.as_str()).try_into()?);
 			content

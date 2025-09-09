@@ -560,9 +560,20 @@ pub struct Config {
 	pub allow_encryption: bool,
 
 	/// Controls whether federation is allowed or not. It is not recommended to
-	/// disable this after the fact due to potential federation breakage.
+	/// disable this after installation due to potential federation breakage but
+	/// this is technically not a permanent setting.
 	#[serde(default = "true_fn")]
 	pub allow_federation: bool,
+
+	/// Sets the default `m.federate` property for newly created rooms when the
+	/// client does not request one. If `allow_federation` is set to false at
+	/// the same this value is set to false it then always overrides the client
+	/// requested `m.federate` value to false.
+	///
+	/// Rooms are fixed to the setting at the time of their creation and can
+	/// never be changed; changing this value only affects new rooms.
+	#[serde(default = "true_fn")]
+	pub federate_created_rooms: bool,
 
 	/// Allows federation requests to be made to itself
 	///
