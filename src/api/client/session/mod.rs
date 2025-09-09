@@ -1,5 +1,5 @@
 mod appservice;
-mod jwt;
+pub(crate) mod jwt;
 mod ldap;
 mod logout;
 mod password;

@@ -7,11 +7,11 @@ use ruma::api::client::{
 		request_3pid_management_token_via_email, request_3pid_management_token_via_msisdn,
 		whoami,
 	},
-	uiaa::{AuthFlow, AuthType, UiaaInfo},
+	uiaa::{AuthData, AuthFlow, AuthType, Jwt, UiaaInfo},
 };
 use tuwunel_core::{Err, Error, Result, err, info, utils, utils::ReadyExt};
 
-use super::SESSION_ID_LENGTH;
+use super::{SESSION_ID_LENGTH, session::jwt::validate_user};
 use crate::Ruma;
 
 /// # `POST /_matrix/client/r0/account/password`
@@ -140,20 +140,29 @@ pub(crate) async fn deactivate_route(
 	InsecureClientIp(client): InsecureClientIp,
 	body: Ruma<deactivate::v3::Request>,
 ) -> Result<deactivate::v3::Response> {
-	// Authentication for this endpoint was made optional, but we need
-	// authentication currently
-	let sender_user = body
-		.sender_user
-		.as_ref()
-		.ok_or_else(|| err!(Request(MissingToken("Missing access token."))))?;
-
+	let pass_flow = AuthFlow { stages: vec![AuthType::Password] };
+	let jwt_flow = AuthFlow { stages: vec![AuthType::Jwt] };
 	let mut uiaainfo = UiaaInfo {
-		flows: vec![AuthFlow { stages: vec![AuthType::Password] }],
+		flows: [pass_flow, jwt_flow].into(),
 		..Default::default()
 	};
 
-	match &body.auth {
+	let sender_user = match &body.auth {
+		| Some(AuthData::Jwt(Jwt { token, .. })) => {
+			let sender_user = validate_user(&services, token)?;
+			if !services.users.exists(&sender_user).await {
+				return Err!(Request(NotFound("User {sender_user} is not registered.")));
+			}
+
+			// Success!
+			sender_user
+		},
 		| Some(auth) => {
+			let sender_user = body
+				.sender_user
+				.as_deref()
+				.ok_or_else(|| err!(Request(MissingToken("Missing access token."))))?;
+
 			let (worked, uiaainfo) = services
 				.uiaa
 				.try_auth(sender_user, body.sender_device(), auth, &uiaainfo)
@@ -162,10 +171,17 @@ pub(crate) async fn deactivate_route(
 			if !worked {
 				return Err(Error::Uiaa(uiaainfo));
 			}
+
 			// Success!
+			sender_user.to_owned()
 		},
 		| _ => match body.json_body {
 			| Some(ref json) => {
+				let sender_user = body
+					.sender_user
+					.as_ref()
+					.ok_or_else(|| err!(Request(MissingToken("Missing access token."))))?;
+
 				uiaainfo.session = Some(utils::random_string(SESSION_ID_LENGTH));
 				services
 					.uiaa
@@ -177,11 +193,11 @@ pub(crate) async fn deactivate_route(
 				return Err!(Request(NotJson("JSON body is not valid")));
 			},
 		},
-	}
+	};
 
 	services
 		.deactivate
-		.full_deactivate(sender_user)
+		.full_deactivate(&sender_user)
 		.boxed()
 		.await?;
 

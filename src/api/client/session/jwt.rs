@@ -22,20 +22,9 @@ pub(super) async fn handle_login(
 	_body: &Ruma<Request>,
 	info: &Token,
 ) -> Result<OwnedUserId> {
-	let config = &services.config.jwt;
-
-	if !config.enable {
-		return Err!(Request(Unknown("JWT login is not enabled.")));
-	}
-
-	let claim = validate(config, &info.token)?;
-	let local = claim.sub.to_lowercase();
-	let server = &services.server.name;
-	let user_id = UserId::parse_with_server_name(local, server).map_err(|e| {
-		err!(Request(InvalidUsername("JWT subject is not a valid user MXID: {e}")))
-	})?;
-
+	let user_id = validate_user(services, &info.token)?;
 	if !services.users.exists(&user_id).await {
+		let config = &services.config.jwt;
 		if !config.register_user {
 			return Err!(Request(NotFound("User {user_id} is not registered on this server.")));
 		}
@@ -45,6 +34,22 @@ pub(super) async fn handle_login(
 			.create(&user_id, Some("*"), Some("jwt"))
 			.await?;
 	}
+
+	Ok(user_id)
+}
+
+pub(crate) fn validate_user(services: &Services, token: &str) -> Result<OwnedUserId> {
+	let config = &services.config.jwt;
+	if !config.enable {
+		return Err!(Request(Unauthorized("JWT login is not enabled.")));
+	}
+
+	let claim = validate(config, token)?;
+	let local = claim.sub.to_lowercase();
+	let server = &services.server.name;
+	let user_id = UserId::parse_with_server_name(local, server).map_err(|e| {
+		err!(Request(InvalidUsername("JWT subject is not a valid user MXID: {e}")))
+	})?;
 
 	Ok(user_id)
 }
