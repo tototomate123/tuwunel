@@ -1,10 +1,12 @@
+mod appservice;
+mod server;
+
 use std::{fmt::Debug, time::SystemTime};
 
 use axum::RequestPartsExt;
 use axum_extra::{
 	TypedHeader,
 	headers::{Authorization, authorization::Bearer},
-	typed_header::TypedHeaderRejectionReason,
 };
 use futures::{
 	TryFutureExt,
@@ -15,7 +17,7 @@ use futures::{
 	pin_mut,
 };
 use ruma::{
-	CanonicalJsonObject, CanonicalJsonValue, OwnedDeviceId, OwnedServerName, OwnedUserId, UserId,
+	CanonicalJsonValue, OwnedDeviceId, OwnedServerName, OwnedUserId,
 	api::{
 		AuthScheme, IncomingRequest, Metadata,
 		client::{
@@ -27,18 +29,13 @@ use ruma::{
 			},
 			voip::get_turn_server_info,
 		},
-		federation::{authentication::XMatrix, openid::get_openid_userinfo},
+		federation::openid::get_openid_userinfo,
 	},
 };
-use tuwunel_core::{
-	Err, Error, Result, debug_error, err, is_less_than, utils::result::LogDebugErr, warn,
-};
-use tuwunel_service::{
-	Services,
-	appservice::RegistrationInfo,
-	server_keys::{PubKeyMap, PubKeys},
-};
+use tuwunel_core::{Err, Error, Result, is_less_than, utils::result::LogDebugErr};
+use tuwunel_service::{Services, appservice::RegistrationInfo};
 
+use self::{appservice::auth_appservice, server::auth_server};
 use super::request::Request;
 
 enum Token {
@@ -222,155 +219,4 @@ async fn find_token(services: &Services, token: Option<&str>) -> Result<Token> {
 		| Ok((token, _)) => Ok(token),
 		| _ => Ok(Token::Invalid),
 	}
-}
-
-async fn auth_appservice(
-	services: &Services,
-	request: &Request,
-	info: Box<RegistrationInfo>,
-) -> Result<Auth> {
-	let user_id_default = || {
-		UserId::parse_with_server_name(
-			info.registration.sender_localpart.as_str(),
-			services.globals.server_name(),
-		)
-	};
-
-	let Ok(user_id) = request
-		.query
-		.user_id
-		.clone()
-		.map_or_else(user_id_default, OwnedUserId::parse)
-	else {
-		return Err!(Request(InvalidUsername("Username is invalid.")));
-	};
-
-	if !info.is_user_match(&user_id) {
-		return Err!(Request(Exclusive("User is not in namespace.")));
-	}
-
-	Ok(Auth {
-		sender_user: Some(user_id),
-		appservice_info: Some(*info),
-		..Auth::default()
-	})
-}
-
-async fn auth_server(
-	services: &Services,
-	request: &mut Request,
-	body: Option<&CanonicalJsonValue>,
-) -> Result<Auth> {
-	type Member = (String, CanonicalJsonValue);
-	type Object = CanonicalJsonObject;
-	type Value = CanonicalJsonValue;
-
-	let x_matrix = parse_x_matrix(request).await?;
-	auth_server_checks(services, &x_matrix)?;
-
-	let destination = services.globals.server_name();
-	let origin = &x_matrix.origin;
-	let signature_uri = request
-		.parts
-		.uri
-		.path_and_query()
-		.expect("all requests have a path")
-		.to_string();
-
-	let signature: [Member; 1] =
-		[(x_matrix.key.as_str().into(), Value::String(x_matrix.sig.to_string()))];
-
-	let signatures: [Member; 1] = [(origin.as_str().into(), Value::Object(signature.into()))];
-
-	let authorization: Object = if let Some(body) = body.cloned() {
-		let authorization: [Member; 6] = [
-			("content".into(), body),
-			("destination".into(), Value::String(destination.into())),
-			("method".into(), Value::String(request.parts.method.as_str().into())),
-			("origin".into(), Value::String(origin.as_str().into())),
-			("signatures".into(), Value::Object(signatures.into())),
-			("uri".into(), Value::String(signature_uri)),
-		];
-
-		authorization.into()
-	} else {
-		let authorization: [Member; 5] = [
-			("destination".into(), Value::String(destination.into())),
-			("method".into(), Value::String(request.parts.method.as_str().into())),
-			("origin".into(), Value::String(origin.as_str().into())),
-			("signatures".into(), Value::Object(signatures.into())),
-			("uri".into(), Value::String(signature_uri)),
-		];
-
-		authorization.into()
-	};
-
-	let key = services
-		.server_keys
-		.get_verify_key(origin, &x_matrix.key)
-		.await
-		.map_err(|e| {
-			err!(Request(Forbidden(debug_warn!("Failed to fetch signing keys: {e}"))))
-		})?;
-
-	let keys: PubKeys = [(x_matrix.key.to_string(), key.key)].into();
-	let keys: PubKeyMap = [(origin.as_str().into(), keys)].into();
-	if let Err(e) = ruma::signatures::verify_json(&keys, &authorization) {
-		debug_error!("Failed to verify federation request from {origin}: {e}");
-		if request.parts.uri.to_string().contains('@') {
-			warn!(
-				"Request uri contained '@' character. Make sure your reverse proxy gives \
-				 tuwunel the raw uri (apache: use nocanon)"
-			);
-		}
-
-		return Err!(Request(Forbidden("Failed to verify X-Matrix signatures.")));
-	}
-
-	Ok(Auth {
-		origin: origin.to_owned().into(),
-		..Auth::default()
-	})
-}
-
-fn auth_server_checks(services: &Services, x_matrix: &XMatrix) -> Result {
-	if !services.server.config.allow_federation {
-		return Err!(Config("allow_federation", "Federation is disabled."));
-	}
-
-	let destination = services.globals.server_name();
-	if x_matrix.destination.as_deref() != Some(destination) {
-		return Err!(Request(Forbidden("Invalid destination.")));
-	}
-
-	let origin = &x_matrix.origin;
-	if services
-		.config
-		.forbidden_remote_server_names
-		.is_match(origin.host())
-	{
-		return Err!(Request(Forbidden(debug_warn!(
-			"Federation requests from {origin} denied."
-		))));
-	}
-
-	Ok(())
-}
-
-async fn parse_x_matrix(request: &mut Request) -> Result<XMatrix> {
-	let TypedHeader(Authorization(x_matrix)) = request
-		.parts
-		.extract::<TypedHeader<Authorization<XMatrix>>>()
-		.await
-		.map_err(|e| {
-			let msg = match e.reason() {
-				| TypedHeaderRejectionReason::Missing => "Missing Authorization header.",
-				| TypedHeaderRejectionReason::Error(_) => "Invalid X-Matrix signatures.",
-				| _ => "Unknown header-related error",
-			};
-
-			err!(Request(Forbidden(debug_warn!("{msg}: {e}"))))
-		})?;
-
-	Ok(x_matrix)
 }
