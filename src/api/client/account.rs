@@ -1,18 +1,13 @@
 use axum::extract::State;
 use axum_client_ip::InsecureClientIp;
 use futures::{FutureExt, StreamExt};
-use ruma::api::client::{
-	account::{
-		ThirdPartyIdRemovalStatus, change_password, deactivate, get_3pids,
-		request_3pid_management_token_via_email, request_3pid_management_token_via_msisdn,
-		whoami,
-	},
-	uiaa::{AuthData, AuthFlow, AuthType, Jwt, UiaaInfo},
+use ruma::api::client::account::{
+	ThirdPartyIdRemovalStatus, change_password, deactivate, get_3pids,
+	request_3pid_management_token_via_email, request_3pid_management_token_via_msisdn, whoami,
 };
-use tuwunel_core::{Err, Error, Result, err, info, utils, utils::ReadyExt};
+use tuwunel_core::{Err, Result, info, utils::ReadyExt};
 
-use super::{SESSION_ID_LENGTH, session::jwt::validate_user};
-use crate::Ruma;
+use crate::{Ruma, router::auth_uiaa};
 
 /// # `POST /_matrix/client/r0/account/password`
 ///
@@ -37,45 +32,7 @@ pub(crate) async fn change_password_route(
 	InsecureClientIp(client): InsecureClientIp,
 	body: Ruma<change_password::v3::Request>,
 ) -> Result<change_password::v3::Response> {
-	// Authentication for this endpoint was made optional, but we need
-	// authentication currently
-	let sender_user = body
-		.sender_user
-		.as_ref()
-		.ok_or_else(|| err!(Request(MissingToken("Missing access token."))))?;
-
-	let mut uiaainfo = UiaaInfo {
-		flows: vec![AuthFlow { stages: vec![AuthType::Password] }],
-		..Default::default()
-	};
-
-	match &body.auth {
-		| Some(auth) => {
-			let (worked, uiaainfo) = services
-				.uiaa
-				.try_auth(sender_user, body.sender_device(), auth, &uiaainfo)
-				.await?;
-
-			if !worked {
-				return Err(Error::Uiaa(uiaainfo));
-			}
-
-			// Success!
-		},
-		| _ => match body.json_body {
-			| Some(ref json) => {
-				uiaainfo.session = Some(utils::random_string(SESSION_ID_LENGTH));
-				services
-					.uiaa
-					.create(sender_user, body.sender_device(), &uiaainfo, json);
-
-				return Err(Error::Uiaa(uiaainfo));
-			},
-			| _ => {
-				return Err!(Request(NotJson("JSON body is not valid")));
-			},
-		},
-	}
+	let ref sender_user = auth_uiaa(&services, &body).await?;
 
 	services
 		.users
@@ -87,7 +44,7 @@ pub(crate) async fn change_password_route(
 		services
 			.users
 			.all_device_ids(sender_user)
-			.ready_filter(|id| *id != body.sender_device())
+			.ready_filter(|&id| Some(id) != body.sender_device.as_deref())
 			.for_each(|id| services.users.remove_device(sender_user, id))
 			.await;
 	}
@@ -140,69 +97,15 @@ pub(crate) async fn deactivate_route(
 	InsecureClientIp(client): InsecureClientIp,
 	body: Ruma<deactivate::v3::Request>,
 ) -> Result<deactivate::v3::Response> {
-	let pass_flow = AuthFlow { stages: vec![AuthType::Password] };
-	let jwt_flow = AuthFlow { stages: vec![AuthType::Jwt] };
-	let mut uiaainfo = UiaaInfo {
-		flows: [pass_flow, jwt_flow].into(),
-		..Default::default()
-	};
-
-	let sender_user = match &body.auth {
-		| Some(AuthData::Jwt(Jwt { token, .. })) => {
-			let sender_user = validate_user(&services, token)?;
-			if !services.users.exists(&sender_user).await {
-				return Err!(Request(NotFound("User {sender_user} is not registered.")));
-			}
-
-			// Success!
-			sender_user
-		},
-		| Some(auth) => {
-			let sender_user = body
-				.sender_user
-				.as_deref()
-				.ok_or_else(|| err!(Request(MissingToken("Missing access token."))))?;
-
-			let (worked, uiaainfo) = services
-				.uiaa
-				.try_auth(sender_user, body.sender_device(), auth, &uiaainfo)
-				.await?;
-
-			if !worked {
-				return Err(Error::Uiaa(uiaainfo));
-			}
-
-			// Success!
-			sender_user.to_owned()
-		},
-		| _ => match body.json_body {
-			| Some(ref json) => {
-				let sender_user = body
-					.sender_user
-					.as_ref()
-					.ok_or_else(|| err!(Request(MissingToken("Missing access token."))))?;
-
-				uiaainfo.session = Some(utils::random_string(SESSION_ID_LENGTH));
-				services
-					.uiaa
-					.create(sender_user, body.sender_device(), &uiaainfo, json);
-
-				return Err(Error::Uiaa(uiaainfo));
-			},
-			| _ => {
-				return Err!(Request(NotJson("JSON body is not valid")));
-			},
-		},
-	};
+	let ref sender_user = auth_uiaa(&services, &body).await?;
 
 	services
 		.deactivate
-		.full_deactivate(&sender_user)
+		.full_deactivate(sender_user)
 		.boxed()
 		.await?;
 
 	info!("User {sender_user} deactivated their account.");
-
 	if services.server.config.admin_room_notices {
 		services
 			.admin

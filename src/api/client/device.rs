@@ -3,16 +3,13 @@ use axum_client_ip::InsecureClientIp;
 use futures::StreamExt;
 use ruma::{
 	MilliSecondsSinceUnixEpoch, OwnedDeviceId,
-	api::client::{
-		device::{self, delete_device, delete_devices, get_device, get_devices, update_device},
-		error::ErrorKind,
-		uiaa::{AuthFlow, AuthType, UiaaInfo},
+	api::client::device::{
+		self, delete_device, delete_devices, get_device, get_devices, update_device,
 	},
 };
-use tuwunel_core::{Err, Error, Result, debug, err, utils};
+use tuwunel_core::{Err, Result, debug, err, utils};
 
-use super::SESSION_ID_LENGTH;
-use crate::{Ruma, client::DEVICE_ID_LENGTH};
+use crate::{Ruma, client::DEVICE_ID_LENGTH, router::auth_uiaa};
 
 /// # `GET /_matrix/client/r0/devices`
 ///
@@ -126,10 +123,10 @@ pub(crate) async fn delete_device_route(
 	State(services): State<crate::State>,
 	body: Ruma<delete_device::v3::Request>,
 ) -> Result<delete_device::v3::Response> {
-	let (sender_user, sender_device) = body.sender();
 	let appservice = body.appservice_info.as_ref();
 
 	if appservice.is_some_and(|appservice| appservice.registration.device_management) {
+		let sender_user = body.sender_user();
 		debug!(
 			"Skipping UIAA for {sender_user} as this is from an appservice and MSC4190 is \
 			 enabled"
@@ -142,38 +139,7 @@ pub(crate) async fn delete_device_route(
 		return Ok(delete_device::v3::Response {});
 	}
 
-	// UIAA
-	let mut uiaainfo = UiaaInfo {
-		flows: vec![AuthFlow { stages: vec![AuthType::Password] }],
-		..Default::default()
-	};
-
-	match &body.auth {
-		| Some(auth) => {
-			let (worked, uiaainfo) = services
-				.uiaa
-				.try_auth(sender_user, sender_device, auth, &uiaainfo)
-				.await?;
-
-			if !worked {
-				return Err!(Uiaa(uiaainfo));
-			}
-			// Success!
-		},
-		| _ => match body.json_body {
-			| Some(ref json) => {
-				uiaainfo.session = Some(utils::random_string(SESSION_ID_LENGTH));
-				services
-					.uiaa
-					.create(sender_user, sender_device, &uiaainfo, json);
-
-				return Err!(Uiaa(uiaainfo));
-			},
-			| _ => {
-				return Err!(Request(NotJson("Not json.")));
-			},
-		},
-	}
+	let ref sender_user = auth_uiaa(&services, &body).await?;
 
 	services
 		.users
@@ -200,10 +166,10 @@ pub(crate) async fn delete_devices_route(
 	State(services): State<crate::State>,
 	body: Ruma<delete_devices::v3::Request>,
 ) -> Result<delete_devices::v3::Response> {
-	let (sender_user, sender_device) = body.sender();
 	let appservice = body.appservice_info.as_ref();
 
 	if appservice.is_some_and(|appservice| appservice.registration.device_management) {
+		let sender_user = body.sender_user();
 		debug!(
 			"Skipping UIAA for {sender_user} as this is from an appservice and MSC4190 is \
 			 enabled"
@@ -218,38 +184,7 @@ pub(crate) async fn delete_devices_route(
 		return Ok(delete_devices::v3::Response {});
 	}
 
-	// UIAA
-	let mut uiaainfo = UiaaInfo {
-		flows: vec![AuthFlow { stages: vec![AuthType::Password] }],
-		..Default::default()
-	};
-
-	match &body.auth {
-		| Some(auth) => {
-			let (worked, uiaainfo) = services
-				.uiaa
-				.try_auth(sender_user, sender_device, auth, &uiaainfo)
-				.await?;
-
-			if !worked {
-				return Err(Error::Uiaa(uiaainfo));
-			}
-			// Success!
-		},
-		| _ => match body.json_body {
-			| Some(ref json) => {
-				uiaainfo.session = Some(utils::random_string(SESSION_ID_LENGTH));
-				services
-					.uiaa
-					.create(sender_user, sender_device, &uiaainfo, json);
-
-				return Err(Error::Uiaa(uiaainfo));
-			},
-			| _ => {
-				return Err(Error::BadRequest(ErrorKind::NotJson, "Not json."));
-			},
-		},
-	}
+	let ref sender_user = auth_uiaa(&services, &body).await?;
 
 	for device_id in &body.devices {
 		services

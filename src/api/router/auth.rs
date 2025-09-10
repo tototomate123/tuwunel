@@ -1,5 +1,6 @@
 mod appservice;
 mod server;
+mod uiaa;
 
 use std::{fmt::Debug, time::SystemTime};
 
@@ -35,6 +36,7 @@ use ruma::{
 use tuwunel_core::{Err, Error, Result, is_less_than, utils::result::LogDebugErr};
 use tuwunel_service::{Services, appservice::RegistrationInfo};
 
+pub(crate) use self::uiaa::auth_uiaa;
 use self::{appservice::auth_appservice, server::auth_server};
 use super::request::Request;
 
