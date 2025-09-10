@@ -183,8 +183,9 @@ pub(crate) async fn sync_events_route(
 
 		// Wait for activity
 		if time::timeout_at(stop_at, watchers).await.is_err() || services.server.is_stopping() {
+			let response = build_empty_response(&services, &body, next_batch).await;
 			trace!(since, next_batch, "empty response");
-			return Ok(sync_events::v3::Response::new(next_batch.to_string()));
+			return Ok(response);
 		}
 
 		trace!(
@@ -196,6 +197,21 @@ pub(crate) async fn sync_events_route(
 		);
 
 		since = next_batch;
+	}
+}
+
+async fn build_empty_response(
+	services: &Services,
+	body: &Ruma<sync_events::v3::Request>,
+	next_batch: u64,
+) -> sync_events::v3::Response {
+	sync_events::v3::Response {
+		device_one_time_keys_count: services
+			.users
+			.count_one_time_keys(body.sender_user(), body.sender_device())
+			.await,
+
+		..sync_events::v3::Response::new(next_batch.to_string())
 	}
 }
 
