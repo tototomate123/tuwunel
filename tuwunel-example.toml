@@ -295,6 +295,13 @@
 #
 #dns_passthru_domains = []
 
+# Whether to resolve appservices via the alternative path; setting this is
+# superior to providing domains in `dns_passthru_domains` if all
+# appservices intend to be matched anyway. The overhead of matching regex
+# and maintaining the list of domains can be avoided.
+#
+#dns_passthru_appservices = false
+
 # Max request size for file uploads in bytes. Defaults to 20MB.
 #
 #max_request_size = 20971520

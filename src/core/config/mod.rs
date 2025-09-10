@@ -378,6 +378,13 @@ pub struct Config {
 	#[serde(default, with = "serde_regex")]
 	pub dns_passthru_domains: RegexSet,
 
+	/// Whether to resolve appservices via the alternative path; setting this is
+	/// superior to providing domains in `dns_passthru_domains` if all
+	/// appservices intend to be matched anyway. The overhead of matching regex
+	/// and maintaining the list of domains can be avoided.
+	#[serde(default)]
+	pub dns_passthru_appservices: bool,
+
 	/// Max request size for file uploads in bytes. Defaults to 20MB.
 	///
 	/// default: 20971520

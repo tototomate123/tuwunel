@@ -5,7 +5,7 @@ use std::{
 
 use either::Either;
 use ipaddress::IPAddress;
-use reqwest::redirect;
+use reqwest::{dns::Resolve, redirect};
 use tuwunel_core::{Config, Result, err, implement, trace};
 
 use crate::{service, services::OnceServices};
@@ -98,7 +98,7 @@ impl crate::Service for Service {
 				.redirect(redirect::Policy::limited(2))),
 
 			appservice: create_client!(config, services; base(config)?
-				.dns_resolver2(Arc::clone(&services.resolver.resolver))
+				.dns_resolver2(appservice_resolver(&services))
 				.connect_timeout(Duration::from_secs(5))
 				.read_timeout(Duration::from_secs(config.appservice_timeout))
 				.timeout(Duration::from_secs(config.appservice_timeout))
@@ -217,6 +217,14 @@ fn builder_interface(
 		Err!("Binding to network-interface {iface:?} by name is not supported on this platform.")
 	} else {
 		Ok(builder)
+	}
+}
+
+fn appservice_resolver(services: &Arc<OnceServices>) -> Arc<dyn Resolve> {
+	if services.server.config.dns_passthru_appservices {
+		services.resolver.resolver.passthru.clone()
+	} else {
+		services.resolver.resolver.clone()
 	}
 }
 

@@ -13,7 +13,7 @@ use super::cache::{Cache, CachedOverride};
 
 pub struct Resolver {
 	pub(crate) resolver: Arc<TokioResolver>,
-	pub(crate) passthru: Arc<TokioResolver>,
+	pub(crate) passthru: Arc<Passthru>,
 	pub(crate) hooked: Arc<Hooked>,
 	server: Arc<Server>,
 }
@@ -21,6 +21,11 @@ pub struct Resolver {
 pub(crate) struct Hooked {
 	resolver: Arc<TokioResolver>,
 	cache: Arc<Cache>,
+	server: Arc<Server>,
+}
+
+pub(crate) struct Passthru {
+	resolver: Arc<TokioResolver>,
 	server: Arc<Server>,
 }
 
@@ -47,9 +52,12 @@ impl Resolver {
 				resolver: resolver.clone(),
 				cache,
 			}),
+			passthru: Arc::new(Passthru {
+				server: server.clone(),
+				resolver: passthru,
+			}),
 			server: server.clone(),
 			resolver,
-			passthru,
 		}))
 	}
 
@@ -137,12 +145,18 @@ impl Resolve for Resolver {
 			.dns_passthru_domains
 			.is_match(name.as_str())
 		{
-			&self.passthru
+			&self.passthru.resolver
 		} else {
 			&self.resolver
 		};
 
 		resolve_to_reqwest(self.server.clone(), resolver.clone(), name).boxed()
+	}
+}
+
+impl Resolve for Passthru {
+	fn resolve(&self, name: Name) -> Resolving {
+		resolve_to_reqwest(self.server.clone(), self.resolver.clone(), name).boxed()
 	}
 }
 
