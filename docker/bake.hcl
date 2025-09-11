@@ -32,9 +32,9 @@ cargo_feat_sets = {
     # Default features
     default = "brotli_compression,element_hacks,gzip_compression,io_uring,jemalloc,jemalloc_conf,media_thumbnail,release_max_log_level,systemd,url_preview,zstd_compression"
     # All features sans release_max_log_level
-    logging = "blurhashing,brotli_compression,bzip2_compression,console,direct_tls,element_hacks,gzip_compression,hardened_malloc,io_uring,jemalloc,jemalloc_conf,jemalloc_prof,jemalloc_stats,ldap,lz4_compression,media_thumbnail,perf_measurements,sentry_telemetry,systemd,tokio_console,tuwunel_mods,url_preview,zstd_compression"
+    logging = "blurhashing,brotli_compression,bzip2_compression,console,direct_tls,element_hacks,gzip_compression,io_uring,jemalloc,jemalloc_conf,jemalloc_prof,jemalloc_stats,ldap,lz4_compression,media_thumbnail,perf_measurements,sentry_telemetry,systemd,tokio_console,tuwunel_mods,url_preview,zstd_compression"
     # All features
-    all = "blurhashing,brotli_compression,bzip2_compression,console,direct_tls,element_hacks,gzip_compression,hardened_malloc,io_uring,jemalloc,jemalloc_conf,jemalloc_prof,jemalloc_stats,ldap,lz4_compression,media_thumbnail,perf_measurements,release_max_log_level,sentry_telemetry,systemd,tokio_console,tuwunel_mods,url_preview,zstd_compression"
+    all = "blurhashing,brotli_compression,bzip2_compression,console,direct_tls,element_hacks,gzip_compression,io_uring,jemalloc,jemalloc_conf,jemalloc_prof,jemalloc_stats,ldap,lz4_compression,media_thumbnail,perf_measurements,release_max_log_level,sentry_telemetry,systemd,tokio_console,tuwunel_mods,url_preview,zstd_compression"
 }
 variable "cargo_features_always" {
     default = "direct_tls"
@@ -1637,7 +1637,6 @@ target "kitchen" {
     args = {
         packages = join(" ", [
             contains(split(",", cargo_feat_sets[feat_set]), "bzip2_compression")? "libbz2-dev": "",
-            contains(split(",", cargo_feat_sets[feat_set]), "hardened_malloc")? "g++": "",
             contains(split(",", cargo_feat_sets[feat_set]), "io_uring")? "liburing-dev": "",
             contains(split(",", cargo_feat_sets[feat_set]), "jemalloc")? "libjemalloc-dev": "",
             contains(split(",", cargo_feat_sets[feat_set]), "lz4_compression")? "liblz4-dev": "",

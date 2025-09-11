@@ -26,9 +26,6 @@ tuwunel_mods = [
 gzip_compression = [
 	"reqwest/gzip",
 ]
-hardened_malloc = [
-	"dep:hardened_malloc-rs"
-]
 jemalloc = [
 	"dep:tikv-jemalloc-sys",
 	"dep:tikv-jemalloc-ctl",
@@ -113,10 +110,6 @@ url.workspace = true
 
 [target.'cfg(unix)'.dependencies]
 nix.workspace = true
-
-[target.'cfg(all(not(target_env = "msvc"), target_os = "linux"))'.dependencies]
-hardened_malloc-rs.workspace = true
-hardened_malloc-rs.optional = true
 
 [dev-dependencies]
 insta.workspace = true

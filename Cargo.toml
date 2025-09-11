@@ -163,15 +163,6 @@ version = "0.3"
 default-features = false
 features = ["std", "async-await"]
 
-[workspace.dependencies.hardened_malloc-rs]
-version = "0.1.2"
-default-features = false
-features = [
-	"static",
-	"gcc",
-	"light",
-]
-
 [workspace.dependencies.hickory-resolver]
 version = "0.25"
 default-features = false

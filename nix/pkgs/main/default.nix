@@ -23,8 +23,6 @@
   # be expected on non-debug builds.
   "jemalloc_prof"
   "jemalloc_stats"
-  # this is non-functional on nix for some reason
-  "hardened_malloc"
   # tuwunel_mods is a development-only hot reload feature
   "tuwunel_mods"
 ]

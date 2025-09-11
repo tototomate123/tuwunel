@@ -1597,12 +1597,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hardened_malloc-rs"
-version = "0.1.2+12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "647deb1583b14d160f85f3ff626f20b6edd366e3852c9843b06077388f794cb6"
-
-[[package]]
 name = "hashbrown"
 version = "0.15.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4907,7 +4901,6 @@ dependencies = [
  "clap",
  "const-str",
  "ctor",
- "hardened_malloc-rs",
  "log",
  "opentelemetry",
  "opentelemetry_sdk",
@@ -5006,7 +4999,6 @@ dependencies = [
  "either",
  "figment",
  "futures",
- "hardened_malloc-rs",
  "http",
  "http-body-util",
  "insta",

@@ -204,8 +204,6 @@
                 # be expected on non-debug builds.
                 "jemalloc_prof"
                 "jemalloc_stats"
-                # this is non-functional on nix for some reason
-                "hardened_malloc"
                 # tuwunel_mods is a development-only hot reload feature
                 "tuwunel_mods"
             ];
@@ -218,8 +216,6 @@
                 # dont include experimental features
                 "experimental"
                 # this is non-functional on nix for some reason
-                "hardened_malloc"
-                # tuwunel_mods is a development-only hot reload feature
                 "tuwunel_mods"
             ];
         };
@@ -231,8 +227,6 @@
                 # dont include experimental features
                 "experimental"
                 # this is non-functional on nix for some reason
-                "hardened_malloc"
-                # tuwunel_mods is a development-only hot reload feature
                 "tuwunel_mods"
             ];
         };
@@ -246,8 +240,6 @@
                 "jemalloc_prof"
                 "jemalloc_stats"
                 # this is non-functional on nix for some reason
-                "hardened_malloc"
-                # tuwunel_mods is a development-only hot reload feature
                 "tuwunel_mods"
             ];
         };
@@ -260,12 +252,9 @@
                 # dont include experimental features
                 "experimental"
                 # this is non-functional on nix for some reason
-                "hardened_malloc"
-                # tuwunel_mods is a development-only hot reload feature
                 "tuwunel_mods"
             ];
         };
-        hmalloc = scopeHost.main.override { features = ["hardened_malloc"]; };
 
         oci-image = scopeHost.oci-image;
         oci-image-all-features = scopeHost.oci-image.override {
@@ -278,8 +267,6 @@
                 # be expected on non-debug builds.
                 "jemalloc_prof"
                 "jemalloc_stats"
-                # this is non-functional on nix for some reason
-                "hardened_malloc"
                 # tuwunel_mods is a development-only hot reload feature
                 "tuwunel_mods"
             ];
@@ -294,16 +281,9 @@
             disable_features = [
                 # dont include experimental features
                 "experimental"
-                # this is non-functional on nix for some reason
-                "hardened_malloc"
                 # tuwunel_mods is a development-only hot reload feature
                 "tuwunel_mods"
             ];
-          };
-        };
-        oci-image-hmalloc = scopeHost.oci-image.override {
-          main = scopeHost.main.override {
-            features = ["hardened_malloc"];
           };
         };
 
@@ -359,8 +339,6 @@
                     disable_features = [
                         # dont include experimental features
                         "experimental"
-                        # this is non-functional on nix for some reason
-                        "hardened_malloc"
                         # tuwunel_mods is a development-only hot reload feature
                         "tuwunel_mods"
                     ];
@@ -379,8 +357,6 @@
                         # be expected on non-debug builds.
                         "jemalloc_prof"
                         "jemalloc_stats"
-                        # this is non-functional on nix for some reason
-                        "hardened_malloc"
                         # tuwunel_mods is a development-only hot reload feature
                         "tuwunel_mods"
                     ];
@@ -400,8 +376,6 @@
                         # be expected on non-debug builds.
                         "jemalloc_prof"
                         "jemalloc_stats"
-                        # this is non-functional on nix for some reason
-                        "hardened_malloc"
                         # tuwunel_mods is a development-only hot reload feature
                         "tuwunel_mods"
                     ];
@@ -420,19 +394,9 @@
                     disable_features = [
                         # dont include experimental features
                         "experimental"
-                        # this is non-functional on nix for some reason
-                        "hardened_malloc"
                         # tuwunel_mods is a development-only hot reload feature
                         "tuwunel_mods"
                     ];
-                  };
-                }
-
-                # An output for a statically-linked binary with hardened_malloc
-                {
-                  name = "${binaryName}-hmalloc";
-                  value = scopeCrossStatic.main.override {
-                    features = ["hardened_malloc"];
                   };
                 }
 
@@ -478,8 +442,6 @@
                         # be expected on non-debug builds.
                         "jemalloc_prof"
                         "jemalloc_stats"
-                        # this is non-functional on nix for some reason
-                        "hardened_malloc"
                         # tuwunel_mods is a development-only hot reload feature
                         "tuwunel_mods"
                       ];
@@ -501,8 +463,6 @@
                         # be expected on non-debug builds.
                         "jemalloc_prof"
                         "jemalloc_stats"
-                        # this is non-functional on nix for some reason
-                        "hardened_malloc"
                         # tuwunel_mods is a development-only hot reload feature
                         "tuwunel_mods"
                       ];
@@ -523,21 +483,9 @@
                       disable_features = [
                         # dont include experimental features
                         "experimental"
-                        # this is non-functional on nix for some reason
-                        "hardened_malloc"
                         # tuwunel_mods is a development-only hot reload feature
                         "tuwunel_mods"
                       ];
-                    };
-                  };
-                }
-
-                # An output for an OCI image based on that binary with hardened_malloc
-                {
-                  name = "oci-image-${crossSystem}-hmalloc";
-                  value = scopeCrossStatic.oci-image.override {
-                    main = scopeCrossStatic.main.override {
-                      features = ["hardened_malloc"];
                     };
                   };
                 }
@@ -571,8 +519,6 @@
                 # be expected on non-debug builds.
                 "jemalloc_prof"
                 "jemalloc_stats"
-                # this is non-functional on nix for some reason
-                "hardened_malloc"
                 # tuwunel_mods is a development-only hot reload feature
                 "tuwunel_mods"
             ];
