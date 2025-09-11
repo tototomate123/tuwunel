@@ -1718,6 +1718,14 @@
 #
 #delete_rooms_after_leave = false
 
+# Limits the number of One Time Keys per device (not per-algorithm). The
+# reference implementation maintains 50 OTK's at any given time, therefor
+# our default is at least ten times that. There is no known reason for an
+# administrator to adjust this value; it is provided here rather than
+# hardcoding it.
+#
+#one_time_key_limit = 512
+
 #[global.tls]
 
 # Path to a valid TLS certificate file.

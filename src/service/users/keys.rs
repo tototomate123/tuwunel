@@ -152,7 +152,34 @@ pub async fn count_one_time_keys(
 		})
 		.await;
 
+	let total = algorithm_counts
+		.values()
+		.copied()
+		.map(TryInto::try_into)
+		.filter_map(Result::ok)
+		.fold(0_usize, usize::saturating_add);
+
+	if total > self.services.config.one_time_key_limit {
+		self.prune_one_time_keys(user_id, device_id).await;
+	}
+
 	algorithm_counts
+}
+
+#[implement(super::Service)]
+pub async fn prune_one_time_keys(&self, user_id: &UserId, device_id: &DeviceId) {
+	use tuwunel_database::keyval::Key;
+
+	let query = (user_id, device_id);
+	self.db
+		.onetimekeyid_onetimekeys
+		.keys_prefix(&query)
+		.ignore_err()
+		.skip(self.services.config.one_time_key_limit)
+		.ready_for_each(|key: Key<'_>| {
+			self.db.onetimekeyid_onetimekeys.remove(key);
+		})
+		.await;
 }
 
 #[implement(super::Service)]

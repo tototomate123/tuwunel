@@ -40,7 +40,11 @@ pub(crate) async fn upload_keys_route(
 ) -> Result<upload_keys::v3::Response> {
 	let (sender_user, sender_device) = body.sender();
 
-	for (key_id, one_time_key) in &body.one_time_keys {
+	for (key_id, one_time_key) in body
+		.one_time_keys
+		.iter()
+		.take(services.config.one_time_key_limit)
+	{
 		if one_time_key
 			.deserialize()
 			.inspect_err(|e| {
