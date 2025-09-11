@@ -110,22 +110,11 @@ We strive to make moving between versions of Tuwunel safe and easy. Downgrading 
 safe but often prevented by a guard. An error will indicate the downgrade is not possible and a
 newer version which does not error must be sought.
 
-#### Versioning
-
-Tuwunel uses a semantic version tag in the format of `v<major>.<minor>.<patch>`. The `patch` value will
-always correspond to the number of commits from the last `minor` change with significance to developers.
-The `minor` version is changed for fixes or features significant to users. The `major` value corresponds
-to significant feature evolutions, and does not indicate any "breaking change" nor connote stability.
-
-> [!IMPORTANT]
-> **Users should attempt to keep up to date with the latest minor version.**
-
 #### Branches
 
 The main branch is always _reasonably safe_ to run. We understand the propensity for users to simply clone
 the main branch to get up and running, and we're obliged to ensure it's always viable. Nevertheless, only
-tagged releases are true releases. If you don't care to update often, find the latest `minor` version
-change rather than `patch`. We don't recommend simply following `major` version changes at this time.
+tagged releases are true releases.
 
 #### Container Tracking
 
