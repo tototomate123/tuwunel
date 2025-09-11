@@ -1,8 +1,11 @@
 use std::sync::Arc;
 
 use ruma::{RoomId, UserId};
-use tuwunel_core::{Result, implement};
-use tuwunel_database::{Database, Deserialized, Map};
+use tuwunel_core::{
+	Result, implement, trace,
+	utils::stream::{ReadyExt, TryIgnore},
+};
+use tuwunel_database::{Database, Deserialized, Interfix, Map};
 
 use crate::rooms::short::ShortStateHash;
 
@@ -88,6 +91,24 @@ pub async fn last_notification_read(&self, user_id: &UserId, room_id: &RoomId) -
 }
 
 #[implement(Service)]
+pub async fn delete_room_notification_read(&self, room_id: &RoomId) -> Result {
+	let key = (room_id, Interfix);
+	self.db
+		.roomuserid_lastnotificationread
+		.keys_prefix_raw(&key)
+		.ignore_err()
+		.ready_for_each(|key| {
+			trace!("Removing key: {key:?}");
+			self.db
+				.roomuserid_lastnotificationread
+				.remove(key);
+		})
+		.await;
+
+	Ok(())
+}
+
+#[implement(Service)]
 #[tracing::instrument(level = "trace", skip(self))]
 pub async fn associate_token_shortstatehash(
 	&self,
@@ -127,4 +148,25 @@ pub async fn get_token_shortstatehash(
 		.qry(key)
 		.await
 		.deserialized()
+}
+
+#[implement(Service)]
+pub async fn delete_room_synctokens(&self, room_id: &RoomId) -> Result {
+	let shortroomid = self
+		.services
+		.short
+		.get_shortroomid(room_id)
+		.await?;
+
+	self.db
+		.roomsynctoken_shortstatehash
+		.keys_prefix_raw(&shortroomid)
+		.ignore_err()
+		.ready_for_each(|key| {
+			trace!("Removing key: {key:?}");
+			self.db.roomsynctoken_shortstatehash.remove(key);
+		})
+		.await;
+
+	Ok(())
 }

@@ -157,7 +157,23 @@ impl Service {
 			.log_err()
 			.ok();
 
+		debug!("Deleting the room's last notifications read.");
+		self.services
+			.user
+			.delete_room_notification_read(room_id)
+			.await
+			.log_err()
+			.ok();
+
 		debug!("Final stages of deleting the room");
+
+		debug!("Deleting room sync tokens from our database");
+		self.services
+			.user
+			.delete_room_synctokens(room_id)
+			.await
+			.log_err()
+			.ok();
 
 		debug!("Deleting room state hash from our database");
 		self.services
