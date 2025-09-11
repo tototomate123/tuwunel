@@ -1,8 +1,7 @@
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use futures::{FutureExt, StreamExt, pin_mut};
 use ruma::RoomId;
-use tokio::time::sleep;
 use tuwunel_core::{
 	Result, debug,
 	result::LogErr,
@@ -54,30 +53,20 @@ impl Service {
 
 		debug!(?room_id, "Preparing to delete room...");
 
-		// Some arbitrary delay has to account for the leave event being synced to the
-		// client or they'll never be updated on their leave. This can be removed once
-		// a tombstone solution is implemented instead.
-		sleep(Duration::from_millis(2500)).await;
-
 		self.services
 			.delete
-			.delete_room(room_id, state_lock)
+			.delete_room(room_id, false, state_lock)
 			.boxed()
 			.await
 			.expect("unhandled error during room deletion");
 	}
 
-	pub async fn delete_room(&self, room_id: &RoomId, state_lock: RoomMutexGuard) -> Result {
-		// ban the room locally so new users cannot join while we're in the process of
-		// deleting it
-		debug!("Banning room {room_id} prior to deletion.");
-		self.services.metadata.ban_room(room_id);
-
-		// This might have to be dropped here to prevent deadlock, but the goal should
-		// be to hold it all the way through. For now the room is banned under lock at
-		// least.
-		drop(state_lock);
-
+	pub async fn delete_room(
+		&self,
+		room_id: &RoomId,
+		force: bool,
+		state_lock: RoomMutexGuard,
+	) -> Result {
 		debug!("Making all users leave the room {room_id} and forgetting it");
 		let mut users = self
 			.services
@@ -95,17 +84,13 @@ impl Service {
 			if let Err(e) = self
 				.services
 				.membership
-				.remote_leave(user_id, room_id)
+				.leave(user_id, room_id, Some("Room Deleted".into()), true, &state_lock)
+				.boxed()
 				.await
 			{
 				warn!("Failed to leave room: {e}");
 			}
-
-			self.services.state_cache.forget(room_id, user_id);
 		}
-
-		debug!("Disabling incoming federation on room {room_id}");
-		self.services.metadata.disable_room(room_id);
 
 		debug!("Deleting all our room aliases for the room");
 		self.services
@@ -159,7 +144,7 @@ impl Service {
 		debug!("Deleting all the room's member counts");
 		self.services
 			.state_cache
-			.delete_room_join_counts(room_id)
+			.delete_room_join_counts(room_id, force)
 			.await
 			.log_err()
 			.ok();
@@ -173,9 +158,6 @@ impl Service {
 			.ok();
 
 		debug!("Final stages of deleting the room");
-
-		debug!("Obtaining a mutex state lock for safety and future database operations");
-		let state_lock = self.services.state.mutex.lock(room_id).await;
 
 		debug!("Deleting room state hash from our database");
 		self.services
@@ -200,12 +182,6 @@ impl Service {
 			.await
 			.log_err()
 			.ok();
-
-		// TODO: add option to keep a room banned (`--block` or `--ban`)
-		self.services.metadata.enable_room(room_id);
-		self.services.metadata.unban_room(room_id);
-
-		drop(state_lock);
 
 		debug!("Successfully deleted room {room_id} from our database");
 		Ok(())

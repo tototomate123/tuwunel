@@ -577,7 +577,7 @@ pub async fn is_left(&self, user_id: &UserId, room_id: &RoomId) -> bool {
 
 #[implement(Service)]
 #[tracing::instrument(skip(self), level = "trace")]
-pub async fn delete_room_join_counts(&self, room_id: &RoomId) -> Result {
+pub async fn delete_room_join_counts(&self, room_id: &RoomId, force: bool) -> Result {
 	let prefix = (room_id, Interfix);
 
 	self.db.roomid_knockedcount.remove(room_id);
@@ -648,6 +648,9 @@ pub async fn delete_room_join_counts(&self, room_id: &RoomId) -> Result {
 		.roomuserid_leftcount
 		.keys_prefix(&prefix)
 		.ignore_err()
+		.ready_filter(|(_, user_id): &(&RoomId, &UserId)| {
+			force || !self.services.globals.user_is_local(user_id)
+		})
 		.ready_for_each(|key: (&RoomId, &UserId)| {
 			trace!("Removing key: {key:?}");
 			self.db.roomuserid_leftcount.del(key);

@@ -156,7 +156,7 @@ async fn ban_room(&self, room: OwnedRoomOrAliasId) -> Result {
 		if let Err(e) = self
 			.services
 			.membership
-			.leave(user_id, &room_id, None, &state_lock)
+			.leave(user_id, &room_id, None, false, &state_lock)
 			.boxed()
 			.await
 		{
@@ -331,7 +331,7 @@ async fn ban_list_of_rooms(&self) -> Result {
 			if let Err(e) = self
 				.services
 				.membership
-				.leave(user_id, &room_id, None, &state_lock)
+				.leave(user_id, &room_id, None, false, &state_lock)
 				.boxed()
 				.await
 			{

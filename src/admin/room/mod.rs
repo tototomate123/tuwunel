@@ -60,5 +60,8 @@ pub(super) enum RoomCommand {
 	/// - Delete room
 	DeleteRoom {
 		room_id: OwnedRoomId,
+
+		#[arg(short, long)]
+		force: bool,
 	},
 }

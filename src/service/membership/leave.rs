@@ -30,6 +30,7 @@ pub async fn leave(
 	user_id: &UserId,
 	room_id: &RoomId,
 	reason: Option<String>,
+	remote_leave_now: bool,
 	state_lock: &RoomMutexGuard,
 ) -> Result {
 	let default_member_content = RoomMemberEventContent {
@@ -79,7 +80,7 @@ pub async fn leave(
 		.eq(&false);
 
 	// Ask a remote server if we don't have this room and are not knocking on it
-	if dont_have_room.and(not_knocked).await {
+	if remote_leave_now || dont_have_room.and(not_knocked).await {
 		if let Err(e) = self.remote_leave(user_id, room_id).boxed().await {
 			warn!(%user_id, "Failed to leave room {room_id} remotely: {e}");
 			// Don't tell the client about this error
@@ -167,7 +168,7 @@ pub async fn leave(
 
 #[implement(Service)]
 #[tracing::instrument(name = "remote", level = "debug", skip_all)]
-pub async fn remote_leave(&self, user_id: &UserId, room_id: &RoomId) -> Result {
+async fn remote_leave(&self, user_id: &UserId, room_id: &RoomId) -> Result {
 	let mut make_leave_response_and_server =
 		Err!(BadServerResponse("No remote server available to assist in leaving {room_id}."));
 
@@ -175,6 +176,7 @@ pub async fn remote_leave(&self, user_id: &UserId, room_id: &RoomId) -> Result {
 		.services
 		.state_cache
 		.servers_invite_via(room_id)
+		.chain(self.services.state_cache.room_servers(room_id))
 		.map(ToOwned::to_owned)
 		.collect()
 		.await;
@@ -221,13 +223,17 @@ pub async fn remote_leave(&self, user_id: &UserId, room_id: &RoomId) -> Result {
 		},
 	}
 
+	servers.insert(user_id.server_name().to_owned());
 	if let Some(room_id_server_name) = room_id.server_name() {
 		servers.insert(room_id_server_name.to_owned());
 	}
 
 	debug_info!("servers in remote_leave_room: {servers:?}");
 
-	for remote_server in servers {
+	for remote_server in servers
+		.into_iter()
+		.filter(|server| !self.services.globals.server_is_ours(server))
+	{
 		let make_leave_response = self
 			.services
 			.sending

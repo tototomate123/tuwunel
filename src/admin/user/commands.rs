@@ -665,7 +665,7 @@ pub(super) async fn force_leave_room(
 
 	self.services
 		.membership
-		.leave(&user_id, &room_id, None, &state_lock)
+		.leave(&user_id, &room_id, None, false, &state_lock)
 		.boxed()
 		.await?;
 
