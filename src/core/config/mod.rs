@@ -2001,11 +2001,11 @@ pub struct Config {
 
 	/// Limits the number of One Time Keys per device (not per-algorithm). The
 	/// reference implementation maintains 50 OTK's at any given time, therefor
-	/// our default is at least ten times that. There is no known reason for an
+	/// our default is at least five times that. There is no known reason for an
 	/// administrator to adjust this value; it is provided here rather than
 	/// hardcoding it.
 	///
-	/// default: 512
+	/// default: 256
 	#[serde(default = "default_one_time_key_limit")]
 	pub one_time_key_limit: usize,
 
@@ -2833,4 +2833,4 @@ fn default_deprioritize_joins_through_servers() -> RegexSet {
 	RegexSet::new([r"matrix\.org"]).unwrap()
 }
 
-fn default_one_time_key_limit() -> usize { 512 }
+fn default_one_time_key_limit() -> usize { 256 }
