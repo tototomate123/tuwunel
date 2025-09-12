@@ -7,7 +7,7 @@ use hickory_resolver::{
 	lookup_ip::LookupIp,
 };
 use reqwest::dns::{Addrs, Name, Resolve, Resolving};
-use tuwunel_core::{Result, Server, err};
+use tuwunel_core::{Result, Server, err, trace};
 
 use super::cache::{Cache, CachedOverride};
 
@@ -20,6 +20,7 @@ pub struct Resolver {
 
 pub(crate) struct Hooked {
 	resolver: Arc<TokioResolver>,
+	passthru: Arc<Passthru>,
 	cache: Arc<Cache>,
 	server: Arc<Server>,
 }
@@ -44,19 +45,20 @@ impl Resolver {
 		opts.positive_min_ttl = None;
 		opts.positive_max_ttl = None;
 		opts.cache_size = ResolverOpts::default().cache_size;
-		let passthru = Self::create(server, conf, opts)?;
+		let passthru = Arc::new(Passthru {
+			resolver: Self::create(server, conf, opts)?,
+			server: server.clone(),
+		});
 
 		Ok(Arc::new(Self {
 			hooked: Arc::new(Hooked {
-				server: server.clone(),
 				resolver: resolver.clone(),
+				passthru: passthru.clone(),
+				server: server.clone(),
 				cache,
 			}),
-			passthru: Arc::new(Passthru {
-				server: server.clone(),
-				resolver: passthru,
-			}),
 			server: server.clone(),
+			passthru,
 			resolver,
 		}))
 	}
@@ -145,8 +147,10 @@ impl Resolve for Resolver {
 			.dns_passthru_domains
 			.is_match(name.as_str())
 		{
+			trace!(?name, "matched to passthru resolver");
 			&self.passthru.resolver
 		} else {
+			trace!(?name, "using primary resolver");
 			&self.resolver
 		};
 
@@ -154,16 +158,29 @@ impl Resolve for Resolver {
 	}
 }
 
-impl Resolve for Passthru {
+impl Resolve for Hooked {
 	fn resolve(&self, name: Name) -> Resolving {
-		resolve_to_reqwest(self.server.clone(), self.resolver.clone(), name).boxed()
+		let resolver = if self
+			.server
+			.config
+			.dns_passthru_domains
+			.is_match(name.as_str())
+		{
+			trace!(?name, "matched to passthru resolver");
+			&self.passthru.resolver
+		} else {
+			trace!(?name, "using hooked resolver");
+			&self.resolver
+		};
+
+		hooked_resolve(self.cache.clone(), self.server.clone(), resolver.clone(), name).boxed()
 	}
 }
 
-impl Resolve for Hooked {
+impl Resolve for Passthru {
 	fn resolve(&self, name: Name) -> Resolving {
-		hooked_resolve(self.cache.clone(), self.server.clone(), self.resolver.clone(), name)
-			.boxed()
+		trace!(?name, "using passthru resolver");
+		resolve_to_reqwest(self.server.clone(), self.resolver.clone(), name).boxed()
 	}
 }
 
