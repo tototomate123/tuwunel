@@ -121,7 +121,7 @@ impl Resolver {
 		opts.try_tcp_on_error = config.dns_tcp_fallback;
 		opts.num_concurrent_reqs = 1;
 		opts.edns0 = true;
-		opts.case_randomization = true;
+		opts.case_randomization = config.dns_case_randomization;
 		opts.preserve_intermediates = true;
 		opts.ip_strategy = match config.ip_lookup_strategy {
 			| 1 => LookupIpStrategy::Ipv4Only,

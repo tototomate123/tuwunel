@@ -385,6 +385,15 @@ pub struct Config {
 	#[serde(default)]
 	pub dns_passthru_appservices: bool,
 
+	/// Enable or disable case randomization for DNS queries. This is a security
+	/// mitigation where answer spoofing is prevented by having to exactly match
+	/// the question. It is highly unlikely you need to disable this. Occasional
+	/// errors seen in logs which may have lead you here tend to be from
+	/// overloading DNS. Nevertheless for servers which are truly incapable this
+	/// can be set to false.
+	#[serde(default = "true_fn")]
+	pub dns_case_randomization: bool,
+
 	/// Max request size for file uploads in bytes. Defaults to 20MB.
 	///
 	/// default: 20971520

@@ -302,6 +302,15 @@
 #
 #dns_passthru_appservices = false
 
+# Enable or disable case randomization for DNS queries. This is a security
+# mitigation where answer spoofing is prevented by having to exactly match
+# the question. It is highly unlikely you need to disable this. Occasional
+# errors seen in logs which may have lead you here tend to be from
+# overloading DNS. Nevertheless for servers which are truly incapable this
+# can be set to false.
+#
+#dns_case_randomization = true
+
 # Max request size for file uploads in bytes. Defaults to 20MB.
 #
 #max_request_size = 20971520
