@@ -46,6 +46,7 @@ jobs:
       complement_runner: 'het'
       docker_repo: ${{vars.DOCKER_REPO}}
       release_url: ${{steps.release.outputs.upload_url}}
+      pages_url: 'https://matrix-construct.github.io/tuwunel/'
 
     strategy:
       fail-fast: true
@@ -273,6 +274,7 @@ jobs:
     with:
       docker_repo: ${{needs.init.outputs.docker_repo}}
       release_url: ${{needs.init.outputs.release_url}}
+      pages_url: ${{needs.init.outputs.pages_url}}
       cargo_profiles: ${{needs.init.outputs.cargo_profiles}}
       feat_sets: ${{needs.init.outputs.feat_sets}}
       rust_toolchains: ${{needs.init.outputs.rust_toolchains}}
