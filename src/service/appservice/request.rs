@@ -80,7 +80,14 @@ where
 	);
 
 	let limit = self.services.config.max_response_size;
-	let body = read_response_capped(response, limit).await?;
+	let body = read_response_capped(response, limit)
+		.await
+		.map_err(|e| {
+			err!(BadServerResponse(warn!(
+				"Failed reading response from appservice \"{}\" at {dest}: {e}",
+				registration.id
+			)))
+		})?;
 
 	if !status.is_success() {
 		debug_error!("Appservice response bytes: {:?}", string_from_bytes(&body));
