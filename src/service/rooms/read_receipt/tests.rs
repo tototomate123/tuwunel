@@ -1,8 +1,10 @@
 #![cfg(test)]
 
-use ruma::{EventId, RoomId, UserId};
-use tuwunel_core::PduCount;
+use ruma::{RoomId, UserId};
+use tuwunel_core::matrix::pdu::PduCount;
 use tuwunel_database::{Interfix, SEP, serialize_to_vec};
+
+use super::data::position_advances;
 
 const ROOM: &str = "!room:example.com";
 const USER: &str = "@user:example.com";
@@ -11,71 +13,6 @@ const COUNT: u64 = 42;
 
 fn room() -> &'static RoomId { ROOM.try_into().unwrap() }
 fn user() -> &'static UserId { USER.try_into().unwrap() }
-fn event(id: &'static str) -> &'static EventId { id.try_into().unwrap() }
-
-mod public_receipt_ordering {
-	use super::*;
-	use crate::rooms::read_receipt::receipt_advances;
-
-	const CURRENT: &str = "$current";
-	const TARGET: &str = "$target";
-
-	#[test]
-	fn no_existing_receipt_accepts_target_without_ordering() {
-		assert!(receipt_advances(None, event(TARGET), None, None));
-	}
-
-	#[test]
-	fn identical_event_is_ignored_even_without_ordering() {
-		assert!(!receipt_advances(Some(event(CURRENT)), event(CURRENT), None, None));
-	}
-
-	#[test]
-	fn strictly_newer_timeline_position_advances() {
-		assert!(receipt_advances(
-			Some(event(CURRENT)),
-			event(TARGET),
-			Some(PduCount::Normal(41)),
-			Some(PduCount::Normal(42)),
-		));
-	}
-
-	#[test]
-	fn identical_timeline_position_is_ignored() {
-		assert!(!receipt_advances(
-			Some(event(CURRENT)),
-			event(TARGET),
-			Some(PduCount::Normal(42)),
-			Some(PduCount::Normal(42)),
-		));
-	}
-
-	#[test]
-	fn older_timeline_position_is_ignored() {
-		assert!(!receipt_advances(
-			Some(event(CURRENT)),
-			event(TARGET),
-			Some(PduCount::Normal(43)),
-			Some(PduCount::Normal(42)),
-		));
-	}
-
-	#[test]
-	fn unknown_ordering_accepts_distinct_target() {
-		assert!(receipt_advances(
-			Some(event(CURRENT)),
-			event(TARGET),
-			Some(PduCount::Normal(42)),
-			None,
-		));
-		assert!(receipt_advances(
-			Some(event(CURRENT)),
-			event(TARGET),
-			None,
-			Some(PduCount::Normal(42)),
-		));
-	}
-}
 
 fn legacy_key() -> Vec<u8> {
 	serialize_to_vec((room(), COUNT, user())).expect("serialize legacy key")
@@ -164,6 +101,25 @@ fn legacy_match_does_not_collide_with_kind_tails() {
 	assert!(!new_key(THREAD_ROOT).ends_with(user_bytes));
 	assert!(!new_key("").ends_with(user_bytes), "empty kind ends with SEP, not user_id");
 	assert!(legacy_key().ends_with(user_bytes));
+}
+
+/// Position comparison behind the public receipt gate.
+///
+/// A stored position of `None` means no row was found. A position of `None`
+/// after resolution means the event is not in this server's timeline.
+#[test]
+fn position_advance_matrix() {
+	let normal = |count| Some(PduCount::Normal(count));
+	let backfilled = |count| Some(PduCount::Backfilled(count));
+
+	assert!(position_advances(None, normal(1)), "absent stored position accepts");
+	assert!(position_advances(None, None), "neither position resolved accepts");
+	assert!(position_advances(normal(2), None), "unresolvable incoming accepts");
+	assert!(position_advances(normal(1), normal(2)), "strictly greater advances");
+	assert!(!position_advances(normal(2), normal(2)), "equal position rejects");
+	assert!(!position_advances(normal(3), normal(2)), "lower position rejects");
+	assert!(position_advances(backfilled(-1), normal(1)), "normal advances past backfilled");
+	assert!(!position_advances(normal(1), backfilled(-1)), "backfilled sorts below normal");
 }
 
 /// MSC3771 per-thread `m.read.private` storage. `roomuserid_privateread`

@@ -8,7 +8,7 @@
 {"Action":"pass","Test":"TestComplemauAppservicePDUInterestRemoteSender"}
 {"Action":"pass","Test":"TestComplemauAppserviceReceivesOTKCountsAndFallbackKeys"}
 {"Action":"fail","Test":"TestComplemauAppserviceReceivesPresence"}
-{"Action":"fail","Test":"TestComplemauAppserviceReceivesReceiptOnce"}
+{"Action":"pass","Test":"TestComplemauAppserviceReceivesReceiptOnce"}
 {"Action":"pass","Test":"TestComplemauAppserviceReceivesToDevice"}
 {"Action":"pass","Test":"TestComplemauAppserviceReceivesTyping"}
 {"Action":"pass","Test":"TestComplemauAppserviceRegistrationLoginAndMSC4190Devices"}

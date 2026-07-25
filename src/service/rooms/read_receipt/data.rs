@@ -1,19 +1,23 @@
-use std::sync::Arc;
+use std::{collections::BTreeMap, sync::Arc};
 
-use futures::{Stream, StreamExt};
+use futures::{Stream, StreamExt, future::join};
 use ruma::{
-	CanonicalJsonObject, OwnedEventId, RoomId, UserId,
+	CanonicalJsonObject, EventId, OwnedEventId, RoomId, UserId,
 	events::{
 		AnySyncEphemeralRoomEvent,
 		receipt::{ReceiptEvent, ReceiptThread},
 	},
 	serde::Raw,
 };
+use serde::{Deserialize, de::IgnoredAny};
 use tuwunel_core::{
-	Result, err, is_equal_to, trace,
+	Result, err, is_equal_to,
+	matrix::pdu::PduCount,
+	smallvec::SmallVec,
+	trace,
 	utils::{ReadyExt, stream::TryIgnore},
 };
-use tuwunel_database::{Deserialized, Interfix, Json, Map, serialize_key};
+use tuwunel_database::{Deserialized, Interfix, Json, KeyBuf, Map, serialize_key};
 
 use super::ThreadKind;
 
@@ -26,6 +30,23 @@ pub(super) struct Data {
 
 pub(super) type ReceiptItem<'a> = (&'a UserId, u64, Raw<AnySyncEphemeralRoomEvent>);
 
+/// Receipt rows an accepted update replaces.
+///
+/// A user normally holds one row per thread context; an unthreaded sweep can
+/// also catch a pre-MSC3771 row, and that second key spills to the heap.
+type Superseded = SmallVec<[KeyBuf; 1]>;
+
+/// Minimal read-back of a stored receipt row.
+///
+/// Only the content's event ids are read, so the reject path never
+/// materializes the receipts themselves. The wire shape is a JSON object,
+/// which no set type can express, hence the zero-sized value.
+#[derive(Deserialize)]
+#[expect(clippy::zero_sized_map_values)]
+struct StoredContent {
+	content: BTreeMap<OwnedEventId, IgnoredAny>,
+}
+
 impl Data {
 	pub(super) fn new(args: &crate::Args<'_>) -> Self {
 		let db = &args.db;
@@ -37,45 +58,25 @@ impl Data {
 		}
 	}
 
-	#[inline]
-	pub(super) async fn current_receipt_event_id(
-		&self,
-		user_id: &UserId,
-		room_id: &RoomId,
-		thread_kind: &str,
-	) -> Option<OwnedEventId> {
-		type Key<'a> = (&'a RoomId, u64, &'a UserId, &'a str);
-		type KeyVal<'a> = (Key<'a>, Json<ReceiptEvent>);
-
-		let last_possible_key = (room_id, u64::MAX);
-
-		self.readreceiptid_readreceipt
-			.rev_stream_from(&last_possible_key)
-			.ignore_err()
-			.ready_take_while(|((stored_room_id, ..), _): &KeyVal<'_>| *stored_room_id == room_id)
-			.ready_filter_map(|((_, _, stored_user, stored_kind), Json(event)): KeyVal<'_>| {
-				(stored_user == user_id && stored_kind == thread_kind)
-					.then(|| {
-						event
-							.content
-							.into_iter()
-							.next()
-							.map(|(event_id, _)| event_id)
-					})
-					.flatten()
-			})
-			.boxed()
-			.next()
-			.await
-	}
-
+	/// Stores `event` as the user's receipt for its thread context, reporting
+	/// whether it advanced.
+	///
+	/// A receipt naming the stored event, or an earlier one, is rejected
+	/// without allocating a stream position or writing anything. An accepted
+	/// receipt replaces every superseded row in one transaction.
 	#[inline]
 	pub(super) async fn readreceipt_update(
 		&self,
 		user_id: &UserId,
 		room_id: &RoomId,
 		event: &ReceiptEvent,
-	) {
+	) -> bool {
+		// Remote-supplied content reaches this sink over federation, so an
+		// empty receipt is rejected rather than stored as an unreadable row.
+		let Some(event_id) = event.content.keys().next() else {
+			return false;
+		};
+
 		let thread_kind = event_thread_kind(event);
 		// MSC3771: storage key suffix is `user_id || 0xFF || thread_kind` so
 		// each (user, thread-context) tuple lives in its own row. Pre-MSC3771
@@ -95,22 +96,72 @@ impl Data {
 			serialize_key((room_id, Interfix)).expect("failed to serialize receipt room prefix");
 
 		let last_possible_key = (room_id, u64::MAX);
-		self.readreceiptid_readreceipt
-			.rev_keys_from_raw(&last_possible_key)
+		let (superseded, current) = self
+			.readreceiptid_readreceipt
+			.rev_stream_from_raw(&last_possible_key)
 			.ignore_err()
-			.ready_take_while(|key| key.starts_with(room_prefix.as_slice()))
-			.ready_filter_map(|key| {
+			.ready_take_while(|(key, _)| key.starts_with(room_prefix.as_slice()))
+			.ready_filter_map(|(key, val)| {
 				(key.ends_with(suffix.as_slice())
 					|| (legacy_match && key.ends_with(user_id_bytes)))
-				.then_some(key)
+				.then_some((key, val))
 			})
-			.ready_for_each(|key| self.readreceiptid_readreceipt.del(key))
+			.ready_fold((Superseded::new(), None), |(mut superseded, current), (key, val)| {
+				let current = superseded
+					.is_empty()
+					.then_some(val)
+					.and_then(stored_event_id)
+					.or(current);
+
+				superseded.push(key.into());
+
+				(superseded, current)
+			})
 			.await;
+
+		if !self
+			.receipt_advanced(current.as_deref(), event_id)
+			.await
+		{
+			return false;
+		}
 
 		let count = self.services.globals.next_count();
 		let latest_id = (room_id, *count, user_id, thread_kind);
-		self.readreceiptid_readreceipt
-			.put(latest_id, Json(event));
+
+		let mut txn = superseded
+			.iter()
+			.fold(self.services.db.txn(), |mut txn, key| {
+				txn.del_raw(&self.readreceiptid_readreceipt, key);
+				txn
+			});
+
+		txn.put(&self.readreceiptid_readreceipt, latest_id, Json(event));
+		txn.execute();
+
+		true
+	}
+
+	/// Whether a receipt for `incoming` supersedes the stored one at
+	/// `current`.
+	///
+	/// An identical event id never advances. A position that does not resolve
+	/// to a known PDU falls through to acceptance, so a receipt this server
+	/// cannot order is never silently dropped.
+	async fn receipt_advanced(&self, current: Option<&EventId>, incoming: &EventId) -> bool {
+		match current {
+			| None => true,
+			| Some(current) if current == incoming => false,
+			| Some(current) => {
+				let (current, incoming) = join(
+					self.services.timeline.get_pdu_count(current),
+					self.services.timeline.get_pdu_count(incoming),
+				)
+				.await;
+
+				position_advances(current.ok(), incoming.ok())
+			},
+		}
 	}
 
 	#[inline]
@@ -317,7 +368,7 @@ impl Data {
 ///
 /// Appended to the receipt-row key as a tolerant trailing field. Pre-
 /// MSC3771 rows have no trailing kind; they round-trip as `""`.
-pub(super) fn event_thread_kind(event: &ReceiptEvent) -> &str {
+fn event_thread_kind(event: &ReceiptEvent) -> &str {
 	debug_assert!(
 		event
 			.content
@@ -336,4 +387,26 @@ pub(super) fn event_thread_kind(event: &ReceiptEvent) -> &str {
 		.and_then(|by_user| by_user.values().next())
 		.and_then(|receipt| receipt.thread.as_str())
 		.unwrap_or_default()
+}
+
+/// First event id named by a stored receipt row.
+///
+/// `None` when the row does not deserialize, which the caller treats as an
+/// unknown position and accepts, replacing the row.
+fn stored_event_id(val: &[u8]) -> Option<OwnedEventId> {
+	serde_json::from_slice::<StoredContent>(val)
+		.ok()?
+		.content
+		.into_keys()
+		.next()
+}
+
+/// Whether an incoming receipt position strictly advances the stored one.
+///
+/// An unresolved position on either side accepts. `PduCount` ordering places
+/// backfilled events below normal ones, so no separate branch is needed.
+pub(super) fn position_advances(current: Option<PduCount>, incoming: Option<PduCount>) -> bool {
+	current
+		.zip(incoming)
+		.is_none_or(|(current, incoming)| incoming > current)
 }

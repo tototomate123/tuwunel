@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use axum::extract::State;
 use ruma::{
 	MilliSecondsSinceUnixEpoch,
-	api::client::receipt::create_receipt,
+	api::client::receipt::create_receipt::{self, v3::ReceiptType as CreateReceiptType},
 	events::{
 		RoomAccountDataEventType,
 		fully_read::{FullyReadEvent, FullyReadEventContent},
@@ -26,7 +26,7 @@ pub(crate) async fn create_receipt_route(
 	let sender_user = body.sender_user();
 
 	// MSC3771: thread_id MUST NOT be provided with `m.fully_read`.
-	if matches!(&body.receipt_type, create_receipt::v3::ReceiptType::FullyRead)
+	if matches!(&body.receipt_type, CreateReceiptType::FullyRead)
 		&& !matches!(body.thread, ReceiptThread::Unthreaded)
 	{
 		return Err!(Request(InvalidParam(
@@ -69,8 +69,8 @@ pub(crate) async fn create_receipt_route(
 		}
 	}
 
-	match body.receipt_type {
-		| create_receipt::v3::ReceiptType::FullyRead => {
+	let advanced = match body.receipt_type {
+		| CreateReceiptType::FullyRead => {
 			let fully_read_event = FullyReadEvent {
 				content: FullyReadEventContent { event_id: body.event_id.clone() },
 			};
@@ -83,8 +83,10 @@ pub(crate) async fn create_receipt_route(
 					&serde_json::to_value(fully_read_event)?,
 				)
 				.await?;
+
+			false
 		},
-		| create_receipt::v3::ReceiptType::Read => {
+		| CreateReceiptType::Read => {
 			let receipt_content = BTreeMap::from_iter([(
 				body.event_id.clone(),
 				BTreeMap::from_iter([(
@@ -96,17 +98,12 @@ pub(crate) async fn create_receipt_route(
 				)]),
 			)]);
 
-			services
+			let advanced = services
 				.read_receipt
-				.client_readreceipt_update(
-					sender_user,
-					&body.room_id,
-					&ReceiptEvent {
-						content: ReceiptEventContent(receipt_content),
-						room_id: body.room_id.clone(),
-					},
-					false,
-				)
+				.readreceipt_update(sender_user, &body.room_id, &ReceiptEvent {
+					content: ReceiptEventContent(receipt_content),
+					room_id: body.room_id.clone(),
+				})
 				.await;
 
 			let ping = Ping {
@@ -121,8 +118,10 @@ pub(crate) async fn create_receipt_route(
 				.maybe_ping_presence(sender_user, ping)
 				.await
 				.ok();
+
+			advanced
 		},
-		| create_receipt::v3::ReceiptType::ReadPrivate => {
+		| CreateReceiptType::ReadPrivate => {
 			let count = services
 				.timeline
 				.get_pdu_count(&body.event_id)
@@ -136,11 +135,6 @@ pub(crate) async fn create_receipt_route(
 			};
 
 			services
-				.pusher
-				.reset_notification_counts_for_thread(sender_user, &body.room_id, &body.thread)
-				.await;
-
-			services
 				.read_receipt
 				.private_read_set(
 					&body.room_id,
@@ -150,6 +144,8 @@ pub(crate) async fn create_receipt_route(
 					&body.thread,
 				)
 				.await;
+
+			true
 		},
 		| _ => {
 			return Err!(Request(InvalidParam(warn!(
@@ -157,6 +153,13 @@ pub(crate) async fn create_receipt_route(
 				&body.receipt_type
 			))));
 		},
+	};
+
+	if advanced {
+		services
+			.pusher
+			.reset_notification_counts_for_thread(sender_user, &body.room_id, &body.thread)
+			.await;
 	}
 
 	Ok(create_receipt::v3::Response {})
