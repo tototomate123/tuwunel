@@ -152,7 +152,9 @@ pub(super) async fn upgrade_outlier_to_timeline_pdu(
 			.await;
 	}
 
-	if incoming_pdu.state_key().is_some() {
+	// A soft-failed event is not a forward extremity, so it never drives the
+	// room's current state; only an accepted state event resolves forward.
+	if incoming_pdu.state_key().is_some() && !soft_fail {
 		self.resolve_and_force_state_after(
 			room_id,
 			room_version,
