@@ -166,16 +166,20 @@ Operator-relevant implications when enabling:
   and the event is sent or accepted unsigned, on the assumption that the
   next homeserver in the room will pick up the gap.
 - **Fail-closed on explicit refusal.** A policy server returning
-  `M_FORBIDDEN` (or, on the unstable variant, `200 OK` with no signature for
-  the configured `via`) causes outbound sends to fail with `M_FORBIDDEN`,
+  `400 M_FORBIDDEN` (or, on the unstable variant, `200 OK` with no signature
+  for the configured `via`) causes outbound sends to fail with `M_FORBIDDEN`,
   and inbound events to soft-fail.
+- **Inbound soft-fails are permanent.** Tuwunel records the soft-fail marker
+  but does not insert the event into the room timeline. Later attempts to
+  process the same event are rejected, leaving a permanent gap that can
+  affect descendant events.
 - **Privacy in encrypted rooms.** The PDU is forwarded to the policy server
   for signing. Ciphertext is opaque, but metadata (sender, timestamp, room,
   event type) is not. Encrypted-room policy delegation is the room's call;
   Tuwunel does not block it.
-- **Refusal and rate-limit caching.** Per-event refusals and per-policy-server
-  `M_LIMIT_EXCEEDED` backoffs are persisted, so repeated arrivals of the
-  same event do not re-hit a refusing or throttled server.
+- **Refusal and rate-limit caching.** Per-event refusals and
+  `M_LIMIT_EXCEEDED` backoffs are persisted, so repeated arrivals of the same
+  event do not re-hit a refusing or throttled server.
 
 For room version compatibility, MSC4416 (the room-version-13 successor that
 makes a missing or invalid policy signature an auth-rule rejection rather
