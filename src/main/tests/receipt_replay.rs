@@ -91,7 +91,7 @@ async fn exercise(services: &Services) -> Result {
 		return Err!("receipt naming another event did not take a new position");
 	}
 
-	Ok(())
+	private_read_replay(services, room, user).await
 }
 
 fn receipt_event(room: &RoomId, user: &UserId, event: &EventId) -> ReceiptEvent {
@@ -115,5 +115,49 @@ async fn receipt_counts(services: &Services, room: &RoomId) -> Vec<u64> {
 			counts.push(count);
 			counts
 		})
+		.await
+}
+
+async fn private_read_replay(services: &Services, room: &RoomId, user: &UserId) -> Result {
+	let token = async || {
+		services
+			.read_receipt
+			.last_privateread_update(user, room)
+			.await
+	};
+
+	let stored = set_private_read(services, room, user, 5).await;
+	let after_store = token().await;
+	let replayed = set_private_read(services, room, user, 5).await;
+	let earlier = set_private_read(services, room, user, 4).await;
+	let after_replay = token().await;
+	let advanced = set_private_read(services, room, user, 6).await;
+	let after_advance = token().await;
+
+	if !stored || !advanced {
+		return Err!("private marker rejected an advancing position");
+	}
+
+	if replayed || earlier || after_replay != after_store {
+		return Err!("private marker accepted a position it already held");
+	}
+
+	if after_advance <= after_store {
+		return Err!("advancing private marker did not move the update token");
+	}
+
+	Ok(())
+}
+
+async fn set_private_read(services: &Services, room: &RoomId, user: &UserId, count: u64) -> bool {
+	services
+		.read_receipt
+		.private_read_set(
+			room,
+			user,
+			count,
+			MilliSecondsSinceUnixEpoch::now(),
+			&ReceiptThread::Unthreaded,
+		)
 		.await
 }

@@ -10,9 +10,10 @@ use ruma::{
 		receipt::{Receipt, ReceiptEvent, ReceiptEventContent, ReceiptThread, ReceiptType},
 	},
 };
-use tuwunel_core::{Err, PduCount, Result, err};
+use tuwunel_core::Result;
 use tuwunel_service::presence::Ping;
 
+use super::set_private_marker;
 use crate::{ClientIp, Ruma};
 
 /// # `POST /_matrix/client/r0/rooms/{roomId}/read_markers`
@@ -48,32 +49,15 @@ pub(crate) async fn set_read_marker_route(
 
 	let private_advanced = match &body.private_read_receipt {
 		| None => false,
-		| Some(event) => {
-			let count = services
-				.timeline
-				.get_pdu_count(event)
-				.await
-				.map_err(|_| err!(Request(NotFound("Event not found."))))?;
-
-			let PduCount::Normal(count) = count else {
-				return Err!(Request(InvalidParam(
-					"Event is a backfilled PDU and cannot be marked as read."
-				)));
-			};
-
-			services
-				.read_receipt
-				.private_read_set(
-					&body.room_id,
-					sender_user,
-					count,
-					MilliSecondsSinceUnixEpoch::now(),
-					&ReceiptThread::Unthreaded,
-				)
-				.await;
-
-			true
-		},
+		| Some(event) =>
+			set_private_marker(
+				&services,
+				&body.room_id,
+				sender_user,
+				event,
+				&ReceiptThread::Unthreaded,
+			)
+			.await?,
 	};
 
 	let public_advanced = match &body.read_receipt {

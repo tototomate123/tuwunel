@@ -10,9 +10,10 @@ use ruma::{
 		receipt::{Receipt, ReceiptEvent, ReceiptEventContent, ReceiptThread, ReceiptType},
 	},
 };
-use tuwunel_core::{Err, PduCount, Result, err};
+use tuwunel_core::{Err, Result};
 use tuwunel_service::presence::Ping;
 
+use super::set_private_marker;
 use crate::{ClientIp, Ruma};
 
 /// # `POST /_matrix/client/r0/rooms/{roomId}/receipt/{receiptType}/{eventId}`
@@ -121,32 +122,15 @@ pub(crate) async fn create_receipt_route(
 
 			advanced
 		},
-		| CreateReceiptType::ReadPrivate => {
-			let count = services
-				.timeline
-				.get_pdu_count(&body.event_id)
-				.await
-				.map_err(|_| err!(Request(NotFound("Event not found."))))?;
-
-			let PduCount::Normal(count) = count else {
-				return Err!(Request(InvalidParam(
-					"Event is a backfilled PDU and cannot be marked as read."
-				)));
-			};
-
-			services
-				.read_receipt
-				.private_read_set(
-					&body.room_id,
-					sender_user,
-					count,
-					MilliSecondsSinceUnixEpoch::now(),
-					&body.thread,
-				)
-				.await;
-
-			true
-		},
+		| CreateReceiptType::ReadPrivate =>
+			set_private_marker(
+				&services,
+				&body.room_id,
+				sender_user,
+				&body.event_id,
+				&body.thread,
+			)
+			.await?,
 		| _ => {
 			return Err!(Request(InvalidParam(warn!(
 				"Received unknown read receipt type: {}",

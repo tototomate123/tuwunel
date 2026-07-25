@@ -202,8 +202,10 @@ impl Service {
 	}
 
 	/// Sets a private read marker at PDU `count` for the given thread.
+	///
 	/// Unthreaded writes supersede prior per-thread rows so the room-wide
-	/// receipt subsumes thread state.
+	/// receipt subsumes thread state. Returns whether the marker advanced; a
+	/// position at or behind the stored one writes nothing.
 	#[tracing::instrument(skip(self), level = "debug", name = "set_private")]
 	pub async fn private_read_set(
 		&self,
@@ -212,10 +214,10 @@ impl Service {
 		count: u64,
 		ts: MilliSecondsSinceUnixEpoch,
 		thread: &ReceiptThread,
-	) {
+	) -> bool {
 		self.db
 			.private_read_set(room_id, user_id, count, u64::from(ts.get()), thread)
-			.await;
+			.await
 	}
 
 	/// Returns the private read marker PDU count.

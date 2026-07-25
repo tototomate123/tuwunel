@@ -17,7 +17,7 @@ use tuwunel_core::{
 	trace,
 	utils::{ReadyExt, stream::TryIgnore},
 };
-use tuwunel_database::{Deserialized, Interfix, Json, KeyBuf, Map, serialize_key};
+use tuwunel_database::{Deserialized, Interfix, Json, KeyBuf, Map, Txn, serialize_key};
 
 use super::ThreadKind;
 
@@ -218,15 +218,16 @@ impl Data {
 			.ok_or_else(|| err!(Request(NotFound("No receipts found in room"))))
 	}
 
-	/// Sets the private read marker for `(room, user, thread)`.
+	/// Sets the private read marker for `(room, user, thread)`, reporting
+	/// whether it advanced.
 	///
 	/// Unthreaded writes use the legacy 2-tuple `(room, user)` key shape
 	/// and sweep any pre-existing per-thread rows so the room-wide receipt
 	/// supersedes prior thread state. Threaded writes (Main, Thread, custom)
 	/// use a 3-tuple `(room, user, thread_kind)` key disjoint from the
 	/// legacy row by trailing separator. `roomuserid_lastprivatereadupdate`
-	/// stays 2-tuple and is bumped on every write so sync gating remains a
-	/// single point query.
+	/// stays 2-tuple and is bumped on every accepted write so sync gating
+	/// remains a single point query.
 	#[inline]
 	pub(super) async fn private_read_set(
 		&self,
@@ -235,28 +236,61 @@ impl Data {
 		pdu_count: u64,
 		ts: u64,
 		thread: &ReceiptThread,
-	) {
+	) -> bool {
+		let thread_kind = thread.as_str().unwrap_or_default();
+
+		if self
+			.private_read_position(room_id, user_id, thread_kind)
+			.await
+			.is_ok_and(|(stored, _)| pdu_count <= stored)
+		{
+			return false;
+		}
+
 		let next_count = self.services.globals.next_count();
+		let mut txn = self
+			.sweep_thread_private_reads(room_id, user_id, thread_kind, self.services.db.txn())
+			.await;
 
 		let lastupdate_key = (room_id, user_id);
-		self.roomuserid_lastprivatereadupdate
-			.put(lastupdate_key, *next_count);
+
+		txn.put(&self.roomuserid_lastprivatereadupdate, lastupdate_key, *next_count);
 
 		// Additive value tail: ts (millis); old bare-count rows read back None.
-		match thread.as_str() {
-			| Some(thread_kind) if !thread_kind.is_empty() => {
-				let key = (room_id, user_id, thread_kind);
-				self.roomuserid_privateread
-					.put(key, (pdu_count, ts));
-			},
-			| _ => {
-				self.clear_thread_private_reads(room_id, user_id)
-					.await;
+		match thread_kind.is_empty() {
+			| true => txn.put(&self.roomuserid_privateread, (room_id, user_id), (pdu_count, ts)),
+			| false => txn.put(
+				&self.roomuserid_privateread,
+				(room_id, user_id, thread_kind),
+				(pdu_count, ts),
+			),
+		}
 
-				let key = (room_id, user_id);
-				self.roomuserid_privateread
-					.put(key, (pdu_count, ts));
-			},
+		txn.execute();
+
+		true
+	}
+
+	/// Private read position for an exact `(room, user, thread)` context.
+	///
+	/// An unthreaded context reads the legacy 2-tuple row; a threaded one
+	/// reads its own 3-tuple row.
+	#[inline]
+	async fn private_read_position(
+		&self,
+		room_id: &RoomId,
+		user_id: &UserId,
+		thread_kind: &str,
+	) -> Result<(u64, Option<u64>)> {
+		match thread_kind.is_empty() {
+			| true =>
+				self.private_read_get_count(room_id, user_id)
+					.await,
+			| false => self
+				.roomuserid_privateread
+				.qry(&(room_id, user_id, thread_kind))
+				.await
+				.deserialized(),
 		}
 	}
 
@@ -294,16 +328,32 @@ impl Data {
 			.map(|((_, _, kind), (count, ts)): ThreadKv<'_>| (ThreadKind::from(kind), count, ts))
 	}
 
+	/// Queues deletion of the per-thread private read rows for `(room, user)`.
+	///
+	/// Only an unthreaded write sweeps, since its room-wide receipt supersedes
+	/// prior thread state; a threaded write touches only its own row.
 	#[inline]
-	async fn clear_thread_private_reads(&self, room_id: &RoomId, user_id: &UserId) {
+	async fn sweep_thread_private_reads(
+		&self,
+		room_id: &RoomId,
+		user_id: &UserId,
+		thread_kind: &str,
+		txn: Txn,
+	) -> Txn {
+		if !thread_kind.is_empty() {
+			return txn;
+		}
+
 		let prefix = (room_id, user_id, Interfix);
+
 		self.roomuserid_privateread
 			.keys_prefix_raw(&prefix)
 			.ignore_err()
-			.ready_for_each(|key| {
-				self.roomuserid_privateread.remove(key);
+			.ready_fold(txn, |mut txn, key| {
+				txn.del_raw(&self.roomuserid_privateread, key);
+				txn
 			})
-			.await;
+			.await
 	}
 
 	#[inline]
