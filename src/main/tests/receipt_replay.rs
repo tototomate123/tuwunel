@@ -16,7 +16,7 @@ use tuwunel_core::{
 	},
 	utils::ReadyExt,
 };
-use tuwunel_service::Services;
+use tuwunel_service::{Services, rooms::read_receipt::PrivateRead};
 
 struct DatabasePath(PathBuf);
 
@@ -126,12 +126,12 @@ async fn private_read_replay(services: &Services, room: &RoomId, user: &UserId) 
 			.await
 	};
 
-	let stored = set_private_read(services, room, user, 5).await;
+	let stored = set_private_read(services, room, user, 5, true).await;
 	let after_store = token().await;
-	let replayed = set_private_read(services, room, user, 5).await;
-	let earlier = set_private_read(services, room, user, 4).await;
+	let replayed = set_private_read(services, room, user, 5, true).await;
+	let earlier = set_private_read(services, room, user, 4, true).await;
 	let after_replay = token().await;
-	let advanced = set_private_read(services, room, user, 6).await;
+	let advanced = set_private_read(services, room, user, 6, true).await;
 	let after_advance = token().await;
 
 	if !stored || !advanced {
@@ -146,18 +146,56 @@ async fn private_read_replay(services: &Services, room: &RoomId, user: &UserId) 
 		return Err!("advancing private marker did not move the update token");
 	}
 
+	private_read_unannounced(services, room, user).await
+}
+
+/// The append path marks a sender's own send read without publishing it, so an
+/// unannounced marker must advance the stored position while leaving the sync
+/// gate where the client last set it.
+async fn private_read_unannounced(services: &Services, room: &RoomId, user: &UserId) -> Result {
+	let before = services
+		.read_receipt
+		.last_privateread_update(user, room)
+		.await;
+
+	let stored = set_private_read(services, room, user, 7, false).await;
+	let after = services
+		.read_receipt
+		.last_privateread_update(user, room)
+		.await;
+
+	let (position, _) = services
+		.read_receipt
+		.private_read_get_count(room, user)
+		.await?;
+
+	if !stored || position != 7 {
+		return Err!("unannounced private marker did not store its position");
+	}
+
+	if after != before {
+		return Err!("unannounced private marker moved the update token");
+	}
+
 	Ok(())
 }
 
-async fn set_private_read(services: &Services, room: &RoomId, user: &UserId, count: u64) -> bool {
+async fn set_private_read(
+	services: &Services,
+	room: &RoomId,
+	user: &UserId,
+	count: u64,
+	announce: bool,
+) -> bool {
 	services
 		.read_receipt
-		.private_read_set(
-			room,
-			user,
+		.private_read_set(PrivateRead {
+			room_id: room,
+			user_id: user,
 			count,
-			MilliSecondsSinceUnixEpoch::now(),
-			&ReceiptThread::Unthreaded,
-		)
+			ts: MilliSecondsSinceUnixEpoch::now(),
+			thread: &ReceiptThread::Unthreaded,
+			announce,
+		})
 		.await
 }

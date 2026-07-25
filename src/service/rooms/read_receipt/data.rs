@@ -3,10 +3,7 @@ use std::{collections::BTreeMap, sync::Arc};
 use futures::{Stream, StreamExt, future::join};
 use ruma::{
 	CanonicalJsonObject, EventId, OwnedEventId, RoomId, UserId,
-	events::{
-		AnySyncEphemeralRoomEvent,
-		receipt::{ReceiptEvent, ReceiptThread},
-	},
+	events::{AnySyncEphemeralRoomEvent, receipt::ReceiptEvent},
 	serde::Raw,
 };
 use serde::{Deserialize, de::IgnoredAny};
@@ -19,7 +16,7 @@ use tuwunel_core::{
 };
 use tuwunel_database::{Deserialized, Interfix, Json, KeyBuf, Map, Txn, serialize_key};
 
-use super::ThreadKind;
+use super::{PrivateRead, ThreadKind};
 
 pub(super) struct Data {
 	roomuserid_privateread: Arc<Map>,
@@ -225,44 +222,51 @@ impl Data {
 	/// and sweep any pre-existing per-thread rows so the room-wide receipt
 	/// supersedes prior thread state. Threaded writes (Main, Thread, custom)
 	/// use a 3-tuple `(room, user, thread_kind)` key disjoint from the
-	/// legacy row by trailing separator. `roomuserid_lastprivatereadupdate`
-	/// stays 2-tuple and is bumped on every accepted write so sync gating
-	/// remains a single point query.
+	/// legacy row by trailing separator. The sync gate
+	/// (`roomuserid_lastprivatereadupdate`) stays 2-tuple and bumps only when
+	/// `announce` is set, keeping it a single point query.
 	#[inline]
 	pub(super) async fn private_read_set(
 		&self,
-		room_id: &RoomId,
-		user_id: &UserId,
-		pdu_count: u64,
-		ts: u64,
-		thread: &ReceiptThread,
+		PrivateRead {
+			room_id,
+			user_id,
+			count,
+			ts,
+			thread,
+			announce,
+		}: PrivateRead<'_>,
 	) -> bool {
 		let thread_kind = thread.as_str().unwrap_or_default();
 
 		if self
 			.private_read_position(room_id, user_id, thread_kind)
 			.await
-			.is_ok_and(|(stored, _)| pdu_count <= stored)
+			.is_ok_and(|(stored, _)| count <= stored)
 		{
 			return false;
 		}
 
-		let next_count = self.services.globals.next_count();
 		let mut txn = self
 			.sweep_thread_private_reads(room_id, user_id, thread_kind, self.services.db.txn())
 			.await;
 
-		let lastupdate_key = (room_id, user_id);
+		// The permit retires the sequence number on drop, so it outlives execute().
+		let next_count = announce.then(|| self.services.globals.next_count());
 
-		txn.put(&self.roomuserid_lastprivatereadupdate, lastupdate_key, *next_count);
+		if let Some(next_count) = next_count.as_deref() {
+			txn.put(&self.roomuserid_lastprivatereadupdate, (room_id, user_id), *next_count);
+		}
+
+		let ts = u64::from(ts.get());
 
 		// Additive value tail: ts (millis); old bare-count rows read back None.
 		match thread_kind.is_empty() {
-			| true => txn.put(&self.roomuserid_privateread, (room_id, user_id), (pdu_count, ts)),
+			| true => txn.put(&self.roomuserid_privateread, (room_id, user_id), (count, ts)),
 			| false => txn.put(
 				&self.roomuserid_privateread,
 				(room_id, user_id, thread_kind),
-				(pdu_count, ts),
+				(count, ts),
 			),
 		}
 

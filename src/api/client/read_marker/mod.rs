@@ -3,7 +3,7 @@ mod receipt;
 
 use ruma::{EventId, MilliSecondsSinceUnixEpoch, RoomId, UserId, events::receipt::ReceiptThread};
 use tuwunel_core::{Err, PduCount, Result, err};
-use tuwunel_service::Services;
+use tuwunel_service::{Services, rooms::read_receipt::PrivateRead};
 
 pub(crate) use self::{read_markers::set_read_marker_route, receipt::create_receipt_route};
 
@@ -33,7 +33,14 @@ async fn set_private_marker(
 
 	let advanced = services
 		.read_receipt
-		.private_read_set(room_id, user_id, count, MilliSecondsSinceUnixEpoch::now(), thread)
+		.private_read_set(PrivateRead {
+			room_id,
+			user_id,
+			count,
+			ts: MilliSecondsSinceUnixEpoch::now(),
+			thread,
+			announce: true,
+		})
 		.await;
 
 	Ok(advanced)

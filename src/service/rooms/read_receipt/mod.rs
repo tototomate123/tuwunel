@@ -42,6 +42,22 @@ pub type PrivateReadEvents = SmallVec<[Raw<AnySyncEphemeralRoomEvent>; 1]>;
 /// `StateKey` budget and stays inline for every realistic thread root.
 type ThreadKind = SmallString<[u8; 48]>;
 
+/// A private read marker write for one `(room, user, thread)` context.
+///
+/// `count` is the timeline position the marker addresses and `ts` the receipt
+/// timestamp. `announce` opens the sync gate, carrying the marker to the
+/// user's other devices; a marker the server writes on the user's behalf
+/// leaves it closed.
+#[derive(Clone, Copy, Debug)]
+pub struct PrivateRead<'a> {
+	pub room_id: &'a RoomId,
+	pub user_id: &'a UserId,
+	pub count: u64,
+	pub ts: MilliSecondsSinceUnixEpoch,
+	pub thread: &'a ReceiptThread,
+	pub announce: bool,
+}
+
 pub struct Service {
 	services: Arc<crate::services::OnceServices>,
 	db: Data,
@@ -207,17 +223,8 @@ impl Service {
 	/// receipt subsumes thread state. Returns whether the marker advanced; a
 	/// position at or behind the stored one writes nothing.
 	#[tracing::instrument(skip(self), level = "debug", name = "set_private")]
-	pub async fn private_read_set(
-		&self,
-		room_id: &RoomId,
-		user_id: &UserId,
-		count: u64,
-		ts: MilliSecondsSinceUnixEpoch,
-		thread: &ReceiptThread,
-	) -> bool {
-		self.db
-			.private_read_set(room_id, user_id, count, u64::from(ts.get()), thread)
-			.await
+	pub async fn private_read_set(&self, private_read: PrivateRead<'_>) -> bool {
+		self.db.private_read_set(private_read).await
 	}
 
 	/// Returns the private read marker PDU count.

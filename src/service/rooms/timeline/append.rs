@@ -26,7 +26,8 @@ use tuwunel_database::Json;
 
 use super::{ExtractBody, ExtractRelatesTo, ExtractRelatesToEventId, RoomMutexGuard, bias_count};
 use crate::rooms::{
-	short::ShortRoomId, state_accessor::plain_text_topic, state_compressor::CompressedState,
+	read_receipt::PrivateRead, short::ShortRoomId, state_accessor::plain_text_topic,
+	state_compressor::CompressedState,
 };
 
 type Band<'a> = SmallVec<[&'a EventId; 1]>;
@@ -176,21 +177,21 @@ where
 		.await;
 
 	let insert_lock = self.mutex_insert.lock(pdu.room_id()).await;
-	let next_count1 = self.services.globals.next_count();
-	let next_count2 = self.services.globals.next_count();
+	let next_count = self.services.globals.next_count();
 
 	// Mark as read first so the sending client doesn't get a notification even if
 	// appending fails. Route through the dispatcher so per-thread counts are
 	// also cleared; the sender's own send subsumes any thread receipt.
 	self.services
 		.read_receipt
-		.private_read_set(
-			pdu.room_id(),
-			pdu.sender(),
-			*next_count2,
-			pdu.origin_server_ts(),
-			&ReceiptThread::Unthreaded,
-		)
+		.private_read_set(PrivateRead {
+			room_id: pdu.room_id(),
+			user_id: pdu.sender(),
+			count: *next_count,
+			ts: pdu.origin_server_ts(),
+			thread: &ReceiptThread::Unthreaded,
+			announce: false,
+		})
 		.await;
 
 	self.services
@@ -202,7 +203,7 @@ where
 		)
 		.await;
 
-	let count = PduCount::Normal(*next_count1);
+	let count = PduCount::Normal(*next_count);
 	let pdu_id: RawPduId = PduId { shortroomid, count }.into();
 
 	// Insert pdu
@@ -220,8 +221,7 @@ where
 	self.append_pdu_effects(pdu_id, pdu, shortroomid, count, state_lock)
 		.await?;
 
-	drop(next_count1);
-	drop(next_count2);
+	drop(next_count);
 
 	self.services
 		.appservice
