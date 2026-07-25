@@ -89,11 +89,16 @@ impl Data {
 		let user_id_bytes = user_id.as_bytes();
 		let legacy_match = thread_kind.is_empty();
 
+		// A bare room-id prefix also matches longer room ids, whose rows sort
+		// below ours in reverse iteration and would be reaped by the sweep.
+		let room_prefix =
+			serialize_key((room_id, Interfix)).expect("failed to serialize receipt room prefix");
+
 		let last_possible_key = (room_id, u64::MAX);
 		self.readreceiptid_readreceipt
 			.rev_keys_from_raw(&last_possible_key)
 			.ignore_err()
-			.ready_take_while(|key| key.starts_with(room_id.as_bytes()))
+			.ready_take_while(|key| key.starts_with(room_prefix.as_slice()))
 			.ready_filter_map(|key| {
 				(key.ends_with(suffix.as_slice())
 					|| (legacy_match && key.ends_with(user_id_bytes)))
