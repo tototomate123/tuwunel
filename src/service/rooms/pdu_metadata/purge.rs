@@ -19,10 +19,12 @@ use crate::rooms::short::ShortRoomId;
 
 type Prefix = ArrayVec<u8, 16>;
 
-/// Purges one event's relation-index rows during a history purge. Rows keyed by
-/// this event as parent/target are removed; rows keyed by it as a surviving
-/// event's child are left dangling (harmless: relation reads discard ids that
-/// no longer resolve).
+/// Purges one event's metadata during a history purge.
+///
+/// Relation rows keyed by this event as parent or target are removed. Rows
+/// keyed by it as a surviving event's child remain dangling because relation
+/// reads discard IDs that no longer resolve. Soft-fail and policy decisions are
+/// cleared after the relation indexes.
 #[implement(Service)]
 pub async fn purge_event_relations(
 	&self,
@@ -56,7 +58,11 @@ pub async fn purge_event_relations(
 
 	self.db.referencedevents.del((room_id, event_id));
 
-	self.db.softfailedeventids.remove(event_id);
+	self.services
+		.event_handler
+		.clear_policy_signature_state(event_id);
+
+	self.clear_event_soft_failed(event_id);
 }
 
 /// Rebuild `relatesto_typed` from every stored PDU. Run once at startup behind

@@ -108,6 +108,26 @@ pub async fn is_event_soft_failed(&self, event_id: &EventId) -> bool {
 		.is_ok()
 }
 
+/// Streams owned event IDs with soft-fail markers.
+///
+/// Each ID is copied before the database cursor advances.
+#[implement(Service)]
+pub fn soft_failed_event_ids(&self) -> impl Stream<Item = OwnedEventId> + Send + '_ {
+	self.db
+		.softfailedeventids
+		.keys()
+		.ignore_err()
+		.map(|event_id: &EventId| event_id.to_owned())
+}
+
+/// Clears one event's soft-fail marker.
+///
+/// A later processing attempt can evaluate the event again.
+#[implement(Service)]
+pub fn clear_event_soft_failed(&self, event_id: &EventId) {
+	self.db.softfailedeventids.remove(event_id);
+}
+
 #[implement(Service)]
 #[tracing::instrument(skip(self), level = "debug")]
 pub async fn delete_all_referenced_for_room(&self, room_id: &RoomId) -> Result {

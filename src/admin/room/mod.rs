@@ -1,4 +1,5 @@
 mod alias;
+mod clear_soft_failed_events;
 mod delete;
 mod directory;
 mod exists;
@@ -75,6 +76,15 @@ pub(super) enum RoomCommand {
 	/// - Check if we know about a room
 	Exists {
 		room_id: OwnedRoomId,
+	},
+
+	/// - Clear stored soft-fail and policy decisions for a room
+	///
+	/// Changes stored moderation state so matching outliers are checked again
+	/// when federation supplies them. Does not replay or insert events.
+	ClearSoftFailedEvents {
+		/// Room ID or alias
+		room_id: OwnedRoomOrAliasId,
 	},
 
 	/// - Delete room
