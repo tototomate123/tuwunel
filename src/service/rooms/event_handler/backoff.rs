@@ -18,6 +18,14 @@ const QUANTUM: u64 = 60;
 /// Accumulated `Pending` records at which the rate brake engages.
 const SUPPRESS_AFTER: u32 = 3;
 
+/// Retry window for the `Upgrade` context.
+///
+/// Bounds how often a re-delivered event repeats the full upgrade. A
+/// soft-failed event is re-evaluated on this widening schedule rather than
+/// rejected forever, so a lapsed policy-server refusal heals.
+pub(super) const UPGRADE_RETRY: Range<Duration> =
+	Duration::from_mins(5)..Duration::from_hours(24);
+
 /// Federation step that recorded a decision; the key's leading discriminant.
 #[derive(Clone, Copy)]
 pub(super) enum Context {

@@ -169,10 +169,19 @@ Operator-relevant implications when enabling:
   `400 M_FORBIDDEN` (or, on the unstable variant, `200 OK` with no signature
   for the configured `via`) causes outbound sends to fail with `M_FORBIDDEN`,
   and inbound events to soft-fail.
-- **Inbound soft-fails are permanent.** Tuwunel records the soft-fail marker
-  but does not insert the event into the room timeline. Later attempts to
-  process the same event are rejected, leaving a permanent gap that can
-  affect descendant events.
+- **Inbound soft-fails withhold the event, and are reversible.** A soft-failed
+  event is kept out of the room timeline and is never relayed to clients, but
+  it stays stored, still answers federation requests for it, and still carries
+  the state that descendant events resolve against. The verdict is re-checked
+  whenever federation supplies the event again, on a schedule that widens from
+  five minutes to a day. An explicit refusal is itself cached for 24 hours, so
+  re-checks inside that window answer from the cache and the policy server is
+  only asked again once it lapses; `!admin rooms clear-soft-failed-events
+  <room>` drops the stored verdicts for one room to force the question
+  immediately.
+- **Soft-failed events do not move the room forward.** They are not added to
+  the room's forward extremities and do not resolve into current state, so a
+  refused membership or power-level change cannot take effect locally.
 - **Privacy in encrypted rooms.** The PDU is forwarded to the policy server
   for signing. Ciphertext is opaque, but metadata (sender, timestamp, room,
   event type) is not. Encrypted-room policy delegation is the room's call;
