@@ -409,13 +409,13 @@ async fn compute_remaining_extremities(
 		.services
 		.state
 		.get_forward_extremities(room_id)
-		.map(ToOwned::to_owned)
-		.ready_filter(|event_id| {
+		.ready_filter(|&event_id| {
 			// Remove any that are referenced by this incoming event's prev_events
 			!incoming_pdu
 				.prev_events()
 				.any(is_equal_to!(event_id))
 		})
+		.map(ToOwned::to_owned)
 		.broad_filter_map(async |event_id| {
 			// Only keep those extremities were not referenced yet
 			self.services
