@@ -80,8 +80,9 @@ pub(super) enum RoomCommand {
 
 	/// - Clear stored soft-fail and policy decisions for a room
 	///
-	/// Changes stored moderation state so matching outliers are checked again
-	/// when federation supplies them. Does not replay or insert events.
+	/// Changes stored moderation state so matching events are re-checked on the
+	/// next delivery instead of waiting out the retry window. Does not replay
+	/// or insert events.
 	ClearSoftFailedEvents {
 		/// Room ID or alias
 		room_id: OwnedRoomOrAliasId,

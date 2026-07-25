@@ -131,6 +131,17 @@ pub(super) fn record_outcome(&self, ctx: Context, event_id: &EventId, dispositio
 	);
 }
 
+/// Clears the upgrade backoff recorded against an event.
+///
+/// The soft-fail marker and this backoff gate the same retry, so operator
+/// recovery has to drop both for the next delivery to evaluate the event
+/// without waiting out the window.
+#[implement(super::Service)]
+pub async fn clear_upgrade_backoff(&self, event_id: &EventId) {
+	self.record_success(Context::Upgrade, event_id)
+		.await;
+}
+
 #[implement(super::Service)]
 pub(super) async fn record_success(&self, ctx: Context, event_id: &EventId) {
 	self.db
