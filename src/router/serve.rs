@@ -3,10 +3,10 @@ mod plain;
 mod tls;
 mod unix;
 
+#[cfg(unix)]
+use std::{borrow::Cow, os::unix::net::UnixListener};
 use std::{
-	borrow::Cow,
 	net::{SocketAddr, TcpListener},
-	os::unix::net::UnixListener,
 	path::Path,
 	sync::{Arc, atomic::Ordering},
 };
@@ -29,16 +29,22 @@ pub(super) async fn serve(services: Arc<Services>, handle: ServerHandle) -> Resu
 
 	let socket_path = &config.unix_socket_path;
 
+	#[cfg(unix)]
 	let (passed_tcp_listeners, passed_unix_listeners) = systemd_listeners()?;
+	#[cfg(not(unix))]
+	let passed_tcp_listeners: Vec<TcpListener> = Vec::new();
 
 	let addrs = config.get_bind_addrs();
 
+	#[cfg(unix)]
 	let log_addrs = make_log_addrs(
 		&addrs,
 		socket_path.as_deref(),
 		&passed_tcp_listeners,
 		&passed_unix_listeners,
 	)?;
+	#[cfg(not(unix))]
+	let log_addrs = make_log_addrs(&addrs, socket_path.as_deref(), &passed_tcp_listeners)?;
 
 	let mut futures = vec![];
 
@@ -128,6 +134,7 @@ pub(super) async fn serve(services: Arc<Services>, handle: ServerHandle) -> Resu
 	Ok(())
 }
 
+#[cfg(unix)]
 fn make_log_addrs(
 	tcp_addrs: &[SocketAddr],
 	unix_path: Option<&Path>,
@@ -165,7 +172,7 @@ fn make_log_addrs(
 		.collect()
 }
 
-#[cfg(all(feature = "systemd", target_os = "linux"))]
+#[cfg(all(unix, feature = "systemd", target_os = "linux"))]
 fn systemd_listeners() -> Result<(Vec<TcpListener>, Vec<UnixListener>)> {
 	use std::os::fd::FromRawFd;
 
@@ -204,5 +211,33 @@ fn systemd_listeners() -> Result<(Vec<TcpListener>, Vec<UnixListener>)> {
 	Ok((tcp, unix))
 }
 
-#[cfg(any(not(feature = "systemd"), not(target_os = "linux")))]
+#[cfg(all(
+	unix,
+	any(not(feature = "systemd"), not(target_os = "linux"))
+))]
 fn systemd_listeners() -> Result<(Vec<TcpListener>, Vec<UnixListener>)> { Ok((vec![], vec![])) }
+
+#[cfg(not(unix))]
+fn make_log_addrs(
+	tcp_addrs: &[SocketAddr],
+	unix_path: Option<&Path>,
+	tcp_listeners: &[TcpListener],
+) -> Result<Vec<String>> {
+	let tcp_log_addrs = tcp_addrs.iter().map(|addr| format!("tcp:{addr}"));
+
+	let unix_log_addr = unix_path.as_ref().map(|socket_path| {
+		let path = socket_path.to_string_lossy();
+		format!("unix:{path}")
+	});
+
+	let passed_tcp_log_addrs = tcp_listeners.iter().map(|listener| {
+		let addr = listener.local_addr()?;
+		Ok(format!("passed:tcp:{addr}"))
+	});
+
+	tcp_log_addrs
+		.map(Ok)
+		.chain(unix_log_addr.into_iter().map(Ok))
+		.chain(passed_tcp_log_addrs)
+		.collect()
+}
