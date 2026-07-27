@@ -251,10 +251,9 @@ features = [
 ]
 
 [workspace.dependencies.ldap3]
-git = "https://github.com/matrix-construct/ldap3"
-rev = "fdfbba2bf916b53e5f73cdb1a495ebb649978079"
+version = "0.12.1"
 default-features = false
-features = ["sync", "tls-rustls"]
+features = ["sync", "tls-rustls", "tls-rustls-aws-lc-rs"]
 
 [workspace.dependencies.lettre]
 version = "0.11"
