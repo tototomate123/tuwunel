@@ -1,6 +1,9 @@
+#[cfg(unix)]
 use std::sync::atomic::Ordering;
 
-use tuwunel::{Server, args, health::check, restart, runtime::Runtime};
+#[cfg(unix)]
+use tuwunel::restart;
+use tuwunel::{Server, args, health::check, runtime::Runtime};
 use tuwunel_core::{Result, debug_info};
 
 // Bionic rejects an under-aligned PT_TLS segment on arm64.
