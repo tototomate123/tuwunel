@@ -2477,7 +2477,6 @@ dependencies = [
  "tokio",
  "tokio-rustls",
  "url",
- "webpki-roots",
 ]
 
 [[package]]
@@ -5440,7 +5439,6 @@ dependencies = [
  "tuwunel_macros",
  "tuwunel_router",
  "tuwunel_service",
- "webpki-root-certs",
 ]
 
 [[package]]
@@ -5691,7 +5689,6 @@ dependencies = [
  "tuwunel_database",
  "url",
  "webpage",
- "webpki-root-certs",
 ]
 
 [[package]]

@@ -267,6 +267,7 @@ features = [
 	"builder",
 	"hostname",
 	"pool",
+	"rustls-platform-verifier",
 	"smtp-transport",
 	"tokio1",
 	"tokio1-rustls",
@@ -626,9 +627,6 @@ features = ["serde"]
 [workspace.dependencies.webpage]
 version = "2.0"
 default-features = false
-
-[workspace.dependencies.webpki-root-certs]
-version = "1.0"
 
 #
 # Patches
