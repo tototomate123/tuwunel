@@ -5499,6 +5499,7 @@ version = "1.8.3"
 dependencies = [
  "argon2",
  "arrayvec",
+ "aws-lc-rs",
  "axum",
  "axum-extra",
  "base64 0.22.1",
@@ -5538,7 +5539,6 @@ dependencies = [
  "rand 0.10.2",
  "regex",
  "reqwest 0.13.4",
- "ring",
  "ruma",
  "sanitize-filename",
  "serde",
@@ -5630,6 +5630,7 @@ name = "tuwunel_service"
 version = "1.8.3"
 dependencies = [
  "async-trait",
+ "aws-lc-rs",
  "base64 0.22.1",
  "bytes",
  "clap",
@@ -5656,7 +5657,6 @@ dependencies = [
  "rand 0.10.2",
  "regex",
  "reqwest 0.13.4",
- "ring",
  "ruma",
  "rustls",
  "rustyline-async",

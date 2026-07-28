@@ -1,4 +1,4 @@
-use ring::{
+use aws_lc_rs::{
 	digest,
 	digest::{Context, SHA256, SHA256_OUTPUT_LEN},
 };
