@@ -316,12 +316,11 @@ version = "1"
 version = "0.2"
 
 [workspace.dependencies.object_store]
-version = "0.13"
+version = "0.14"
 default-features = false
 features = [
 	"aws",
 	"fs",
-	"tls-webpki-roots",
 ]
 
 [workspace.dependencies.opentelemetry]
