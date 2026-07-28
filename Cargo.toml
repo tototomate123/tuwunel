@@ -665,6 +665,10 @@ rev = "0510e3a3cba7aedd504b4ee0d69fbf41e76a524f"
 git = "https://github.com/matrix-construct/resolv-conf"
 rev = "ab5c3e44016bc76b8798ec837a5a9cf9d88bf233"
 
+[patch.crates-io.rustls-platform-verifier]
+git = "https://github.com/matrix-construct/rustls-platform-verifier"
+rev = "c68093b6ac7d739e6b3aefb809c646a5e0210306"
+
 #
 # Our crates
 #
