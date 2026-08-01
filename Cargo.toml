@@ -597,6 +597,9 @@ default-features = false
 [workspace.dependencies.tracing-flame]
 version = "0.2"
 
+[workspace.dependencies.tracing-journald]
+version = "0.3"
+
 [workspace.dependencies.tracing-opentelemetry]
 version = "0.33"
 

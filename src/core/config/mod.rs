@@ -1427,6 +1427,19 @@ pub struct Config {
 	#[serde(default)]
 	pub log_to_stderr: bool,
 
+	/// Submits log output directly to the journald socket instead of the
+	/// console when running under systemd on Linux. Each entry carries its
+	/// actual severity as the journal priority, so tools such as `journalctl
+	/// --priority warning` catch Tuwunel's warnings and errors; console output
+	/// is captured by journald at a single fixed priority instead. Metadata
+	/// like the target and source location is attached as journal fields.
+	/// This option has no effect when not running under systemd or on builds
+	/// without the 'systemd' feature.
+	///
+	/// default: true
+	#[serde(default = "true_fn")]
+	pub log_journald: bool,
+
 	/// Setting to false disables the logging/tracing system at a lower level.
 	/// In contrast to configuring an empty `log` string where the system is
 	/// still operating but muted, when this option is false the system was not
