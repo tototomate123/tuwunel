@@ -18,7 +18,12 @@ pub(crate) async fn admin_create_token_route(
 
 	let (token, info) = services
 		.registration_tokens
-		.create_token(body.token.as_deref(), body.length.map(Into::into), expires)
+		.create_token(
+			body.token.as_deref(),
+			body.length
+				.and_then(|length| length.try_into().ok()),
+			expires,
+		)
 		.await?;
 
 	Ok(create::Response { token: token_response(token, &info) })

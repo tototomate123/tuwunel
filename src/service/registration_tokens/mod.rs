@@ -65,31 +65,17 @@ impl crate::Service for Service {
 }
 
 impl Service {
-	/// Issue a new registration token and save it in the database.
-	pub async fn issue_token(
-		&self,
-		expires: TokenExpires,
-	) -> Result<(String, DatabaseTokenInfo)> {
-		let token = random_string(RANDOM_TOKEN_LENGTH);
-
-		let info = self.db.save_token(&token, expires).await?;
-
-		Ok((token, info))
-	}
-
 	/// Create a registration token, using the caller's token or generating a
 	/// random one of `length` characters (default `RANDOM_TOKEN_LENGTH`). A
 	/// token that already exists is rejected.
 	pub async fn create_token(
 		&self,
 		token: Option<&str>,
-		length: Option<u64>,
+		length: Option<usize>,
 		expires: TokenExpires,
 	) -> Result<(String, DatabaseTokenInfo)> {
 		let token = token.map(ToOwned::to_owned).unwrap_or_else(|| {
-			let length = length
-				.and_then(|n| usize::try_from(n).ok())
-				.unwrap_or(RANDOM_TOKEN_LENGTH);
+			let length = length.unwrap_or(RANDOM_TOKEN_LENGTH);
 
 			random_string(length)
 		});
