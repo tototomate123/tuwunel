@@ -326,7 +326,7 @@ impl Data {
 		self.mediaid_user
 			.stream()
 			.ignore_err()
-			.ready_filter_map(|(key, user): (&str, &UserId)| {
+			.ready_filter_map(|((key, _), user): ((&str, Ignore), &UserId)| {
 				(user == user_id).then(|| key.into())
 			})
 			.collect()
