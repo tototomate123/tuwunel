@@ -43,7 +43,7 @@ pub(crate) async fn lookup_actual_dest(
 		return Ok((result, true));
 	}
 
-	let _dedup = self.resolving.lock(server_name);
+	let _dedup = self.resolving.lock(server_name).await;
 	if let Ok(result) = self.cache.get_destination(server_name).await {
 		return Ok((result, true));
 	}
