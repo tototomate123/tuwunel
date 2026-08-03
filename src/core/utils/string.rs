@@ -18,18 +18,49 @@ mod tests;
 mod unquote;
 mod unquoted;
 
-use std::{mem::replace, ops::Range};
+use std::{
+	fmt::{self, write},
+	io,
+	mem::replace,
+	ops::Range,
+};
 
 pub use self::{
 	between::Between, chunk::chunk, split::SplitInfallible, unquote::Unquote, unquoted::Unquoted,
 };
-use crate::{Result, smallstr::SmallString};
+use crate::{Result, arrayvec::ArrayString, smallstr::SmallString};
 
 /// Provides a shared empty string slice.
 ///
 /// The value has static lifetime and is suitable for default or fallback
 /// references. It is identical to the empty string literal.
 pub const EMPTY: &str = "";
+
+/// Formats arguments into a small string with an inline byte capacity.
+///
+/// Arguments are forwarded to [`format_small_string`] without an intermediate
+/// `String` allocation. Inline capacity is inferred from the expected type at
+/// the call site, and output beyond it spills to the heap.
+#[macro_export]
+#[collapse_debuginfo(yes)]
+macro_rules! format_small_string {
+	($($args:tt)+) => {
+		$crate::utils::string::format_small_string(std::format_args!($($args)+))
+	};
+}
+
+/// Formats arguments into an array string with constant byte capacity.
+///
+/// Arguments are forwarded to [`format_array_string`] without any allocation.
+/// Capacity is inferred from the expected type at the call site, and output
+/// beyond it panics.
+#[macro_export]
+#[collapse_debuginfo(yes)]
+macro_rules! format_array_string {
+	($($args:tt)+) => {
+		$crate::utils::string::format_array_string(std::format_args!($($args)+))
+	};
+}
 
 /// Formats a literal only when placeholders appear to be present.
 ///
@@ -73,10 +104,11 @@ macro_rules! is_format {
 #[inline]
 pub fn collect_stream<F>(func: F) -> Result<String>
 where
-	F: FnOnce(&mut dyn std::fmt::Write) -> Result,
+	F: FnOnce(&mut dyn fmt::Write) -> Result,
 {
 	let mut out = String::new();
 	func(&mut out)?;
+
 	Ok(out)
 }
 
@@ -107,8 +139,8 @@ pub fn camel_to_snake_string(s: &str) -> String {
 #[expect(clippy::unbuffered_bytes)] // these are allocated string utilities, not file I/O utils
 pub fn camel_to_snake_case<I, O>(output: &mut O, input: I) -> Result
 where
-	I: std::io::Read,
-	O: std::fmt::Write,
+	I: io::Read,
+	O: fmt::Write,
 {
 	let mut state = false;
 	input
@@ -122,7 +154,9 @@ where
 			if m && s {
 				output.write_char('_')?;
 			}
+
 			output.write_char(ch.to_ascii_lowercase())?;
+
 			Result::<()>::Ok(())
 		})
 }
@@ -179,20 +213,81 @@ pub fn truncate_deterministic(str: &str, range: Option<Range<usize>>) -> &str {
 		.unwrap_or(str)
 }
 
-/// Formats a value into a small string with an inline byte capacity.
+/// Displays a value into a small string with an inline byte capacity.
 ///
-/// Output beyond `CAP` bytes may spill to the heap. The function panics if the
-/// value's `Display` implementation returns a formatting error.
+/// Output beyond `CAP` bytes spills to the heap. Panics if the value's
+/// `Display` implementation returns a formatting error.
+#[inline]
+#[must_use]
 pub fn to_small_string<const CAP: usize, T>(t: T) -> SmallString<[u8; CAP]>
 where
-	T: std::fmt::Display,
+	T: fmt::Display,
 {
-	use std::fmt::Write;
+	format_small_string(format_args!("{t}"))
+}
 
+/// Formats arguments into a small string with an inline byte capacity.
+///
+/// Output beyond `CAP` bytes spills to the heap. Panics if formatting the
+/// arguments fails; [`try_format_small_string`] returns that error instead.
+#[inline]
+#[must_use]
+pub fn format_small_string<const CAP: usize>(args: fmt::Arguments<'_>) -> SmallString<[u8; CAP]> {
+	try_format_small_string(args).expect("Failed to format into SmallString")
+}
+
+/// Formats arguments into a small string, propagating any formatting error.
+///
+/// Output beyond `CAP` bytes spills to the heap, so the buffer itself never
+/// overflows. Only a `Display` implementation among the arguments can fail.
+#[inline]
+pub fn try_format_small_string<const CAP: usize>(
+	args: fmt::Arguments<'_>,
+) -> Result<SmallString<[u8; CAP]>> {
 	let mut ret = SmallString::<[u8; CAP]>::new();
-	write!(&mut ret, "{t}").expect("Failed to Display type in SmallString");
+	write(&mut ret, args)?;
 
-	ret
+	Ok(ret)
+}
+
+/// Displays a value into an array string with constant byte capacity.
+///
+/// Output is confined to the stack, so `CAP` must bound the formatted length.
+/// Panics when the output exceeds it, or when the value's `Display`
+/// implementation returns a formatting error.
+#[inline]
+#[must_use]
+pub fn to_array_string<const CAP: usize, T>(t: T) -> ArrayString<CAP>
+where
+	T: fmt::Display,
+{
+	format_array_string(format_args!("{t}"))
+}
+
+/// Formats arguments into an array string with constant byte capacity.
+///
+/// Output is confined to the stack, so `CAP` must bound the formatted length.
+/// Panics when the output exceeds it or the arguments fail to format;
+/// [`try_format_array_string`] returns both as an error.
+#[inline]
+#[must_use]
+pub fn format_array_string<const CAP: usize>(args: fmt::Arguments<'_>) -> ArrayString<CAP> {
+	try_format_array_string(args).expect("Failed to format into ArrayString")
+}
+
+/// Formats arguments into an array string, propagating any formatting error.
+///
+/// Output is confined to the stack. Exceeding `CAP` bytes yields a formatting
+/// error, indistinguishable from a failure in an argument's `Display`
+/// implementation.
+#[inline]
+pub fn try_format_array_string<const CAP: usize>(
+	args: fmt::Arguments<'_>,
+) -> Result<ArrayString<CAP>> {
+	let mut ret = ArrayString::<CAP>::new();
+	write(&mut ret, args)?;
+
+	Ok(ret)
 }
 
 /// Converts UTF-8 bytes into an owned string.
@@ -201,6 +296,7 @@ where
 /// error.
 pub fn string_from_bytes(bytes: &[u8]) -> Result<String> {
 	let str: &str = str_from_bytes(bytes)?;
+
 	Ok(str.to_owned())
 }
 
