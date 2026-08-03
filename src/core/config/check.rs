@@ -490,6 +490,44 @@ fn check_identity_providers(config: &Config) -> Result {
 		);
 	}
 
+	let mas_active = config
+		.mas_secret
+		.as_deref()
+		.is_some_and(|secret| !secret.is_empty());
+
+	if mas_active
+		&& !config
+			.identity_provider
+			.values()
+			.any(|provider| provider.brand == "mas")
+	{
+		warn!(
+			"mas_secret is set but no identity_provider is configured with `brand = MAS`. \
+			 Tuwunel is its own OpenID Connect issuer and does not delegate authentication to \
+			 MAS; the secret only authorizes MAS provisioning calls on `/_synapse/mas/`. \
+			 Logging in through MAS additionally requires an identity_provider entry with \
+			 `brand = MAS`."
+		);
+	}
+
+	if mas_active {
+		config
+			.identity_provider
+			.values()
+			.filter(|provider| provider.brand == "mas" && !provider.trusted)
+			.for_each(|provider| {
+				warn!(
+					provider = provider.id(),
+					"`mas_secret` is set and this MAS identity provider is configured without \
+					 `trusted = true`. Existing accounts provisioned by MAS will not be matched \
+					 automatically during SSO login, so users may receive separate accounts. \
+					 Set `trusted = true` only when this identity provider is the same \
+					 self-hosted MAS instance that provisions this server and you fully control \
+					 it; otherwise associate users explicitly."
+				);
+			});
+	}
+
 	Ok(())
 }
 

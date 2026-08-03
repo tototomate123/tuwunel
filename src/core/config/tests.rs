@@ -191,6 +191,50 @@ ip_source = "cf_connecting_ip"
 }
 
 #[test]
+fn check_warns_when_mas_provisioning_provider_is_untrusted() {
+	let untrusted_provisioning = r#"[global]
+mas_secret = "provisioning-secret"
+
+[[global.identity_provider]]
+brand = "MAS"
+client_id = "mas"
+client_secret = "oauth-secret"
+"#;
+
+	let trusted_provisioning = r#"[global]
+mas_secret = "provisioning-secret"
+
+[[global.identity_provider]]
+brand = "MAS"
+client_id = "mas"
+client_secret = "oauth-secret"
+trusted = true
+"#;
+
+	let untrusted_login = r#"[global]
+
+[[global.identity_provider]]
+brand = "MAS"
+client_id = "mas"
+client_secret = "oauth-secret"
+"#;
+
+	let cases = [
+		("untrusted provisioning provider", untrusted_provisioning, true),
+		("trusted provisioning provider", trusted_provisioning, false),
+		("untrusted login-only provider", untrusted_login, false),
+	];
+
+	for (name, toml, warns) in cases {
+		let config = config_from_toml(toml).expect("MAS provider config should parse");
+		let (result, logs) = check_with_captured_logs(&config);
+
+		result.expect("MAS provider config should pass config check");
+		assert_eq!(logs.contains("configured without `trusted = true`"), warns, "{name}");
+	}
+}
+
+#[test]
 fn reload_rejects_none_to_some_and_some_to_none() {
 	let none = config_from_toml("[global]\n").unwrap();
 	let some = config_from_toml(
