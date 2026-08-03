@@ -3,7 +3,7 @@
 	reason = "the journal protocol specifies little-endian field lengths"
 )]
 
-use super::{Buffer, LEN_PREFIX, boundary, close, put};
+use super::{Buffer, LEN_PREFIX, boundary, close, put, sanitize};
 
 #[test]
 fn put_field_framing() {
@@ -64,6 +64,13 @@ fn close_trims_trailing_whitespace() {
 	close(&mut payload, message);
 
 	assert_eq!(&payload[message..], b"  indented\n");
+}
+
+#[test]
+fn sanitize_field_names() {
+	assert_eq!(sanitize("room_id"), "F_ROOM_ID");
+	assert_eq!(sanitize("time.busy"), "F_TIME_BUSY");
+	assert_eq!(sanitize("otel.status-code"), "F_OTEL_STATUS_CODE");
 }
 
 #[test]

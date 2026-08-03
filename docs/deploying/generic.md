@@ -107,7 +107,13 @@ journald with each entry's severity preserved as the journal priority, so
 `journalctl --priority warning` catches Tuwunel's warnings and errors. Each
 entry carries the same formatted message as the console output, span fields
 included, and thread ids when `log_thread_ids` is enabled. The target and
-source location are attached as journal fields.
+source location are attached as journal fields, and every tracing field is
+recorded under an `F_` prefix, so a single room or event can be pulled out of
+the journal directly:
+
+```bash
+journalctl -u tuwunel F_ROOM_ID='!room:example.com'
+```
 
 Set `log_journald = false` in the config to write plain console output instead.
 A unit that sends its output to a terminal rather than the journal, as the Arch

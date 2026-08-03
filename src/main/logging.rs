@@ -8,7 +8,10 @@ use tuwunel_core::{
 	Result,
 	config::Config,
 	debug_warn, err,
-	log::{ConsoleFormat, ConsoleWriter, LogLevelReloadHandles, Logging, capture, fmt_span},
+	log::{
+		ConsoleFormat, ConsoleWriter, LogLevelReloadHandles, Logging, capture, fmt_span,
+		journald::Fields,
+	},
 	result::UnwrapOrErr,
 };
 #[cfg(feature = "perf_measurements")]
@@ -105,6 +108,7 @@ where
 		.event_format(ConsoleFormat::new(config))
 		.with_writer(ConsoleWriter::new(config));
 
+	let layer = Fields::new(layer, config);
 	let (reload_filter, reload_handle) = reload::Layer::new(filter);
 
 	reload_handles.add("console", Box::new(reload_handle));

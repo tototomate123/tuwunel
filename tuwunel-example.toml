@@ -1213,9 +1213,11 @@
 # --priority warning` catch Tuwunel's warnings and errors; console output
 # is captured by journald at a single fixed priority instead. The message
 # is formatted exactly as the console formats it, span fields included,
-# while the target and source location are attached as journal fields.
-# This option has no effect when not running under systemd, and the
-# console is kept when the journald socket cannot be opened.
+# while the target, source location and every tracing field are attached
+# as journal fields, the latter under an `F_` prefix for queries such as
+# `journalctl F_ROOM_ID='!room:example.com'`. This option has no effect
+# when not running under systemd, and the console is kept when the
+# journald socket cannot be opened.
 #
 #log_journald = true
 
