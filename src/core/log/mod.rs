@@ -3,6 +3,7 @@ pub mod color;
 pub mod console;
 pub mod fmt;
 pub mod fmt_span;
+pub mod journald;
 mod reload;
 mod suppress;
 

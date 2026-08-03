@@ -175,7 +175,6 @@ sentry_telemetry = [
 	"tuwunel-router/sentry_telemetry",
 ]
 systemd = [
-	"dep:tracing-journald",
 	"tuwunel-router/systemd",
 ]
 # enable the tokio_console server ncompatible with release_max_log_level
@@ -233,8 +232,6 @@ tokio-metrics.workspace = true
 tokio.workspace = true
 tracing-flame.optional = true
 tracing-flame.workspace = true
-tracing-journald.optional = true
-tracing-journald.workspace = true
 tracing-opentelemetry.optional = true
 tracing-opentelemetry.workspace = true
 tracing-subscriber.workspace = true

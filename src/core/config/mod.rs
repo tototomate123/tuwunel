@@ -1428,13 +1428,14 @@ pub struct Config {
 	pub log_to_stderr: bool,
 
 	/// Submits log output directly to the journald socket instead of the
-	/// console when running under systemd on Linux. Each entry carries its
-	/// actual severity as the journal priority, so tools such as `journalctl
+	/// console when running under systemd. Each entry carries its actual
+	/// severity as the journal priority, so tools such as `journalctl
 	/// --priority warning` catch Tuwunel's warnings and errors; console output
-	/// is captured by journald at a single fixed priority instead. Metadata
-	/// like the target and source location is attached as journal fields.
-	/// This option has no effect when not running under systemd or on builds
-	/// without the 'systemd' feature.
+	/// is captured by journald at a single fixed priority instead. The message
+	/// is formatted exactly as the console formats it, span fields included,
+	/// while the target and source location are attached as journal fields.
+	/// This option has no effect when not running under systemd, and the
+	/// console is kept when the journald socket cannot be opened.
 	///
 	/// default: true
 	#[serde(default = "true_fn")]

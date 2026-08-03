@@ -1,7 +1,7 @@
 use std::{env, io, sync::LazyLock};
 
 use tracing::{
-	Event, Level, Subscriber,
+	Event, Level, Metadata, Subscriber,
 	field::{Field, Visit},
 };
 use tracing_subscriber::{
@@ -14,6 +14,7 @@ use tracing_subscriber::{
 	registry::LookupSpan,
 };
 
+use super::journald::{Entry, Journal};
 use crate::{Config, Result, apply, debug, is_equal_to};
 
 static SYSTEMD_MODE: LazyLock<bool> =
@@ -24,25 +25,55 @@ pub struct ConsoleWriter {
 	stderr: io::Stderr,
 	_journal_stream: [u64; 2],
 	use_stderr: bool,
+	journal: Option<Journal>,
+}
+
+pub enum Sink<'a> {
+	Console(&'a ConsoleWriter),
+	Journal(Entry<'a>),
 }
 
 impl ConsoleWriter {
 	#[must_use]
 	pub fn new(config: &Config) -> Self {
 		let journal_stream = get_journal_stream();
+
 		Self {
 			stdout: io::stdout(),
 			stderr: io::stderr(),
 			_journal_stream: journal_stream.into(),
 			use_stderr: journal_stream.0 != 0 || config.log_to_stderr,
+			journal: Journal::open(config),
 		}
 	}
 }
 
 impl<'a> MakeWriter<'a> for ConsoleWriter {
-	type Writer = &'a Self;
+	type Writer = Sink<'a>;
 
-	fn make_writer(&'a self) -> Self::Writer { self }
+	fn make_writer(&'a self) -> Self::Writer { Sink::Console(self) }
+
+	fn make_writer_for(&'a self, meta: &Metadata<'_>) -> Self::Writer {
+		self.journal
+			.as_ref()
+			.map_or(Sink::Console(self), |journal| Sink::Journal(journal.entry(meta)))
+	}
+}
+
+impl io::Write for Sink<'_> {
+	fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+		match self {
+			| Self::Console(console) => console.write(buf),
+			| Self::Journal(entry) => entry.write(buf),
+		}
+	}
+
+	fn flush(&mut self) -> io::Result<()> {
+		match self {
+			| Self::Console(console) => console.flush(),
+			| Self::Journal(entry) => entry.flush(),
+		}
+	}
 }
 
 impl io::Write for &'_ ConsoleWriter {

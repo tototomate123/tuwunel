@@ -8,10 +8,7 @@ use tuwunel_core::{
 	Result,
 	config::Config,
 	debug_warn, err,
-	log::{
-		ConsoleFormat, ConsoleWriter, LogLevelReloadHandles, Logging, capture, fmt_span,
-		is_systemd_mode,
-	},
+	log::{ConsoleFormat, ConsoleWriter, LogLevelReloadHandles, Logging, capture, fmt_span},
 	result::UnwrapOrErr,
 };
 #[cfg(feature = "perf_measurements")]
@@ -43,14 +40,9 @@ pub(crate) fn init(config: &Config) -> Result<(TracingFlameGuard, Logging)> {
 	}
 
 	let cap_layer = capture::Layer::new(&cap_state);
-	let console = (!journald_enabled(config))
-		.then(|| console_layer(config, &reload_handles))
-		.transpose()?;
-
-	let subscriber = Registry::default().with(console).with(cap_layer);
-
-	#[cfg(all(feature = "systemd", target_os = "linux"))]
-	let subscriber = subscriber.with(journald_layer(config, &reload_handles)?);
+	let subscriber = Registry::default()
+		.with(console_layer(config, &reload_handles)?)
+		.with(cap_layer);
 
 	#[cfg(feature = "sentry_telemetry")]
 	let subscriber = subscriber.with(sentry_layer(config, &reload_handles)?);
@@ -117,40 +109,6 @@ where
 
 	reload_handles.add("console", Box::new(reload_handle));
 	Ok(layer.with_filter(reload_filter))
-}
-
-/// Whether logging is redirected from the console to the journald socket.
-/// The console output remains captured by journald in systemd mode, but a
-/// single fixed priority is assigned to every line; native submission
-/// preserves each entry's actual severity.
-fn journald_enabled(config: &Config) -> bool {
-	cfg!(all(feature = "systemd", target_os = "linux"))
-		&& config.log_journald
-		&& is_systemd_mode()
-}
-
-#[cfg(all(feature = "systemd", target_os = "linux"))]
-fn journald_layer<S>(
-	config: &Config,
-	reload_handles: &LogLevelReloadHandles,
-) -> Result<Option<impl Layer<S>>>
-where
-	S: Subscriber + for<'a> LookupSpan<'a> + 'static,
-{
-	if !journald_enabled(config) {
-		return Ok(None);
-	}
-
-	let filter = EnvFilter::builder()
-		.with_regex(config.log_filter_regex)
-		.parse(&config.log)
-		.map_err(|e| err!(Config("log", "{e}.")))?;
-
-	let layer = tracing_journald::layer().map_err(|e| err!(Config("log_journald", "{e}.")))?;
-	let (reload_filter, reload_handle) = reload::Layer::new(filter);
-
-	reload_handles.add("journald", Box::new(reload_handle));
-	Ok(Some(layer.with_filter(reload_filter)))
 }
 
 #[cfg(feature = "sentry_telemetry")]
