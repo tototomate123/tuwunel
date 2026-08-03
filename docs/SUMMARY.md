@@ -35,6 +35,7 @@
     - [Authelia](authentication/providers/authelia.md)
     - [Authentik](authentication/providers/authentik.md)
     - [Keycloak](authentication/providers/keycloak.md)
+    - [Matrix Authentication Service](authentication/providers/mas.md)
 - [Multimedia and Storage](media.md)
   - [Storage Providers](media/storage.md)
   - [Management](media/management.md)
