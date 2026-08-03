@@ -1737,16 +1737,17 @@ impl Service {
 fn arm_wake(wakes: &mut WakeQueue, server: OwnedServerName, earliest_retry: SystemTime) {
 	use tokio::time::Instant;
 
-	// Floor the delay at 1s so clock steps and past deadlines wake promptly,
-	// and jitter to spread a mass-failure wake storm.
+	// Floor the delay at 1s so clock steps and past deadlines wake promptly.
 	let delay = earliest_retry
 		.duration_since(SystemTime::now())
 		.unwrap_or_default()
-		.max(Duration::from_secs(1))
-		.saturating_add(rand_secs(0..3));
+		.max(Duration::from_secs(1));
 
+	// Spread the wake over another delay-width (3s minimum), so destinations
+	// sharing a backoff tier trickle back rather than retrying in one burst.
+	let jitter = rand_secs(0..delay.as_secs().max(3));
 	let deadline = Instant::now()
-		.checked_add(delay)
+		.checked_add(delay.saturating_add(jitter))
 		.unwrap_or_else(Instant::now);
 
 	wakes.push(Reverse((deadline, server)));
