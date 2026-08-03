@@ -3,16 +3,19 @@ use std::{fmt::Debug, net::IpAddr};
 use futures::{FutureExt, TryFutureExt};
 use hickory_resolver::{
 	net::{DnsError, NetError},
-	proto::rr::RData,
+	proto::rr::{RData, rdata::SRV},
 };
 use ipaddress::IPAddress;
 use ruma::ServerName;
-use tuwunel_core::{Err, Result, debug, debug_info, debug_warn, err, error, implement, trace};
+use tuwunel_core::{
+	Err, Result, debug, debug_info, debug_warn, err, error, format_array_string, implement,
+	trace, utils::string::to_small_string,
+};
 
 use super::{
 	DestString, FedDest,
 	cache::{CachedDest, CachedOverride, MAX_IPS},
-	fed::{PortString, add_port_to_hostname, get_ip_with_port},
+	fed::{HostString, PortString, add_port_to_hostname, get_ip_with_port},
 };
 
 #[derive(Clone, Debug)]
@@ -145,11 +148,11 @@ async fn actual_dest_2(&self, dest: &ServerName, cache: bool, pos: usize) -> Res
 	self.maybe_query_and_cache(host, port_num, cache)
 		.await?;
 
-	Ok(FedDest::Named(
-		host.into(),
-		port.try_into()
-			.unwrap_or_else(|_| FedDest::default_port()),
-	))
+	let port = port
+		.try_into()
+		.unwrap_or_else(|_| FedDest::default_port());
+
+	Ok(FedDest::Named(host.into(), port))
 }
 
 #[implement(super::Service)]
@@ -196,11 +199,11 @@ async fn actual_dest_3_2(&self, cache: bool, delegated: &str, pos: usize) -> Res
 	self.maybe_query_and_cache(host, port_num, cache)
 		.await?;
 
-	Ok(FedDest::Named(
-		host.into(),
-		port.try_into()
-			.unwrap_or_else(|_| FedDest::default_port()),
-	))
+	let port = port
+		.try_into()
+		.unwrap_or_else(|_| FedDest::default_port());
+
+	Ok(FedDest::Named(host.into(), port))
 }
 
 #[implement(super::Service)]
@@ -221,13 +224,9 @@ async fn actual_dest_3_3(
 	.await?;
 
 	if let Some(port) = force_port {
-		return Ok(FedDest::Named(
-			delegated.into(),
-			format!(":{port}")
-				.as_str()
-				.try_into()
-				.unwrap_or_else(|_| FedDest::default_port()),
-		));
+		let port: PortString = format_array_string!(":{port}");
+
+		return Ok(FedDest::Named(delegated.into(), port));
 	}
 
 	Ok(add_port_to_hostname(delegated))
@@ -255,11 +254,9 @@ async fn actual_dest_4(&self, host: &str, cache: bool, overrider: FedDest) -> Re
 	.await?;
 
 	if let Some(port) = force_port {
-		let port = format!(":{port}");
-		return Ok(FedDest::Named(
-			host.into(),
-			PortString::from(port.as_str()).unwrap_or_else(|_| FedDest::default_port()),
-		));
+		let port: PortString = format_array_string!(":{port}");
+
+		return Ok(FedDest::Named(host.into(), port));
 	}
 
 	Ok(add_port_to_hostname(host))
@@ -358,23 +355,20 @@ async fn query_srv_record(&self, hostname: &'_ str) -> Result<Option<FedDest>> {
 						| _ => None,
 					});
 
-				return Ok(srv.map(|srv| {
-					FedDest::Named(
-						srv.target
-							.to_string()
-							.trim_end_matches('.')
-							.into(),
-						format!(":{}", srv.port)
-							.as_str()
-							.try_into()
-							.unwrap_or_else(|_| FedDest::default_port()),
-					)
-				}));
+				return Ok(srv.map(Self::srv_dest));
 			},
 		}
 	}
 
 	Ok(None)
+}
+
+#[implement(super::Service)]
+fn srv_dest(srv: &SRV) -> FedDest {
+	let host: HostString = to_small_string(&srv.target);
+	let port: PortString = format_array_string!(":{}", srv.port);
+
+	FedDest::Named(host.trim_end_matches('.').into(), port)
 }
 
 #[implement(super::Service)]
