@@ -155,10 +155,10 @@ perf_measurements = [
 # increases performance, reduces build times, and reduces binary size by not compiling or
 # genreating code for log level filters that users will generally not use (debug and trace)
 release_max_log_level = [
-	"tracing/max_level_trace",
-	"tracing/release_max_level_info",
 	"log/max_level_trace",
 	"log/release_max_level_info",
+	"tracing/max_level_trace",
+	"tracing/release_max_level_info",
 	"tuwunel-admin/release_max_log_level",
 	"tuwunel-api/release_max_log_level",
 	"tuwunel-core/release_max_log_level",
@@ -167,10 +167,10 @@ release_max_log_level = [
 	"tuwunel-service/release_max_log_level",
 ]
 sentry_telemetry = [
-	"dep:sentry",
-	"dep:sentry-tracing",
-	"dep:sentry-tower",
 	"dep:reqwest",
+	"dep:sentry",
+	"dep:sentry-tower",
+	"dep:sentry-tracing",
 	"tuwunel-core/sentry_telemetry",
 	"tuwunel-router/sentry_telemetry",
 ]
@@ -183,6 +183,9 @@ tokio_console = [
 	"dep:console-subscriber",
 	"tokio/tracing",
 ]
+tuwunel_mods = [
+	"tuwunel-core/tuwunel_mods",
+]
 url_preview = [
 	"tuwunel-service/url_preview",
 ]
@@ -193,9 +196,6 @@ zstd_compression = [
 	"tuwunel-database/zstd_compression",
 	"tuwunel-router/zstd_compression",
 	"tuwunel-service/zstd_compression",
-]
-tuwunel_mods = [
-	"tuwunel-core/tuwunel_mods",
 ]
 
 [dependencies]

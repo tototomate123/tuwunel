@@ -75,8 +75,8 @@ version = "0.12"
 default-features = false
 features = [
 	"cookie",
-	"typed-header",
 	"tracing",
+	"typed-header",
 ]
 
 [workspace.dependencies.axum-server]
@@ -140,9 +140,9 @@ features = ["proc"]
 version = "0.8"
 default-features = false
 features = [
-	"cargo_bench_support",
 	"async_futures",
 	"async_tokio",
+	"cargo_bench_support",
 ]
 
 [workspace.dependencies.ctor]
@@ -200,18 +200,18 @@ version = "0.1"
 version = "1.8"
 default-features = false
 features = [
-	"server",
 	"http1",
 	"http2",
+	"server",
 ]
 
 [workspace.dependencies.image]
 version = "0.25"
 default-features = false
 features = [
+	"gif",
 	"jpeg",
 	"png",
-	"gif",
 	"webp",
 ]
 
@@ -378,16 +378,17 @@ features = [
     "push-gateway-api-c",
     "rand",
     "ring-compat",
+    "unstable-extensible-events",
     "unstable-msc2448",
     "unstable-msc2666",
     "unstable-msc2815",
     "unstable-msc3026",
     "unstable-msc3202", # encrypted appservice transaction extensions
-    "unstable-msc3391",
-    "unstable-msc3814",
     "unstable-msc3245",
     "unstable-msc3381", # polls
+    "unstable-msc3391",
     "unstable-msc3489", # beacon / live location
+    "unstable-msc3814",
     "unstable-msc3930", # polls push rules
     "unstable-msc3983", # appservice one-time key claims
     "unstable-msc3984", # appservice device key queries
@@ -405,7 +406,6 @@ features = [
     "unstable-msc4388",
     "unstable-msc4439",
     "unstable-msc4466",
-    "unstable-extensible-events",
 ]
 
 [workspace.dependencies.synapse-admin-api]
@@ -416,7 +416,12 @@ features = ["server"]
 [workspace.dependencies.rustls]
 version = "0.23"
 default-features = false
-features = ["aws_lc_rs", "logging", "tls12", "prefer-post-quantum"]
+features = [
+	"aws_lc_rs",
+	"logging",
+	"prefer-post-quantum",
+	"tls12",
+]
 
 [workspace.dependencies.rustyline-async]
 version = "0.4.6"
@@ -450,13 +455,13 @@ features = [
     "backtrace",
     "contexts",
     "debug-images",
+    "log",
     "panic",
+    "reqwest",
     "rustls",
     "tower",
     "tower-http",
     "tracing",
-    "reqwest",
-    "log",
 ]
 
 [workspace.dependencies.sentry-tower]
@@ -532,8 +537,8 @@ features = [
 	"extra-traits",
 	"full",
 	"parsing",
-	"proc-macro",
 	"printing",
+	"proc-macro",
 ]
 
 [workspace.dependencies.termimad]
@@ -549,13 +554,13 @@ version = "1.52"
 default-features = false
 features = [
 	"fs",
-	"net",
-	"macros",
-	"sync",
-	"signal",
-	"time",
-	"rt-multi-thread",
 	"io-util",
+	"macros",
+	"net",
+	"rt-multi-thread",
+	"signal",
+	"sync",
+	"time",
 	"tracing",
 ]
 

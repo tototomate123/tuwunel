@@ -37,10 +37,10 @@ jemalloc_stats = [
 ]
 perf_measurements = []
 release_max_log_level = [
-	"tracing/max_level_trace",
-	"tracing/release_max_level_info",
 	"log/max_level_trace",
 	"log/release_max_level_info",
+	"tracing/max_level_trace",
+	"tracing/release_max_level_info",
 ]
 sentry_telemetry = []
 tuwunel_mods = [
