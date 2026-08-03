@@ -120,27 +120,60 @@ pub struct Args {
 	)]
 	pub kernel_events_per_tick: usize,
 
-	/// Set the histogram bucket size, in microseconds (tokio_unstable). Default
-	/// is 25 microseconds. If the values of the histogram don't approach zero
-	/// with the exception of the last bucket, try increasing this value to e.g.
-	/// 50 or 100. Inversely, decrease to 10 etc if the histogram lacks
-	/// resolution.
+	/// Set the poll histogram bucket size, in microseconds (tokio_unstable).
+	///
+	/// Default is 20 microseconds. If the values of the histogram don't
+	/// approach zero with the exception of the last bucket, try increasing this
+	/// value to e.g. 50 or 100. Inversely, decrease to 10 etc if the histogram
+	/// lacks resolution.
 	#[arg(
 		long,
 		hide(true),
-		env = "TUWUNEL_RUNTIME_HISTOGRAM_INTERVAL",
-		default_value = "25"
-	)]
-	pub worker_histogram_interval: u64,
-
-	/// Set the histogram bucket count (tokio_unstable). Default is 20.
-	#[arg(
-		long,
-		hide(true),
-		env = "TUWUNEL_RUNTIME_HISTOGRAM_BUCKETS",
+		env = "TUWUNEL_RUNTIME_POLL_HISTOGRAM_INTERVAL",
 		default_value = "20"
 	)]
-	pub worker_histogram_buckets: usize,
+	pub worker_poll_histogram_interval: u64,
+
+	/// Set the poll histogram bucket count (tokio_unstable).
+	///
+	/// Default is 15.
+	#[arg(
+		long,
+		hide(true),
+		env = "TUWUNEL_RUNTIME_POLL_HISTOGRAM_BUCKETS",
+		default_value = "15"
+	)]
+	pub worker_poll_histogram_buckets: usize,
+
+	/// Set the scheduler histogram bucket size, in microseconds
+	/// (tokio_unstable).
+	///
+	/// Default is 10 microseconds. This histogram measures the delay between a
+	/// task being scheduled and a worker polling it, so it is tuned against
+	/// queueing delay rather than the poll duration measured by the poll
+	/// histogram. Increase this value to e.g. 50 or 100 when only the last
+	/// bucket is populated; decrease it to 10 etc when everything lands in the
+	/// first bucket.
+	#[arg(
+		long,
+		hide(true),
+		env = "TUWUNEL_RUNTIME_SCHED_HISTOGRAM_INTERVAL",
+		default_value = "10"
+	)]
+	pub worker_sched_histogram_interval: u64,
+
+	/// Set the scheduler histogram bucket count (tokio_unstable).
+	///
+	/// Default is 15. Every bucket but the last spans one bucket size; the
+	/// last is unbounded above, so the count and the bucket size together set
+	/// the latency beyond which the histogram stops resolving.
+	#[arg(
+		long,
+		hide(true),
+		env = "TUWUNEL_RUNTIME_SCHED_HISTOGRAM_BUCKETS",
+		default_value = "15"
+	)]
+	pub worker_sched_histogram_buckets: usize,
 
 	/// Write tokio runtime metrics at exit to a file in the directory
 	/// provided. The format will be JSON. The file will be named

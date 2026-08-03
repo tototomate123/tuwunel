@@ -241,6 +241,12 @@ tracing-subscriber.workspace = true
 tracing.workspace = true
 webpki-root-certs.workspace = true
 
+# tokio hard-errors on this feature without the cfg, so it tracks the same gate
+# as the code enabling the histogram.
+[target.'cfg(tokio_unstable)'.dependencies.tokio]
+features = ["schedule-latency"]
+workspace = true
+
 [dev-dependencies]
 criterion.workspace = true
 insta.workspace = true
