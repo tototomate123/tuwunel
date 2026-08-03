@@ -1,7 +1,8 @@
 //! Per-key asynchronous mutual exclusion with automatic entry cleanup.
 //!
-//! Each key maps to a Tokio mutex shared by its current contenders. Dropping
-//! the final guard removes an idle entry once no contender retains it.
+//! Each key maps to a Tokio mutex shared by its current contenders. The last
+//! contender to release its claim removes the entry, whether it held the mutex
+//! or was canceled while waiting for it.
 
 use std::{
 	fmt::Debug,
@@ -16,8 +17,8 @@ use crate::{Result, err};
 /// Provides independent asynchronous mutexes keyed by owned values.
 ///
 /// Lock acquisition creates entries on demand, and callers contending for the
-/// same key serialize. Guard drops opportunistically remove idle entries;
-/// cancellation races can leave an entry retained.
+/// same key serialize. An entry lives exactly as long as some caller holds or
+/// contends for it.
 #[derive(Debug)]
 pub struct MutexMap<Key, Val> {
 	map: Map<Key, Val>,
@@ -26,13 +27,14 @@ pub struct MutexMap<Key, Val> {
 /// Keeps a keyed mutex locked until the guard is dropped.
 ///
 /// The guard retains the parent map so cleanup remains possible. Dropping it
-/// attempts to remove the key when no other holder or contender references the
-/// mutex, but cancellation races can leave an idle entry retained.
+/// releases the keyed mutex and then removes the entry when no other holder or
+/// contender references it.
 #[derive(Debug)]
 #[clippy::has_significant_drop]
 pub struct Guard<Key, Val> {
 	map: Map<Key, Val>,
-	val: Omg<Val>,
+	entry: Option<Value<Val>>,
+	val: Option<Omg<Val>>,
 }
 
 type Map<Key, Val> = Arc<MapMutex<Key, Val>>;
@@ -59,25 +61,14 @@ where
 	/// Acquires the asynchronous mutex associated with a key.
 	///
 	/// The method creates an entry if absent and waits for the current holder
-	/// to release it. The returned guard attempts to clean up the idle entry
-	/// when dropped, and a poisoned internal map mutex causes a panic.
+	/// to release it. Cancellation while waiting releases the claim on the
+	/// entry, and a poisoned internal map mutex causes a panic.
 	#[tracing::instrument(level = "trace", skip(self))]
 	pub async fn lock<K>(&self, k: &K) -> Guard<Key, Val>
 	where
 		K: Debug + Send + ?Sized + Sync + ToOwned<Owned = Key>,
 	{
-		let val = self
-			.map
-			.lock()
-			.expect("locked")
-			.entry(k.to_owned())
-			.or_default()
-			.clone();
-
-		Guard::<Key, Val> {
-			map: Arc::clone(&self.map),
-			val: val.lock_owned().await,
-		}
+		self.entry(k).lock().await
 	}
 
 	/// Attempts to acquire a key without waiting for its asynchronous mutex.
@@ -90,6 +81,49 @@ where
 	where
 		K: Debug + Send + ?Sized + Sync + ToOwned<Owned = Key>,
 	{
+		self.entry(k).try_lock()
+	}
+
+	/// Attempts to acquire a key without yielding, blocking only to release a
+	/// failed attempt.
+	///
+	/// Contention on either the internal map or keyed mutex returns an error.
+	/// The entry is created only after the map mutex is acquired, and releasing
+	/// a failed attempt blocks on that mutex again. A poisoned map mutex causes
+	/// a panic.
+	#[tracing::instrument(level = "trace", skip(self))]
+	pub fn try_try_lock<K>(&self, k: &K) -> Result<Guard<Key, Val>>
+	where
+		K: Debug + Send + ?Sized + Sync + ToOwned<Owned = Key>,
+	{
+		self.try_entry(k)?.try_lock()
+	}
+
+	/// Reports whether the map currently contains an entry for a key.
+	///
+	/// An entry represents a held mutex or contenders that still reference it.
+	/// The check locks the internal map and panics if that mutex is poisoned.
+	#[must_use]
+	pub fn contains(&self, k: &Key) -> bool { self.map.lock().expect("locked").contains_key(k) }
+
+	/// Reports whether no keyed mutex entries are currently tracked.
+	///
+	/// A false result implies at least one active holder or contender. The
+	/// check locks the internal map and panics if that mutex is poisoned.
+	#[must_use]
+	pub fn is_empty(&self) -> bool { self.map.lock().expect("locked").is_empty() }
+
+	/// Returns the number of keyed mutex entries currently tracked.
+	///
+	/// The count includes held mutexes and entries retained by contenders. The
+	/// check locks the internal map and panics if that mutex is poisoned.
+	#[must_use]
+	pub fn len(&self) -> usize { self.map.lock().expect("locked").len() }
+
+	fn entry<K>(&self, k: &K) -> Guard<Key, Val>
+	where
+		K: ?Sized + ToOwned<Owned = Key>,
+	{
 		let val = self
 			.map
 			.lock()
@@ -98,23 +132,12 @@ where
 			.or_default()
 			.clone();
 
-		Ok(Guard::<Key, Val> {
-			map: Arc::clone(&self.map),
-			val: val
-				.try_lock_owned()
-				.map_err(|_| err!("would yield"))?,
-		})
+		self.pending(val)
 	}
 
-	/// Attempts to acquire a key without blocking or yielding.
-	///
-	/// Contention on either the internal map or keyed mutex returns an error.
-	/// The entry is created only after the map mutex is acquired, and a
-	/// poisoned map mutex causes a panic.
-	#[tracing::instrument(level = "trace", skip(self))]
-	pub fn try_try_lock<K>(&self, k: &K) -> Result<Guard<Key, Val>>
+	fn try_entry<K>(&self, k: &K) -> Result<Guard<Key, Val>>
 	where
-		K: Debug + Send + ?Sized + Sync + ToOwned<Owned = Key>,
+		K: ?Sized + ToOwned<Owned = Key>,
 	{
 		let val = self
 			.map
@@ -127,37 +150,16 @@ where
 			.or_default()
 			.clone();
 
-		Ok(Guard::<Key, Val> {
-			map: Arc::clone(&self.map),
-			val: val
-				.try_lock_owned()
-				.map_err(|_| err!("would yield"))?,
-		})
+		Ok(self.pending(val))
 	}
 
-	/// Reports whether the map currently contains an entry for a key.
-	///
-	/// An entry can represent a held mutex, contenders that still reference it,
-	/// or an idle mutex retained after a cancellation race. The check locks the
-	/// internal map and panics if that mutex is poisoned.
-	#[must_use]
-	pub fn contains(&self, k: &Key) -> bool { self.map.lock().expect("locked").contains_key(k) }
-
-	/// Reports whether no keyed mutex entries are currently tracked.
-	///
-	/// A retained idle entry can remain after a waiter is canceled, so a false
-	/// result does not imply an active holder or waiter. The check locks the
-	/// internal map and panics if that mutex is poisoned.
-	#[must_use]
-	pub fn is_empty(&self) -> bool { self.map.lock().expect("locked").is_empty() }
-
-	/// Returns the number of keyed mutex entries currently tracked.
-	///
-	/// The count includes held mutexes, entries retained by contenders, and
-	/// idle entries left by cancellation races. The check locks the internal
-	/// map and panics if that mutex is poisoned.
-	#[must_use]
-	pub fn len(&self) -> usize { self.map.lock().expect("locked").len() }
+	fn pending(&self, val: Value<Val>) -> Guard<Key, Val> {
+		Guard {
+			map: Arc::clone(&self.map),
+			entry: Some(val),
+			val: None,
+		}
+	}
 }
 
 impl<Key, Val> Default for MutexMap<Key, Val>
@@ -168,13 +170,43 @@ where
 	fn default() -> Self { Self::new() }
 }
 
+impl<Key, Val> Guard<Key, Val> {
+	async fn lock(mut self) -> Self {
+		// The in-flight claim must release before this guard, so a cancellation
+		// leaves the entry unreferenced.
+		let val = self.claim();
+
+		self.val = Some(val.lock_owned().await);
+		self
+	}
+
+	fn try_lock(mut self) -> Result<Self> {
+		self.val = self
+			.claim()
+			.try_lock_owned()
+			.map_err(|_| err!("would yield"))
+			.map(Some)?;
+
+		Ok(self)
+	}
+
+	fn claim(&self) -> Value<Val> { Arc::clone(self.entry.as_ref().expect("claimed")) }
+}
+
 impl<Key, Val> Drop for Guard<Key, Val> {
 	#[tracing::instrument(name = "unlock", level = "trace", skip_all)]
 	fn drop(&mut self) {
-		if Arc::strong_count(Omg::mutex(&self.val)) <= 2 {
-			self.map.lock().expect("locked").retain(|_, val| {
-				!Arc::ptr_eq(val, Omg::mutex(&self.val)) || Arc::strong_count(val) > 2
-			});
+		self.val.take();
+
+		// Releasing the claim under the map lock elects the last one out.
+		let mut map = self.map.lock().expect("locked");
+
+		if self
+			.entry
+			.take()
+			.is_some_and(|val| Arc::strong_count(&val) <= 2)
+		{
+			map.retain(|_, val| Arc::strong_count(val) > 1);
 		}
 	}
 }

@@ -1,6 +1,8 @@
+use std::task::{Context, Waker};
+
 use crate::{
 	Error,
-	utils::{self, math::usize_from_f64},
+	utils::{self, MutexMap, math::usize_from_f64},
 };
 
 #[test]
@@ -83,8 +85,6 @@ fn usize_from_f64_enforces_exclusive_bound() {
 
 #[tokio::test]
 async fn mutex_map_cleanup() {
-	use crate::utils::MutexMap;
-
 	let map = MutexMap::<String, ()>::new();
 
 	let lock = map.lock("foo").await;
@@ -99,8 +99,6 @@ async fn mutex_map_contend() {
 	use std::sync::Arc;
 
 	use tokio::sync::Barrier;
-
-	use crate::utils::MutexMap;
 
 	let map = Arc::new(MutexMap::<String, ()>::new());
 	let seq = Arc::new([Barrier::new(2), Barrier::new(2)]);
@@ -132,6 +130,33 @@ async fn mutex_map_contend() {
 
 	tokio::try_join!(join_b, join_a).expect("joined");
 	assert!(map.is_empty(), "Must be empty");
+}
+
+#[tokio::test]
+async fn mutex_map_cancel() {
+	let map = MutexMap::<String, ()>::new();
+
+	let lock = map.lock("foo").await;
+	let mut contend = Box::pin(map.lock("foo"));
+	let mut cx = Context::from_waker(Waker::noop());
+
+	assert!(contend.as_mut().poll(&mut cx).is_pending(), "must contend");
+
+	drop(lock);
+	drop(contend);
+	assert!(map.is_empty(), "map must be empty");
+}
+
+#[tokio::test]
+async fn mutex_map_try_cleanup() {
+	let map = MutexMap::<String, ()>::new();
+
+	let lock = map.lock("foo").await;
+	assert!(map.try_lock("foo").is_err(), "must contend");
+	assert!(map.try_try_lock("foo").is_err(), "must contend");
+
+	drop(lock);
+	assert!(map.is_empty(), "map must be empty");
 }
 
 #[test]
