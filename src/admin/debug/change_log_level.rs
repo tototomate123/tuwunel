@@ -5,7 +5,7 @@ use crate::admin_command;
 
 #[admin_command]
 pub(super) async fn change_log_level(&self, filter: Option<String>, reset: bool) -> Result {
-	let handles = &["console"];
+	let handles = &["console", "journald"];
 
 	let filter = reset
 		.then_some(&self.services.config.log)

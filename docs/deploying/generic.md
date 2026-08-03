@@ -102,6 +102,12 @@ On systems where rsyslog is used alongside journald (i.e. Red Hat-based distros
 and OpenSUSE), put `$EscapeControlCharactersOnReceive off` inside
 `/etc/rsyslog.conf` to allow color in logs.
 
+When running as a systemd service on Linux, Tuwunel submits its logs directly
+to journald with each entry's severity preserved as the journal priority, so
+`journalctl --priority warning` catches Tuwunel's warnings and errors. Metadata
+such as the target and source location is attached as journal fields. Set
+`log_journald = false` in the config to write plain console output instead.
+
 If you are using a different `database_path` other than the systemd unit
 configured default `/var/lib/tuwunel`, you need to add your path to the
 systemd unit's `ReadWritePaths=`. This can be done by either directly editing
