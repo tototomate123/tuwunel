@@ -154,6 +154,11 @@ async fn configure(&self, mut provider: Provider) -> Result<Provider> {
 			});
 	}
 
+	// MAS rejects `profile`; its userinfo returns only `sub` and `username`.
+	if provider.scope.is_empty() && provider.brand == "mas" {
+		provider.scope = ["openid".to_owned()].into();
+	}
+
 	let response = self
 		.discover(&provider)
 		.await

@@ -4057,11 +4057,13 @@ pub struct IdentityProvider {
 	/// not be reliable.
 	pub icon: Option<OwnedMxcUri>,
 
-	/// Optional list of scopes to authorize. An empty array does not impose any
-	/// restrictions from here, effectively defaulting to all scopes you
-	/// configured for the OAuth application at the provider. This setting
-	/// allows for restricting to a subset of those scopes for this instance.
-	/// Note the user can further restrict scopes during their authorization.
+	/// Optional list of scopes to authorize.
+	///
+	/// An empty array sends `openid email profile`. The exception is
+	/// `brand = "MAS"`, which sends only `openid`: MAS rejects `profile`, and
+	/// its userinfo endpoint returns just `sub` and `username`. Set this to
+	/// request a different subset. The user can further restrict scopes during
+	/// their authorization.
 	///
 	/// default: []
 	#[serde(default)]
