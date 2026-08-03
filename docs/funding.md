@@ -3,15 +3,15 @@
 [Tuwunel](https://github.com/matrix-construct/tuwunel)'s development is
 directly driven by the needs of its corporate sponsors. For these businesses
 and governments, communication systems are often critical infrastructure, and
-Tuwunel forms part of that infrastructure. They create value through features
-tailored to their needs, control costs through efficient performance that
-scales with demand, and expect quality of service that never buckles under
-continued growth.
+Tuwunel forms part of that infrastructure. Our partners create value through
+features tailored to their specifications and control costs through agreed
+performance targets. When they need to scale further, we provide the
+engineering required.
 
-We exist because companies want to maximize profit. Although Tuwunel is
-available at no cost and may already meet the needs of many individuals and
-companies, our partners remain steadfast in their commitment to *maximizing*
-profit.
+Although Tuwunel is available at no cost and may already meet the needs of many
+individuals and companies, our partners invest in us to maximize their returns.
+They do so because our collaboration creates more value than merely using the
+software for free.
 
 Tuwunel is developing into a **highly available, horizontally scalable**,
 specification-compliant Matrix cluster capable of handling **high message
