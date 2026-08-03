@@ -1,4 +1,7 @@
-use crate::utils;
+use crate::{
+	Error,
+	utils::{self, math::usize_from_f64},
+};
 
 #[test]
 fn increment_none() {
@@ -51,6 +54,31 @@ fn checked_add_overflow() {
 	let a = u64::MAX;
 	let res = checked!(a + 1).expect("overflow");
 	assert_eq!(res, 0);
+}
+
+#[test]
+fn usize_from_f64_truncates() {
+	assert_eq!(usize_from_f64(42.75).unwrap(), 42);
+	assert_eq!(usize_from_f64(-0.0).unwrap(), 0);
+}
+
+#[test]
+fn usize_from_f64_rejects_invalid_values() {
+	for value in [-1.0, -0.25, f64::NEG_INFINITY, f64::NAN, f64::INFINITY] {
+		assert!(matches!(usize_from_f64(value), Err(Error::Arithmetic(_))), "accepted {value:?}");
+	}
+}
+
+#[test]
+fn usize_from_f64_enforces_exclusive_bound() {
+	let exponent = i32::try_from(usize::BITS).expect("usize width fits i32");
+	let bound = 2.0_f64.powi(exponent);
+	let spacing = 1_usize << usize::BITS.saturating_sub(f64::MANTISSA_DIGITS);
+	let preceding = usize::MAX - (spacing - 1);
+
+	assert_eq!(usize_from_f64(bound.next_down()).unwrap(), preceding);
+	assert!(matches!(usize_from_f64(bound), Err(Error::Arithmetic(_))));
+	assert!(matches!(usize_from_f64(bound.next_up()), Err(Error::Arithmetic(_))));
 }
 
 #[tokio::test]

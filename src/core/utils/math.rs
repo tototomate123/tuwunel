@@ -7,6 +7,17 @@ pub use checked_ops::checked_ops;
 pub use self::{expect_into::ExpectInto, expected::Expected, tried::Tried};
 use crate::{Err, Error, Result, debug::type_name, err};
 
+#[expect(
+	clippy::lossy_float_literal,
+	reason = "2^64 is exactly representable"
+)]
+const USIZE_MAX_EXCLUSIVE: f64 = match usize::BITS {
+	| 16 => 65_536.0,
+	| 32 => 4_294_967_296.0,
+	| 64 => 18_446_744_073_709_551_616.0,
+	| _ => panic!("unsupported usize width"),
+};
+
 /// Checked arithmetic expression. Returns a Result<R, Error::Arithmetic>
 #[macro_export]
 #[collapse_debuginfo(yes)]
@@ -67,13 +78,20 @@ macro_rules! validated {
 	}
 }
 
+/// Converts a representable nonnegative `f64` to `usize` by truncating toward
+/// zero.
+///
+/// Negative, non-finite, and out-of-range values return [`Error::Arithmetic`].
+/// Negative zero is accepted; valid fractional values are truncated toward
+/// zero.
 #[inline]
 pub fn usize_from_f64(val: f64) -> Result<usize, Error> {
-	if val < 0.0 {
-		return Err!(Arithmetic("Converting negative float to unsigned integer"));
+	if !(0.0..USIZE_MAX_EXCLUSIVE).contains(&val) {
+		return Err!(Arithmetic("Float is not representable as usize"));
 	}
 
-	//SAFETY: <https://doc.rust-lang.org/std/primitive.f64.html#method.to_int_unchecked>
+	// SAFETY: The range check proves `val` is finite, nonnegative, and
+	// representable after truncation.
 	Ok(unsafe { val.to_int_unchecked::<usize>() })
 }
 
