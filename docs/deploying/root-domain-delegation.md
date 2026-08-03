@@ -133,18 +133,24 @@ server {
 ```
 
 #### Traefik
-For traefik, you should change your tuwunel's router rule to:
+
+Change Tuwunel's router rule to:
+
 ```
 Host(`matrix.example.com`) || Host(`example.com`) && PathPrefix(`/.well-known/matrix`)
 ```
+
 ##### Labels example
+
 ```yaml
-            - "traefik.http.routers.tuwunel.rule=Host(`matrix.example.com`) || Host(`example.com`) && PathPrefix(`/.well-known/matrix`)"
-            - "traefik.http.routers.tuwunel-secure.rule=Host(`matrix.example.com`) || Host(`example.com`) && PathPrefix(`/.well-known/matrix`)"
+- "traefik.http.routers.tuwunel.rule=Host(`matrix.example.com`) || Host(`example.com`) && PathPrefix(`/.well-known/matrix`)"
+- "traefik.http.routers.tuwunel-secure.rule=Host(`matrix.example.com`) || Host(`example.com`) && PathPrefix(`/.well-known/matrix`)"
 ```
+
 ##### File example
+
 ```yaml
-        rule: "Host(`matrix.example.com`) || Host(`example.com`) && PathPrefix(`/.well-known/matrix`)"
+rule: "Host(`matrix.example.com`) || Host(`example.com`) && PathPrefix(`/.well-known/matrix`)"
 ```
 
 ## Testing
