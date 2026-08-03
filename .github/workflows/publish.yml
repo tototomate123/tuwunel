@@ -48,6 +48,12 @@ on:
       docker_acct:
         type: string
         description: DockerHub account name
+      apt_ssh_dest:
+        type: string
+        description: Apt repository ssh destination
+      apt_ssh_hostkey:
+        type: string
+        description: Apt repository ssh host key
       release_url:
         type: string
         description: For release assets
@@ -366,6 +372,7 @@ jobs:
   apt:
     if: >
       !failure() && !cancelled()
+      && inputs.apt_ssh_dest != ''
       && contains(github.ref, 'refs/tags/v')
       && !contains(github.ref, '-draft')
       && !contains(github.ref, '-pre')
@@ -377,6 +384,8 @@ jobs:
       - name: Publish Release
         env:
           ref_name: ${{github.ref_name}}
+          ssh_dest: ${{inputs.apt_ssh_dest}}
+          ssh_hostkey: ${{inputs.apt_ssh_hostkey}}
           deploy_key: ${{secrets.apt_ssh_key}}
 
         run: |
@@ -388,6 +397,6 @@ jobs:
           hosts="$(mktemp)"
           trap 'shred -u "$key"; rm -f "$hosts"' EXIT
           printf '%s\n' "$deploy_key" > "$key"
-          printf '%s\n' 'f.dog ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILs2LVCRlATVU9+YBCU4nWb2Zfm+hkzxycFxMVclG4J/' > "$hosts"
+          printf '%s\n' "$ssh_hostkey" > "$hosts"
           ssh -i "$key" -o UserKnownHostsFile="$hosts" -o IdentitiesOnly=yes -o BatchMode=yes \
-            "aptrepo@f.dog" "$ref_name"
+            "$ssh_dest" "$ref_name"
