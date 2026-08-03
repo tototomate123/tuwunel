@@ -12,7 +12,9 @@ use ruma::{
 };
 use tokio::time::sleep;
 use tuwunel_core::{
-	Error, Result, debug, error,
+	Error, Result, debug,
+	debug::INFO_SPAN_LEVEL,
+	error,
 	result::LogErr,
 	trace,
 	utils::{future::OptionFutureExt, option::OptionExt},
@@ -89,6 +91,17 @@ impl Service {
 		expected_count != current_count
 	}
 
+	#[tracing::instrument(
+		name = "presence",
+		level = INFO_SPAN_LEVEL,
+		skip_all,
+		fields(
+			%user_id,
+			?device_key,
+			%state,
+			?currently_active,
+		),
+	)]
 	#[expect(clippy::too_many_arguments)]
 	async fn apply_device_presence_update(
 		&self,
@@ -102,6 +115,7 @@ impl Service {
 	) -> Result {
 		let now = tuwunel_core::utils::millis_since_unix_epoch();
 		let preserve_status = matches!(status_msg, StatusMsg::Unchanged);
+
 		// 1) Capture per-device presence snapshot for aggregation.
 		debug!(
 			?user_id,
@@ -111,6 +125,7 @@ impl Service {
 			last_active_ago = last_active_ago.map(u64::from),
 			"Presence update received"
 		);
+
 		self.device_presence
 			.update(
 				user_id,
@@ -128,6 +143,7 @@ impl Service {
 			.device_presence
 			.aggregate(user_id, now, self.idle_timeout, self.offline_timeout)
 			.await;
+
 		debug!(
 			?user_id,
 			agg_state = ?aggregated.state,
@@ -166,12 +182,14 @@ impl Service {
 			self.schedule_presence_timer(user_id, presence, count)
 				.log_err()
 				.ok();
+
 			debug!(
 				?user_id,
 				?state,
 				last_last_active_ago,
 				"Skipping presence update: refresh window (timer rescheduled)"
 			);
+
 			return Ok(());
 		}
 
@@ -185,6 +203,7 @@ impl Service {
 				to = ?aggregated.state,
 				"Presence went inactive; flushing suppressed pushes"
 			);
+
 			self.services
 				.sending
 				.schedule_flush_suppressed_for_user(

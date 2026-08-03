@@ -17,7 +17,9 @@ use ruma::{
 	serde::Raw,
 };
 use tuwunel_core::{
-	Result, debug, err,
+	Result, debug,
+	debug::INFO_SPAN_LEVEL,
+	err,
 	matrix::{
 		Event,
 		pdu::{PduCount, PduId, RawPduId},
@@ -79,7 +81,16 @@ impl Service {
 	///
 	/// Returns whether the receipt was stored. A re-posted marker allocates no
 	/// stream position, so appservice and federation delivery are both skipped.
-	#[tracing::instrument(skip(self), level = "debug", name = "set_receipt")]
+	#[tracing::instrument(
+		name = "receipt"
+		level = INFO_SPAN_LEVEL,
+		skip_all,
+		fields(
+			%room_id,
+			%user_id,
+			?event.content
+		)
+	)]
 	pub async fn readreceipt_update(
 		&self,
 		user_id: &UserId,

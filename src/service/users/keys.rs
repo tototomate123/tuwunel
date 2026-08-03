@@ -9,7 +9,9 @@ use ruma::{
 };
 use serde::{Deserialize, Serialize};
 use tuwunel_core::{
-	Err, Result, debug_error, err, implement,
+	Err, Result,
+	debug::INFO_SPAN_LEVEL,
+	debug_error, err, implement,
 	smallvec::SmallVec,
 	utils::{
 		BoolExt, IterStream, ReadyExt,
@@ -520,6 +522,12 @@ fn keys_changed_user_or_room<'a>(
 }
 
 #[implement(super::Service)]
+#[tracing::instrument(
+	name = "device_key_update"
+	level = INFO_SPAN_LEVEL,
+	skip_all,
+	fields(%user_id),
+)]
 pub async fn mark_device_key_update(&self, user_id: &UserId) {
 	let update_all_rooms = !self
 		.services
@@ -541,6 +549,7 @@ pub async fn mark_device_key_update(&self, user_id: &UserId) {
 	self.db
 		.keychangeid_userid
 		.put_raw(user_key, user_id);
+
 	self.services
 		.state_cache
 		.rooms_joined(user_id)
