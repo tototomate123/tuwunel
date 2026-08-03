@@ -1,6 +1,18 @@
+//! String conversion, formatting, parsing, and slicing utilities.
+//!
+//! The module combines formatting macros, UTF-8 conversion, case conversion,
+//! and deterministic prefix selection. Specialized string traits and helpers
+//! are re-exported from child modules.
+
 mod between;
 mod chunk;
+
+/// Serde deserializers for normalized strings.
+///
+/// The module currently exposes a helper that lowercases a deserialized string.
+/// It is intended for use with Serde field attributes.
 pub mod de;
+
 mod split;
 mod tests;
 mod unquote;
@@ -13,9 +25,13 @@ pub use self::{
 };
 use crate::{Result, smallstr::SmallString};
 
+/// Provides a shared empty string slice.
+///
+/// The value has static lifetime and is suitable for default or fallback
+/// references. It is identical to the empty string literal.
 pub const EMPTY: &str = "";
 
-/// Bypasses `format!` when a literal has no apparent placeholders.
+/// Formats a literal only when placeholders appear to be present.
 ///
 /// With one argument, a literal containing both `{` and `}` is formatted; any
 /// other literal is converted directly through `Into`. With additional
@@ -32,8 +48,11 @@ macro_rules! format_maybe {
 	};
 }
 
-/// Constant expression to decide if a literal is a format string. Note: could
-/// use some improvement.
+/// Tests whether a string literal appears to contain a formatting placeholder.
+///
+/// A literal returns `true` only when it contains at least one `{` and at least
+/// one `}`. Every other token pattern returns `false`, so the result is a
+/// heuristic rather than syntax validation.
 #[macro_export]
 #[collapse_debuginfo(yes)]
 macro_rules! is_format {
@@ -46,6 +65,11 @@ macro_rules! is_format {
 	};
 }
 
+/// Collects text emitted by a callback into an owned string.
+///
+/// The callback receives a formatting writer backed by a new `String`. Its
+/// error is propagated, and the buffer is returned only after the callback
+/// succeeds.
 #[inline]
 pub fn collect_stream<F>(func: F) -> Result<String>
 where
@@ -56,6 +80,11 @@ where
 	Ok(out)
 }
 
+/// Converts ASCII camel-case text into an owned lowercase snake-case string.
+///
+/// An underscore is inserted before an uppercase byte only when the preceding
+/// byte is not uppercase; leading and consecutive capitals remain joined. Input
+/// is processed bytewise, so non-ASCII UTF-8 text is not preserved.
 #[inline]
 #[must_use]
 pub fn camel_to_snake_string(s: &str) -> String {
@@ -68,6 +97,12 @@ pub fn camel_to_snake_string(s: &str) -> String {
 	ret
 }
 
+/// Streams ASCII camel-case bytes into a writer as lowercase snake case.
+///
+/// The underscore rule matches [`camel_to_snake_string`]. The first input read
+/// error stops processing and is not returned, while output formatting errors
+/// are propagated. Bytes outside ASCII are written as individual Unicode code
+/// points rather than decoded as UTF-8.
 #[inline]
 #[expect(clippy::unbuffered_bytes)] // these are allocated string utilities, not file I/O utils
 pub fn camel_to_snake_case<I, O>(output: &mut O, input: I) -> Result
@@ -92,12 +127,11 @@ where
 		})
 }
 
-/// Find the common prefix from a collection of strings and return a slice
-/// ```
-/// use tuwunel_core::utils::string::common_prefix;
-/// let input = ["conduwuit", "conduit", "construct"];
-/// common_prefix(&input) == "con";
-/// ```
+/// Returns the longest common ASCII prefix of a collection of strings.
+///
+/// The result borrows from the first entry and is empty when the collection is
+/// empty or shares no prefix. Inputs are expected to be ASCII because some
+/// non-ASCII prefixes can produce an invalid byte boundary and panic.
 #[must_use]
 #[expect(clippy::string_slice)]
 pub fn common_prefix<T: AsRef<str>>(choice: &[T]) -> &str {
@@ -116,6 +150,15 @@ pub fn common_prefix<T: AsRef<str>>(choice: &[T]) -> &str {
 	})
 }
 
+/// Returns a deterministic prefix selected from the string contents.
+///
+/// The candidate index is the wrapping sum of input bytes modulo the byte
+/// length, with empty input using a modulus of one. When a range is supplied,
+/// the index is clamped inclusively between `range.start` and `range.end`;
+/// reversed endpoints panic. The index is then interpreted as a
+/// character position, or the full string is returned when that position does
+/// not exist. Because selection uses byte length but truncation uses character
+/// count, non-ASCII input more often falls back to the full string.
 #[inline]
 #[must_use]
 #[expect(clippy::arithmetic_side_effects)]
@@ -136,6 +179,10 @@ pub fn truncate_deterministic(str: &str, range: Option<Range<usize>>) -> &str {
 		.unwrap_or(str)
 }
 
+/// Formats a value into a small string with an inline byte capacity.
+///
+/// Output beyond `CAP` bytes may spill to the heap. The function panics if the
+/// value's `Display` implementation returns a formatting error.
 pub fn to_small_string<const CAP: usize, T>(t: T) -> SmallString<[u8; CAP]>
 where
 	T: std::fmt::Display,
@@ -148,12 +195,18 @@ where
 	ret
 }
 
-/// Parses the bytes into a string.
+/// Converts UTF-8 bytes into an owned string.
+///
+/// Valid input is copied into a new `String`. Invalid UTF-8 is returned as an
+/// error.
 pub fn string_from_bytes(bytes: &[u8]) -> Result<String> {
 	let str: &str = str_from_bytes(bytes)?;
 	Ok(str.to_owned())
 }
 
-/// Parses the bytes into a string.
+/// Borrows a byte slice as UTF-8 text.
+///
+/// Valid input is returned without allocation. Invalid UTF-8 is returned as an
+/// error.
 #[inline]
 pub fn str_from_bytes(bytes: &[u8]) -> Result<&str> { Ok(std::str::from_utf8(bytes)?) }
