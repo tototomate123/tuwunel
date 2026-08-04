@@ -9,6 +9,9 @@ RequiresMountsFor=/var/lib/private/tuwunel
 DynamicUser=yes
 Type=notify-reload
 ReloadSignal=SIGUSR1
+# Refreshes any credentials the operator adds before the reload signal is sent.
+# Absent from the Debian and Red Hat units, whose systemd predates it.
+RefreshOnReload=yes
 WatchdogSec=30
 
 TTYPath=/dev/tty25
