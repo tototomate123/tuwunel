@@ -64,6 +64,32 @@ performance. See <https://btrfs.readthedocs.io/en/latest/Compression.html#compat
 > buffered writes and leads to no compression even if force compression is set.
 > Currently nodatasum and compression don’t work together.
 
+### btrfs
+
+btrfs is Copy-on-Write, which interacts badly with the way RocksDB allocates
+its write-ahead logs. Set `rocksdb_allow_fallocate = false` in `tuwunel.toml`.
+Preallocation cannot reserve in-place write space on a CoW filesystem anyway,
+so there is nothing to lose by turning it off there.
+
+RocksDB preallocates each WAL with `fallocate(2)`, writes to it, then truncates
+it to the written length on close. btrfs does not split the preallocated extent
+on truncation: for as long as the file references any part of it, the whole
+extent stays allocated. A WAL holding a few kilobytes of records can pin tens
+of megabytes of disk this way.
+
+Obsolete WALs compound it. They are moved to `database_path/archive` and reaped
+only once the archive passes 1 GB, which RocksDB measures from the length of
+the files rather than the space they occupy. Truncated WALs therefore sit there
+far longer than their real cost warrants, and they accumulate quickly on a
+server taking live traffic.
+
+The gap between those two numbers is what makes this hard to recognize. `du`
+reports the small one; only `df` or `btrfs filesystem usage` shows the disk
+filling. `compsize` reports both for a directory. Defragmenting does not give
+the space back, so the files have to be rewritten or removed: setting the
+option stops any further growth, and an offline copy of `database_path` (see
+[Offline backups](#offline-backups)) reclaims what has already accumulated.
+
 ### ZFS
 
 ZFS has several quirks that interact badly with RocksDB defaults. Apply both
