@@ -36,9 +36,7 @@ pub(crate) async fn turn_server_route(
 		return Err!(Request(Forbidden("Guest users are not allowed to get TURN credentials")));
 	}
 
-	let turn_secret = &services.globals.turn_secret;
-
-	let (username, password) = turn_secret.as_ref().map_or_else(
+	let (username, password) = services.globals.turn_secret().map_or_else(
 		|| (services.config.turn_username.clone(), services.config.turn_password.clone()),
 		|turn_secret| {
 			let expiry = SecondsSinceUnixEpoch::from_system_time(

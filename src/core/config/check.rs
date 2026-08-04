@@ -11,7 +11,7 @@ use regex::RegexSet;
 use url::Url;
 
 use super::{DEPRECATED_KEYS, IdentityProvider, IpSource, KNOWN_KEYS};
-use crate::{Config, Err, Result, debug, debug_info, err, error, warn};
+use crate::{Config, Err, Result, debug, debug_info, err, error, utils::is_secret_set, warn};
 
 /// Performs check() with additional checks specific to reloading old config
 /// with new config.
@@ -335,9 +335,9 @@ fn check_registration_terms(config: &Config) -> Result {
 }
 
 fn check_turn_and_media_misc(config: &Config) -> Result {
+	// A blank secret resolves to none at all, so it is checked the same way here.
 	if !config.turn_uris.is_empty()
-		&& config.turn_secret.is_none()
-		&& config.turn_secret_file.is_none()
+		&& !is_secret_set(config.turn_secret_file.as_deref(), config.turn_secret.as_deref())
 		&& config.turn_username.is_empty()
 		&& config.turn_password.is_empty()
 	{

@@ -860,9 +860,11 @@ pub struct Config {
 	/// display: sensitive
 	pub registration_shared_secret: Option<String>,
 
-	/// Path to a file containing the registration shared secret. Trimmed of
-	/// surrounding whitespace on read. Takes precedence over
-	/// `registration_shared_secret` when both are set.
+	/// Path to a file containing the registration shared secret. Takes
+	/// precedence over `registration_shared_secret`, and falls back to it when
+	/// the file cannot be opened. Surrounding whitespace is trimmed off, so a
+	/// trailing newline does not become part of the secret. A file which is
+	/// present but blank resolves to no secret rather than falling back.
 	///
 	/// reloadable: yes
 	/// example: "/etc/tuwunel/.reg_shared_secret"
@@ -1845,14 +1847,18 @@ pub struct Config {
 	/// username/password credentials.
 	///
 	/// display: sensitive
+	/// reloadable: yes
 	#[serde(default)]
 	pub turn_secret: Option<String>,
 
 	/// TURN secret to use that's read from the file path specified.
 	///
-	/// This takes priority over "turn_secret" first, and falls back to
-	/// "turn_secret" if invalid or failed to open.
+	/// This takes priority over "turn_secret", and falls back to it when the
+	/// file cannot be opened. Surrounding whitespace is trimmed off, so a
+	/// trailing newline does not become part of the secret. A file which is
+	/// present but blank resolves to no secret rather than falling back.
 	///
+	/// reloadable: yes
 	/// example: "/etc/tuwunel/.turn_secret"
 	pub turn_secret_file: Option<PathBuf>,
 

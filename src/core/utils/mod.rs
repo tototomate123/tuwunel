@@ -19,6 +19,7 @@ pub mod mutex_map;
 pub mod option;
 pub mod rand;
 pub mod result;
+pub mod secret;
 pub mod set;
 pub mod stream;
 pub mod string;
@@ -44,6 +45,7 @@ pub use self::{
 	mutex_map::{Guard as MutexMapGuard, MutexMap},
 	option::OptionExt,
 	rand::{shuffle, string as random_string, string_from as random_string_from},
+	secret::{Secret, is_set as is_secret_set, resolve as resolve_secret},
 	stream::{IterStream, ReadyExt, Tools as StreamTools, TryReadyExt},
 	string::{str_from_bytes, string_from_bytes},
 	sys::compute::available_parallelism,

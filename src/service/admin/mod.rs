@@ -28,9 +28,6 @@ pub struct Service {
 	channel: StdRwLock<Option<mpsc::Sender<CommandInput>>>,
 	pub command: StdRwLock<Option<Arc<dyn Command>>>,
 	pub admin_alias: OwnedRoomAliasId,
-	/// Resolved Synapse-compatible registration shared secret. Live for the
-	/// lifetime of the service; the matching nonce store sits beside it.
-	register_shared_secret: Option<String>,
 	register_nonces: StdMutex<BTreeMap<String, Instant>>,
 	#[cfg(feature = "console")]
 	pub console: Arc<console::Console>,
@@ -89,7 +86,6 @@ impl crate::Service for Service {
 			command: StdRwLock::new(None),
 			admin_alias: OwnedRoomAliasId::try_from(format!("#admins:{}", args.server.name))
 				.expect("#admins:server_name is valid alias name"),
-			register_shared_secret: register::resolve_shared_secret(&args.server.config),
 			register_nonces: StdMutex::new(BTreeMap::new()),
 			#[cfg(feature = "console")]
 			console: console::Console::new(args),
