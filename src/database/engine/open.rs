@@ -26,7 +26,12 @@ pub(crate) async fn open(ctx: Arc<Context>, desc: &[Descriptor]) -> Result<Arc<S
 	context::before_open(&ctx, path)?;
 
 	if let Some(backup_id) = config.database_restore_backup {
-		restore(&ctx, backup_id)?;
+		match server.claim_backup_restore() {
+			| true => restore(&ctx, backup_id)?,
+			| false => {
+				info!(%backup_id, "Restore already claimed by this process; not restoring again");
+			},
+		}
 	}
 
 	let db_opts = db_options(

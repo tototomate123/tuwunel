@@ -1225,3 +1225,39 @@ async fn txn_insert_raw_preserves_bytes() -> Result {
 
 	Ok(())
 }
+
+#[tokio::test]
+async fn a_restore_is_not_repeated_on_reopen() -> Result {
+	let root = var("TMPDIR").unwrap_or_else(|_| "/nvme/target/tmp".into());
+
+	let path = format!("{root}/tuwunel-database-restore-{}", process_id());
+	let raw_config = Figment::new()
+		.merge(("server_name", "localhost"))
+		.merge(("database_path", &path))
+		.merge(("database_backup_path", format!("{path}-backups")))
+		.merge(("database_restore_backup", 1))
+		.merge(("test", ["fresh", "cleanup"]));
+
+	let config = Config::new(&raw_config)?;
+	let runtime = Handle::current();
+	let logging = Logging {
+		subscriber: Arc::new(NoSubscriber::new()),
+		reload: LogLevelReloadHandles::default(),
+		capture: Arc::new(State::new()),
+	};
+
+	let metrics = Metrics::new(Some(&runtime));
+	let server =
+		Arc::new(Server::new(config, Sources::default(), Some(&runtime), logging, metrics));
+
+	// No such backup exists, so the open which claims the restore fails; the
+	// reopen declines the claim and succeeds on the very same configuration.
+	Database::open(&server)
+		.await
+		.map(drop)
+		.expect_err("the claimed restore has no backup to find");
+
+	Database::open(&server).await?;
+
+	Ok(())
+}
