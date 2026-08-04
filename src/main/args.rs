@@ -10,6 +10,15 @@ use tuwunel_core::{
 	utils::available_parallelism,
 };
 
+/// Only its own argument may set this, since restoring is destructive and
+/// one-shot for the invocation which asked for it. `Err!(Config(..))` takes a
+/// literal, so the two refusal sites spell the key out again; renaming here is
+/// not a single-site edit.
+const RESTORE_KEY: &str = "database_restore_backup";
+
+const RESTORE_REFUSAL: &str =
+	"Only the --restore-backup command line argument may set this option.";
+
 /// Commandline arguments
 #[derive(Clone, Parser, Debug)]
 #[clap(
@@ -277,18 +286,12 @@ pub fn update(mut config: Figment, args: &Args) -> Result<Figment> {
 		return Err!(Config("maintenance", "Not permitted to set this option."));
 	}
 
-	if config
-		.find_value("database_restore_backup")
-		.is_ok()
-	{
-		return Err!(Config(
-			"database_restore_backup",
-			"Only the --restore-backup command line argument may set this option."
-		));
+	if config.find_value(RESTORE_KEY).is_ok() {
+		return Err!(Config("database_restore_backup", "{RESTORE_REFUSAL}"));
 	}
 
 	if let Some(backup_id) = args.restore_backup {
-		config = config.join(("database_restore_backup", backup_id));
+		config = config.join((RESTORE_KEY, backup_id));
 	}
 
 	if args.read_only {
@@ -329,6 +332,11 @@ pub fn update(mut config: Figment, args: &Args) -> Result<Figment> {
 			return Err!("Missing =val in -O/--option: {option:?}");
 		}
 
+		// The merge keys on this path, so an exact match is the whole surface.
+		if path == RESTORE_KEY {
+			return Err!(Config("database_restore_backup", "{RESTORE_REFUSAL}"));
+		}
+
 		// The value has to pass for what would appear as a line in the TOML file.
 		let val = toml::from_str::<FigmentValue>(option)?;
 
@@ -337,4 +345,72 @@ pub fn update(mut config: Figment, args: &Args) -> Result<Figment> {
 	}
 
 	Ok(config)
+}
+
+#[cfg(test)]
+mod tests {
+	use super::{Args, Figment, Parser, RESTORE_KEY, Result, update};
+
+	fn updated(argv: &[&str], raw: Figment) -> Result<Figment> {
+		update(raw, &Args::parse_from(argv))
+	}
+
+	fn refusal(argv: &[&str], raw: Figment) -> String {
+		updated(argv, raw)
+			.map(drop)
+			.expect_err("refused")
+			.to_string()
+	}
+
+	#[test]
+	fn the_restore_argument_sets_the_key() {
+		let raw = updated(&["tuwunel", "--restore-backup", "5"], Figment::new())
+			.expect("the argument is accepted");
+
+		raw.find_value(RESTORE_KEY)
+			.expect("the argument sets it");
+	}
+
+	#[test]
+	fn an_option_may_not_set_the_restore_key() {
+		let argv = ["tuwunel", "-O", "database_restore_backup=5"];
+		let refusal = refusal(&argv, Figment::new());
+
+		assert!(refusal.contains(RESTORE_KEY));
+		assert!(refusal.contains("--restore-backup"));
+	}
+
+	/// The exact comparison in the guard rests on figment matching keys
+	/// exactly. These spellings never reach the option; were that to change,
+	/// the guard would need widening and this is what would say so.
+	#[test]
+	fn indirect_spellings_do_not_reach_the_restore_key() {
+		for option in [" database_restore_backup =5", r#""database_restore_backup"=5"#] {
+			let raw = updated(&["tuwunel", "-O", option], Figment::new()).expect("accepted");
+
+			raw.find_value(RESTORE_KEY)
+				.expect_err("figment matches keys exactly");
+		}
+	}
+
+	#[test]
+	fn a_configured_restore_key_is_refused() {
+		let raw = Figment::new().merge((RESTORE_KEY, 5));
+
+		assert!(refusal(&["tuwunel"], raw).contains(RESTORE_KEY));
+	}
+
+	#[test]
+	fn other_options_are_unaffected() {
+		let argv = ["tuwunel", "-O", r#"server_name="pinned.example""#];
+		let raw = updated(&argv, Figment::new()).expect("accepted");
+
+		assert_eq!(
+			raw.find_value("server_name")
+				.expect("present")
+				.into_string()
+				.as_deref(),
+			Some("pinned.example"),
+		);
+	}
 }

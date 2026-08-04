@@ -179,9 +179,12 @@ tuwunel --restore-backup=3
 The restore replaces the database files in `database_path`. The `media/`
 directory inside it is not part of an online backup and is left in place by
 RocksDB's restore; since media has no backup to restore from, copying it
-aside beforehand is cheap insurance. The option is only accepted on the
-command line and is refused from configuration files, so a forgotten setting
-cannot roll the database back again on a later restart.
+aside beforehand is cheap insurance. Only `--restore-backup` selects a backup;
+the setting is refused from a configuration file, from the environment, and
+from `-O`, so a forgotten one cannot roll the database back again on a later
+restart. A configuration reload does not carry the setting forward either, and
+an in-place `!admin server restart` drops it, which would otherwise repeat the
+restore in the process it starts.
 
 With systemd, run the restore as the service user while the service is
 stopped, then start the service again:
