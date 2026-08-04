@@ -94,8 +94,11 @@ pub(crate) async fn start(server: Arc<Server>) -> Result<Arc<Services>> {
 
 	let services = services?;
 
+	// The status is set here so it reads as a baseline rather than staying blank
+	// until the first reload replaces it.
 	#[cfg(all(feature = "systemd", target_os = "linux"))]
-	notify(&[NotifyState::Ready]).expect("failed to notify systemd of ready state");
+	notify(&[NotifyState::Ready, NotifyState::Status("Running")])
+		.expect("failed to notify systemd of ready state");
 
 	debug!("Started");
 	Ok(services)

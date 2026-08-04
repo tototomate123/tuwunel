@@ -1,6 +1,10 @@
-use std::{iter, ops::Deref, path::Path, sync::Arc};
+use std::{iter::empty, ops::Deref, path::Path, sync::Arc};
 
 use async_trait::async_trait;
+#[cfg(all(feature = "systemd", target_os = "linux"))]
+use sd_notify::{NotifyState, notify};
+#[cfg(all(feature = "systemd", target_os = "linux"))]
+use tuwunel_core::itertools::Itertools;
 use tuwunel_core::{
 	Result, Server,
 	config::{Config, check},
@@ -12,6 +16,10 @@ pub struct Service {
 }
 
 const SIGNAL: &str = "SIGUSR1";
+
+/// Cap on the status reported to the service manager, which displays one line.
+#[cfg(all(feature = "systemd", target_os = "linux"))]
+const STATUS_MAX: usize = 192;
 
 #[async_trait]
 impl crate::Service for Service {
@@ -47,22 +55,51 @@ impl Deref for Service {
 
 #[implement(Service)]
 fn handle_reload(&self) -> Result {
-	if self.server.config.config_reload_signal {
-		#[cfg(all(feature = "systemd", target_os = "linux"))]
-		sd_notify::notify(&[
-			sd_notify::NotifyState::Reloading,
-			sd_notify::NotifyState::monotonic_usec_now().expect("failed to get monotonic time"),
-		])
-		.expect("failed to notify systemd of reloading state");
+	// The handshake completes even when reloading is switched off, since the
+	// service manager is already waiting on it by the time the signal arrives.
+	#[cfg(all(feature = "systemd", target_os = "linux"))]
+	notify(&[
+		NotifyState::Reloading,
+		NotifyState::monotonic_usec_now().expect("failed to get monotonic time"),
+	])
+	.expect("failed to notify systemd of reloading state");
 
-		self.reload(iter::empty())?;
+	let reloaded = self
+		.server
+		.config
+		.config_reload_signal
+		.then(|| self.reload(empty()))
+		.transpose();
 
-		#[cfg(all(feature = "systemd", target_os = "linux"))]
-		sd_notify::notify(&[sd_notify::NotifyState::Ready])
+	// Ready even on failure, since the old config stays in service; the outcome
+	// travels in the status string instead.
+	#[cfg(all(feature = "systemd", target_os = "linux"))]
+	{
+		let status = match &reloaded {
+			| Ok(Some(_)) => "Configuration reloaded".to_owned(),
+			| Ok(None) => "Configuration reloading is disabled".to_owned(),
+			| Err(e) => format!("Configuration rejected: {e}"),
+		};
+
+		notify(&[NotifyState::Ready, NotifyState::Status(&one_line(&status))])
 			.expect("failed to notify systemd of ready state");
 	}
 
+	reloaded?;
+
 	Ok(())
+}
+
+/// The notify protocol delimits assignments by newline and does no escaping, so
+/// a status carrying one would be read as further assignments.
+#[cfg(all(feature = "systemd", target_os = "linux"))]
+fn one_line(status: &str) -> String {
+	status
+		.split_whitespace()
+		.join(" ")
+		.chars()
+		.take(STATUS_MAX)
+		.collect()
 }
 
 #[implement(Service)]
