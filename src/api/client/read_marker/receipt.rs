@@ -10,7 +10,7 @@ use ruma::{
 		receipt::{Receipt, ReceiptEvent, ReceiptEventContent, ReceiptThread, ReceiptType},
 	},
 };
-use tuwunel_core::{Err, Result};
+use tuwunel_core::{Err, Result, utils::result::LogErr};
 use tuwunel_service::presence::Ping;
 
 use super::set_private_marker;
@@ -139,11 +139,18 @@ pub(crate) async fn create_receipt_route(
 		},
 	};
 
-	if advanced {
-		services
+	if advanced
+		&& services
 			.pusher
 			.reset_notification_counts_for_thread(sender_user, &body.room_id, &body.thread)
-			.await;
+			.await
+	{
+		services
+			.sending
+			.refresh_push_badge(sender_user)
+			.await
+			.log_err()
+			.ok();
 	}
 
 	Ok(create_receipt::v3::Response {})

@@ -10,7 +10,7 @@ use ruma::{
 		receipt::{Receipt, ReceiptEvent, ReceiptEventContent, ReceiptThread, ReceiptType},
 	},
 };
-use tuwunel_core::Result;
+use tuwunel_core::{Result, utils::result::LogErr};
 use tuwunel_service::presence::Ping;
 
 use super::set_private_marker;
@@ -99,17 +99,24 @@ pub(crate) async fn set_read_marker_route(
 		},
 	};
 
-	if private_advanced || public_advanced {
-		// Route through the dispatcher so per-thread counts are also cleared;
-		// `/read_markers` predates MSC3771 and carries no thread field.
-		services
+	// Route through the dispatcher so per-thread counts are also cleared;
+	// `/read_markers` predates MSC3771 and carries no thread field.
+	if (private_advanced || public_advanced)
+		&& services
 			.pusher
 			.reset_notification_counts_for_thread(
 				sender_user,
 				&body.room_id,
 				&ReceiptThread::Unthreaded,
 			)
-			.await;
+			.await
+	{
+		services
+			.sending
+			.refresh_push_badge(sender_user)
+			.await
+			.log_err()
+			.ok();
 	}
 
 	Ok(set_read_marker::v3::Response {})

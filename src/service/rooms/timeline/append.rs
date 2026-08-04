@@ -194,7 +194,8 @@ where
 		})
 		.await;
 
-	self.services
+	let notifications_cleared = self
+		.services
 		.pusher
 		.reset_notification_counts_for_thread(
 			pdu.sender(),
@@ -210,6 +211,15 @@ where
 	self.append_pdu_json(&pdu_id, pdu, &pdu_json);
 
 	drop(insert_lock);
+
+	if notifications_cleared {
+		self.services
+			.sending
+			.refresh_push_badge(pdu.sender())
+			.await
+			.log_err()
+			.ok();
+	}
 
 	self.services
 		.pusher
