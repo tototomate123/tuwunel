@@ -310,6 +310,7 @@ jobs:
 
     name: Apt Repository
     runs-on: 'het'
+    timeout-minutes: 10
     steps:
       - name: Publish Release
         env:
@@ -328,12 +329,15 @@ jobs:
           trap 'shred -u "$key"; rm -f "$hosts"' EXIT
           printf '%s\n' "$deploy_key" > "$key"
           printf '%s\n' "$ssh_hostkey" > "$hosts"
-          ssh -i "$key" -o UserKnownHostsFile="$hosts" -o IdentitiesOnly=yes -o BatchMode=yes \
+          ssh -i "$key" -o UserKnownHostsFile="$hosts" -o IdentitiesOnly=yes \
+            -o BatchMode=yes -o ConnectTimeout=30 \
             "$ssh_dest" "$ref_name"
 
   delivery:
     if: >
-      !failure() && !cancelled()
+      !cancelled()
+      && needs.bundles.result == 'success'
+      && needs.documents.result != 'failure'
       && inputs.machines
       && inputs.docker_repo != ''
       && (github.ref == 'refs/heads/main' || contains(github.ref, 'refs/tags/v'))
