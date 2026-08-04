@@ -1,13 +1,17 @@
 #![cfg(test)]
 
-use std::{fs::remove_dir_all, process::id as process_id, str::from_utf8, time::Duration};
+use std::{
+	env::var, fs::remove_dir_all, path::PathBuf, process::id as process_id, str::from_utf8,
+	time::Duration,
+};
 
 use serde_json::{Value, json};
 use tokio::{
 	io::{AsyncReadExt, AsyncWriteExt},
 	net::{TcpListener, TcpStream},
 	spawn,
-	sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel},
+	sync::mpsc::{UnboundedReceiver, UnboundedSender, error::TryRecvError, unbounded_channel},
+	task::JoinHandle,
 	time::timeout,
 };
 use tuwunel::{Args, Runtime, Server, async_run, async_start, async_stop};
@@ -15,7 +19,7 @@ use tuwunel_core::{
 	Err, Result, err,
 	matrix::Pdu,
 	ruma::{
-		DeviceId, UserId,
+		DeviceId, EventId, RoomId, UInt, UserId,
 		api::client::push::{
 			Pusher, PusherIds, PusherInit, PusherKind,
 			set_pusher::v3::{PusherAction, Request as SetPusherRequest},
@@ -49,12 +53,15 @@ struct Fixture<'a> {
 /// requires. One server boot; the cases run sequentially.
 #[test]
 fn pusher_notify() -> Result {
-	let db_path = format!("/tmp/tuwunel-test-pusher-notify-{}", process_id());
+	let root = var("TMPDIR").unwrap_or_else(|_| "/nvme/target/tmp".into());
+	let db_path =
+		PathBuf::from(root).join(format!("tuwunel-test-pusher-notify-{}", process_id()));
 
 	let mut args = Args::default_test(&["fresh", "cleanup"]);
 	args.maintenance = true;
 	args.option
-		.push(format!("database_path=\"{db_path}\""));
+		.push(format!("database_path={db_path:?}"));
+
 	args.option
 		.push("ip_range_denylist=[]".to_owned());
 
@@ -81,6 +88,12 @@ fn pusher_notify() -> Result {
 	result
 }
 
+struct AbortOnDrop(JoinHandle<()>);
+
+impl Drop for AbortOnDrop {
+	fn drop(&mut self) { self.0.abort(); }
+}
+
 async fn run_cases(services: &Services) -> Result {
 	let server_name = services.globals.server_name();
 	let user = UserId::parse_with_server_name("pushtest", server_name)?;
@@ -90,8 +103,17 @@ async fn run_cases(services: &Services) -> Result {
 		.create(&user, Some("password"), None)
 		.await?;
 
-	let room_id = format!("!push:{server_name}");
-	let pdu = message_event(&room_id)?;
+	let room_id = RoomId::parse(format!("!push:{server_name}"))?;
+	let other_room_id = RoomId::parse(format!("!push-other:{server_name}"))?;
+	let joined = services.db.get("userroomid_joined")?;
+	let unread = services.db.get("userroomid_notificationcount")?;
+
+	for room_id in [&room_id, &other_room_id] {
+		joined.put((&user, room_id), 1_u64);
+		unread.put((&user, room_id), 1_u64);
+	}
+
+	let pdu = message_event(room_id.as_str())?;
 	let ruleset = Ruleset::server_default(&user);
 
 	let fixture = Fixture {
@@ -100,14 +122,17 @@ async fn run_cases(services: &Services) -> Result {
 		device: device_id!("PUSHDEV"),
 		ruleset: &ruleset,
 		pdu: &pdu,
-		room_id: &room_id,
+		room_id: room_id.as_str(),
 	};
 
 	reject_bad_url(&fixture).await?;
 	full_format_delivery(&fixture).await?;
 	event_id_only_delivery(&fixture).await?;
 	rejected_pushkey_removed(&fixture).await?;
-	foreign_rejected_key_noop(&fixture).await
+	foreign_rejected_key_noop(&fixture).await?;
+	counts_only_delivery(&fixture, &room_id, &other_room_id).await?;
+	account_wide_count_delivery(&fixture, &room_id).await?;
+	badge_count_opt_out(&fixture).await
 }
 
 fn message_event(room_id: &str) -> Result<Pdu> {
@@ -128,7 +153,8 @@ fn message_event(room_id: &str) -> Result<Pdu> {
 
 /// A pusher URL that is neither http nor https is rejected at creation.
 async fn reject_bad_url(fixture: &Fixture<'_>) -> Result {
-	let action = pusher_action("pk-badscheme", "ftp://127.0.0.1/notify".to_owned(), false);
+	let action = pusher_action("pk-badscheme", "ftp://127.0.0.1/notify".to_owned(), false, false);
+
 	let outcome = fixture
 		.services
 		.pusher
@@ -145,7 +171,7 @@ async fn reject_bad_url(fixture: &Fixture<'_>) -> Result {
 /// identity, and leaves the pusher in place.
 async fn full_format_delivery(fixture: &Fixture<'_>) -> Result {
 	let pushkey = "pk-full";
-	let (path, body) = deliver(fixture, pushkey, false, r#"{"rejected":[]}"#).await?;
+	let (path, body) = deliver(fixture, pushkey, false, false, r#"{"rejected":[]}"#).await?;
 
 	if path != NOTIFY_PATH {
 		return Err!("full-format notification hit unexpected path {path}");
@@ -157,6 +183,8 @@ async fn full_format_delivery(fixture: &Fixture<'_>) -> Result {
 	expect_str(notification, "room_id", fixture.room_id)?;
 	expect_str(notification, "prio", "low")?;
 	expect_str(notification, "sender", SENDER)?;
+
+	assert_eq!(notification.get("counts"), Some(&json!({"unread": 2})));
 
 	let content = notification
 		.get("content")
@@ -182,7 +210,7 @@ async fn full_format_delivery(fixture: &Fixture<'_>) -> Result {
 /// sender, and device tweaks.
 async fn event_id_only_delivery(fixture: &Fixture<'_>) -> Result {
 	let pushkey = "pk-eventidonly";
-	let (_path, body) = deliver(fixture, pushkey, true, r#"{"rejected":[]}"#).await?;
+	let (_path, body) = deliver(fixture, pushkey, true, false, r#"{"rejected":[]}"#).await?;
 
 	let notification = notification(&body)?;
 
@@ -198,7 +226,7 @@ async fn event_id_only_delivery(fixture: &Fixture<'_>) -> Result {
 async fn rejected_pushkey_removed(fixture: &Fixture<'_>) -> Result {
 	let pushkey = "pk-rejected";
 	let response = format!(r#"{{"rejected":["{pushkey}"]}}"#);
-	let (path, _body) = deliver(fixture, pushkey, false, &response).await?;
+	let (path, _body) = deliver(fixture, pushkey, false, false, &response).await?;
 
 	if path != NOTIFY_PATH {
 		return Err!("rejected-case notification hit unexpected path {path}");
@@ -230,7 +258,7 @@ async fn rejected_pushkey_removed(fixture: &Fixture<'_>) -> Result {
 /// A rejected key that is not ours leaves our pusher intact.
 async fn foreign_rejected_key_noop(fixture: &Fixture<'_>) -> Result {
 	let pushkey = "pk-foreign";
-	deliver(fixture, pushkey, false, r#"{"rejected":["unrelated-key"]}"#).await?;
+	deliver(fixture, pushkey, false, false, r#"{"rejected":["unrelated-key"]}"#).await?;
 
 	fixture
 		.services
@@ -241,19 +269,84 @@ async fn foreign_rejected_key_noop(fixture: &Fixture<'_>) -> Result {
 		.map_err(|_| err!("pusher was removed for a foreign rejected key"))
 }
 
-/// Registers a pusher for `pushkey` at a fresh stub gateway, drives one
-/// notification, and returns the request path and parsed body the gateway
-/// received. The gateway answers `response_body`.
-async fn deliver(
+async fn counts_only_delivery(
 	fixture: &Fixture<'_>,
-	pushkey: &str,
-	event_id_only: bool,
-	response_body: &str,
-) -> Result<(String, Value)> {
+	room_id: &RoomId,
+	other_room_id: &RoomId,
+) -> Result {
+	let pusher = &fixture.services.pusher;
+	let room_cleared = pusher
+		.reset_notification_counts(fixture.user, room_id)
+		.await;
+
+	let other_room_cleared = pusher
+		.reset_notification_counts(fixture.user, other_room_id)
+		.await;
+
+	if !(room_cleared && other_room_cleared) {
+		return Err!("seeded notification row was not cleared");
+	}
+
+	if pusher
+		.reset_notification_counts(fixture.user, room_id)
+		.await
+	{
+		return Err!("zero notification row reported a second clear");
+	}
+
+	let (path, body) =
+		deliver(fixture, "pk-badge-zero", false, true, r#"{"rejected":[]}"#).await?;
+
+	if path != NOTIFY_PATH {
+		return Err!("counts-only notification hit unexpected path {path}");
+	}
+
+	let notification = notification(&body)?;
+
+	assert_eq!(notification.get("counts"), Some(&json!({"unread": 0})));
+
+	for field in ["event_id", "room_id", "sender", "type", "content", "prio"] {
+		expect_absent(notification, field)?;
+	}
+
+	expect_absent(first_device(notification)?, "tweaks")
+}
+
+async fn account_wide_count_delivery(fixture: &Fixture<'_>, room_id: &RoomId) -> Result {
+	let unread = fixture
+		.services
+		.db
+		.get("userroomid_notificationcount")?;
+
+	let root = EventId::parse(EVENT_ID)?;
+	let stale_room_id =
+		RoomId::parse(format!("!push-stale:{}", fixture.services.globals.server_name()))?;
+
+	unread.put((fixture.user, room_id, &root), 7_u64);
+	unread.put((fixture.user, &stale_room_id), 41_u64);
+
+	let (_, body) =
+		deliver(fixture, "pk-badge-thread", false, true, r#"{"rejected":[]}"#).await?;
+
+	let thread_notification = notification(&body)?;
+
+	assert_eq!(thread_notification.get("counts"), Some(&json!({"unread": 7})));
+
+	unread.put((fixture.user, room_id), u64::MAX);
+
+	let (_, body) = deliver(fixture, "pk-badge-max", false, true, r#"{"rejected":[]}"#).await?;
+	let max_notification = notification(&body)?;
+
+	assert_eq!(max_notification.get("counts"), Some(&json!({"unread": UInt::MAX})));
+
+	Ok(())
+}
+
+async fn badge_count_opt_out(fixture: &Fixture<'_>) -> Result {
+	let pushkey = "pk-badge-disabled";
 	let listener = TcpListener::bind("127.0.0.1:0").await?;
 	let url = format!("http://{}{NOTIFY_PATH}", listener.local_addr()?);
-
-	let action = pusher_action(pushkey, url, event_id_only);
+	let action = pusher_action(pushkey, url, false, true);
 
 	fixture
 		.services
@@ -268,7 +361,7 @@ async fn deliver(
 		.await?;
 
 	let (tx, mut rx) = unbounded_channel();
-	let stub = spawn(stub_gateway(listener, tx, response_body.to_owned()));
+	let _stub = AbortOnDrop(spawn(stub_gateway(listener, tx, r#"{"rejected":[]}"#.to_owned())));
 
 	fixture
 		.services
@@ -277,8 +370,73 @@ async fn deliver(
 		.await?;
 
 	let (path, body) = recv(&mut rx).await?;
+	if path != NOTIFY_PATH {
+		return Err!("badge opt-out notification hit unexpected path {path}");
+	}
 
-	stub.abort();
+	let body = serde_json::from_slice(&body)
+		.map_err(|e| err!("badge opt-out notification body was not json: {e}"))?;
+
+	expect_absent(notification(&body)?, "counts")?;
+
+	fixture
+		.services
+		.pusher
+		.send_badge_notice(fixture.user, &pusher)
+		.await?;
+
+	match rx.try_recv() {
+		| Err(TryRecvError::Empty) => Ok(()),
+		| Err(TryRecvError::Disconnected) =>
+			Err!("stub gateway channel closed after badge opt-out"),
+		| Ok(_) => Err!("badge opt-out emitted a counts-only notification"),
+	}
+}
+
+/// Registers a pusher for `pushkey` at a fresh stub gateway, drives one
+/// notification, and returns the request path and parsed body the gateway
+/// received. The gateway answers `response_body`.
+async fn deliver(
+	fixture: &Fixture<'_>,
+	pushkey: &str,
+	event_id_only: bool,
+	badge_only: bool,
+	response_body: &str,
+) -> Result<(String, Value)> {
+	let listener = TcpListener::bind("127.0.0.1:0").await?;
+	let url = format!("http://{}{NOTIFY_PATH}", listener.local_addr()?);
+
+	let action = pusher_action(pushkey, url, event_id_only, false);
+
+	fixture
+		.services
+		.pusher
+		.set_pusher(fixture.user, fixture.device, &action)
+		.await?;
+
+	let pusher = fixture
+		.services
+		.pusher
+		.get_pusher(fixture.user, pushkey)
+		.await?;
+
+	let (tx, mut rx) = unbounded_channel();
+	let _stub = AbortOnDrop(spawn(stub_gateway(listener, tx, response_body.to_owned())));
+
+	let pusher_service = &fixture.services.pusher;
+
+	match badge_only {
+		| true =>
+			pusher_service
+				.send_badge_notice(fixture.user, &pusher)
+				.await?,
+		| false =>
+			pusher_service
+				.send_push_notice(fixture.user, &pusher, fixture.ruleset, fixture.pdu)
+				.await?,
+	}
+
+	let (path, body) = recv(&mut rx).await?;
 
 	let body = serde_json::from_slice(&body)
 		.map_err(|e| err!("push notification body was not json: {e}"))?;
@@ -286,9 +444,16 @@ async fn deliver(
 	Ok((path, body))
 }
 
-fn pusher_action(pushkey: &str, url: String, event_id_only: bool) -> PusherAction {
+fn pusher_action(
+	pushkey: &str,
+	url: String,
+	event_id_only: bool,
+	disable_badge_count: bool,
+) -> PusherAction {
 	let mut data = HttpPusherData::new(url);
 	data.format = event_id_only.then_some(PushFormat::EventIdOnly);
+	data.data
+		.insert("disable_badge_count".into(), Value::Bool(disable_badge_count));
 
 	let pusher: Pusher = PusherInit {
 		ids: PusherIds::new(pushkey.to_owned(), APP_ID.to_owned()),
@@ -317,16 +482,16 @@ async fn stub_gateway(
 	tx: UnboundedSender<(String, Vec<u8>)>,
 	response_body: String,
 ) {
+	let response = format!(
+		"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: \
+		 close\r\n\r\n{response_body}",
+		response_body.len(),
+	);
+
 	while let Ok((mut socket, _)) = listener.accept().await {
 		if let Some((path, body)) = read_request(&mut socket).await {
 			tx.send((path, body)).ok();
 		}
-
-		let response = format!(
-			"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: \
-			 {}\r\nConnection: close\r\n\r\n{response_body}",
-			response_body.len(),
-		);
 
 		socket.write_all(response.as_bytes()).await.ok();
 		socket.flush().await.ok();
