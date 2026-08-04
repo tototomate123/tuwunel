@@ -5,6 +5,7 @@ pub mod manager;
 mod net;
 pub mod proxy;
 pub mod room_version;
+pub mod sources;
 #[cfg(test)]
 mod tests;
 pub mod well_known;
@@ -31,7 +32,7 @@ use serde::{Deserialize, de::IgnoredAny};
 use tuwunel_macros::config_example_generator;
 use url::Url;
 
-pub use self::{check::check, ip_source::IpSource, manager::Manager};
+pub use self::{check::check, ip_source::IpSource, manager::Manager, sources::Sources};
 use self::{
 	net::{ListeningAddr, ListeningPort},
 	proxy::ProxyConfig,

@@ -31,7 +31,8 @@ pub(super) enum ServerCommand {
 	/// - Show configuration values
 	ShowConfig,
 
-	/// - Reload configuration values
+	/// - Reload configuration values, layering an optional extra file over the
+	///   ones the server started with
 	ReloadConfig {
 		path: Option<PathBuf>,
 	},

@@ -10,7 +10,7 @@ use tracing::subscriber::NoSubscriber;
 use tuwunel_core::{
 	Result, Server,
 	arrayvec::ArrayVec,
-	config::{Config, Figment},
+	config::{Config, Figment, Sources},
 	log::{LogLevelReloadHandles, Logging, capture::State},
 	metrics::Metrics,
 	ruma::{EventId, RoomId, UserId, serde::Raw},
@@ -1161,7 +1161,8 @@ async fn txn_insert_raw_preserves_bytes() -> Result {
 	};
 
 	let metrics = Metrics::new(Some(&runtime));
-	let server = Arc::new(Server::new(config, Some(&runtime), logging, metrics));
+	let server =
+		Arc::new(Server::new(config, Sources::default(), Some(&runtime), logging, metrics));
 	let database = Database::open(&server).await?;
 
 	let first = database.get("alias_roomid")?;

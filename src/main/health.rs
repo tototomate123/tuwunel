@@ -2,8 +2,8 @@
 
 use std::{
 	io::{Read, Write},
+	iter::empty,
 	net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream},
-	path::PathBuf,
 	time::Duration,
 };
 #[cfg(unix)]
@@ -11,7 +11,7 @@ use std::{os::unix::net::UnixStream, path::Path};
 
 use tuwunel_core::{Err, Result, config::Config, itertools::Itertools};
 
-use crate::{Args, args::update};
+use crate::{Args, server::config_sources};
 
 const REQUEST: &[u8] =
 	b"GET /_tuwunel/server_version HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n";
@@ -21,15 +21,10 @@ const TIMEOUT: Duration = Duration::from_secs(5);
 /// Probe the listeners of a running server sharing this configuration,
 /// exiting zero when one answers.
 pub fn check(args: &Args) -> Result {
-	let config_paths = args
-		.config
-		.as_deref()
-		.into_iter()
-		.flat_map(<[_]>::iter)
-		.map(PathBuf::as_path);
-
-	let config = Config::load(config_paths)
-		.and_then(|raw| update(raw, args))
+	// Built the same way the running server built its own, so the probe reads
+	// the listeners it actually opened.
+	let config = config_sources(args)
+		.load(empty())
 		.and_then(|raw| Config::new(&raw))?;
 
 	#[cfg(unix)]

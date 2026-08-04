@@ -20,6 +20,9 @@ pub struct Server {
 	/// Server-wide configuration instance
 	pub config: config::Manager,
 
+	/// Where the configuration came from, replayed on reload.
+	pub config_sources: config::Sources,
+
 	/// Timestamp server was started; used for uptime.
 	pub started: SystemTime,
 
@@ -51,6 +54,7 @@ impl Server {
 	#[must_use]
 	pub fn new(
 		config: Config,
+		config_sources: config::Sources,
 		runtime: Option<&runtime::Handle>,
 		log: Logging,
 		metrics: Arc<Metrics>,
@@ -58,6 +62,7 @@ impl Server {
 		Self {
 			name: config.server_name.clone(),
 			config: config::Manager::new(config),
+			config_sources,
 			started: SystemTime::now(),
 			stopping: AtomicBool::new(false),
 			reloading: AtomicBool::new(false),

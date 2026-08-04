@@ -103,12 +103,18 @@ fn one_line(status: &str) -> String {
 }
 
 #[implement(Service)]
-pub fn reload<'a, I>(&self, paths: I) -> Result<Arc<Config>>
+pub fn reload<'a, I>(&'a self, paths: I) -> Result<Arc<Config>>
 where
 	I: Iterator<Item = &'a Path>,
 {
 	let old = self.server.config.clone();
-	let new = Config::load(paths).and_then(|raw| Config::new(&raw))?;
+
+	// Replay the startup command line so -c paths and -O overrides survive.
+	let new = self
+		.server
+		.config_sources
+		.load(paths)
+		.and_then(|raw| Config::new(&raw))?;
 
 	check::reload(&old, &new)?;
 	self.server.config.update(new)

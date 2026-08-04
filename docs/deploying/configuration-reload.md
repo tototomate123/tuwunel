@@ -14,14 +14,14 @@ container or when running the binary directly:
 kill -USR1 "$(pidof tuwunel)"
 ```
 
-A reload re-reads the configuration files named by `TUWUNEL_CONFIG`, re-merges
-the `TUWUNEL_`-prefixed environment variables over them, and swaps the result
-in atomically.
+A reload rebuilds the configuration from the same sources the server started
+with: the files named by `TUWUNEL_CONFIG` and by `--config`, the
+`TUWUNEL_`-prefixed environment variables merged over them, and finally the
+`-O` overrides from the command line. The result is swapped in atomically.
 
-Only `TUWUNEL_CONFIG` is consulted. Files passed with `--config` and settings
-overridden with `-O` are read at startup but not on reload, so a server started
-that way needs `TUWUNEL_CONFIG` naming the same files for a reload to see them.
-Every packaged unit sets it.
+Since the command line is replayed rather than remembered, an option pinned
+with `-O` stays pinned across a reload, and editing that key in the file has no
+effect until the server is restarted without the override.
 
 Configuration that fails to parse or fails validation is rejected and the
 running configuration is kept, with the reason logged:
@@ -64,6 +64,11 @@ immediately. Two are rejected outright, failing the whole reload:
 
 - `server_name`
 - `ip_source`
+
+Two more are refused outright rather than merely ignored, because the server
+would refuse to start with them set in a file: `maintenance` and
+`database_restore_backup`. Either one fails the whole reload, not just its own
+key.
 
 Anything else is accepted, but only takes effect where the server reads it.
 Listening sockets are the case worth knowing: `address`, `port`,

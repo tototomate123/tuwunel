@@ -11,7 +11,7 @@ use tuwunel_core::{
 };
 
 /// Commandline arguments
-#[derive(Parser, Debug)]
+#[derive(Clone, Parser, Debug)]
 #[clap(
 	about,
 	long_about = None,
