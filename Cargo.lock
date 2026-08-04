@@ -5379,6 +5379,7 @@ dependencies = [
  "criterion",
  "ctor",
  "dtor",
+ "futures",
  "insta",
  "log",
  "maplit",
