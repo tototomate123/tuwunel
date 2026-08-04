@@ -33,6 +33,11 @@ assets = [
 	["../../README.md", "usr/share/doc/tuwunel/", "644"],
 	["target/release/tuwunel", "usr/sbin/tuwunel", "755"],
 	["../../tuwunel-example.toml", "etc/tuwunel/tuwunel.toml", "640"],
+	# Socket activation stays opt-in. cargo-deb enables the units it finds
+	# beside tuwunel.service or installed into lib/systemd/system, so this one
+	# lives outside both while landing in a vendor directory systemd reads all
+	# the same. Moving either path back would enable it on every install.
+	["../../debian/units/tuwunel.socket", "usr/lib/systemd/system/tuwunel.socket", "644"],
 ]
 
 [package.metadata.generate-rpm]
@@ -46,6 +51,7 @@ assets = [
 	{ source = "README.md", dest = "/usr/share/doc/tuwunel/", mode = "644", doc = true },
 	{ source = "tuwunel-example.toml", dest = "/etc/tuwunel/tuwunel.toml", mode = "640", config = "noreplace", user = "tuwunel", group = "tuwunel" },
 	{ source = "rpm/tuwunel.service", dest = "/etc/systemd/system/", mode = "644" },
+	{ source = "rpm/tuwunel.socket", dest = "/etc/systemd/system/", mode = "644" },
 	{ source = "rpm/sysusers", dest = "/usr/lib/sysusers.d/tuwunel.conf", mode = "644" },
 ]
 

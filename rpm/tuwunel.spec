@@ -85,6 +85,7 @@ cargo build --release --locked
 install -Dpm 0755 target/release/tuwunel %{buildroot}%{_sbindir}/tuwunel
 install -Dpm 0640 tuwunel-example.toml %{buildroot}%{_sysconfdir}/tuwunel/tuwunel.toml
 install -Dpm 0644 rpm/tuwunel.service %{buildroot}%{_unitdir}/tuwunel.service
+install -Dpm 0644 rpm/tuwunel.socket %{buildroot}%{_unitdir}/tuwunel.socket
 install -Dpm 0644 rpm/sysusers %{buildroot}%{_sysusersdir}/tuwunel.conf
 install -dm 0740 %{buildroot}%{_sharedstatedir}/tuwunel
 %if %{with selinux}
@@ -108,7 +109,9 @@ test -e /var/lib/matrix-conduit || ln -s %{_sharedstatedir}/tuwunel /var/lib/mat
 test -e /var/lib/conduwuit || ln -s %{_sharedstatedir}/tuwunel /var/lib/conduwuit || :
 
 %preun
-%systemd_preun tuwunel.service
+# The socket is never preset in %%post, so socket activation stays opt-in; it is
+# still disabled here for an operator who turned it on.
+%systemd_preun tuwunel.service tuwunel.socket
 
 %postun
 %systemd_postun_with_restart tuwunel.service
@@ -136,6 +139,7 @@ fi
 %dir %attr(0750, tuwunel, tuwunel) %{_sysconfdir}/tuwunel
 %config(noreplace) %attr(0640, tuwunel, tuwunel) %{_sysconfdir}/tuwunel/tuwunel.toml
 %{_unitdir}/tuwunel.service
+%{_unitdir}/tuwunel.socket
 %{_sysusersdir}/tuwunel.conf
 %dir %attr(0740, tuwunel, tuwunel) %{_sharedstatedir}/tuwunel
 

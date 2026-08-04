@@ -39,6 +39,13 @@ options in `/etc/tuwunel/tuwunel.toml`.
 The package uses the [`tuwunel.service`](https://matrix-construct.github.io/tuwunel/configuration/examples.html#red-hat-systemd-unit-file)
 systemd unit file to start and stop Tuwunel. The binary is installed at `/usr/sbin/tuwunel`.
 
+A `tuwunel.socket` unit is installed alongside it, disabled, for deployments
+that want systemd to open the listening socket. It is what lets the server
+answer on a privileged port such as 443 or 8448 while holding no capability of
+its own. See [systemd socket activation](https://matrix-construct.github.io/tuwunel/deploying/socket-activation.html)
+before enabling it, since a passed socket is served in addition to the address
+in the configuration file rather than replacing it.
+
 This package assumes by default that Tuwunel will be placed behind a reverse
 proxy. The default config options apply (listening on `localhost` and TCP port
 `8008`). Matrix federation requires a valid domain name and TLS, so you will
