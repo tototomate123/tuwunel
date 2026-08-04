@@ -10,6 +10,7 @@
     - [Examples](configuration/examples.md)
   - [Generic](deploying/generic.md)
     - [Systemd Socket Activation](deploying/socket-activation.md)
+    - [Reloading Configuration](deploying/configuration-reload.md)
     - [Reverse Proxy - Caddy](deploying/reverse-proxy-caddy.md)
     - [Reverse Proxy - Nginx](deploying/reverse-proxy-nginx.md)
     - [Reverse Proxy - Traefik](deploying/reverse-proxy-traefik.md)
