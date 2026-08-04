@@ -365,8 +365,24 @@ impl Service {
 		futures: &mut SendingFutures<'a>,
 		statuses: &mut CurTransactionStatus,
 	) {
-		let iv = vec![(msg.queue_id, msg.event)];
-		if let Ok(Some(events)) = self.select_events(&msg.dest, iv, statuses).await {
+		let synthetic_badge =
+			msg.queue_id.is_empty() && matches!(&msg.event, SendingEvent::BadgeRefresh);
+
+		let new_events = match (synthetic_badge, statuses.contains_key(&msg.dest)) {
+			| (false, _) => vec![(msg.queue_id, msg.event)],
+			| (true, true) => Vec::new(),
+			| (true, false) =>
+				self.db
+					.queued_requests(&msg.dest)
+					.take(DEQUEUE_LIMIT)
+					.collect()
+					.await,
+		};
+
+		if let Ok(Some(events)) = self
+			.select_events(&msg.dest, new_events, statuses)
+			.await
+		{
 			self.schedule_events(msg.dest, events, futures, statuses);
 		}
 	}
@@ -456,7 +472,6 @@ impl Service {
 		skip_all,
 		fields(futures = %futures.len()),
 	)]
-	#[expect(clippy::needless_pass_by_ref_mut)]
 	async fn startup_netburst<'a>(
 		&'a self,
 		id: usize,
@@ -489,6 +504,29 @@ impl Service {
 				statuses.insert(dest.clone(), TransactionStatus::Running);
 				futures.push(self.send_events(dest.clone(), events));
 			}
+		}
+
+		// Active transaction generations must own their queued successors before
+		// queued-only badge destinations are woken.
+		if !self.server.config.startup_netburst || keep == 0 {
+			return;
+		}
+
+		let destinations = self
+			.db
+			.queued_badge_refresh_destinations()
+			.ready_filter(|dest| self.shard_id(dest) == id)
+			.collect::<HashSet<_>>()
+			.await;
+
+		for dest in destinations {
+			let msg = Msg {
+				dest,
+				event: SendingEvent::BadgeRefresh,
+				queue_id: Vec::new(),
+			};
+
+			self.handle_request(msg, futures, statuses).await;
 		}
 	}
 

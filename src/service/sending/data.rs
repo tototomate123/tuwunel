@@ -200,6 +200,25 @@ impl Data {
 			})
 	}
 
+	/// Streams queued push destinations with a pending badge refresh.
+	///
+	/// Returned destinations are owned and may safely cross cursor advances.
+	pub(super) fn queued_badge_refresh_destinations(
+		&self,
+	) -> impl Stream<Item = Destination> + Send + '_ {
+		self.servernameevent_data
+			.raw_stream_from(b"$")
+			.ignore_err()
+			.ready_take_while(|(key, _)| key.starts_with(b"$"))
+			.ready_filter_map(|(key, val)| {
+				(val == [TAG_BADGE_REFRESH]).then(|| {
+					parse_servercurrentevent(key, val)
+						.expect("invalid servercurrentevent")
+						.0
+				})
+			})
+	}
+
 	pub(super) fn set_latest_educount(&self, server_name: &ServerName, last_count: u64) {
 		self.servername_educount
 			.raw_put(server_name, last_count);

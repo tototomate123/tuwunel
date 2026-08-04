@@ -12,9 +12,9 @@ use tokio::{
 	spawn,
 	sync::mpsc::{UnboundedReceiver, UnboundedSender, error::TryRecvError, unbounded_channel},
 	task::JoinHandle,
-	time::timeout,
+	time::{sleep, timeout},
 };
-use tuwunel::{Args, Runtime, Server, async_run, async_start, async_stop};
+use tuwunel::{Args, Runtime, Server, async_run, async_stop};
 use tuwunel_core::{
 	Err, Result, err,
 	matrix::Pdu,
@@ -29,7 +29,7 @@ use tuwunel_core::{
 	},
 	utils::stream::ReadyExt,
 };
-use tuwunel_service::Services;
+use tuwunel_service::{Services, sending::Destination};
 
 const APP_ID: &str = "app.tuwunel.test";
 const EVENT_ID: &str = "$push:remote.example";
@@ -48,9 +48,11 @@ struct Fixture<'a> {
 }
 
 /// Exercises the homeserver's Push Gateway API client role end to end against a
-/// stub gateway: URL validation, the full and event-id-only notification
-/// formats, and the pushkey removal that honoring the gateway `rejected` list
-/// requires. One server boot; the cases run sequentially.
+/// stub gateway: delayed-start badge recovery, URL validation, the full and
+/// event-id-only notification formats, and the pushkey removal that honoring
+/// the gateway `rejected` list requires.
+///
+/// One server boot runs the cases sequentially.
 #[test]
 fn pusher_notify() -> Result {
 	let root = var("TMPDIR").unwrap_or_else(|_| "/nvme/target/tmp".into());
@@ -58,20 +60,31 @@ fn pusher_notify() -> Result {
 		PathBuf::from(root).join(format!("tuwunel-test-pusher-notify-{}", process_id()));
 
 	let mut args = Args::default_test(&["fresh", "cleanup"]);
-	args.maintenance = true;
 	args.option
 		.push(format!("database_path={db_path:?}"));
 
 	args.option
 		.push("ip_range_denylist=[]".to_owned());
+	args.option
+		.push("startup_netburst=true".to_owned());
 
 	let runtime = Runtime::new(Some(&args))?;
 	let server = Server::new(Some(&args), Some(&runtime))?;
-
 	let result: Result = runtime.block_on(async {
-		let services = async_start(&server).await?;
+		let services = Services::build(server.server.clone()).await?;
+		let mut recovery = prepare_badge_recovery(&services).await?;
+		let services = services.start().await?;
+		_ = server
+			.services
+			.lock()
+			.await
+			.insert(services.clone());
 
-		let outcome = run_cases(&services).await;
+		let outcome = async {
+			verify_badge_recovery(&services, &mut recovery).await?;
+			run_cases(&services).await
+		}
+		.await;
 
 		server.server.shutdown()?;
 		drop(services);
@@ -92,6 +105,116 @@ struct AbortOnDrop(JoinHandle<()>);
 
 impl Drop for AbortOnDrop {
 	fn drop(&mut self) { self.0.abort(); }
+}
+
+struct BadgeRecovery {
+	destination: Destination,
+	rx: UnboundedReceiver<(String, Vec<u8>)>,
+	_stub: AbortOnDrop,
+}
+
+async fn prepare_badge_recovery(services: &Services) -> Result<BadgeRecovery> {
+	let server_name = services.globals.server_name();
+	let user = UserId::parse_with_server_name("badge-recovery", server_name)?;
+	let pushkey = "pk-badge-recovery";
+
+	let listener = TcpListener::bind("127.0.0.1:0").await?;
+	let url = format!("http://{}{NOTIFY_PATH}", listener.local_addr()?);
+	let action = pusher_action(pushkey, url, false, false);
+
+	services
+		.pusher
+		.set_pusher(&user, device_id!("BADGERECOVERY"), &action)
+		.await?;
+
+	let (tx, rx) = unbounded_channel();
+	let stub = AbortOnDrop(spawn(stub_gateway(listener, tx, r#"{"rejected":[]}"#.to_owned())));
+
+	services.sending.refresh_push_badge(&user).await?;
+	services.sending.refresh_push_badge(&user).await?;
+
+	Ok(BadgeRecovery {
+		destination: Destination::Push(user, pushkey.to_owned()),
+		rx,
+		_stub: stub,
+	})
+}
+
+async fn verify_badge_recovery(services: &Services, recovery: &mut BadgeRecovery) -> Result {
+	let (path, body) = recv(&mut recovery.rx).await?;
+
+	if path != NOTIFY_PATH {
+		return Err!("recovered badge notification hit unexpected path {path}");
+	}
+
+	let body = serde_json::from_slice(&body)
+		.map_err(|e| err!("recovered badge notification body was not json: {e}"))?;
+
+	let notification = notification(&body)?;
+
+	assert_eq!(notification.get("counts"), Some(&json!({"unread": 0})));
+
+	for field in ["event_id", "room_id", "sender", "type", "content", "prio"] {
+		expect_absent(notification, field)?;
+	}
+
+	expect_absent(first_device(notification)?, "tweaks")?;
+	wait_for_badge_queue_cleanup(services, &recovery.destination).await?;
+
+	let Destination::Push(user_id, _) = &recovery.destination else {
+		unreachable!("badge recovery destination is push");
+	};
+
+	// This wake sits behind the two pre-start messages in the worker channel.
+	// Its completed row is a deterministic barrier for stale-wake processing.
+	services
+		.sending
+		.refresh_push_badge(user_id)
+		.await?;
+
+	wait_for_badge_queue_cleanup(services, &recovery.destination).await?;
+
+	let (path, _) = recv(&mut recovery.rx).await?;
+	if path != NOTIFY_PATH {
+		return Err!("barrier badge notification hit unexpected path {path}");
+	}
+
+	match recovery.rx.try_recv() {
+		| Err(TryRecvError::Empty) => Ok(()),
+		| Err(TryRecvError::Disconnected) =>
+			Err!("stub gateway channel closed after badge recovery"),
+		| Ok(_) => Err!("stale badge wake produced a duplicate notification"),
+	}
+}
+
+async fn wait_for_badge_queue_cleanup(services: &Services, destination: &Destination) -> Result {
+	let cleared = async {
+		loop {
+			let queued = services
+				.sending
+				.db
+				.queued_requests(destination)
+				.ready_any(|_| true)
+				.await;
+
+			let active = services
+				.sending
+				.db
+				.active_requests_for(destination)
+				.ready_any(|_| true)
+				.await;
+
+			if !queued && !active {
+				break;
+			}
+
+			sleep(Duration::from_millis(10)).await;
+		}
+	};
+
+	timeout(Duration::from_secs(10), cleared)
+		.await
+		.map_err(|_| err!("timed out waiting for recovered badge queue cleanup"))
 }
 
 async fn run_cases(services: &Services) -> Result {
