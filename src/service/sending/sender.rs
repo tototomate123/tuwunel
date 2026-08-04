@@ -2,6 +2,7 @@ use std::{
 	cmp::Reverse,
 	collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, btree_map::Entry},
 	fmt::Debug,
+	iter::once,
 	str::from_utf8,
 	sync::{
 		Arc,
@@ -539,15 +540,15 @@ impl Service {
 
 		// Compose the next transaction
 		let _cork = self.db.db.cork();
-		if !new_events.is_empty() {
-			self.db.mark_as_active(new_events.iter());
-			events.extend(
-				new_events
-					.into_iter()
-					.map(|(_, event)| event)
-					.filter(|event| !matches!(event, SendingEvent::Flush)),
-			);
-		}
+		self.db
+			.retain_queued(new_events)
+			.ready_for_each(|item| {
+				self.db.mark_as_active(once(&item));
+				if !matches!(&item.1, SendingEvent::Flush) {
+					events.push(item.1);
+				}
+			})
+			.await;
 
 		// Add EDU's into the transaction
 		if let Destination::Federation(server_name) = dest {

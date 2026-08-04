@@ -1,6 +1,6 @@
 use std::{fmt::Debug, sync::Arc};
 
-use futures::{Stream, StreamExt};
+use futures::{Stream, StreamExt, stream::iter};
 use ruma::{OwnedServerName, ServerName, UserId};
 use tuwunel_core::{
 	Error, Result, at, utils,
@@ -154,6 +154,31 @@ impl Data {
 		Txn::insert(&self.servernameevent_data, items).execute();
 
 		keys
+	}
+
+	/// Yields only pending queue items.
+	///
+	/// Empty-key payload wakes always pass because they have no durable row. A
+	/// wake can outlive its row after a completed drain delivered the event.
+	pub(super) fn retain_queued<'a, I>(
+		&'a self,
+		events: I,
+	) -> impl Stream<Item = QueueItem> + Send + 'a
+	where
+		I: IntoIterator<Item = QueueItem> + Send + 'a,
+		I::IntoIter: Send,
+	{
+		iter(events).filter_map(async |item| {
+			let key = &item.0;
+			let exists = async || {
+				self.servernameevent_data
+					.exists(key)
+					.await
+					.is_ok()
+			};
+
+			(key.is_empty() || exists().await).then_some(item)
+		})
 	}
 
 	pub fn queued_requests(
