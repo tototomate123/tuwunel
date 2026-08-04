@@ -8,7 +8,9 @@ use tuwunel_core::{
 };
 use tuwunel_database::{Database, Deserialized, Map, Txn};
 
-use super::{Destination, EduBuf, SendingEvent, TAG_DEVICE_LIST_CHANGED, TAG_TO_DEVICE};
+use super::{
+	Destination, EduBuf, SendingEvent, TAG_BADGE_REFRESH, TAG_DEVICE_LIST_CHANGED, TAG_TO_DEVICE,
+};
 
 pub(super) type OutgoingItem = (Key, SendingEvent, Destination);
 pub(super) type SendingItem = (Key, SendingEvent);
@@ -260,15 +262,11 @@ pub(super) fn parse_servercurrentevent(
 			.next()
 			.ok_or_else(|| Error::bad_database("Invalid bytes in servercurrentpdus."))?;
 
-		(
-			Destination::Push(user_id, pushkey_string),
-			if value.is_empty() {
-				SendingEvent::Pdu(event.into())
-			} else {
-				// I'm pretty sure this should never be called
-				SendingEvent::Edu(value.into())
-			},
-		)
+		(Destination::Push(user_id, pushkey_string), match value {
+			| [] => SendingEvent::Pdu(event.into()),
+			| [tag] if *tag == TAG_BADGE_REFRESH => SendingEvent::BadgeRefresh,
+			| _ => SendingEvent::Edu(value.into()),
+		})
 	} else {
 		let mut parts = key.splitn(2, |&b| b == 0xFF);
 

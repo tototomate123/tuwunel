@@ -40,7 +40,7 @@ use ruma::{
 		receipt::ReceiptType,
 	},
 	presence::PresenceState,
-	push,
+	push::Ruleset,
 	serde::Raw,
 	uint,
 };
@@ -1087,7 +1087,8 @@ impl Service {
 					(pdus, edus, to_device.saturating_add(1), device_list),
 				| SendingEvent::DeviceListChanged(_) =>
 					(pdus, edus, to_device, device_list.saturating_add(1)),
-				| SendingEvent::Flush => (pdus, edus, to_device, device_list),
+				| SendingEvent::BadgeRefresh | SendingEvent::Flush =>
+					(pdus, edus, to_device, device_list),
 			},
 		);
 
@@ -1155,7 +1156,7 @@ impl Service {
 						changed.push(user_id);
 					}
 				},
-				| SendingEvent::Flush => {}, // flush only; no new content
+				| SendingEvent::BadgeRefresh | SendingEvent::Flush => {},
 			}
 		}
 
@@ -1164,7 +1165,7 @@ impl Service {
 			| SendingEvent::ToDevice(b)
 			| SendingEvent::DeviceListChanged(b) => Some(b.as_ref()),
 			| SendingEvent::Pdu(b) => Some(b.as_ref()),
-			| SendingEvent::Flush => None,
+			| SendingEvent::BadgeRefresh | SendingEvent::Flush => None,
 		}));
 
 		let txn_id = &*URL_SAFE_NO_PAD.encode(txn_hash);
@@ -1291,8 +1292,11 @@ impl Service {
 		pushkey: String,
 		events: Vec<SendingEvent>,
 	) -> SendingResult {
-		let suppressed = self.pushing_suppressed(&user_id).map(Ok);
+		let has_pdu = events
+			.iter()
+			.any(|event| matches!(event, SendingEvent::Pdu(_)));
 
+		let suppressed = self.pushing_suppressed(&user_id).map(Ok);
 		let pusher = self
 			.services
 			.pusher
@@ -1304,15 +1308,13 @@ impl Service {
 				)
 			});
 
-		let rules_for_user = self
-			.services
-			.account_data
-			.get_global::<PushRulesEvent>(&user_id, GlobalAccountDataEventType::PushRules)
-			.map(|ev| {
-				ev.map_or_else(
-					|_| push::Ruleset::server_default(&user_id),
-					|ev| ev.content.global,
-				)
+		let rules_for_user = has_pdu
+			.then_async(async || {
+				self.services
+					.account_data
+					.get_global::<PushRulesEvent>(&user_id, GlobalAccountDataEventType::PushRules)
+					.await
+					.map_or_else(|_| Ruleset::server_default(&user_id), |ev| ev.content.global)
 			})
 			.map(Ok);
 
@@ -1340,27 +1342,38 @@ impl Service {
 			"non-suppressed push",
 		);
 
-		let _sent = events
-			.iter()
-			.stream()
-			.ready_filter_map(|event| extract_variant!(event, SendingEvent::Pdu))
-			.wide_filter_map(|pdu_id| {
-				self.services
-					.timeline
-					.get_pdu_from_id(pdu_id)
-					.ok()
-			})
-			.ready_filter(|pdu| !pdu.is_redacted())
-			.wide_filter_map(async |pdu| {
-				self.services
-					.pusher
-					.send_push_notice(&user_id, &pusher, &rules_for_user, &pdu)
-					.await
-					.map_err(|e| (Destination::Push(user_id.clone(), pushkey.clone()), e))
-					.ok()
-			})
-			.count()
-			.await;
+		if events.contains(&SendingEvent::BadgeRefresh) {
+			let pusher_service = &self.services.pusher;
+
+			pusher_service
+				.send_badge_notice(&user_id, &pusher)
+				.map_err(|e| (Destination::Push(user_id.clone(), pushkey.clone()), e))
+				.await?;
+		}
+
+		if let Some(rules_for_user) = rules_for_user {
+			let _sent = events
+				.iter()
+				.stream()
+				.ready_filter_map(|event| extract_variant!(event, SendingEvent::Pdu))
+				.wide_filter_map(|pdu_id| {
+					self.services
+						.timeline
+						.get_pdu_from_id(pdu_id)
+						.ok()
+				})
+				.ready_filter(|pdu| !pdu.is_redacted())
+				.wide_filter_map(async |pdu| {
+					self.services
+						.pusher
+						.send_push_notice(&user_id, &pusher, &rules_for_user, &pdu)
+						.await
+						.map_err(|e| (Destination::Push(user_id.clone(), pushkey.clone()), e))
+						.ok()
+				})
+				.count()
+				.await;
+		}
 
 		Ok(Destination::Push(user_id, pushkey))
 	}
@@ -1435,7 +1448,7 @@ impl Service {
 		user_id: &UserId,
 		pushkey: &str,
 		pusher: &Pusher,
-		rules_for_user: &push::Ruleset,
+		rules_for_user: &Ruleset,
 		rooms: Vec<(OwnedRoomId, Vec<RawPduId>)>,
 		reason: &'static str,
 	) {
@@ -1536,7 +1549,7 @@ impl Service {
 			.await
 		{
 			| Ok(ev) => ev.content.global,
-			| Err(_) => push::Ruleset::server_default(&user_id),
+			| Err(_) => Ruleset::server_default(&user_id),
 		};
 
 		self.flush_suppressed_rooms(
@@ -1567,7 +1580,7 @@ impl Service {
 			.await
 		{
 			| Ok(ev) => ev.content.global,
-			| Err(_) => push::Ruleset::server_default(&user_id),
+			| Err(_) => Ruleset::server_default(&user_id),
 		};
 
 		for (pushkey, rooms) in suppressed {

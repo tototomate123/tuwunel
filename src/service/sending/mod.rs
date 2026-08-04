@@ -57,7 +57,11 @@ pub enum SendingEvent {
 	Edu(EduBuf),               // edu json
 	ToDevice(EduBuf),          // msc4203 to-device
 	DeviceListChanged(EduBuf), // msc3202 device list
-	Flush,                     // none
+	/// Queue an account-wide counts-only push.
+	///
+	/// The sender recomputes the count when the row is delivered.
+	BadgeRefresh,
+	Flush, // none
 }
 
 pub type EduBuf = SmallVec<[u8; EDU_BUF_CAP]>;
@@ -66,22 +70,22 @@ pub type EduVec = SmallVec<[EduBuf; EDU_VEC_CAP]>;
 const EDU_BUF_CAP: usize = 128 - 16;
 const EDU_VEC_CAP: usize = 1;
 
-/// Leading byte on a queued appservice value selecting a tagged
-/// `SendingEvent` variant. Legacy rows self-identify without a tag: `Pdu`
-/// values are empty and `Edu` values are `{`-leading json, neither of which
-/// can collide with these bytes. The tag and the following count are baked
-/// into the owned buffer at construction, so the codec writes it verbatim.
+// Leading bytes on queued sending values select tagged event variants. Legacy
+// PDU and EDU rows cannot collide; the badge tag stands alone.
 const TAG_TO_DEVICE: u8 = 0x01;
 const TAG_DEVICE_LIST_CHANGED: u8 = 0x02;
+const TAG_BADGE_REFRESH: u8 = 0x03;
 const TAG_PREFIX_LEN: usize = 1 + size_of::<u64>();
 
 impl SendingEvent {
-	/// Bytes written verbatim as the queue row value. `Pdu` keeps its id in
-	/// the row key and `Flush` is never persisted, so both are valueless; the
-	/// tagged variants own their whole `[tag][count][body]` buffer.
+	/// Return bytes written verbatim as the queue row value.
+	///
+	/// PDUs keep their ID in the row key and flushes are not persisted. EDU
+	/// variants own `[tag][count][body]`; a badge refresh owns only its tag.
 	pub(super) fn value_bytes(&self) -> &[u8] {
 		match self {
 			| Self::Edu(bytes) | Self::ToDevice(bytes) | Self::DeviceListChanged(bytes) => bytes,
+			| Self::BadgeRefresh => &[TAG_BADGE_REFRESH],
 			| Self::Pdu(_) | Self::Flush => &[],
 		}
 	}
@@ -181,6 +185,23 @@ impl Service {
 				.next()
 				.expect("request queue key"),
 		})
+	}
+
+	/// Queue a counts-only push refresh for every pusher owned by a user.
+	///
+	/// Rows are durable, coalesced, and recomputed at send time.
+	#[tracing::instrument(level = "debug", skip(self))]
+	pub async fn refresh_push_badge(&self, user_id: &UserId) -> Result {
+		self.services
+			.pusher
+			.get_pushkeys(user_id)
+			.map(Ok)
+			.ready_try_for_each(|pushkey| {
+				let dest = Destination::Push(user_id.to_owned(), pushkey.to_owned());
+
+				self.queue_and_dispatch(dest, SendingEvent::BadgeRefresh)
+			})
+			.await
 	}
 
 	#[tracing::instrument(skip(self), level = "debug")]
