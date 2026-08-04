@@ -14,6 +14,10 @@ Environment="TUWUNEL_CONFIG=/etc/tuwunel/tuwunel.toml"
 
 ExecStart=/usr/sbin/tuwunel
 
+# Type=notify-reload would report completion, but it needs systemd 253 and
+# Enterprise Linux 9 ships 252, where an unparsable Type= falls back to simple.
+ExecReload=/bin/kill -s USR1 $MAINPID
+
 ReadWritePaths=/var/lib/tuwunel /etc/tuwunel
 
 AmbientCapabilities=

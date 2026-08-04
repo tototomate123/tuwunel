@@ -19,7 +19,9 @@ name = "tuwunel"
 maintainer = "Jason Volk <jason@zemos.net>"
 copyright = "2025, Tuwunel Contributors"
 license-file = ["../../LICENSE", "3"]
-depends = "$auto, ca-certificates, adduser"
+# procps owns /usr/bin/kill, which the unit's ExecReload= invokes. It is only
+# Priority: important, so a trimmed install would not otherwise carry it.
+depends = "$auto, ca-certificates, adduser, procps"
 conflicts = "conduwuit"
 extended-description = """\
 High performance Matrix homeserver written in Rust"""
