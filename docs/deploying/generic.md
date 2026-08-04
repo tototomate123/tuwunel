@@ -120,6 +120,11 @@ A unit that sends its output to a terminal rather than the journal, as the Arch
 unit does for the interactive admin console, needs that setting to keep showing
 log lines there.
 
+The packages also ship a `tuwunel.socket` unit, disabled by default, for
+letting systemd open the listening socket instead. That is what allows the
+server to answer on a privileged port such as 443 or 8448 while holding no
+capability of its own. See [systemd socket activation](socket-activation.md).
+
 If you are using a different `database_path` other than the systemd unit
 configured default `/var/lib/tuwunel`, you need to add your path to the
 systemd unit's `ReadWritePaths=`. This can be done by either directly editing
