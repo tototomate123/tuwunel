@@ -32,7 +32,15 @@ pub mod storage;
 /// native accounting is unavailable.
 pub mod usage;
 
+#[cfg(unix)]
+use std::os::fd::AsFd;
 use std::path::PathBuf;
+
+#[cfg(unix)]
+use nix::{
+	errno::Errno,
+	sys::socket::{getsockopt, sockopt::Ipv6V6Only},
+};
 
 pub use self::{
 	compute::available_parallelism,
@@ -124,4 +132,17 @@ pub fn get_socket_family(fd: i32) -> Result<SocketFamily> {
 		| AddressFamily::Unix => Ok(SocketFamily::Unix),
 		| _ => Err!("Unknown socket family: {family:?}"),
 	}
+}
+
+/// Whether an IPv6 socket serves IPv6 traffic alone.
+///
+/// A dual-stack socket answers on the IPv4-mapped range too, so an unspecified
+/// address of one binds both families. The option does not exist on other
+/// families, which are reported as unrestricted.
+#[cfg(unix)]
+pub fn is_ipv6_only<F: AsFd>(socket: &F) -> Result<bool> {
+	getsockopt(socket, Ipv6V6Only).or_else(|e| match e {
+		| Errno::ENOPROTOOPT => Ok(false),
+		| _ => Err(e.into()),
+	})
 }

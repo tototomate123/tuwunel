@@ -298,6 +298,7 @@ features = ["std"]
 version = "0"
 default-features = false
 features = [
+	"net",
 	"resource",
 	"socket",
 	"user",
