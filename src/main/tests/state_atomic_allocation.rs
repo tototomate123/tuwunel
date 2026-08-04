@@ -30,8 +30,12 @@ fn state_hash_allocation_persists_an_atomic_pair() -> Result {
 
 	let mut args = Args::default_test(&["fresh", "cleanup"]);
 	args.maintenance = true;
-	args.option
-		.push(format!("database_path={:?}", db_path.0));
+	// Prevent presence startup from consuming the global count under test.
+	args.option.extend([
+		format!("database_path={:?}", db_path.0),
+		"allow_local_presence=false".into(),
+		"allow_outgoing_presence=false".into(),
+	]);
 
 	let runtime = Runtime::new(Some(&args))?;
 	let server = Server::new(Some(&args), Some(&runtime))?;
