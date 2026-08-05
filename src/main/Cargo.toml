@@ -184,6 +184,7 @@ sentry_telemetry = [
 ]
 systemd = [
 	"tuwunel-router/systemd",
+	"tuwunel-service/systemd",
 ]
 # enable the tokio_console server ncompatible with release_max_log_level
 tokio_console = [

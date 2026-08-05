@@ -5639,6 +5639,7 @@ dependencies = [
  "ruma",
  "rustls",
  "rustyline-async",
+ "sd-notify",
  "serde",
  "serde_bytes",
  "serde_html_form",

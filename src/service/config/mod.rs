@@ -1,3 +1,5 @@
+#[cfg(all(feature = "systemd", target_os = "linux"))]
+use std::borrow::Cow;
 use std::{iter::empty, ops::Deref, path::Path, sync::Arc};
 
 use async_trait::async_trait;
@@ -58,11 +60,10 @@ fn handle_reload(&self) -> Result {
 	// The handshake completes even when reloading is switched off, since the
 	// service manager is already waiting on it by the time the signal arrives.
 	#[cfg(all(feature = "systemd", target_os = "linux"))]
-	notify(&[
-		NotifyState::Reloading,
-		NotifyState::monotonic_usec_now().expect("failed to get monotonic time"),
-	])
-	.expect("failed to notify systemd of reloading state");
+	NotifyState::monotonic_usec_now()
+		.and_then(|monotonic| notify(&[NotifyState::Reloading, monotonic]))
+		.inspect_err(|e| error!(%e, "failed to notify systemd of reloading state"))
+		.ok();
 
 	let reloaded = self
 		.server
@@ -75,15 +76,16 @@ fn handle_reload(&self) -> Result {
 	// travels in the status string instead.
 	#[cfg(all(feature = "systemd", target_os = "linux"))]
 	{
-		let status = match &reloaded {
-			| Ok(Some(_)) => "Configuration reloaded".to_owned(),
-			| Ok(None) => "Configuration reloading is disabled".to_owned(),
-			| Err(e) => format!("Configuration rejected: {e}"),
+		let status: Cow<'_, str> = match &reloaded {
+			| Ok(Some(_)) => "Configuration reloaded".into(),
+			| Ok(None) => "Configuration reloading is disabled".into(),
+			| Err(e) => format!("Configuration rejected: {e}").into(),
 		};
 
 		notify(&[NotifyState::Ready, NotifyState::Status(&one_line(&status))])
-			.expect("failed to notify systemd of ready state");
-	}
+			.inspect_err(|e| error!(%e, "failed to notify systemd of ready state"))
+			.ok();
+	};
 
 	reloaded?;
 

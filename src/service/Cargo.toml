@@ -70,6 +70,9 @@ release_max_log_level = [
 	"tuwunel-core/release_max_log_level",
 	"tuwunel-database/release_max_log_level",
 ]
+systemd = [
+	"dep:sd-notify",
+]
 url_preview = [
 	"dep:image",
 	"dep:webpage",
@@ -132,6 +135,10 @@ tuwunel-database.workspace = true
 # killpg, for reaping a video thumbnail program's process group
 [target.'cfg(unix)'.dependencies]
 libc.workspace = true
+
+[target.'cfg(all(unix, target_os = "linux"))'.dependencies]
+sd-notify.workspace = true
+sd-notify.optional = true
 
 # rustls-platform-verifier neither builds (no new_with_extra_roots) nor runs (needs a JVM) on android
 [target.'cfg(not(target_os = "android"))'.dependencies.lettre]
