@@ -1,4 +1,8 @@
-use std::{env, io, sync::LazyLock};
+use std::{
+	env, io,
+	io::{IsTerminal, stdin},
+	sync::LazyLock,
+};
 
 use tracing::{
 	Event, Level, Metadata, Subscriber,
@@ -19,6 +23,8 @@ use crate::{Config, Result, apply, debug, is_equal_to};
 
 static SYSTEMD_MODE: LazyLock<bool> =
 	LazyLock::new(|| env::var("SYSTEMD_EXEC_PID").is_ok() && env::var("JOURNAL_STREAM").is_ok());
+
+static TERMINAL_MODE: LazyLock<bool> = LazyLock::new(|| stdin().is_terminal());
 
 pub struct ConsoleWriter {
 	stdout: io::Stdout,
@@ -197,3 +203,8 @@ fn get_journal_stream() -> (u64, u64) {
 #[inline]
 #[must_use]
 pub fn is_systemd_mode() -> bool { *SYSTEMD_MODE }
+
+/// Whether standard input is attached to a terminal, sampled once.
+#[inline]
+#[must_use]
+pub fn is_terminal_mode() -> bool { *TERMINAL_MODE }

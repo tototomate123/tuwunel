@@ -15,7 +15,7 @@ pub use tracing_subscriber::EnvFilter;
 
 pub use self::{
 	capture::Capture,
-	console::{ConsoleFormat, ConsoleWriter, is_systemd_mode},
+	console::{ConsoleFormat, ConsoleWriter, is_systemd_mode, is_terminal_mode},
 	reload::{LogLevelReloadHandles, ReloadHandle},
 	suppress::Suppress,
 };

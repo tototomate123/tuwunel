@@ -2839,7 +2839,7 @@ pub struct Config {
 
 	/// Automatically activate the tuwunel admin room console / CLI on
 	/// startup. This option can also be enabled with `--console` tuwunel
-	/// argument.
+	/// argument. Activation requires standard input to be a terminal.
 	#[serde(default)]
 	pub admin_console_automatic: bool,
 

@@ -62,7 +62,8 @@ pub struct Args {
 	pub restore_backup: Option<u32>,
 
 	#[cfg(feature = "console")]
-	/// Activate admin command console automatically after startup.
+	/// Activate admin command console automatically after startup. Activation
+	/// requires standard input to be a terminal.
 	#[arg(long, num_args(0))]
 	pub console: bool,
 
