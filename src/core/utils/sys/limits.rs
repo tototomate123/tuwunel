@@ -1,8 +1,11 @@
 #[cfg(unix)]
 use nix::sys::resource::{Resource, getrlimit};
+#[cfg(unix)]
 use nix::unistd::{SysconfVar, sysconf};
 
-use crate::{Result, apply, debug, utils::math::ExpectInto};
+use crate::Result;
+#[cfg(unix)]
+use crate::{apply, debug, utils::math::ExpectInto};
 
 #[cfg(unix)]
 /// Raises the soft file descriptor limit to the current hard limit.
@@ -101,6 +104,7 @@ pub fn max_threads() -> Result<(usize, usize)> {
 #[inline]
 pub fn max_threads() -> Result<(usize, usize)> { Ok((usize::MAX, usize::MAX)) }
 
+#[cfg(unix)]
 /// Get the system's page size in bytes.
 #[inline]
 pub fn page_size() -> Result<usize> {
@@ -109,3 +113,8 @@ pub fn page_size() -> Result<usize> {
 		.try_into()
 		.map_err(Into::into)
 }
+
+#[cfg(not(unix))]
+/// Get the system's page size in bytes.
+#[inline]
+pub fn page_size() -> Result<usize> { Ok(4096) }
