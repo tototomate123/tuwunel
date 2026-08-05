@@ -1,61 +1,61 @@
-# Tuwunel 1.8.2
+# Tuwunel 1.8.3
 
-July 17, 2026
+August 5, 2026
 
 ### New Features & Enhancements
 
-- **URL preview media proxying** relays link-preview media through the server, now covering `og:video` and `og:audio` alongside images, so the third party sees Tuwunel rather than the requesting client. Nothing is stored permanently: preview media becomes a lazy `mxc://` reference fetched from source on demand. A `url_preview_user_agent` option, with a separate `url_preview_media_user_agent`, lets previews work for sites that block the default agent. Shipped by @az4521 in (#508), closing their own request for video previews (#394). The preview store is rebuilt on CBOR at the same time, replacing a byte-separated format that could shear fields.
+- **QR-code login** 📲 <ins>Take a picture of Element Web with Element X: **login instantly.**</ins> (MSC4108). Rendezvous sessions are served over the MSC4388 transport, with bounded in-memory payloads, a session cap and TTL, and their own rate limit. The native OIDC server grows to meet it, serving account login for the device authorization grant and account management with no identity provider configured at all. Raised by @rjwalters in (#525).
 
-- **Distribution packaging** expands to RPM with a COPR build pipeline (fixes #251) and a SELinux policy module shipped as a `selinux` subpackage (#412), plus an apt repository published from CI and Debian packaging that adopts an existing conduwuit or Conduit database in place. Courtesy of @x86pup.
+- **Video thumbnails.** A client that uploads a video without a thumbnail left the server nothing to preview, so `media_video_thumbnail_command` names a program that extracts one still frame for the image thumbnailer to scale and crop. Inspired by @az4521 in (#397) and implemented by @x86pup, who also caps what the thumbnailer will decode at all with `media_thumbnail_max_pixels`, checked against the image header before any decoder allocates. Requests whose thumbnail would only reproduce the source skip generation entirely, shipped by @lhjt in (#521).
 
-- Online backups can now be restored and verified, joined by a `delete-backups` admin command, graciously contributed by @x86pup.
+- **Native journald logging.** Under systemd every line landed in the journal at info priority, so priority filtering in `journalctl` was blind to Tuwunel's warnings and errors. Events are now submitted natively with their severity, target, and source location, under a `log_journald` option that defaults on. Shipped by @byteflavour in (#534) and extended by @x86pup, whose layer streams the console-formatted line into each entry and records tracing fields under an `F_` prefix, so the journal can be filtered by room or event id.
 
-- MatrixRTC transport discovery (MSC4143) is served without an access token, so Element Call can find a server's transports; contributed by @basnijholt in (#512).
+- **systemd socket activation and configuration reload**, courtesy of @x86pup. A socket unit ships for activation, `systemctl reload` is wired into the Debian and Red Hat units, the Arch unit refreshes its systemd credentials on reload, and a reload now replays the startup command line, so a server started with `-c` or `-O` rebuilds the configuration it actually had. TURN and registration secrets are re-read at each use, so rotating either file no longer needs a restart, and an in-place restart strips the activation variables it can no longer honor. Documented alongside.
 
-- A container `HEALTHCHECK`, backed by a new liveness-probe mode, lets orchestrators track readiness, with appreciation to @x86pup.
+- **Android builds work**, courtesy of @x86pup. The TLS segment is aligned for bionic's loader, SMTP and client TLS verify against bundled webpki roots, `dns_servers` becomes a requirement where the system resolver would need a JVM, and jemalloc and rust-rocksdb are advanced for the libgcc fix.
 
-- A `dns_servers` config option makes the `/etc/resolv.conf` dependency optional, tip of the hat to @x86pup.
+- **LDAP login hardening** from @x86pup. Filter and bind-DN metacharacters in the login localpart are escaped, an empty password is rejected before the bind is attempted, accounts that did not originate in LDAP and deactivated accounts are refused, and error handling, timeouts, and password-file IO are tightened.
 
-- **The Synapse-compatible admin API** grows again (#38): server-notice endpoints, user redaction and login-as, federation destination management, and media info, purge, and statistics.
+- **Appservices** gain third-party network lookup forwarding: the client `/thirdparty/*` endpoints fan out to every registered bridge, carrying protocol metadata verbatim. One-time keys are proxied ahead of the fallback key and appservice device keys are overlaid across client and federation paths (MSC3983, MSC3984). A stalled transaction is retried after a ping, and appservice users are excluded from user-directory search.
 
-- **Appservice transaction extensions** deliver richer data to appservices: device-list changes and one-time-key counts with unused fallback key types (MSC3202), and to-device events (MSC4203). Opened by @dark-collective in (#502) and (#501).
+- **Push badges carry the account-wide unread count**, derived across joined rooms at delivery, refreshed on demand, recovered from the queue at startup, and hooked into the read paths that change it. An explicit zero is preserved and only a true opt-out is honored. Reported and diagnosed by @lhjt.
 
-- **Forward-extremity capping and pruning** guards against extremity blowup with a scored prune engine that always leaves a survivor and protects the local server's own leaves, a cap applied on the federation receive path, and admin `room` commands to list and prune a room's extremities.
+- **State resolution** gets a reworked conflicted-subgraph walker, an event-ID sha256 codec with a matching map hasher, mainline positions read from a map, an auth difference hashed by event ID, and short hashes persisted with their state diffs.
 
-- **Local state derivation** for incoming federation events lands in observation mode (#419). The server derives an event's state from local ancestry and calls `/state_ids` only for physically absent events, running alongside the existing fetch and comparing while the fetched result stays authoritative.
+- A **Matrix Authentication Service provider guide** documents the integration end to end, with a startup warning when `mas_secret` is set but no MAS identity provider is configured.
 
-- Long admin command output is split across chained reply or thread events, and oversized output is attached as an uploaded file, raised by @grinapo in (#471).
+- @dasha-uwu adds a `rooms info` command, `users set-profile-key`, and a historical filter on `admin query users iter-users`, and removes the abandoned MSC4373 EDU-type preference endpoint from the unstable surface.
 
-- Pushers rejected by the push gateway are now removed, backed by push-gateway conformance tests and UnifiedPush documentation, raised by @NinekoTheCat in (#20).
+- The room directory admin commands accept a room alias and surface it in public-rooms responses ahead of the canonical alias, while publishing an unknown room is refused. Contributed by @x86pup, who also falls URL previews back to `twitter:` card tags when the `og:` values are empty, and newline-delimits `list-backups` output.
 
-- Support for Matrix v1.18 and v1.19 is declared in `/versions`.
+- Thank you @Xerusion for documenting Traefik root-domain delegation in (#529), and @byteflavour for raising the btrfs WAL fallocate disk-usage footgun in (#535), now documented.
 
-- The `max_fetch_prev_events` default is raised to 1024.
+- Compliance status pages for the Complement test families join the documentation, `admin query raw flush` forces a RocksDB memtable flush, room-scoped policy recovery lands as an admin command, database writes go through atomic batches that watcher notifications take as their single source of truth, the runtime can report tokio scheduler latency histograms, and the pool-thread and cache defaults are relaxed.
+
+- Admin `rebuild-relation-index` and `rebuild-thread-index` move from `!admin server` to the debug suite; existing invocations need the new path.
 
 ### Bug Fixes
 
-- Federation delivery no longer runs hot against a peer that has come back. The per-server backoff gate consulted only the current time bucket, so it re-authorized attempts at every timeout boundary and never honored the computed earliest retry, and a stale set of reachability rows could keep muting a recovered server. The verdict now derives from a server's full failure history, a returning peer clears the whole streak, and the old rows are cleared once on upgrade (da0c3f600, ec049f61c). Sincere apologies to anyone whose outbound federation lagged to a server that had recovered.
+- Thank you @lhjt for catching in (#515) that appservice-authenticated client requests inferred presence and activity for the user they act as; the exclusion landed in (#517), with activity context passed through the ping arguments behind it.
 
-- A proxy or CDN answering a federation request with non-JSON is treated as transient rather than evicting the route outright, and route override eviction is fixed for well-known and SRV-delegated topologies where it was a no-op (b33415d50).
+- Reopening the database in-process, which a module reload does, restored the configured backup a second time over everything written since; the restore is now claimed rather than read (cd7100398). Separately, the `-O` loop that sets the restore option ran after the check meant to refuse it, so a database could roll back on every start (8e3e3393d). Both repaired by @x86pup. Sincere apologies to anyone who restored a 1.8.2 backup more than they meant to.
 
-- Tuwunel refuses to initialize over the remnants of a database that lacks a readable manifest, instead of treating them as obsolete files and deleting them on open (fixes #510). Reported and diagnosed by @ItsLiyua, whose detail on the two parallel database directories localized the cause.
+- Public read receipts are monotonic again. A re-posted receipt took a fresh stream position and re-sent the EDU to appservices and over federation; the stored position now gates the write. Reported by @lhjt in (#516), who shipped the first fix in (#518). Private read markers are monotonic too, and the sender's own send is marked read without publishing a receipt for it. The deletion sweep is bounded by the encoded room prefix, which had let it cross into a sibling room whose id merely shared a prefix (7190ab8fd).
 
-- Native OIDC login completes again: the redirect-completion path returned 405 and produced a redirect Chrome refused (fixes #504, #505). Reported by @isniz and @achetronic.
+- Soft-failed events are handled correctly in three places. A withheld membership or power-level change is kept out of current state instead of being applied locally, which is the outcome withholding it exists to prevent (cb03606b8). The rejection marker used to reject every later attempt, so an event withheld over a policy refusal could never return once that refusal lapsed; it now expires on the shared upgrade backoff and reports to the origin as withheld rather than failed (5b1fc2d93). Policy-server refusals expire after 24 hours (6651f9ebc), and a corrupt state-after room is contained rather than failing the whole `/sync` response (b565d92d8).
 
-- One-time-key counts match Synapse's shape, and an explicit zero count is preserved, so a client whose key pool is drained still sees `signed_curve25519` and replenishes instead of starving (007033cd5, 164b8da61). Contributed by @basnijholt in (#511).
+- Left rooms stay in sync when their cached leave state came from a sibling conduwuit-lineage server, thanks to @x86pup: a lone event object is lifted into a one-element array and anything else read as no cached state. To-device events are handled only for local active or appservice-claimed recipients, so a bridge still receives its own.
 
-- A soft-failed inbound event could compute an empty forward-extremity set and, once persisted, remove every leaf and wedge local sends until a remote event arrived; the previous band is now preserved, and a detached non-create local event on an empty frontier is refused rather than silently forking the room (e0f10343e, 1f1dea699).
+- Non-unix and BSD builds are repaired again, courtesy of @obodnikov: the signals trace import (#526), the in-place restart import (#527), the `cfg(unix)` gating that the listener refactor dropped (#528), and the `sys/limits` nix imports and page size (#536). Device major and minor conversion is fixed for the BSD builds alongside.
 
-- The inbound federation profile query returns 404 `M_NOT_FOUND` for an unknown user instead of an empty 200 (76ea07fc9).
+- Native OIDC against Matrix Authentication Service completes. MAS's policy allowlist rejects any scope past `openid` and `email`, so our unconfigured default of `openid email profile` failed every authorization. Reported by @utop-top in (#530).
 
-- The room ephemeral section is always present in `/sync` responses now, thanks to @x86pup (79bb4af09).
+- Short-id allocation is serialized, so a racing or repeated caller observes the winner's rows instead of minting a second short id for one identity; a repeated event id inside a single batch reached this deterministically (5cff8b8a5). Room search tokens are purged by shortroomid prefix, in one atomic pass (59d722457, 423fbce29).
 
-- An empty `device_id` is treated as unspecified and a device id is generated (cfe73cbb2).
+- Keyed mutex entries are reaped on every release path. A contender that never became a guard, through cancellation or a failed `try_lock`, left its entry in the map forever (a2bac8d06).
 
-- A systemd unit no longer sticks in the deactivating state after an in-place admin restart, fixed by @x86pup (68e034d84).
+- Federation retry wakes land uniformly across the backoff interval rather than within a fixed three-second jitter, so a cohort of destinations that failed together stops retrying together (26000244f). A stale queue wake is rejected, and the resolver's in-flight deduplication is actually awaited, so concurrent lookups for one destination share a single resolution.
 
-- Non-Linux builds get several repairs, courtesy of @obodnikov: resource-usage reporting compiles on non-unix and no longer panics in macOS thread usage (#509), Ctrl+C actually shuts the server down on non-unix targets (#507), and platform-gated admin commands compile on every target (#506).
+- @okias reported a broken documentation link in (#522), fixed along with the packaging READMEs, which now use absolute rendered-docs links.
 
-- Backup requests that cannot create a backup error instead of reporting success, and backup engine errors propagate rather than being swallowed (f6de800b5, 9b54209d0). Credit to @x86pup.
-
-- @x86pup corrected documented config defaults that disagreed with the code (bb9dfb25c), and the `notification_push_path` description is set right (e16a3aea5).
+- @x86pup landed several more fixes: the admin console is skipped when standard input is not a terminal, appservice response-body read failures are logged, and a failure to notify an appservice of an invite returns a generic error. @dasha-uwu repaired `get_all_user_mxcs`, which left a trailing user-id record unconsumed and panicked debug builds for any user with uploaded media. Elsewhere, `admin debug` reports per-column errors instead of panicking on an invalid property name, an unchecked float conversion is guarded, a defaulted listen address that fails to bind is skipped rather than taking the whole listener down, and the RocksDB environment is held in one process-global slot so one database's shutdown cannot strand another mid-close.
