@@ -239,6 +239,44 @@ Prefer a decoder you would already trust with remote media. Nothing about the
 mechanism is specific to ffmpeg: any program that reads a video and writes one
 frame will do.
 
+### Containers
+
+The published images carry no decoder. Installing ffmpeg on our own Debian
+base, with `--no-install-recommends`, costs about 190 MB of codec libraries,
+and bundling that would charge every deployment for a feature that is off by
+default. So the program is yours to supply. Two ways, and the second needs no
+image of your own.
+
+Derive an image. The runtime is Debian, so this is the whole of it:
+
+```dockerfile
+FROM ghcr.io/matrix-construct/tuwunel:latest
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ffmpeg \
+ && rm -rf /var/lib/apt/lists/*
+```
+
+Or mount a decoder in. Because tuwunel runs a program rather than linking a
+library, a statically linked ffmpeg build is just a file the container needs to
+see:
+
+```
+--volume /opt/ffmpeg:/usr/local/bin/ffmpeg:ro
+```
+
+with `media_video_thumbnail_command` pointing at `/usr/local/bin/ffmpeg`. It
+must be a static build; one taken from the host will look for libraries the
+image does not have. This keeps you on the published image and adds one file
+instead of a dependency tree.
+
+Nothing else about the container needs changing. The program is an ordinary
+child process, so no added capabilities or privileges, and the default seccomp
+profile permits the pipe calls that the packaged systemd units have to allow
+back explicitly. Staged videos land in `media_video_thumbnail_path`, which
+defaults inside the database directory, so they go to your data volume rather
+than the container's writable layer and a read-only root filesystem is no
+obstacle.
+
 ## Blocking remote media
 
 `prevent_media_downloads_from` is a list of regex patterns matched against
