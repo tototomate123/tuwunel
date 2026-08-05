@@ -41,6 +41,11 @@ than an upscale.
 |---|---|---|
 | `media_thumbnail_max_pixels` | `50000000` | Largest picture the thumbnailer will decode, in pixels. Anything larger is served without a thumbnail. Applies to uploaded pictures and to frames extracted from video. |
 
+A generated thumbnail is a PNG, and is served as `image/png` under the filename
+`thumbnail.png` rather than the content type or name of the file it came from.
+Thumbnails already cached before this was true keep the labelling they were
+stored with; only newly generated ones are relabelled.
+
 ## Blocking remote media
 
 `prevent_media_downloads_from` is a list of regex patterns matched against

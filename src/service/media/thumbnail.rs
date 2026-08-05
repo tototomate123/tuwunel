@@ -12,6 +12,8 @@ use std::{cmp::min, num::Saturating as Sat, sync::Arc, time::Duration};
 use futures::{StreamExt, pin_mut};
 #[cfg(feature = "media_thumbnail")]
 use image::{DynamicImage, ImageFormat, ImageReader, Limits, imageops::FilterType};
+#[cfg(feature = "media_thumbnail")]
+use ruma::http_headers::ContentDispositionType;
 use ruma::{Mxc, UInt, UserId, http_headers::ContentDisposition, media::Method};
 use tokio::sync::Notify;
 use tuwunel_core::{
@@ -20,6 +22,15 @@ use tuwunel_core::{
 };
 
 use super::{Media, data::Metadata};
+
+/// Content type of every thumbnail tuwunel generates.
+#[cfg(feature = "media_thumbnail")]
+const PNG: &str = "image/png";
+
+/// Filename a generated thumbnail is disposed under, per the media repository
+/// specification, rather than the name of the file it was generated from.
+#[cfg(feature = "media_thumbnail")]
+const THUMBNAIL_NAME: &str = "thumbnail.png";
 
 /// Bytes the decoder is budgeted per pixel of the picture it is asked for.
 #[cfg(feature = "media_thumbnail")]
@@ -245,6 +256,20 @@ async fn get_thumbnail_generate(
 	thumbnail
 		.write_to(&mut cursor, ImageFormat::Png)
 		.map_err(|error| err!(error!(?error, "Error writing PNG thumbnail.")))?;
+
+	// a generated thumbnail is a PNG rather than the uploaded file, and carries
+	// the name the media repository specification asks of one whether or not the
+	// original arrived with a name of its own
+	let content_disposition = ContentDisposition {
+		disposition_type: ContentDispositionType::Inline,
+		filename: Some(THUMBNAIL_NAME.to_owned()),
+	};
+
+	let data = Metadata {
+		content_type: Some(PNG.to_owned()),
+		content_disposition: Some(content_disposition),
+		..data
+	};
 
 	// Save thumbnail in database so we don't have to generate it again next time
 	let thumbnail_key = self.db.create_file_metadata(
