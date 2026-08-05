@@ -2444,6 +2444,23 @@ pub struct Config {
 	#[serde(default)]
 	pub prune_missing_media: bool,
 
+	/// Largest picture, in pixels, the thumbnailer will decode. Dimensions
+	/// cost memory whatever the encoded file weighs, so a picture declaring
+	/// more than this is left without a thumbnail instead of decoded. A video
+	/// frame inherits the resolution of the video it came from and is bounded
+	/// here too.
+	///
+	/// 50 megapixels is roughly four 8K frames and more than any ordinary
+	/// camera produces. Each pixel is budgeted at four bytes, so the default
+	/// admits a decode of about 200 MiB. The budget is per in-flight request,
+	/// which is what to size it against rather than one decode: thumbnail
+	/// requests are not otherwise limited in number.
+	///
+	/// reloadable: yes
+	/// default: 50000000
+	#[serde(default = "default_media_thumbnail_max_pixels")]
+	pub media_thumbnail_max_pixels: u64,
+
 	/// List of storage providers to use for media. Providers can be configured
 	/// below in respective sections designated by
 	/// `global.storage_provider.<NAME>.<brand>` where `NAME` can be listed
@@ -4739,6 +4756,8 @@ fn default_media_create_unused_expiration_time() -> u64 { 86400 }
 fn default_media_rc_create_per_second() -> u32 { 10 }
 
 fn default_media_rc_create_burst_count() -> u32 { 50 }
+
+fn default_media_thumbnail_max_pixels() -> u64 { 50_000_000 }
 
 fn default_request_conn_timeout() -> u64 { 10 }
 

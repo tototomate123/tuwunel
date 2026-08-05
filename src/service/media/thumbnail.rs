@@ -5,9 +5,13 @@
 //! inclusion of dependencies and nulls out results using the existing interface
 //! when not featured.
 
-use std::{cmp, num::Saturating as Sat, sync::Arc, time::Duration};
+#[cfg(feature = "media_thumbnail")]
+use std::io::Cursor;
+use std::{cmp::min, num::Saturating as Sat, sync::Arc, time::Duration};
 
 use futures::{StreamExt, pin_mut};
+#[cfg(feature = "media_thumbnail")]
+use image::{DynamicImage, ImageFormat, ImageReader, Limits, imageops::FilterType};
 use ruma::{Mxc, UInt, UserId, http_headers::ContentDisposition, media::Method};
 use tokio::sync::Notify;
 use tuwunel_core::{
@@ -16,6 +20,10 @@ use tuwunel_core::{
 };
 
 use super::{Media, data::Metadata};
+
+/// Bytes the decoder is budgeted per pixel of the picture it is asked for.
+#[cfg(feature = "media_thumbnail")]
+const BYTES_PER_PIXEL: u64 = 4;
 
 /// Dimension specification for a thumbnail.
 #[derive(Debug)]
@@ -220,7 +228,7 @@ async fn get_thumbnail_generate(
 		return Err!("Could not find original media.");
 	};
 
-	let Ok(image) = image::load_from_memory(&media.content) else {
+	let Ok(image) = self.decode(&media.content) else {
 		// Couldn't parse file to generate thumbnail, send original
 		return Ok(into_media(data, media.content));
 	};
@@ -232,9 +240,10 @@ async fn get_thumbnail_generate(
 
 	let mut thumbnail_bytes = Vec::new();
 	let thumbnail = thumbnail_generate(&image, dim)?;
-	let mut cursor = std::io::Cursor::new(&mut thumbnail_bytes);
+	let mut cursor = Cursor::new(&mut thumbnail_bytes);
+
 	thumbnail
-		.write_to(&mut cursor, image::ImageFormat::Png)
+		.write_to(&mut cursor, ImageFormat::Png)
 		.map_err(|error| err!(error!(?error, "Error writing PNG thumbnail.")))?;
 
 	// Save thumbnail in database so we don't have to generate it again next time
@@ -264,13 +273,44 @@ async fn get_thumbnail_generate(
 	self.get_thumbnail_saved(data).await
 }
 
+/// Decode a picture whose header declares no more than the configured pixel
+/// count. The dimensions are checked before any decoder allocates, since
+/// `Limits` enforces only a byte budget and leaves a decoder free to ignore it.
 #[cfg(feature = "media_thumbnail")]
-fn thumbnail_generate(
-	image: &image::DynamicImage,
-	requested: &Dim,
-) -> Result<image::DynamicImage> {
-	use image::imageops::FilterType;
+#[implement(super::Service)]
+#[tracing::instrument(name = "decode", level = "trace", skip_all)]
+fn decode(&self, bytes: &[u8]) -> Result<DynamicImage> {
+	let budget = self.services.config.media_thumbnail_max_pixels;
+	let (width, height) = reader(bytes)?
+		.into_dimensions()
+		.map_err(|error| err!(debug_warn!(?error, "Failed to read picture dimensions.")))?;
 
+	let pixels = u64::from(width).saturating_mul(u64::from(height));
+
+	if pixels > budget {
+		return Err!(debug_warn!(%width, %height, "Picture is past the {budget} pixel budget."));
+	}
+
+	let mut limits = Limits::no_limits();
+	limits.max_alloc = Some(budget.saturating_mul(BYTES_PER_PIXEL));
+
+	let mut reader = reader(bytes)?;
+	reader.limits(limits);
+
+	reader
+		.decode()
+		.map_err(|error| err!(debug_warn!(?error, "Failed to decode picture.")))
+}
+
+#[cfg(feature = "media_thumbnail")]
+fn reader(bytes: &[u8]) -> Result<ImageReader<Cursor<&[u8]>>> {
+	ImageReader::new(Cursor::new(bytes))
+		.with_guessed_format()
+		.map_err(Into::into)
+}
+
+#[cfg(feature = "media_thumbnail")]
+fn thumbnail_generate(image: &DynamicImage, requested: &Dim) -> Result<DynamicImage> {
 	let thumbnail = if !requested.crop() {
 		let Dim { width, height, .. } = requested.scaled(&Dim {
 			width: image.width(),
@@ -321,8 +361,8 @@ impl Dim {
 		let image_width = image.width;
 		let image_height = image.height;
 
-		let width = cmp::min(self.width, image_width);
-		let height = cmp::min(self.height, image_height);
+		let width = min(self.width, image_width);
+		let height = min(self.height, image_height);
 
 		let use_width = Sat(width) * Sat(image_height) < Sat(height) * Sat(image_width);
 

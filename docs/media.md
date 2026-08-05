@@ -31,6 +31,16 @@ use them.
 | `allow_legacy_media` | `false` | Serve the unauthenticated `/_matrix/media/*/` endpoints locally. The authenticated equivalents are always enabled. |
 | `request_legacy_media` | `false` | Fall back to unauthenticated requests when fetching media from remote servers. Unauthenticated remote media was removed around 2024Q3; enabling this adds federation traffic that is unlikely to succeed. |
 
+## Thumbnails
+
+Thumbnails are generated on demand from the original and cached. A request for
+a picture larger than the original is answered with the original itself rather
+than an upscale.
+
+| Option | Default | Description |
+|---|---|---|
+| `media_thumbnail_max_pixels` | `50000000` | Largest picture the thumbnailer will decode, in pixels. Anything larger is served without a thumbnail. Applies to uploaded pictures and to frames extracted from video. |
+
 ## Blocking remote media
 
 `prevent_media_downloads_from` is a list of regex patterns matched against

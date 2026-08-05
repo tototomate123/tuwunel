@@ -371,6 +371,18 @@ fn check_turn_and_media_misc(config: &Config) -> Result {
 		);
 	}
 
+	check_thumbnails(config)
+}
+
+fn check_thumbnails(config: &Config) -> Result {
+	if config.media_thumbnail_max_pixels == 0 {
+		return Err!(Config(
+			"media_thumbnail_max_pixels",
+			"A pixel budget of zero refuses every picture; remove the setting to take the \
+			 default."
+		));
+	}
+
 	Ok(())
 }
 
