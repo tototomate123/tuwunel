@@ -120,6 +120,8 @@ fn restore_selects_backup_and_preserves_media_dir() {
 	let mut opts = Options::default();
 	opts.create_if_missing(true);
 
+	// Takes the default environment directly rather than the shared one, so a
+	// concurrent teardown of that one can still reach these pools.
 	let env = Env::new().expect("create env");
 	let backup_opts = BackupEngineOptions::new(&backup_dir).expect("create backup options");
 	let mut engine = BackupEngine::open(&backup_opts, &env).expect("open backup engine");
