@@ -15,7 +15,7 @@ use std::{
 };
 
 use tokio::task::JoinSet;
-use tuwunel_core::{Err, Result, debug_info, err, error, info};
+use tuwunel_core::{Err, Result, debug_info, error, info};
 #[cfg(unix)]
 use tuwunel_core::{itertools::Itertools, utils::sys::is_ipv6_only};
 use tuwunel_service::Services;
@@ -51,7 +51,8 @@ pub(super) async fn serve(services: Arc<Services>, handle: ServerHandle) -> Resu
 	#[cfg(not(unix))]
 	let socket_path = socket_path.as_deref();
 
-	let tcp_listeners = bind_addrs(&addrs, &mut listening)?;
+	let defaulted = config.is_address_defaulted();
+	let tcp_listeners = bind_addrs(&addrs, &mut listening, defaulted)?;
 
 	#[cfg(unix)]
 	let log_addrs = make_log_addrs(
@@ -234,10 +235,17 @@ fn same_path(configured: &Path, passed: &Path) -> bool {
 		)
 }
 
-/// Binds the configured addresses nothing answers for yet, extending
-/// `listening` as it goes so a wildcard entry covers the ones behind it.
-/// Failures surface here, before any listener is served.
-fn bind_addrs(addrs: &[SocketAddr], listening: &mut Vec<SocketAddr>) -> Result<Vec<TcpListener>> {
+/// Binds the addresses nothing answers for yet, extending `listening` as it
+/// goes so a wildcard entry covers the ones behind it.
+///
+/// Failures surface here, before any listener is served. A defaulted address
+/// is skipped instead, since the built-in pair only guesses which loopback
+/// families the host has.
+fn bind_addrs(
+	addrs: &[SocketAddr],
+	listening: &mut Vec<SocketAddr>,
+	defaulted: bool,
+) -> Result<Vec<TcpListener>> {
 	let mut listeners = Vec::with_capacity(addrs.len());
 
 	// A dual-stack IPv6 socket answers for the IPv4 wildcard too, and the kernel
@@ -252,8 +260,14 @@ fn bind_addrs(addrs: &[SocketAddr], listening: &mut Vec<SocketAddr>) -> Result<V
 			continue;
 		}
 
-		let listener = TcpListener::bind(addr)
-			.map_err(|e| err!(Config("address", "Failed to bind {addr}: {e}")))?;
+		let listener = match TcpListener::bind(addr) {
+			| Ok(listener) => listener,
+			| Err(e) if defaulted => {
+				error!(%addr, %e, "Not binding: the default address is unavailable.");
+				continue;
+			},
+			| Err(e) => return Err!(Config("address", "Failed to bind {addr}: {e}")),
+		};
 
 		listener.set_nonblocking(true)?;
 		listening.extend(listening_addrs(&listener)?);

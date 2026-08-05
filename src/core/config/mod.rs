@@ -116,6 +116,10 @@ pub struct Config {
 	/// To listen on multiple addresses, specify a vector e.g. ["127.0.0.1",
 	/// "::1"]
 	///
+	/// An address set here must bind or the server refuses to start. The
+	/// default is only a guess that both loopback families exist, so one of
+	/// them failing to bind is logged and skipped instead.
+	///
 	/// default: ["127.0.0.1", "::1"]
 	#[serde(default)]
 	address: Option<ListeningAddr>,

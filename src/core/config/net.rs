@@ -73,6 +73,16 @@ fn get_bind_ports(&self) -> Vec<u16> {
 	}
 }
 
+/// Whether the addresses to bind come from the built-in default rather than
+/// the `address` option.
+///
+/// The default is a guess that both loopback families exist on the host, so
+/// one of them failing to bind is tolerable where a configured address is not.
+#[implement(super::Config)]
+#[inline]
+#[must_use]
+pub fn is_address_defaulted(&self) -> bool { self.address.is_none() }
+
 #[implement(super::Config)]
 #[must_use]
 pub fn is_forbidden_remote_server_name(&self, server_name: &ServerName) -> bool {

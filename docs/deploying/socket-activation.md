@@ -67,13 +67,18 @@ entries on that port however they are written. A passed unix socket matching
 `unix_socket_path` is skipped the same way, which also keeps the socket systemd
 holds from being unlinked and replaced.
 
-An address that is genuinely unavailable, held by some other process, fails
-startup rather than disappearing quietly:
+An address you configured that is genuinely unavailable, held by some other
+process, fails startup rather than disappearing quietly:
 
 ```
 There was a problem with the 'address' directive in your configuration:
 Failed to bind 127.0.0.1:8448: Address in use (os error 98)
 ```
+
+Leaving `address` unset takes the built-in default instead, which is only a
+guess that both loopback families exist on the host. An address from that guess
+is logged at error level and skipped rather than being fatal, so a host without
+IPv6 still serves on `127.0.0.1`; startup fails only once no listener is left.
 
 The common shape for a public deployment is a configuration bound to localhost
 for a reverse proxy, plus a socket unit for the port that has to be privileged.

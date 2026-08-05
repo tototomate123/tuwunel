@@ -1,8 +1,15 @@
-use std::net::SocketAddr;
+use std::net::{SocketAddr, TcpListener};
 
-use super::covers;
+use super::{bind_addrs, covers};
 
 fn addr(addr: &str) -> SocketAddr { addr.parse().expect("test address parses") }
+
+fn occupied_addr() -> (TcpListener, SocketAddr) {
+	let listener = TcpListener::bind("127.0.0.1:0").expect("an ephemeral port binds");
+	let addr = listener.local_addr().expect("bound address");
+
+	(listener, addr)
+}
 
 #[test]
 fn covers_the_same_address() {
@@ -31,6 +38,27 @@ fn leaves_another_port_to_bind() {
 #[test]
 fn a_specific_address_covers_no_wildcard() {
 	assert!(!covers(&addr("127.0.0.1:8448"), &addr("0.0.0.0:8448")));
+}
+
+#[test]
+fn skips_a_defaulted_address_it_cannot_bind() {
+	let (_occupied, taken) = occupied_addr();
+	let defaulted = true;
+	let mut listening = Vec::new();
+	let listeners =
+		bind_addrs(&[taken], &mut listening, defaulted).expect("the address is skipped");
+
+	assert!(listeners.is_empty());
+	assert!(listening.is_empty());
+}
+
+#[test]
+fn fails_on_a_configured_address_it_cannot_bind() {
+	let (_occupied, taken) = occupied_addr();
+	let defaulted = false;
+	let mut listening = Vec::new();
+
+	bind_addrs(&[taken], &mut listening, defaulted).expect_err("the address fails loudly");
 }
 
 #[cfg(unix)]
