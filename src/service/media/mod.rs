@@ -4,6 +4,8 @@ mod preview;
 mod remote;
 mod tests;
 mod thumbnail;
+#[cfg(feature = "media_thumbnail")]
+mod video;
 use std::{
 	collections::{HashMap, HashSet},
 	path::PathBuf,
@@ -21,6 +23,8 @@ use ruma::{
 	api::error::{ErrorKind, RetryAfter},
 	http_headers::ContentDisposition,
 };
+#[cfg(feature = "media_thumbnail")]
+use tokio::sync::Semaphore;
 use tokio::{fs, sync::Notify};
 use tuwunel_core::{
 	Err, Error, Result, debug, debug_error, debug_info, debug_warn, err, trace,
@@ -35,6 +39,8 @@ use tuwunel_core::{
 use url::Url;
 
 use self::data::Data;
+#[cfg(feature = "media_thumbnail")]
+use self::video::{FAILURES, Failures, sweep_staging_dir};
 pub use self::{data::Metadata, preview::UrlPreviewData, thumbnail::Dim};
 use crate::storage::Provider;
 
@@ -81,6 +87,10 @@ pub struct Service {
 	url_preview_mutex: MutexMap<String, ()>,
 	federation_mutex: MutexMap<String, ()>,
 	mxc_state: MXCState,
+	#[cfg(feature = "media_thumbnail")]
+	video_thumbnail_slots: Semaphore,
+	#[cfg(feature = "media_thumbnail")]
+	video_thumbnail_failures: Mutex<Failures>,
 }
 
 /// generated MXC ID (`media-id`) length
@@ -98,7 +108,7 @@ const REDIRECT_TTL: Duration = Duration::from_mins(5);
 #[async_trait]
 impl crate::Service for Service {
 	fn build(args: &crate::Args<'_>) -> Result<Arc<Self>> {
-		Ok(Arc::new(Self {
+		let service = Arc::new(Self {
 			db: Data::new(args.db),
 			services: args.services.clone(),
 			url_preview_mutex: MutexMap::new(),
@@ -107,7 +117,21 @@ impl crate::Service for Service {
 				notifiers: Mutex::new(HashMap::new()),
 				ratelimiter: Mutex::new(HashMap::new()),
 			},
-		}))
+			#[cfg(feature = "media_thumbnail")]
+			video_thumbnail_failures: Failures::new(FAILURES).into(),
+			#[cfg(feature = "media_thumbnail")]
+			video_thumbnail_slots: Semaphore::new(
+				args.server
+					.config
+					.media_video_thumbnail_concurrency
+					.max(1),
+			),
+		});
+
+		#[cfg(feature = "media_thumbnail")]
+		sweep_staging_dir(&args.server.config);
+
+		Ok(service)
 	}
 
 	fn name(&self) -> &str { crate::service::make_name(std::module_path!()) }

@@ -27,14 +27,14 @@ use super::{Media, data::Metadata};
 #[cfg(feature = "media_thumbnail")]
 const PNG: &str = "image/png";
 
+/// Bytes the decoder is budgeted per pixel of the picture it is asked for.
+#[cfg(feature = "media_thumbnail")]
+const BYTES_PER_PIXEL: u64 = 4;
+
 /// Filename a generated thumbnail is disposed under, per the media repository
 /// specification, rather than the name of the file it was generated from.
 #[cfg(feature = "media_thumbnail")]
 const THUMBNAIL_NAME: &str = "thumbnail.png";
-
-/// Bytes the decoder is budgeted per pixel of the picture it is asked for.
-#[cfg(feature = "media_thumbnail")]
-const BYTES_PER_PIXEL: u64 = 4;
 
 /// Dimension specification for a thumbnail.
 #[derive(Debug)]
@@ -239,15 +239,32 @@ async fn get_thumbnail_generate(
 		return Err!("Could not find original media.");
 	};
 
-	let Ok(image) = self.decode(&media.content) else {
+	let frame = self.video_frame(mxc, dim, &media).await;
+	let from_video = frame.is_some();
+
+	let Ok(image) = self.decode(frame.as_deref().unwrap_or(&media.content)) else {
+		// a frame the thumbnailer refuses is this video's verdict too; without
+		// it the program would run again on the next request for any size
+		if from_video {
+			self.remember_failure(mxc);
+		}
+
 		// Couldn't parse file to generate thumbnail, send original
 		return Ok(into_media(data, media.content));
 	};
 
+	drop(frame);
+
+	// a video is never servable in place of its own thumbnail, so its frame is
+	// re-encoded however small it is
 	let source = Dim::new(image.width(), image.height(), None);
-	if dim.is_passthrough(&source)? {
+	if !from_video && dim.is_passthrough(&source)? {
 		return Ok(into_media(data, media.content));
 	}
+
+	// nothing below reads the original, which on the video path is the whole
+	// staged file, and the encode and the store must not hold it
+	drop(media);
 
 	let mut thumbnail_bytes = Vec::new();
 	let thumbnail = thumbnail_generate(&image, dim)?;
@@ -335,7 +352,7 @@ fn reader(bytes: &[u8]) -> Result<ImageReader<Cursor<&[u8]>>> {
 }
 
 #[cfg(feature = "media_thumbnail")]
-fn thumbnail_generate(image: &DynamicImage, requested: &Dim) -> Result<DynamicImage> {
+pub(super) fn thumbnail_generate(image: &DynamicImage, requested: &Dim) -> Result<DynamicImage> {
 	let thumbnail = if !requested.crop() {
 		let Dim { width, height, .. } = requested.scaled(&Dim {
 			width: image.width(),
@@ -344,7 +361,12 @@ fn thumbnail_generate(image: &DynamicImage, requested: &Dim) -> Result<DynamicIm
 		})?;
 		image.thumbnail_exact(width, height)
 	} else {
-		image.resize_to_fill(requested.width, requested.height, FilterType::CatmullRom)
+		// upscaling is forbidden outright, and resize_to_fill enlarges a source
+		// smaller than the request to meet it
+		let width = min(requested.width, image.width());
+		let height = min(requested.height, image.height());
+
+		image.resize_to_fill(width, height, FilterType::CatmullRom)
 	};
 
 	Ok(thumbnail)

@@ -129,6 +129,10 @@ webpki-root-certs.workspace = true
 tuwunel-core.workspace = true
 tuwunel-database.workspace = true
 
+# killpg, for reaping a video thumbnail program's process group
+[target.'cfg(unix)'.dependencies]
+libc.workspace = true
+
 # rustls-platform-verifier neither builds (no new_with_extra_roots) nor runs (needs a JVM) on android
 [target.'cfg(not(target_os = "android"))'.dependencies.lettre]
 workspace = true

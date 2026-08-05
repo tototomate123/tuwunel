@@ -2461,6 +2461,79 @@ pub struct Config {
 	#[serde(default = "default_media_thumbnail_max_pixels")]
 	pub media_thumbnail_max_pixels: u64,
 
+	/// Program invoked to extract a still frame from a video, giving videos
+	/// uploaded without a thumbnail one anyway. Tuwunel decodes no video
+	/// itself; the frame is scaled and cropped like any other image and the
+	/// result is cached as an ordinary thumbnail.
+	///
+	/// The list is an argument vector whose first entry is the program and
+	/// whose remaining entries are its arguments. It is executed directly,
+	/// never through a shell. Every argument has these tokens substituted
+	/// before each call:
+	///
+	/// - `{input}` path of a temporary file holding the source video.
+	/// - `{width}` and `{height}` the requested thumbnail dimensions.
+	///
+	/// The program writes one frame to standard output in any format the
+	/// thumbnailer decodes: PNG, JPEG, WebP or GIF. Videos are served without
+	/// a thumbnail while the list is empty.
+	///
+	/// reloadable: yes
+	/// example: [
+	/// "ffmpeg", "-loglevel", "error", "-i", "{input}", "-vf", "thumbnail",
+	/// "-frames:v", "1", "-f", "image2pipe", "-c:v", "mjpeg", "pipe:1",
+	/// ]
+	///
+	/// default: []
+	#[serde(default)]
+	pub media_video_thumbnail_command: Vec<String>,
+
+	/// Seconds a video thumbnail request may spend on frame extraction. One
+	/// deadline spans the wait for a free slot, staging the video and the
+	/// program itself, so a queue cannot compound it into a multiple. On
+	/// expiry the program and anything it spawned are killed and the video is
+	/// served without a thumbnail.
+	///
+	/// reloadable: yes
+	/// default: 30
+	#[serde(default = "default_media_video_thumbnail_timeout")]
+	pub media_video_thumbnail_timeout: u64,
+
+	/// Video thumbnail extractions permitted to run at once. Decoding video
+	/// costs far more than scaling an image, so requests past this limit wait
+	/// for a slot instead of piling load onto the host. A slot is held from
+	/// staging the video through to the program exiting, so this also bounds
+	/// how many staged videos occupy the staging directory at once. Raise it
+	/// where cores are spare; a restart is required to apply a change.
+	///
+	/// default: 1
+	#[serde(default = "default_media_video_thumbnail_concurrency")]
+	pub media_video_thumbnail_concurrency: usize,
+
+	/// Largest video, in bytes, staged for the thumbnail program, and largest
+	/// frame read back from it. A video past this is served without a
+	/// thumbnail rather than written out, and a frame past it is refused
+	/// rather than decoded from a truncation. Accepts an integer byte count or
+	/// a string with SI/IEC suffix such as "128 MiB".
+	///
+	/// reloadable: yes
+	/// default: 128 MiB
+	#[serde(
+		default = "default_media_video_thumbnail_max_size",
+		deserialize_with = "deserialize_bytesize_usize"
+	)]
+	pub media_video_thumbnail_max_size: usize,
+
+	/// Directory a video is staged in for the thumbnail program to read, one
+	/// file per running program, removed as soon as it exits. Leave unset to
+	/// use a `tmp` subdirectory of the database path, which keeps large videos
+	/// off the memory-backed `/tmp` a service manager commonly provides. Files
+	/// left behind by a killed server are reclaimed at startup.
+	///
+	/// reloadable: yes
+	/// example: "/var/tmp/tuwunel"
+	pub media_video_thumbnail_path: Option<PathBuf>,
+
 	/// List of storage providers to use for media. Providers can be configured
 	/// below in respective sections designated by
 	/// `global.storage_provider.<NAME>.<brand>` where `NAME` can be listed
@@ -4758,6 +4831,12 @@ fn default_media_rc_create_per_second() -> u32 { 10 }
 fn default_media_rc_create_burst_count() -> u32 { 50 }
 
 fn default_media_thumbnail_max_pixels() -> u64 { 50_000_000 }
+
+fn default_media_video_thumbnail_timeout() -> u64 { 30 }
+
+fn default_media_video_thumbnail_concurrency() -> usize { 1 }
+
+fn default_media_video_thumbnail_max_size() -> usize { 128 * 1024 * 1024 }
 
 fn default_request_conn_timeout() -> u64 { 10 }
 

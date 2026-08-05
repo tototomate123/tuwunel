@@ -371,7 +371,8 @@ fn check_turn_and_media_misc(config: &Config) -> Result {
 		);
 	}
 
-	check_thumbnails(config)
+	check_thumbnails(config)?;
+	check_video_thumbnails(config)
 }
 
 fn check_thumbnails(config: &Config) -> Result {
@@ -380,6 +381,31 @@ fn check_thumbnails(config: &Config) -> Result {
 			"media_thumbnail_max_pixels",
 			"A pixel budget of zero refuses every picture; remove the setting to take the \
 			 default."
+		));
+	}
+
+	Ok(())
+}
+
+/// Beyond this the semaphore sizing the extractions would itself be rejected,
+/// and no host has a use for that much video decoding at once.
+const MAX_VIDEO_THUMBNAIL_CONCURRENCY: usize = 1024;
+
+fn check_video_thumbnails(config: &Config) -> Result {
+	if !(1..=MAX_VIDEO_THUMBNAIL_CONCURRENCY).contains(&config.media_video_thumbnail_concurrency)
+	{
+		return Err!(Config(
+			"media_video_thumbnail_concurrency",
+			"Video thumbnail programs permitted at once must be between 1 and \
+			 {MAX_VIDEO_THUMBNAIL_CONCURRENCY}: zero leaves every extraction waiting for a slot \
+			 that never frees, and the ceiling is far past any useful degree of parallelism."
+		));
+	}
+
+	if config.media_video_thumbnail_timeout == 0 {
+		return Err!(Config(
+			"media_video_thumbnail_timeout",
+			"A video thumbnail deadline of zero expires before the program can start."
 		));
 	}
 

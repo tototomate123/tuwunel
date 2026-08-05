@@ -5625,6 +5625,7 @@ dependencies = [
  "ipaddress",
  "ldap3",
  "lettre",
+ "libc",
  "log",
  "loole",
  "lru-cache",
