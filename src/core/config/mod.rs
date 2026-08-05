@@ -1399,6 +1399,10 @@ pub struct Config {
 	pub log: String,
 
 	/// Output logs with ANSI colours.
+	///
+	/// Colours are suppressed while entries are submitted to journald, which
+	/// takes the formatted line verbatim and reads control bytes in it as
+	/// binary rather than text.
 	#[serde(default = "true_fn", alias = "log_colours")]
 	pub log_colors: bool,
 

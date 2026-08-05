@@ -238,7 +238,7 @@ impl<L> Fields<L> {
 
 /// Whether events are submitted to journald rather than written to the
 /// console, which journald otherwise captures at a single fixed priority.
-fn enabled(config: &Config) -> bool { config.log_journald && is_systemd_mode() }
+pub(super) fn enabled(config: &Config) -> bool { config.log_journald && is_systemd_mode() }
 
 impl<S, L> Layer<S> for Fields<L>
 where

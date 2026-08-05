@@ -9,8 +9,8 @@ use tuwunel_core::{
 	config::Config,
 	debug_warn, err,
 	log::{
-		ConsoleFormat, ConsoleWriter, LogLevelReloadHandles, Logging, capture, fmt_span,
-		journald::Fields,
+		ConsoleFormat, ConsoleWriter, LogLevelReloadHandles, Logging, ansi_enabled, capture,
+		fmt_span, journald::Fields,
 	},
 	result::UnwrapOrErr,
 };
@@ -101,7 +101,7 @@ where
 		.map_err(|e| err!(Config("log", "{e}.")))?;
 
 	let layer = fmt::Layer::new()
-		.with_ansi(config.log_colors)
+		.with_ansi(ansi_enabled(config))
 		.with_thread_ids(config.log_thread_ids)
 		.with_span_events(span_events)
 		.fmt_fields(ConsoleFormat::new(config))

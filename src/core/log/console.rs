@@ -18,7 +18,7 @@ use tracing_subscriber::{
 	registry::LookupSpan,
 };
 
-use super::journald::{Entry, Journal};
+use super::journald::{Entry, Journal, enabled as journald_enabled};
 use crate::{Config, Result, apply, debug, is_equal_to};
 
 static SYSTEMD_MODE: LazyLock<bool> =
@@ -110,10 +110,12 @@ pub struct ConsoleFormat {
 impl ConsoleFormat {
 	#[must_use]
 	pub fn new(config: &Config) -> Self {
+		let ansi = ansi_enabled(config);
+
 		Self {
 			pretty: fmt::format()
 				.pretty()
-				.with_ansi(config.log_colors)
+				.with_ansi(ansi)
 				.with_thread_names(true)
 				.with_thread_ids(true)
 				.with_target(true)
@@ -123,11 +125,9 @@ impl ConsoleFormat {
 
 			full: Format::<Full>::default()
 				.with_thread_ids(config.log_thread_ids)
-				.with_ansi(config.log_colors),
+				.with_ansi(ansi),
 
-			compact: fmt::format()
-				.compact()
-				.with_ansi(config.log_colors),
+			compact: fmt::format().compact().with_ansi(ansi),
 
 			compact_mode: config.log_compact,
 		}
@@ -200,6 +200,19 @@ fn get_journal_stream() -> (u64, u64) {
 		.unwrap_or((0, 0))
 }
 
+/// Whether to color the formatted line.
+///
+/// The journal takes that line verbatim and classifies a message carrying
+/// control bytes as binary rather than text, so colors are suppressed while
+/// entries are submitted to it.
+#[inline]
+#[must_use]
+pub fn ansi_enabled(config: &Config) -> bool { config.log_colors && !journald_enabled(config) }
+
+/// Whether the process was started by systemd, sampled once.
+///
+/// Both `SYSTEMD_EXEC_PID` and `JOURNAL_STREAM` have to be present, which the
+/// service manager sets for a unit it launched itself.
 #[inline]
 #[must_use]
 pub fn is_systemd_mode() -> bool { *SYSTEMD_MODE }

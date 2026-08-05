@@ -1187,6 +1187,10 @@
 
 # Output logs with ANSI colours.
 #
+# Colours are suppressed while entries are submitted to journald, which
+# takes the formatted line verbatim and reads control bytes in it as
+# binary rather than text.
+#
 #log_colors = true
 
 # Sets the log format to compact mode.
