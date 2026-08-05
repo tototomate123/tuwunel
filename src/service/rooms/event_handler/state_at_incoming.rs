@@ -246,7 +246,8 @@ pub(super) async fn fork_state_and_chain(
 		.services
 		.auth_chain
 		.event_ids_iter(room_id, room_version, starting_events)
-		.try_collect();
+		.try_collect::<Vec<_>>()
+		.map_ok(AuthSet::from_distinct);
 
 	let fork_state = state
 		.iter()

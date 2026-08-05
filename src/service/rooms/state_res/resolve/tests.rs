@@ -26,7 +26,7 @@ use tuwunel_core::{
 };
 
 use super::{
-	StateMap,
+	AuthSet, StateMap,
 	test_utils::{
 		INITIAL_EVENTS, TestStore, alice, bob, charlie, do_check, ella, event_id,
 		member_content_ban, member_content_join, not_found, room_id, to_init_pdu_event,
@@ -878,11 +878,24 @@ async fn split_conflicted_state_set_mixed() {
 // `auth_difference` returns events in fewer than every input chain
 // (∪Cᵢ - ∩Cᵢ), per the v2 state-res spec.
 
-fn auth_set(ids: &[&str]) -> super::AuthSet<OwnedEventId> {
-	ids.iter().copied().map(event_id).collect()
+fn auth_set(ids: &[&str]) -> AuthSet<OwnedEventId> { ids.iter().copied().map(event_id).collect() }
+
+#[test]
+fn auth_set_from_iter_deduplicates() {
+	let duplicate = event_id("duplicate");
+	let distinct = event_id("distinct");
+	let set: Vec<_> = [duplicate.clone(), distinct.clone(), duplicate.clone()]
+		.into_iter()
+		.collect::<AuthSet<_>>()
+		.into_iter()
+		.collect();
+
+	assert_eq!(set.len(), 2);
+	assert!(set.contains(&duplicate));
+	assert!(set.contains(&distinct));
 }
 
-async fn auth_difference_result(sets: Vec<super::AuthSet<OwnedEventId>>) -> Vec<OwnedEventId> {
+async fn auth_difference_result(sets: Vec<AuthSet<OwnedEventId>>) -> Vec<OwnedEventId> {
 	let mut out: Vec<OwnedEventId> =
 		super::auth_difference::auth_difference(sets.into_iter().stream())
 			.collect()

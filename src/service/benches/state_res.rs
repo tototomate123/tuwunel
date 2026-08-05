@@ -2,7 +2,7 @@
 
 use std::{
 	borrow::Borrow,
-	collections::HashMap,
+	collections::{HashMap, HashSet},
 	sync::atomic::{AtomicU64, Ordering::SeqCst},
 };
 
@@ -75,12 +75,14 @@ fn resolution_shallow_auth_chain(c: &mut Criterion) {
 		let rules = RoomVersionId::V6.rules().unwrap();
 		let ev_map = store.0.clone();
 		let state_sets = [state_at_bob, state_at_charlie];
-		let auth_chains = state_sets
+		let auth_chains: Vec<AuthSet<_>> = state_sets
 			.iter()
 			.map(|map| {
-				store
+				let chain = store
 					.auth_event_ids(room_id(), map.values().cloned().collect())
-					.unwrap()
+					.unwrap();
+
+				chain.into_iter().collect()
 			})
 			.collect::<Vec<_>>();
 
@@ -158,12 +160,14 @@ fn resolve_deeper_event_set(c: &mut Criterion) {
 
 		let rules = RoomVersionId::V6.rules().unwrap();
 		let state_sets = [state_set_a, state_set_b];
-		let auth_chains = state_sets
+		let auth_chains: Vec<AuthSet<_>> = state_sets
 			.iter()
 			.map(|map| {
-				store
+				let chain = store
 					.auth_event_ids(room_id(), map.values().cloned().collect())
-					.unwrap()
+					.unwrap();
+
+				chain.into_iter().collect()
 			})
 			.collect::<Vec<_>>();
 
@@ -219,13 +223,16 @@ impl<E: Event> TestStore<E> {
 		Ok(events)
 	}
 
-	/// Returns a Vec of the related auth events to the given `event`.
+	/// Collects the requested events and their recursive auth events.
+	///
+	/// Each identifier appears at most once. Traversal fails if a required
+	/// event is absent from the store.
 	fn auth_event_ids(
 		&self,
 		room_id: &RoomId,
 		event_ids: Vec<OwnedEventId>,
-	) -> Result<AuthSet<OwnedEventId>> {
-		let mut result = AuthSet::new();
+	) -> Result<HashSet<OwnedEventId>> {
+		let mut result = HashSet::new();
 		let mut stack = event_ids;
 
 		// DFS for auth event chain
@@ -263,7 +270,7 @@ impl<E: Event> TestStore<E> {
 		let common = auth_chain_sets
 			.iter()
 			.skip(1)
-			.fold(first, |a, b| a.intersection(b).cloned().collect::<AuthSet<_>>());
+			.fold(first, |a, b| a.intersection(b).cloned().collect());
 
 		let difference = auth_chain_sets
 			.into_iter()

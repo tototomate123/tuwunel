@@ -9,8 +9,9 @@ mod power_sort;
 mod split_conflicted;
 
 use std::{
-	collections::{BTreeMap, BTreeSet, HashSet},
+	collections::{BTreeMap, HashSet},
 	ops::Deref,
+	vec::IntoIter,
 };
 
 use futures::{FutureExt, Stream, StreamExt, TryFutureExt};
@@ -39,8 +40,44 @@ use super::test_utils;
 /// `EventId`.
 pub type StateMap<Id> = BTreeMap<TypeStateKey, Id>;
 
-/// Full recursive set of `auth_events` for each event in a StateMap.
-pub type AuthSet<Id> = BTreeSet<Id>;
+/// Full recursive auth chain for one candidate [`StateMap`].
+///
+/// Values are distinct and immutable after construction. Their order is
+/// arbitrary, and consumers must not depend on it.
+#[derive(Clone)]
+pub struct AuthSet<Id>(Vec<Id>);
+
+impl<Id> AuthSet<Id> {
+	/// Creates an auth set from distinct identifiers.
+	///
+	/// The caller must ensure `ids` contains no duplicates. This constructor
+	/// does not validate the invariant so hot paths avoid redundant work.
+	#[inline]
+	#[must_use]
+	pub(crate) fn from_distinct(ids: Vec<Id>) -> Self { Self(ids) }
+}
+
+impl<Id> Default for AuthSet<Id> {
+	fn default() -> Self { Self(Vec::new()) }
+}
+
+impl<Id: Ord> FromIterator<Id> for AuthSet<Id> {
+	fn from_iter<I: IntoIterator<Item = Id>>(iter: I) -> Self {
+		let mut ids: Vec<_> = iter.into_iter().collect();
+
+		ids.sort_unstable();
+		ids.dedup();
+
+		Self::from_distinct(ids)
+	}
+}
+
+impl<Id> IntoIterator for AuthSet<Id> {
+	type IntoIter = IntoIter<Id>;
+	type Item = Id;
+
+	fn into_iter(self) -> Self::IntoIter { self.0.into_iter() }
+}
 
 /// ConflictMap of OwnedEventId specifically.
 pub type ConflictMap<Id> = StateMap<ConflictVec<Id>>;

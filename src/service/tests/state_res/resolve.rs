@@ -3,7 +3,7 @@
 
 use std::{
 	cmp::Ordering,
-	collections::{BTreeSet, HashMap},
+	collections::{BTreeSet, HashMap, HashSet},
 	error::Error,
 	fs,
 	path::Path,
@@ -342,9 +342,9 @@ async fn test_contrived_states(pdus_paths: &[&str], state_sets_paths: &[&str]) -
 		})
 		.collect::<Vec<StateMap<OwnedEventId>>>();
 
-	let mut auth_chain_sets = Vec::new();
+	let mut auth_chain_sets: Vec<AuthSet<_>> = Vec::new();
 	for state_map in &state_sets {
-		let mut auth_chain = AuthSet::new();
+		let mut auth_chain = HashSet::new();
 
 		for event_id in state_map.values() {
 			let pdu = pdus_by_id
@@ -356,7 +356,7 @@ async fn test_contrived_states(pdus_paths: &[&str], state_sets_paths: &[&str]) -
 			);
 		}
 
-		auth_chain_sets.push(auth_chain);
+		auth_chain_sets.push(auth_chain.into_iter().collect());
 	}
 
 	let exists = async |x| pdus_by_id.contains_key(&x);
@@ -672,7 +672,7 @@ fn auth_events_dfs(
 	pdus_by_id: &HashMap<OwnedEventId, Pdu>,
 	pdu: &Pdu,
 ) -> Result<AuthSet<OwnedEventId>, Box<dyn Error>> {
-	let mut out = AuthSet::new();
+	let mut out = HashSet::new();
 	let mut stack = pdu
 		.auth_events()
 		.map(ToOwned::to_owned)
@@ -694,5 +694,5 @@ fn auth_events_dfs(
 		);
 	}
 
-	Ok(out)
+	Ok(out.into_iter().collect())
 }

@@ -53,7 +53,8 @@ pub async fn resolve_state(
 			self.services
 				.auth_chain
 				.event_ids_iter(room_id, room_version, state.values().map(Borrow::borrow))
-				.try_collect::<AuthSet<OwnedEventId>>()
+				.try_collect::<Vec<OwnedEventId>>()
+				.map_ok(AuthSet::from_distinct)
 		})
 		.ready_filter_map(Result::ok);
 
