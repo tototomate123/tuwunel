@@ -128,13 +128,6 @@ async fn matcher(
 			.last_privateread_update(sender_user, &room_id)
 	});
 
-	let last_receipt = matched.then_async(|| {
-		services
-			.read_receipt
-			.last_receipt_count(&room_id, sender_user.into(), None)
-			.unwrap_or_default()
-	});
-
 	let last_account = matched.then_async(|| {
 		services
 			.account_data
@@ -164,35 +157,20 @@ async fn matcher(
 		| _ => 0,
 	});
 
-	let (
-		(last_timeline, last_notification, last_account),
-		(last_receipt, last_privateread, last_membership),
-	) = join(
-		join3(last_timeline, last_notification, last_account),
-		join3(last_receipt, last_privateread, last_membership),
-	)
-	.await;
+	let ((last_timeline, last_notification, last_account), (last_privateread, last_membership)) =
+		join(
+			join3(last_timeline, last_notification, last_account),
+			join(last_privateread, last_membership),
+		)
+		.await;
 
-	// A departed room surfaces only on its own leave count, never on room-global
-	// timeline activity the user no longer receives, so the retraction is one-shot.
-	let last_count = match &membership {
-		| Some(MembershipState::Leave | MembershipState::Ban) => last_membership
-			.filter(|count| conn.next_batch.ge(count))
-			.unwrap_or_default(),
-		| _ => [
-			last_timeline,
-			last_notification,
-			last_account,
-			last_receipt,
-			last_privateread,
-			last_membership,
-		]
-		.into_iter()
-		.map(Option::unwrap_or_default)
-		.filter(|count| conn.next_batch.ge(count))
-		.max()
-		.unwrap_or_default(),
-	};
+	let last_count = last_count(membership.as_ref(), conn.next_batch, ActivityCounts {
+		timeline: last_timeline,
+		notification: last_notification,
+		account: last_account,
+		private_read: last_privateread,
+		membership: last_membership,
+	});
 
 	Some(WindowRoom {
 		room_id: room_id.clone(),
@@ -201,6 +179,42 @@ async fn matcher(
 		ranked: 0,
 		last_count,
 	})
+}
+
+#[derive(Copy, Clone)]
+struct ActivityCounts {
+	timeline: Option<u64>,
+	notification: Option<u64>,
+	account: Option<u64>,
+	private_read: Option<u64>,
+	membership: Option<u64>,
+}
+
+fn last_count(
+	membership: Option<&MembershipState>,
+	next_batch: u64,
+	counts: ActivityCounts,
+) -> u64 {
+	// A departed room surfaces only on its own leave count, never on room-global
+	// timeline activity the user no longer receives, so the retraction is one-shot.
+	match membership {
+		| Some(MembershipState::Leave | MembershipState::Ban) => counts
+			.membership
+			.filter(|count| next_batch.ge(count))
+			.unwrap_or_default(),
+		| _ => [
+			counts.timeline,
+			counts.notification,
+			counts.account,
+			counts.private_read,
+			counts.membership,
+		]
+		.into_iter()
+		.map(Option::unwrap_or_default)
+		.filter(|count| next_batch.ge(count))
+		.max()
+		.unwrap_or_default(),
+	}
 }
 
 #[tracing::instrument(
@@ -307,3 +321,50 @@ where
 }
 
 fn room_sort(a: &WindowRoom, b: &WindowRoom) -> Ordering { b.last_count.cmp(&a.last_count) }
+
+#[cfg(test)]
+mod tests {
+	use ruma::{OwnedRoomId, room_id};
+
+	use super::{ActivityCounts, ListIds, WindowRoom, last_count, room_sort};
+
+	#[test]
+	fn receipt_activity_does_not_reorder_room_but_timeline_activity_does() {
+		const NEXT_BATCH: u64 = 10;
+
+		let receipt_only = last_count(None, NEXT_BATCH, ActivityCounts {
+			timeline: None,
+			notification: None,
+			account: None,
+			private_read: None,
+			membership: None,
+		});
+		let mut rooms = [
+			room(room_id!("!current:example.com").to_owned(), 1),
+			room(room_id!("!updated:example.com").to_owned(), receipt_only),
+		];
+
+		rooms.sort_by(room_sort);
+		assert_eq!(rooms[0].room_id, room_id!("!current:example.com"));
+
+		rooms[1].last_count = last_count(None, NEXT_BATCH, ActivityCounts {
+			timeline: Some(2),
+			notification: None,
+			account: None,
+			private_read: None,
+			membership: None,
+		});
+		rooms.sort_by(room_sort);
+		assert_eq!(rooms[0].room_id, room_id!("!updated:example.com"));
+	}
+
+	fn room(room_id: OwnedRoomId, last_count: u64) -> WindowRoom {
+		WindowRoom {
+			room_id,
+			membership: None,
+			lists: ListIds::new(),
+			ranked: 0,
+			last_count,
+		}
+	}
+}
