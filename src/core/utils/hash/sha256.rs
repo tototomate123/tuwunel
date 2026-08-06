@@ -3,6 +3,10 @@ use ring::{
 	digest::{Context, SHA256, SHA256_OUTPUT_LEN},
 };
 
+/// Fixed-size output of a SHA-256 digest operation.
+///
+/// The array contains the algorithm's 32 output bytes in digest order. It can
+/// be encoded or compared without an additional allocation.
 pub type Digest = [u8; SHA256_OUTPUT_LEN];
 
 /// Sha256 hash (input gather joined by 0xFF bytes)
