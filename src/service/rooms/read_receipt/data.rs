@@ -195,20 +195,22 @@ impl Data {
 	pub(super) async fn last_receipt_count<'a>(
 		&'a self,
 		room_id: &'a RoomId,
-		since: Option<u64>,
+		upper: Option<u64>,
 		user_id: Option<&'a UserId>,
 	) -> Result<u64> {
 		// 4-tuple key: pre-MSC3771 rows deserialize with `&str` tail empty.
 		type Key<'a> = (&'a RoomId, u64, &'a UserId, &'a str);
 
-		let key = (room_id, u64::MAX);
+		let key = (room_id, upper.unwrap_or(u64::MAX));
+
 		self.readreceiptid_readreceipt
-			.rev_keys_prefix(&key)
+			.rev_keys_from(&key)
 			.ignore_err()
-			.ready_take_while(|(_, c, u, _): &Key<'_>| {
-				since.is_none_or(|since| since > *c) && user_id.is_none_or(is_equal_to!(*u))
+			.ready_take_while(|(room_id_, ..): &Key<'_>| *room_id_ == room_id)
+			.ready_filter(|(_, _, user_id_, _): &Key<'_>| {
+				user_id.is_none_or(is_equal_to!(*user_id_))
 			})
-			.map(|(_, c, ..): Key<'_>| c)
+			.map(|(_, count, ..): Key<'_>| count)
 			.boxed()
 			.next()
 			.await

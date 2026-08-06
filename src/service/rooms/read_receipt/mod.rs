@@ -278,10 +278,10 @@ impl Service {
 		&self,
 		room_id: &RoomId,
 		user_id: Option<&UserId>,
-		since: Option<u64>,
+		upper: Option<u64>,
 	) -> Result<u64> {
 		self.db
-			.last_receipt_count(room_id, since, user_id)
+			.last_receipt_count(room_id, upper, user_id)
 			.await
 	}
 
