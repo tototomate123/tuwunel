@@ -100,17 +100,20 @@ pub(crate) async fn set_read_marker_route(
 	};
 
 	// Route through the dispatcher so per-thread counts are also cleared;
-	// `/read_markers` predates MSC3771 and carries no thread field.
-	if (private_advanced || public_advanced)
-		&& services
+	// `/read_markers` predates MSC3771 and carries no thread field. Always
+	// push the current account-wide count on a read advance; it must not be
+	// gated on `reset_notification_counts_for_thread` returning `true`, or a
+	// stale (already-zero stored count) badge would never be cleared.
+	if private_advanced || public_advanced {
+		services
 			.pusher
 			.reset_notification_counts_for_thread(
 				sender_user,
 				&body.room_id,
 				&ReceiptThread::Unthreaded,
 			)
-			.await
-	{
+			.await;
+
 		services
 			.sending
 			.refresh_push_badge(sender_user)

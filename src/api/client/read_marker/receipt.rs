@@ -139,12 +139,19 @@ pub(crate) async fn create_receipt_route(
 		},
 	};
 
-	if advanced
-		&& services
+	if advanced {
+		// Always reset the per-room/thread notification counts and then push
+		// the current account-wide count to every pusher. Pushing must not be
+		// gated on `reset_notification_counts_for_thread` returning `true`
+		// (i.e. a nonzero count having been cleared): the previously delivered
+		// badge can be stale (nonzero) while the stored count is already zero,
+		// and in that case no `counts.unread = 0` was ever sent, so the badge
+		// would never clear.
+		services
 			.pusher
 			.reset_notification_counts_for_thread(sender_user, &body.room_id, &body.thread)
-			.await
-	{
+			.await;
+
 		services
 			.sending
 			.refresh_push_badge(sender_user)
