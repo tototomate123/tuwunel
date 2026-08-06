@@ -27,7 +27,7 @@ use tuwunel_database::Json;
 use super::{ExtractBody, ExtractRelatesTo, ExtractRelatesToEventId, RoomMutexGuard, bias_count};
 use crate::rooms::{
 	read_receipt::PrivateRead, short::ShortRoomId, state_accessor::plain_text_topic,
-	state_compressor::CompressedState,
+	state_cache::MembershipUpdate, state_compressor::CompressedState,
 };
 
 type Band<'a> = SmallVec<[&'a EventId; 1]>;
@@ -297,16 +297,16 @@ async fn append_pdu_effects(
 				// knock event for auth
 				self.services
 					.state_cache
-					.update_membership(
-						pdu.room_id(),
-						&target_user_id,
-						content,
-						pdu.sender(),
-						stripped_state,
-						None,
-						true,
+					.update_membership(MembershipUpdate {
+						room_id: pdu.room_id(),
+						user_id: &target_user_id,
+						membership_event: content,
+						sender: pdu.sender(),
+						last_state: stripped_state,
+						invite_via: None,
+						update_joined_count: true,
 						count,
-					)
+					})
 					.await?;
 			}
 		},

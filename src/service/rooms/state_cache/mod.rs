@@ -26,6 +26,7 @@ use tuwunel_core::{
 	warn,
 };
 use tuwunel_database::{Deserialized, Ignore, Interfix, Map};
+pub use update::{MembershipUpdate, StrippedRoomState};
 
 use crate::appservice::RegistrationInfo;
 
