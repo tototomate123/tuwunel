@@ -1,6 +1,6 @@
 use std::{
 	borrow::Borrow,
-	collections::{HashMap, HashSet},
+	collections::{BTreeSet, HashMap},
 	pin::Pin,
 	slice,
 	sync::{
@@ -295,7 +295,7 @@ impl TestStore {
 			.ok_or_else(|| event_not_found(event_id))
 	}
 
-	/// Collects the requested events and their recursive auth events.
+	/// Collects the requested event ids and their recursive auth event ids.
 	///
 	/// Each identifier appears at most once. Traversal fails if a required
 	/// event is absent from the store.
@@ -304,7 +304,7 @@ impl TestStore {
 		room_id: &RoomId,
 		event_ids: Vec<OwnedEventId>,
 	) -> Result<AuthSet<OwnedEventId>> {
-		let mut result = HashSet::new();
+		let mut result = BTreeSet::new();
 		let mut stack = event_ids;
 
 		// DFS for auth event chain
@@ -320,7 +320,7 @@ impl TestStore {
 			stack.extend(event.auth_events().map(ToOwned::to_owned));
 		}
 
-		Ok(result.into_iter().collect())
+		Ok(AuthSet::from_distinct(result.into_iter().collect()))
 	}
 }
 

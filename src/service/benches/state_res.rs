@@ -2,7 +2,7 @@
 
 use std::{
 	borrow::Borrow,
-	collections::{HashMap, HashSet},
+	collections::{BTreeSet, HashMap},
 	sync::atomic::{AtomicU64, Ordering::SeqCst},
 };
 
@@ -75,16 +75,7 @@ fn resolution_shallow_auth_chain(c: &mut Criterion) {
 		let rules = RoomVersionId::V6.rules().unwrap();
 		let ev_map = store.0.clone();
 		let state_sets = [state_at_bob, state_at_charlie];
-		let auth_chains: Vec<AuthSet<_>> = state_sets
-			.iter()
-			.map(|map| {
-				let chain = store
-					.auth_event_ids(room_id(), map.values().cloned().collect())
-					.unwrap();
-
-				chain.into_iter().collect()
-			})
-			.collect::<Vec<_>>();
+		let auth_chains = auth_chains(&store, &state_sets);
 
 		let func = async || {
 			if let Err(e) = tuwunel_service::rooms::state_res::resolve(
@@ -110,6 +101,22 @@ fn resolution_shallow_auth_chain(c: &mut Criterion) {
 			func().await;
 		});
 	});
+}
+
+fn auth_chains<E: Event>(
+	store: &TestStore<E>,
+	state_sets: &[StateMap<OwnedEventId>],
+) -> Vec<AuthSet<OwnedEventId>> {
+	state_sets
+		.iter()
+		.map(|map| {
+			store
+				.auth_event_ids(room_id(), map.values().cloned().collect())
+				.unwrap()
+				.into_iter()
+				.collect()
+		})
+		.collect()
 }
 
 fn resolve_deeper_event_set(c: &mut Criterion) {
@@ -160,16 +167,7 @@ fn resolve_deeper_event_set(c: &mut Criterion) {
 
 		let rules = RoomVersionId::V6.rules().unwrap();
 		let state_sets = [state_set_a, state_set_b];
-		let auth_chains: Vec<AuthSet<_>> = state_sets
-			.iter()
-			.map(|map| {
-				let chain = store
-					.auth_event_ids(room_id(), map.values().cloned().collect())
-					.unwrap();
-
-				chain.into_iter().collect()
-			})
-			.collect::<Vec<_>>();
+		let auth_chains = auth_chains(&store, &state_sets);
 
 		let func = async || {
 			if let Err(e) = tuwunel_service::rooms::state_res::resolve(
@@ -223,16 +221,15 @@ impl<E: Event> TestStore<E> {
 		Ok(events)
 	}
 
-	/// Collects the requested events and their recursive auth events.
+	/// Collects the requested event ids and their recursive auth event ids.
 	///
-	/// Each identifier appears at most once. Traversal fails if a required
-	/// event is absent from the store.
+	/// Traversal fails if a required event is absent from the store.
 	fn auth_event_ids(
 		&self,
 		room_id: &RoomId,
 		event_ids: Vec<OwnedEventId>,
-	) -> Result<HashSet<OwnedEventId>> {
-		let mut result = HashSet::new();
+	) -> Result<BTreeSet<OwnedEventId>> {
+		let mut result = BTreeSet::new();
 		let mut stack = event_ids;
 
 		// DFS for auth event chain

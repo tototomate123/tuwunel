@@ -875,25 +875,25 @@ async fn split_conflicted_state_set_mixed() {
 	],);
 }
 
-// `auth_difference` returns events in fewer than every input chain
-// (∪Cᵢ - ∩Cᵢ), per the v2 state-res spec.
-
-fn auth_set(ids: &[&str]) -> AuthSet<OwnedEventId> { ids.iter().copied().map(event_id).collect() }
-
 #[test]
 fn auth_set_from_iter_deduplicates() {
 	let duplicate = event_id("duplicate");
 	let distinct = event_id("distinct");
-	let set: Vec<_> = [duplicate.clone(), distinct.clone(), duplicate.clone()]
+	let ids: Vec<_> = [duplicate.clone(), distinct.clone(), duplicate.clone()]
 		.into_iter()
 		.collect::<AuthSet<_>>()
 		.into_iter()
 		.collect();
 
-	assert_eq!(set.len(), 2);
-	assert!(set.contains(&duplicate));
-	assert!(set.contains(&distinct));
+	assert_eq!(ids.len(), 2);
+	assert!(ids.contains(&duplicate));
+	assert!(ids.contains(&distinct));
 }
+
+// `auth_difference` returns events in fewer than every input chain
+// (∪Cᵢ - ∩Cᵢ), per the v2 state-res spec.
+
+fn auth_set(ids: &[&str]) -> AuthSet<OwnedEventId> { ids.iter().copied().map(event_id).collect() }
 
 async fn auth_difference_result(sets: Vec<AuthSet<OwnedEventId>>) -> Vec<OwnedEventId> {
 	let mut out: Vec<OwnedEventId> =

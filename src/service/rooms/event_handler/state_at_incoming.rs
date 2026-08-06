@@ -15,7 +15,7 @@ use tuwunel_core::{
 };
 
 use crate::rooms::{
-	short::ShortStateHash,
+	short::{ShortStateHash, ShortStateKey},
 	state_res::{AuthSet, StateMap},
 };
 
@@ -250,7 +250,7 @@ where
 #[implement(super::Service)]
 pub(super) async fn fork_state<'a, State>(&'a self, state: State) -> StateMap<OwnedEventId>
 where
-	State: Iterator<Item = (u64, &'a OwnedEventId)> + Send + 'a,
+	State: Iterator<Item = (ShortStateKey, &'a OwnedEventId)> + Send + 'a,
 {
 	state
 		.stream()
@@ -267,7 +267,9 @@ where
 
 /// Collects the full auth chain for one fork branch.
 ///
-/// The returned set keeps the producer's arbitrary iteration order.
+/// The ids are distinct as [`AuthSet::from_distinct`] requires: the chain
+/// walk dedups short ids and the short-to-event-id mapping is injective.
+/// Iteration order is arbitrary.
 #[implement(super::Service)]
 pub(super) async fn fork_chain<'a, Events>(
 	&'a self,
@@ -281,7 +283,7 @@ where
 	self.services
 		.auth_chain
 		.event_ids_iter(room_id, room_version, starting_events)
-		.try_collect::<Vec<_>>()
+		.try_collect()
 		.map_ok(AuthSet::from_distinct)
 		.await
 }
