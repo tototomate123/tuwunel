@@ -291,7 +291,7 @@ version = "2.2"
 features = ["std"]
 
 [workspace.dependencies.minicbor-serde]
-version = "0.6"
+version = "0.7"
 features = ["std"]
 
 [workspace.dependencies.nix]
