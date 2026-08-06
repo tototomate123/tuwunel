@@ -231,7 +231,7 @@ features = [
 ]
 
 [workspace.dependencies.itertools]
-version = "0.14"
+version = "0.15"
 
 [workspace.dependencies.jevmalloc]
 git = "https://github.com/matrix-construct/jevmalloc"
