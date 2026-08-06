@@ -1058,7 +1058,11 @@
 #
 #default_power_level_content_override = { users_default = 50 }
 
-# This item is undocumented. Please contribute documentation for it.
+# Enables OTLP span export for Jaeger-compatible tracing.
+#
+# A build with performance measurements installs an OpenTelemetry layer
+# when this is enabled. It defaults to false, and `jaeger_filter` selects
+# the exported spans.
 #
 #allow_jaeger = false
 
@@ -1656,7 +1660,10 @@
 #
 #rocksdb_log_level = "error"
 
-# This item is undocumented. Please contribute documentation for it.
+# Routes RocksDB log messages to standard error.
+#
+# `rocksdb_log_level` still filters the emitted records. When disabled,
+# RocksDB uses the application's callback logger instead.
 #
 #rocksdb_log_stderr = false
 
@@ -1831,11 +1838,17 @@
 #
 #rocksdb_repair = false
 
-# This item is undocumented. Please contribute documentation for it.
+# Opens RocksDB in read-only mode.
+#
+# Writes are rejected and missing column families cannot be created. This
+# mode is disabled by default.
 #
 #rocksdb_read_only = false
 
-# This item is undocumented. Please contribute documentation for it.
+# Opens RocksDB as a secondary follower of a primary instance.
+#
+# Writes are rejected while the primary's latest WAL can be replayed into
+# this instance's view. Missing column families cannot be created.
 #
 #rocksdb_secondary = false
 
@@ -3109,7 +3122,10 @@
 #
 #key =
 
-# Whether to listen and allow for HTTP and HTTPS connections (insecure!)
+# Controls whether listeners accept both HTTP and HTTPS.
+#
+# Plain requests are served without redirecting them to HTTPS. This
+# weakens transport security and is disabled by default.
 #
 #dual_protocol = false
 

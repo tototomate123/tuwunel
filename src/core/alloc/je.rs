@@ -26,6 +26,12 @@ use crate::{
 	utils::{BoolExt, math, math::Tried},
 };
 
+/// Provides the process-wide jemalloc startup configuration.
+///
+/// Jemalloc reads this unmangled symbol during allocator initialization, which
+/// can occur before `main`. The NUL-terminated options enable CPU-affine
+/// arenas, background purging, metadata huge pages, and tuned cache and decay
+/// thresholds.
 #[cfg(feature = "jemalloc_conf")]
 #[used]
 #[unsafe(no_mangle)]
@@ -70,6 +76,10 @@ static GLOBAL_ALLOCS: AtomicU64 = AtomicU64::new(0);
 static COUNT_GLOBAL_ALLOCS: AtomicBool = AtomicBool::new(false);
 static TRACE_GLOBAL_ALLOCS: AtomicBool = AtomicBool::new(false);
 
+/// Registers the allocation-observer callbacks during process startup.
+///
+/// Normal and zeroed allocations made after registration feed the same counting
+/// and tracing instrumentation.
 #[crate::ctor(unsafe)]
 fn _static_initialization() {
 	// SAFETY: Mutable static globals in jemalloc crate; must be initialized
@@ -80,6 +90,11 @@ fn _static_initialization() {
 	unsafe { ALLOC_ZEROED = Some(global_alloc_zeroed_hook) };
 }
 
+/// Returns a human-readable snapshot of allocator memory usage.
+///
+/// After refreshing the statistics epoch, the report lists allocated, active,
+/// mapped, metadata, resident, and retained memory in MiB. It returns `None`
+/// when the epoch cannot be refreshed.
 #[must_use]
 #[cfg(disable)]
 //#[cfg(feature = "jemalloc_stats")]
@@ -110,10 +125,24 @@ pub fn memory_usage() -> Option<String> {
 	))
 }
 
+/// Returns a human-readable snapshot of allocator memory usage when available.
+///
+/// Detailed summary reporting is currently disabled for this build, so this
+/// implementation returns `None`. Raw allocator output remains available
+/// through [`memory_stats`].
 #[must_use]
 //#[cfg(not(feature = "jemalloc_stats"))]
 pub fn memory_usage() -> Option<String> { None }
 
+/// Collects jemalloc's raw statistics report with the supplied print options.
+///
+/// The allocator statistics epoch is refreshed before invoking
+/// `malloc_stats_print`. Refresh failure returns `None`, and output is
+/// truncated to 1 MiB.
+///
+/// # Panics
+///
+/// Panics if `opts` contains an interior NUL byte.
 pub fn memory_stats(opts: &str) -> Option<String> {
 	const MAX_LENGTH: usize = 1_048_576;
 
@@ -136,6 +165,16 @@ pub fn memory_stats(opts: &str) -> Option<String> {
 	Some(str)
 }
 
+/// Appends a jemalloc statistics fragment through the C callback boundary.
+///
+/// Panics are caught and converted into process aborts before control returns
+/// to jemalloc.
+///
+/// # Safety
+///
+/// `opaque` must point to the live `String` supplied by [`memory_stats`], and
+/// `msg` must point to a NUL-terminated string valid for the duration of the
+/// call.
 unsafe extern "C" fn malloc_stats_cb(opaque: *mut c_void, msg: *const c_char) {
 	catch_unwind(move || handle_malloc_stats(opaque, msg))
 		.map_err(|_| abort())
@@ -191,6 +230,11 @@ fn handle_global_alloc(layout: Layout) {
 	}
 }
 
+/// Returns the process allocation count observed by the allocator hook.
+///
+/// The counter uses relaxed ordering and advances only when internal allocation
+/// counting is enabled. It is intended for allocation measurements rather than
+/// synchronized accounting.
 #[inline]
 #[must_use]
 pub fn global_alloc_count() -> u64 { GLOBAL_ALLOCS.load(Ordering::Relaxed) }
@@ -208,6 +252,11 @@ macro_rules! mallctl {
 	}};
 }
 
+/// Controls jemalloc state associated with the calling thread.
+///
+/// These wrappers expose the thread's arena, cache, profiling state, and
+/// allocation counters through mallctl. Control failures are returned through
+/// the crate's allocator error type.
 pub mod this_thread {
 	use super::{Debug, Key, OnceCell, Result, is_nonzero, key, math};
 
@@ -216,62 +265,146 @@ pub mod this_thread {
 		static DEALLOCATED_BYTES: OnceCell<&'static u64> = const { OnceCell::new() };
 	}
 
+	/// Reclaims unused pages from the calling thread's arena.
+	///
+	/// The operation first applies time-based decay and then purges all
+	/// remaining unused dirty pages.
 	pub fn trim() -> Result { decay().and_then(|()| purge()) }
 
+	/// Purges unused dirty pages from the calling thread's arena.
+	///
+	/// This requests immediate reclamation rather than waiting for the arena's
+	/// decay schedule.
 	pub fn purge() -> Result { notify(mallctl!("arena.0.purge")) }
 
+	/// Applies decay-based purging to the calling thread's arena.
+	///
+	/// Jemalloc selects unused dirty and muzzy pages according to their
+	/// configured decay intervals.
 	pub fn decay() -> Result { notify(mallctl!("arena.0.decay")) }
 
+	/// Notifies jemalloc that the calling thread is entering an extended idle
+	/// period.
+	///
+	/// The hint may flush the thread cache and purge its arena, but does not
+	/// guarantee a specific cleanup operation.
 	pub fn idle() -> Result { super::notify(&mallctl!("thread.idle")) }
 
+	/// Flushes the calling thread's automatic allocation cache.
+	///
+	/// Cached objects and the cache's internal structures are returned to the
+	/// thread's arena.
 	pub fn flush() -> Result { super::notify(&mallctl!("thread.tcache.flush")) }
 
+	/// Sets the calling thread's arena muzzy-page decay interval.
+	///
+	/// A value of `0` requests immediate purging, while `-1` disables purging.
+	/// The previous interval is returned.
 	pub fn set_muzzy_decay(decay_ms: isize) -> Result<isize> {
 		set(mallctl!("arena.0.muzzy_decay_ms"), decay_ms)
 	}
 
+	/// Returns the calling thread's arena muzzy-page decay interval.
+	///
+	/// The value is an approximate delay in milliseconds, with `-1`
+	/// representing disabled purging.
 	pub fn get_muzzy_decay() -> Result<isize> { get(mallctl!("arena.0.muzzy_decay_ms")) }
 
+	/// Sets the calling thread's arena dirty-page decay interval.
+	///
+	/// A value of `0` requests immediate purging, while `-1` disables purging.
+	/// The previous interval is returned.
 	pub fn set_dirty_decay(decay_ms: isize) -> Result<isize> {
 		set(mallctl!("arena.0.dirty_decay_ms"), decay_ms)
 	}
 
+	/// Returns the calling thread's arena dirty-page decay interval.
+	///
+	/// The value is an approximate delay in milliseconds, with `-1`
+	/// representing disabled purging.
 	pub fn get_dirty_decay() -> Result<isize> { get(mallctl!("arena.0.dirty_decay_ms")) }
 
+	/// Enables or disables automatic allocation caching for the calling thread.
+	///
+	/// Disabling the cache flushes its existing contents. The previous enabled
+	/// state is returned.
 	pub fn cache_enable(enable: bool) -> Result<bool> {
 		super::set::<u8>(&mallctl!("thread.tcache.enabled"), enable.into()).map(is_nonzero!())
 	}
 
+	/// Returns whether automatic allocation caching is enabled for the calling
+	/// thread.
+	///
+	/// The value reflects the current thread-specific cache override.
 	pub fn is_cache_enabled() -> Result<bool> {
 		super::get::<u8>(&mallctl!("thread.tcache.enabled")).map(is_nonzero!())
 	}
 
+	/// Associates the calling thread with a jemalloc arena.
+	///
+	/// Jemalloc initializes an uninitialized target arena as needed. The
+	/// previous arena identifier is returned.
 	pub fn set_arena(id: usize) -> Result<usize> {
 		super::set::<u32>(&mallctl!("thread.arena"), id.try_into()?).and_then(math::try_into)
 	}
 
+	/// Returns the jemalloc arena associated with the calling thread.
+	///
+	/// The allocator's unsigned arena identifier is converted to `usize`.
 	pub fn arena_id() -> Result<usize> {
 		super::get::<u32>(&mallctl!("thread.arena")).and_then(math::try_into)
 	}
 
+	/// Enables or disables allocation sampling for the calling thread.
+	///
+	/// Global profiling must also be active before this thread produces
+	/// samples. The previous thread setting is returned.
 	pub fn prof_enable(enable: bool) -> Result<bool> {
 		super::set::<u8>(&mallctl!("thread.prof.active"), enable.into()).map(is_nonzero!())
 	}
 
+	/// Returns whether allocation sampling is active for the calling thread.
+	///
+	/// Global profiling can independently suppress sampling even when this
+	/// value is true.
 	pub fn is_prof_enabled() -> Result<bool> {
 		super::get::<u8>(&mallctl!("thread.prof.active")).map(is_nonzero!())
 	}
 
+	/// Resets the calling thread's peak net-allocation counter.
+	///
+	/// Cumulative allocated and deallocated byte counters are not reset.
 	pub fn reset_peak() -> Result { super::notify(&mallctl!("thread.peak.reset")) }
 
+	/// Returns the calling thread's approximate peak net allocation in bytes.
+	///
+	/// The measurement covers time since thread creation or the most recent
+	/// peak reset.
 	pub fn peak() -> Result<u64> { super::get(&mallctl!("thread.peak.read")) }
 
+	/// Returns the total number of bytes ever allocated by the calling thread.
+	///
+	/// A cached pointer avoids repeated mallctl lookups, and the underlying
+	/// counter can wrap.
+	///
+	/// # Panics
+	///
+	/// Panics if jemalloc does not provide a valid thread allocation counter.
 	#[inline]
 	#[must_use]
 	pub fn allocated() -> u64 {
 		*ALLOCATED_BYTES.with(|once| init_tls_cell(once, "thread.allocatedp"))
 	}
 
+	/// Returns the total number of bytes ever deallocated by the calling
+	/// thread.
+	///
+	/// A cached pointer avoids repeated mallctl lookups, and the underlying
+	/// counter can wrap.
+	///
+	/// # Panics
+	///
+	/// Panics if jemalloc does not provide a valid thread deallocation counter.
 	#[inline]
 	#[must_use]
 	pub fn deallocated() -> u64 {
@@ -294,6 +427,14 @@ pub mod this_thread {
 		super::get_by_arena(Some(arena_id()?), key)
 	}
 
+	/// Caches a pointer to one of jemalloc's thread-local byte counters.
+	///
+	/// The pointer is resolved once per Rust thread and reused by the public
+	/// counter accessors.
+	///
+	/// # Panics
+	///
+	/// Panics if the mallctl lookup fails or returns a null pointer.
 	fn init_tls_cell(cell: &OnceCell<&'static u64>, name: &str) -> &'static u64 {
 		cell.get_or_init(|| {
 			let ptr: *const u64 = super::get(&mallctl!(name)).expect("failed to obtain pointer");
@@ -304,40 +445,82 @@ pub mod this_thread {
 	}
 }
 
+/// Resets jemalloc's mutex profiling statistics.
+///
+/// The reset covers global, arena, and bin mutex counters.
 pub fn stats_reset() -> Result { notify(&mallctl!("stats.mutexes.reset")) }
 
+/// Resets accumulated jemalloc heap-profile statistics.
+///
+/// The control is invoked without specifying a replacement sampling rate.
 pub fn prof_reset() -> Result { notify(&mallctl!("prof.reset")) }
 
+/// Writes a jemalloc heap profile to its default dump path.
+///
+/// Jemalloc derives the filename from the configured profile prefix, process
+/// identifier, and dump sequence.
 pub fn prof_dump() -> Result { notify(&mallctl!("prof.dump")) }
 
+/// Enables or disables profile dumps at new virtual-memory high-water marks.
+///
+/// The previous setting is returned. This control is available when jemalloc
+/// profiling support is built.
 pub fn prof_gdump(enable: bool) -> Result<bool> {
 	set::<u8>(&mallctl!("prof.gdump"), enable.into()).map(is_nonzero!())
 }
 
+/// Enables or disables global jemalloc allocation sampling.
+///
+/// Thread-level profiling must also be active before a thread produces samples.
+/// The previous global setting is returned.
 pub fn prof_enable(enable: bool) -> Result<bool> {
 	set::<u8>(&mallctl!("prof.active"), enable.into()).map(is_nonzero!())
 }
 
+/// Returns whether global jemalloc allocation sampling is active.
+///
+/// Thread-level profiling can independently suppress sampling for individual
+/// threads.
 pub fn is_prof_enabled() -> Result<bool> {
 	get::<u8>(&mallctl!("prof.active")).map(is_nonzero!())
 }
 
+/// Returns the average allocation interval between periodic heap-profile dumps.
+///
+/// The interval is measured in allocated bytes and reflects jemalloc's active
+/// profiling configuration.
 pub fn prof_interval() -> Result<u64> {
 	get::<u64>(&mallctl!("prof.interval")).and_then(math::try_into)
 }
 
+/// Reclaims unused pages from one arena or from all arenas.
+///
+/// The operation applies time-based decay before purging remaining unused dirty
+/// pages. Passing `None` selects every arena.
 pub fn trim<I: Into<Option<usize>> + Copy>(arena: I) -> Result {
 	decay(arena).and_then(|()| purge(arena))
 }
 
+/// Purges unused dirty pages from one arena or from all arenas.
+///
+/// Passing `None` selects every arena and requests immediate reclamation.
 pub fn purge<I: Into<Option<usize>>>(arena: I) -> Result {
 	notify_by_arena(arena.into(), mallctl!("arena.4096.purge"))
 }
 
+/// Triggers decay-based purging for one arena or for all arenas.
+///
+/// Passing `None` selects every arena. Jemalloc chooses unused dirty and muzzy
+/// pages according to the configured decay intervals.
 pub fn decay<I: Into<Option<usize>>>(arena: I) -> Result {
 	notify_by_arena(arena.into(), mallctl!("arena.4096.decay"))
 }
 
+/// Sets an arena's muzzy-page decay interval or the default for future arenas.
+///
+/// Passing `Some` selects an existing arena, while `None` changes the value
+/// used to initialize newly created arenas. The previous interval is returned,
+/// with `0` requesting immediate purging and `-1` disabling it.
 pub fn set_muzzy_decay<I: Into<Option<usize>>>(arena: I, decay_ms: isize) -> Result<isize> {
 	match arena.into() {
 		| Some(arena) =>
@@ -346,6 +529,11 @@ pub fn set_muzzy_decay<I: Into<Option<usize>>>(arena: I, decay_ms: isize) -> Res
 	}
 }
 
+/// Sets an arena's dirty-page decay interval or the default for future arenas.
+///
+/// Passing `Some` selects an existing arena, while `None` changes the value
+/// used to initialize newly created arenas. The previous interval is returned,
+/// with `0` requesting immediate purging and `-1` disabling it.
 pub fn set_dirty_decay<I: Into<Option<usize>>>(arena: I, decay_ms: isize) -> Result<isize> {
 	match arena.into() {
 		| Some(arena) =>
@@ -354,22 +542,40 @@ pub fn set_dirty_decay<I: Into<Option<usize>>>(arena: I, decay_ms: isize) -> Res
 	}
 }
 
+/// Enables or disables jemalloc background purge threads.
+///
+/// Disabling waits for the workers to terminate before returning. The previous
+/// setting is returned.
 pub fn background_thread_enable(enable: bool) -> Result<bool> {
 	set::<u8>(&mallctl!("background_thread"), enable.into()).map(is_nonzero!())
 }
 
+/// Returns whether jemalloc uses a CPU-affine arena mode.
+///
+/// Query failures produce `false` because this convenience predicate treats an
+/// error as no matching affinity mode.
 #[inline]
 #[must_use]
 pub fn is_affine_arena() -> bool { is_percpu_arena() || is_phycpu_arena() }
 
+/// Returns whether jemalloc assigns arenas per logical CPU.
+///
+/// Query failures produce `false` rather than propagating the control error.
 #[inline]
 #[must_use]
 pub fn is_percpu_arena() -> bool { percpu_arenas().is_ok_and(is_equal_to!("percpu")) }
 
+/// Returns whether jemalloc assigns one arena per physical CPU.
+///
+/// Sibling hardware threads share an arena in this mode. Query failures produce
+/// `false` rather than propagating the control error.
 #[inline]
 #[must_use]
 pub fn is_phycpu_arena() -> bool { percpu_arenas().is_ok_and(is_equal_to!("phycpu")) }
 
+/// Returns jemalloc's configured per-CPU arena mode.
+///
+/// The static option string is normally `disabled`, `percpu`, or `phycpu`.
 pub fn percpu_arenas() -> Result<&'static str> {
 	let ptr = get::<*const c_char>(&mallctl!("opt.percpu_arena"))?;
 	//SAFETY: ptr points to a null-terminated string returned for opt.percpu_arena.
@@ -377,12 +583,23 @@ pub fn percpu_arenas() -> Result<&'static str> {
 	cstr.to_str().map_err(Into::into)
 }
 
+/// Returns the current limit on automatically managed jemalloc arenas.
+///
+/// The allocator's unsigned arena count is converted to `usize`.
 pub fn arenas() -> Result<usize> {
 	get::<u32>(&mallctl!("arenas.narenas")).and_then(math::try_into)
 }
 
+/// Refreshes cached allocator statistics by advancing jemalloc's epoch.
+///
+/// Writing `1` triggers a statistics refresh and returns the resulting epoch
+/// value.
 pub fn inc_epoch() -> Result<u64> { xchg(&mallctl!("epoch"), 1_u64) }
 
+/// Acquires a fresh snapshot of cached allocator statistics.
+///
+/// Writing `0` still triggers a statistics refresh, and the resulting epoch
+/// value is returned.
 pub fn acq_epoch() -> Result<u64> { xchg(&mallctl!("epoch"), 0_u64) }
 
 fn notify_by_arena(id: Option<usize>, mut key: Key) -> Result {
