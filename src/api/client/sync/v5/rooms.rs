@@ -19,7 +19,7 @@ use ruma::{
 	serde::Raw,
 };
 use tuwunel_core::{
-	Result, at, err, error, is_equal_to,
+	Result, at, error, is_equal_to,
 	itertools::Itertools,
 	matrix::{
 		Event, StateKey,
@@ -33,7 +33,7 @@ use tuwunel_core::{
 		stream::{BroadbandExt, WidebandExt},
 	},
 };
-use tuwunel_service::{Services, sync::Room};
+use tuwunel_service::Services;
 
 use self::{bump_stamp::room_bump_stamp, heroes::calculate_heroes};
 use super::{
@@ -64,7 +64,7 @@ pub(super) async fn handle(
 		.broad_filter_map(async |(room_id, room)| {
 			handle_room(sync_info, conn, room)
 				.map_ok(move |room| (room_id.clone(), room))
-				.inspect_err(|e| error!(?room_id, "sync handler: {e:?}"))
+				.inspect_err(|e| error!(?room_id, %e, "sync handler failed"))
 				.await
 				.ok()
 		})
@@ -94,10 +94,12 @@ async fn handle_room(
 		lists, membership, room_id, last_count, ..
 	} = window_room;
 
-	let &Room { roomsince, .. } = conn
+	// Absent connection state is first contact, e.g. a new subscription.
+	let roomsince = conn
 		.rooms
 		.get(room_id)
-		.ok_or_else(|| err!("Missing connection state for {room_id}"))?;
+		.map(|room| room.roomsince)
+		.unwrap_or_default();
 
 	debug_assert!(
 		*last_count > roomsince || *last_count == 0 || roomsince == 0,
@@ -128,9 +130,10 @@ async fn handle_room(
 		)
 	});
 
+	// A failed load must fail the room, else roomsince advances past unsent events.
 	let (timeline_pdus, limited, last_timeline_count) = timeline
-		.await
-		.flat_ok()
+		.map(Option::transpose)
+		.await?
 		.unwrap_or_else(|| (Vec::new(), true, PduCount::default()));
 
 	let required_state = required_state
@@ -247,11 +250,14 @@ async fn leave_or_ban_response(
 	WindowRoom { lists, membership, room_id, .. }: &WindowRoom,
 	roomsince: u64,
 ) -> Result<response::Room> {
+	// A rejected federated invite has no resolved state; the retraction still
+	// delivers on the membership alone.
 	let member_event = services
 		.state_accessor
 		.room_state_get(room_id, &StateEventType::RoomMember, sender_user.as_str())
 		.map_ok(Event::into_format)
-		.await?;
+		.await
+		.ok();
 
 	Ok(response::Room {
 		initial: roomsince.eq(&0).then_some(true),
@@ -259,7 +265,7 @@ async fn leave_or_ban_response(
 		membership: membership.clone(),
 		prev_batch: Some(conn.next_batch.to_string().into()),
 		limited: true,
-		required_state: vec![member_event],
+		required_state: member_event.into_iter().collect(),
 		..Default::default()
 	})
 }

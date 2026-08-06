@@ -258,13 +258,18 @@ pub fn update_rooms_prologue(&mut self, retard_since: Option<u64>) {
 	});
 }
 
+/// Advance the per-room cursor for each room delivered in a response.
+///
+/// `roomsince` is the lower bound of every content query for its room, so
+/// only rooms whose payload was returned may advance. A failed or dropped
+/// room keeps its cursor and replays the same range in a later response.
 #[implement(Connection)]
 #[tracing::instrument(level = "debug", skip_all)]
-pub fn update_rooms_epilogue<'a, Rooms>(&mut self, window: Rooms)
+pub fn update_rooms_epilogue<'a, Delivered>(&mut self, delivered: Delivered)
 where
-	Rooms: Iterator<Item = &'a RoomId> + Send + 'a,
+	Delivered: Iterator<Item = &'a RoomId> + Send + 'a,
 {
-	window.for_each(|room_id| {
+	delivered.for_each(|room_id| {
 		let room = self.rooms.entry(room_id.into()).or_default();
 
 		room.roomsince = self.next_batch;

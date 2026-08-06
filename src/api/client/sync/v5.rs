@@ -198,7 +198,7 @@ pub(crate) async fn sync_events_v5_route(
 
 			try_join(rooms, extensions).boxed().await?;
 
-			conn.update_rooms_epilogue(window.keys().map(AsRef::as_ref));
+			conn.update_rooms_epilogue(response.rooms.keys().map(AsRef::as_ref));
 
 			if !is_empty_response(&response) {
 				response.pos = conn.next_batch.to_string().into();
