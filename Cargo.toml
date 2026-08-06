@@ -543,7 +543,7 @@ features = [
 ]
 
 [workspace.dependencies.termimad]
-version = "0.34"
+version = "0.35"
 default-features = false
 
 [workspace.dependencies.thiserror]
