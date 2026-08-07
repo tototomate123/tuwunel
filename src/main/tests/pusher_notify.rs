@@ -25,11 +25,12 @@ use tuwunel_core::{
 			set_pusher::v3::{PusherAction, Request as SetPusherRequest},
 		},
 		device_id,
+		presence::PresenceState,
 		push::{HttpPusherData, PushFormat, Ruleset},
 	},
 	utils::stream::ReadyExt,
 };
-use tuwunel_service::{Services, sending::Destination};
+use tuwunel_service::{Services, presence::Ping, sending::Destination};
 
 type StubPusher = (Pusher, PusherAction, UnboundedReceiver<(String, Vec<u8>)>, AbortOnDrop);
 
@@ -69,6 +70,8 @@ fn pusher_notify() -> Result {
 		.push("ip_range_denylist=[]".to_owned());
 	args.option
 		.push("startup_netburst=true".to_owned());
+	args.option
+		.push("suppress_push_when_active=true".to_owned());
 
 	let runtime = Runtime::new(Some(&args))?;
 	let server = Server::new(Some(&args), Some(&runtime))?;
@@ -274,7 +277,8 @@ async fn run_cases(services: &Services) -> Result {
 	counts_only_delivery(&fixture, &room_id, &other_room_id).await?;
 	account_wide_count_delivery(&fixture, &room_id).await?;
 	badge_count_opt_out(&fixture).await?;
-	badge_delivery_memo(&fixture, &room_id).await
+	badge_delivery_memo(&fixture, &room_id).await?;
+	badge_bypasses_suppression(&fixture).await
 }
 
 fn message_event(room_id: &str) -> Result<Pdu> {
@@ -602,6 +606,73 @@ async fn badge_delivery_memo(fixture: &Fixture<'_>, room_id: &RoomId) -> Result 
 
 	if path != NOTIFY_PATH {
 		return Err!("post-replacement badge notification hit unexpected path {path}");
+	}
+
+	Ok(())
+}
+
+/// Counts-only refreshes deliver while pushes are suppressed.
+///
+/// An active user's reads must still reconcile the gateway; only event
+/// notifications are deferred by suppression.
+async fn badge_bypasses_suppression(fixture: &Fixture<'_>) -> Result {
+	let pushkey = "pk-badge-suppressed";
+	let (_pusher, _action, mut rx, _stub) =
+		stub_pusher(fixture, pushkey, false, false, r#"{"rejected":[]}"#).await?;
+
+	// Drive the active heuristic: online presence plus a fresh sync stamp.
+	fixture
+		.services
+		.presence
+		.maybe_ping_presence(fixture.user, Ping::default())
+		.await?;
+
+	fixture
+		.services
+		.presence
+		.note_sync(fixture.user, None)
+		.await;
+
+	// Assert the heuristic's inputs registered, or a driving failure would
+	// let the POST arrive unsuppressed and pass this case vacuously.
+	let presence = fixture
+		.services
+		.presence
+		.get_presence(fixture.user)
+		.await?;
+
+	if presence.content.presence != PresenceState::Online {
+		return Err!("fixture user's presence did not register as online");
+	}
+
+	if presence
+		.content
+		.last_active_ago
+		.is_none_or(|age| u64::from(age) >= 65_000)
+	{
+		return Err!("fixture user's presence is not inside the active window");
+	}
+
+	if fixture
+		.services
+		.presence
+		.last_sync_gap_ms(fixture.user)
+		.await
+		.is_none_or(|gap| gap >= 32_000)
+	{
+		return Err!("fixture user's sync activity is not inside the active window");
+	}
+
+	fixture
+		.services
+		.sending
+		.refresh_push_badge(fixture.user)
+		.await?;
+
+	let (path, _) = recv(&mut rx).await?;
+
+	if path != NOTIFY_PATH {
+		return Err!("suppressed-window badge notification hit unexpected path {path}");
 	}
 
 	Ok(())
