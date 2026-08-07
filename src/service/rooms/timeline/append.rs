@@ -194,8 +194,7 @@ where
 		})
 		.await;
 
-	let notifications_cleared = self
-		.services
+	self.services
 		.pusher
 		.reset_notification_counts_for_thread(
 			pdu.sender(),
@@ -212,7 +211,8 @@ where
 
 	drop(insert_lock);
 
-	if notifications_cleared {
+	// Only local senders can own pushers.
+	if self.services.globals.user_is_local(pdu.sender()) {
 		self.services
 			.sending
 			.refresh_push_badge(pdu.sender())

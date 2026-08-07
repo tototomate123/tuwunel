@@ -421,23 +421,21 @@ async fn counts_only_delivery(
 	other_room_id: &RoomId,
 ) -> Result {
 	let pusher = &fixture.services.pusher;
-	let room_cleared = pusher
+
+	pusher
 		.reset_notification_counts(fixture.user, room_id)
 		.await;
 
-	let other_room_cleared = pusher
+	pusher
 		.reset_notification_counts(fixture.user, other_room_id)
 		.await;
 
-	if !(room_cleared && other_room_cleared) {
-		return Err!("seeded notification row was not cleared");
-	}
+	let remaining = pusher
+		.global_notification_count(fixture.user)
+		.await;
 
-	if pusher
-		.reset_notification_counts(fixture.user, room_id)
-		.await
-	{
-		return Err!("zero notification row reported a second clear");
+	if remaining != 0 {
+		return Err!("reset left an account-wide unread total of {remaining}");
 	}
 
 	let (path, body) =
