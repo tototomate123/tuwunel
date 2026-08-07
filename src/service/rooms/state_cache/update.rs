@@ -14,7 +14,12 @@ use ruma::{
 	},
 	serde::Raw,
 };
-use tuwunel_core::{Result, implement, is_not_empty, matrix::PduCount, utils::ReadyExt, warn};
+use tuwunel_core::{
+	Result, implement, is_not_empty,
+	matrix::PduCount,
+	utils::{ReadyExt, result::LogErr},
+	warn,
+};
 use tuwunel_database::{Json, serialize_key, serialize_val};
 
 /// Optional stripped room state attached to invite and knock transitions.
@@ -117,6 +122,16 @@ pub async fn update_membership(
 		},
 		| MembershipState::Leave | MembershipState::Ban => {
 			self.handle_leave(room_id, user_id, count).await;
+
+			// A departure drops the room from the account-wide badge total.
+			if self.services.globals.user_is_local(user_id) {
+				self.services
+					.sending
+					.refresh_push_badge(user_id)
+					.await
+					.log_err()
+					.ok();
+			}
 		},
 		| MembershipState::Knock => {
 			self.mark_as_knocked(user_id, room_id, count, last_state);
