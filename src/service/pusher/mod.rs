@@ -1,4 +1,5 @@
 mod append;
+mod badge;
 mod notification;
 mod request;
 mod send;
@@ -29,6 +30,7 @@ use tuwunel_core::{
 use tuwunel_database::{Database, Deserialized, Ignore, Interfix, Json, Map};
 
 pub use self::append::Notified;
+use self::badge::SentBadges;
 
 pub struct Service {
 	services: Arc<crate::services::OnceServices>,
@@ -36,6 +38,7 @@ pub struct Service {
 	highlight_increment_mutex: MutexMap<(OwnedRoomId, OwnedUserId), ()>,
 	db: Data,
 	suppressed: suppressed::SuppressedQueue,
+	sent_badges: SentBadges,
 }
 
 struct Data {
@@ -65,6 +68,7 @@ impl crate::Service for Service {
 					.clone(),
 			},
 			suppressed: suppressed::SuppressedQueue::default(),
+			sent_badges: SentBadges::default(),
 		}))
 	}
 
@@ -129,6 +133,8 @@ pub async fn set_pusher(
 			self.db
 				.pushkey_deviceid
 				.insert(pushkey, sender_device);
+
+			self.forget_sent_badge(sender, pushkey);
 		},
 		| set_pusher::v3::PusherAction::Delete(ids) => {
 			self.delete_pusher(sender, ids.pushkey.as_str())
@@ -145,6 +151,7 @@ pub async fn delete_pusher(&self, sender: &UserId, pushkey: &str) {
 	self.db.senderkey_pusher.del(key);
 	self.db.pushkey_deviceid.remove(pushkey);
 	self.clear_suppressed_pushkey(sender, pushkey);
+	self.forget_sent_badge(sender, pushkey);
 
 	self.services
 		.sending

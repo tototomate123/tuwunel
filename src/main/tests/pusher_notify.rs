@@ -19,7 +19,7 @@ use tuwunel_core::{
 	Err, Result, err,
 	matrix::Pdu,
 	ruma::{
-		DeviceId, EventId, RoomId, UInt, UserId,
+		DeviceId, EventId, OwnedRoomId, RoomId, UInt, UserId,
 		api::client::push::{
 			Pusher, PusherIds, PusherInit, PusherKind,
 			set_pusher::v3::{PusherAction, Request as SetPusherRequest},
@@ -30,6 +30,8 @@ use tuwunel_core::{
 	utils::stream::ReadyExt,
 };
 use tuwunel_service::{Services, sending::Destination};
+
+type StubPusher = (Pusher, PusherAction, UnboundedReceiver<(String, Vec<u8>)>, AbortOnDrop);
 
 const APP_ID: &str = "app.tuwunel.test";
 const EVENT_ID: &str = "$push:remote.example";
@@ -150,20 +152,30 @@ async fn verify_badge_recovery(services: &Services, recovery: &mut BadgeRecovery
 	let body = serde_json::from_slice(&body)
 		.map_err(|e| err!("recovered badge notification body was not json: {e}"))?;
 
-	let notification = notification(&body)?;
+	let recovered = notification(&body)?;
 
-	assert_eq!(notification.get("counts"), Some(&json!({"unread": 0})));
+	assert_eq!(recovered.get("counts"), Some(&json!({"unread": 0})));
 
 	for field in ["event_id", "room_id", "sender", "type", "content", "prio"] {
-		expect_absent(notification, field)?;
+		expect_absent(recovered, field)?;
 	}
 
-	expect_absent(first_device(notification)?, "tweaks")?;
+	expect_absent(first_device(recovered)?, "tweaks")?;
 	wait_for_badge_queue_cleanup(services, &recovery.destination).await?;
 
 	let Destination::Push(user_id, _) = &recovery.destination else {
 		unreachable!("badge recovery destination is push");
 	};
+
+	// A changed count keeps the barrier an observed POST under the delivery
+	// memo, and proves the memo-differs arm on the same wire.
+	let server_name = services.globals.server_name();
+	let room_id = OwnedRoomId::from_parts('!', "badge-recovery", Some(server_name.as_str()))?;
+	let joined = services.db.get("userroomid_joined")?;
+	let unread = services.db.get("userroomid_notificationcount")?;
+
+	joined.put((user_id, &room_id), 1_u64);
+	unread.put((user_id, &room_id), 1_u64);
 
 	// This wake sits behind the two pre-start messages in the worker channel.
 	// Its completed row is a deterministic barrier for stale-wake processing.
@@ -174,10 +186,16 @@ async fn verify_badge_recovery(services: &Services, recovery: &mut BadgeRecovery
 
 	wait_for_badge_queue_cleanup(services, &recovery.destination).await?;
 
-	let (path, _) = recv(&mut recovery.rx).await?;
+	let (path, body) = recv(&mut recovery.rx).await?;
+
 	if path != NOTIFY_PATH {
 		return Err!("barrier badge notification hit unexpected path {path}");
 	}
+
+	let body = serde_json::from_slice(&body)
+		.map_err(|e| err!("barrier badge notification body was not json: {e}"))?;
+
+	assert_eq!(notification(&body)?.get("counts"), Some(&json!({"unread": 1})));
 
 	match recovery.rx.try_recv() {
 		| Err(TryRecvError::Empty) => Ok(()),
@@ -255,7 +273,8 @@ async fn run_cases(services: &Services) -> Result {
 	foreign_rejected_key_noop(&fixture).await?;
 	counts_only_delivery(&fixture, &room_id, &other_room_id).await?;
 	account_wide_count_delivery(&fixture, &room_id).await?;
-	badge_count_opt_out(&fixture).await
+	badge_count_opt_out(&fixture).await?;
+	badge_delivery_memo(&fixture, &room_id).await
 }
 
 fn message_event(room_id: &str) -> Result<Pdu> {
@@ -467,24 +486,8 @@ async fn account_wide_count_delivery(fixture: &Fixture<'_>, room_id: &RoomId) ->
 
 async fn badge_count_opt_out(fixture: &Fixture<'_>) -> Result {
 	let pushkey = "pk-badge-disabled";
-	let listener = TcpListener::bind("127.0.0.1:0").await?;
-	let url = format!("http://{}{NOTIFY_PATH}", listener.local_addr()?);
-	let action = pusher_action(pushkey, url, false, true);
-
-	fixture
-		.services
-		.pusher
-		.set_pusher(fixture.user, fixture.device, &action)
-		.await?;
-
-	let pusher = fixture
-		.services
-		.pusher
-		.get_pusher(fixture.user, pushkey)
-		.await?;
-
-	let (tx, mut rx) = unbounded_channel();
-	let _stub = AbortOnDrop(spawn(stub_gateway(listener, tx, r#"{"rejected":[]}"#.to_owned())));
+	let (pusher, _action, mut rx, _stub) =
+		stub_pusher(fixture, pushkey, false, true, r#"{"rejected":[]}"#).await?;
 
 	fixture
 		.services
@@ -516,6 +519,94 @@ async fn badge_count_opt_out(fixture: &Fixture<'_>) -> Result {
 	}
 }
 
+/// Covers the badge delivery memo.
+///
+/// An unchanged total is not re-sent, a changed total is, an event
+/// notification stamps the memo, and pusher replacement forgets it.
+async fn badge_delivery_memo(fixture: &Fixture<'_>, room_id: &RoomId) -> Result {
+	let unread = fixture
+		.services
+		.db
+		.get("userroomid_notificationcount")?;
+
+	let root = EventId::parse(EVENT_ID)?;
+
+	unread.put((fixture.user, room_id), 0_u64);
+	unread.put((fixture.user, room_id, &root), 0_u64);
+
+	let pushkey = "pk-badge-memo";
+	let (pusher, action, mut rx, _stub) =
+		stub_pusher(fixture, pushkey, false, false, r#"{"rejected":[]}"#).await?;
+
+	let refresh = || {
+		fixture
+			.services
+			.pusher
+			.send_badge_notice(fixture.user, &pusher)
+	};
+
+	refresh().await?;
+
+	let (_, body) = recv(&mut rx).await?;
+	let body = serde_json::from_slice(&body)
+		.map_err(|e| err!("first memo delivery body was not json: {e}"))?;
+
+	assert_eq!(notification(&body)?.get("counts"), Some(&json!({"unread": 0})));
+
+	refresh().await?;
+	match rx.try_recv() {
+		| Err(TryRecvError::Empty) => (),
+		| Err(TryRecvError::Disconnected) =>
+			return Err!("stub gateway channel closed during memo dedupe"),
+		| Ok(_) => return Err!("unchanged badge total was re-sent to the gateway"),
+	}
+
+	unread.put((fixture.user, room_id), 3_u64);
+	refresh().await?;
+
+	let (_, body) = recv(&mut rx).await?;
+	let body = serde_json::from_slice(&body)
+		.map_err(|e| err!("changed memo delivery body was not json: {e}"))?;
+
+	assert_eq!(notification(&body)?.get("counts"), Some(&json!({"unread": 3})));
+
+	// The event notification carries the new total and stamps the memo, so
+	// the refresh behind it has nothing to add.
+	unread.put((fixture.user, room_id), 5_u64);
+	fixture
+		.services
+		.pusher
+		.send_push_notice(fixture.user, &pusher, fixture.ruleset, fixture.pdu)
+		.await?;
+
+	recv(&mut rx).await?;
+
+	refresh().await?;
+	match rx.try_recv() {
+		| Err(TryRecvError::Empty) => (),
+		| Err(TryRecvError::Disconnected) =>
+			return Err!("stub gateway channel closed after the event notice"),
+		| Ok(_) => return Err!("event-stamped badge total was re-sent to the gateway"),
+	}
+
+	// Replacement forgets the record: the unchanged total is sent again.
+	fixture
+		.services
+		.pusher
+		.set_pusher(fixture.user, fixture.device, &action)
+		.await?;
+
+	refresh().await?;
+
+	let (path, _) = recv(&mut rx).await?;
+
+	if path != NOTIFY_PATH {
+		return Err!("post-replacement badge notification hit unexpected path {path}");
+	}
+
+	Ok(())
+}
+
 /// Registers a pusher for `pushkey` at a fresh stub gateway, drives one
 /// notification, and returns the request path and parsed body the gateway
 /// received. The gateway answers `response_body`.
@@ -526,25 +617,8 @@ async fn deliver(
 	badge_only: bool,
 	response_body: &str,
 ) -> Result<(String, Value)> {
-	let listener = TcpListener::bind("127.0.0.1:0").await?;
-	let url = format!("http://{}{NOTIFY_PATH}", listener.local_addr()?);
-
-	let action = pusher_action(pushkey, url, event_id_only, false);
-
-	fixture
-		.services
-		.pusher
-		.set_pusher(fixture.user, fixture.device, &action)
-		.await?;
-
-	let pusher = fixture
-		.services
-		.pusher
-		.get_pusher(fixture.user, pushkey)
-		.await?;
-
-	let (tx, mut rx) = unbounded_channel();
-	let _stub = AbortOnDrop(spawn(stub_gateway(listener, tx, response_body.to_owned())));
+	let (pusher, _action, mut rx, _stub) =
+		stub_pusher(fixture, pushkey, event_id_only, false, response_body).await?;
 
 	let pusher_service = &fixture.services.pusher;
 
@@ -565,6 +639,39 @@ async fn deliver(
 		.map_err(|e| err!("push notification body was not json: {e}"))?;
 
 	Ok((path, body))
+}
+
+/// Registers a pusher for `pushkey` at a fresh stub gateway.
+///
+/// Returns the stored pusher, the action for re-registration, and the
+/// gateway's capture channel; the stub aborts when its handle drops.
+async fn stub_pusher(
+	fixture: &Fixture<'_>,
+	pushkey: &str,
+	event_id_only: bool,
+	disable_badge_count: bool,
+	response_body: &str,
+) -> Result<StubPusher> {
+	let listener = TcpListener::bind("127.0.0.1:0").await?;
+	let url = format!("http://{}{NOTIFY_PATH}", listener.local_addr()?);
+	let action = pusher_action(pushkey, url, event_id_only, disable_badge_count);
+
+	fixture
+		.services
+		.pusher
+		.set_pusher(fixture.user, fixture.device, &action)
+		.await?;
+
+	let pusher = fixture
+		.services
+		.pusher
+		.get_pusher(fixture.user, pushkey)
+		.await?;
+
+	let (tx, rx) = unbounded_channel();
+	let stub = AbortOnDrop(spawn(stub_gateway(listener, tx, response_body.to_owned())));
+
+	Ok((pusher, action, rx, stub))
 }
 
 fn pusher_action(

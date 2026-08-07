@@ -71,7 +71,9 @@ where
 
 /// Send an account-wide counts-only notification to a push gateway.
 ///
-/// Enabled HTTP pushers emit the request, including an explicit zero.
+/// Enabled HTTP pushers emit the request, including an explicit zero. The
+/// delivery is skipped only when the gateway is known to hold the current
+/// total already; an unknown gateway is always sent to.
 #[implement(super::Service)]
 #[tracing::instrument(level = "debug", skip_all)]
 pub async fn send_badge_notice(&self, user_id: &UserId, pusher: &Pusher) -> Result {
@@ -83,12 +85,17 @@ pub async fn send_badge_notice(&self, user_id: &UserId, pusher: &Pusher) -> Resu
 		return Ok(());
 	}
 
-	let device = self.prepare_http_pusher(pusher, http)?;
 	let unread = UInt::new(self.global_notification_count(user_id).await).unwrap_or(UInt::MAX);
+
+	if self.sent_badge(user_id, &pusher.ids.pushkey) == Some(unread) {
+		return Ok(());
+	}
+
+	let device = self.prepare_http_pusher(pusher, http)?;
 	let mut notify = Notification::new(vec![device]);
 	notify.counts = NotificationCounts::new_explicit(Some(unread), None);
 
-	self.send_http_notice(user_id, pusher, http, notify)
+	self.send_http_notice(user_id, pusher, http, notify, Some(unread))
 		.await
 }
 
@@ -172,7 +179,7 @@ async fn send_notice<Pdu: Event>(
 				notify.counts = NotificationCounts::new_explicit(Some(unread), None);
 			}
 
-			self.send_http_notice(user_id, pusher, http, notify)
+			self.send_http_notice(user_id, pusher, http, notify, unread)
 				.await
 		},
 		// TODO: Handle email
@@ -215,6 +222,12 @@ fn prepare_http_pusher(&self, pusher: &Pusher, http: &HttpPusherData) -> Result<
 	Ok(device)
 }
 
+/// Deliver one notification to the pusher's gateway and honor its verdict.
+///
+/// A pushkey the gateway names in `rejected` has its pusher removed. `unread`
+/// names the counts value on the wire; it is recorded as delivered only after
+/// the gateway accepts, so a failed or rejected send leaves the next refresh
+/// unconditional.
 #[implement(super::Service)]
 #[tracing::instrument(level = "debug", skip_all)]
 async fn send_http_notice(
@@ -223,16 +236,23 @@ async fn send_http_notice(
 	pusher: &Pusher,
 	http: &HttpPusherData,
 	notify: Notification,
+	unread: Option<UInt>,
 ) -> Result {
 	let response = self
 		.send_request(&http.url, Request::new(notify))
 		.await?;
 
-	if response.rejected.contains(&pusher.ids.pushkey) {
-		let pushkey = &pusher.ids.pushkey;
+	let pushkey = &pusher.ids.pushkey;
 
+	if response.rejected.contains(pushkey) {
 		warn!(url = %http.url, %pushkey, "Push gateway rejected the pushkey; removing pusher");
 		self.delete_pusher(user_id, pushkey).await;
+
+		return Ok(());
+	}
+
+	if let Some(unread) = unread {
+		self.record_sent_badge(user_id, pushkey, unread);
 	}
 
 	Ok(())
