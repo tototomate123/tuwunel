@@ -2283,6 +2283,7 @@ target "runtime" {
 base_pkgs = [
     "adduser",
     "ca-certificates",
+    "procps",
 ]
 
 target "base" {
