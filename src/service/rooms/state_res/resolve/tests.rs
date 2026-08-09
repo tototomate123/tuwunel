@@ -910,7 +910,7 @@ async fn auth_difference_three_sets_full_overlap() {
 	let result =
 		auth_difference_result(vec![auth_set(&["a"]), auth_set(&["a"]), auth_set(&["a"])]).await;
 
-	assert!(result.is_empty());
+	assert!(result.is_empty(), "{result:?}");
 }
 
 #[tokio::test]
@@ -924,14 +924,14 @@ async fn auth_difference_two_sets() {
 async fn auth_difference_no_sets() {
 	let result = auth_difference_result(vec![]).await;
 
-	assert!(result.is_empty());
+	assert!(result.is_empty(), "{result:?}");
 }
 
 #[tokio::test]
 async fn auth_difference_single_set() {
 	let result = auth_difference_result(vec![auth_set(&["a", "b", "c"])]).await;
 
-	assert!(result.is_empty());
+	assert!(result.is_empty(), "{result:?}");
 }
 
 // The subgraph is only events on `auth_events` paths between conflicted events

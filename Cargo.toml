@@ -880,44 +880,44 @@ opt-level = 'z'
 #
 
 [workspace.lints.rust]
-absolute-paths-not-starting-with-crate = "warn"
-ambiguous-negative-literals = "warn"
-closure-returning-async-block = "warn"
-deprecated-in-future = "warn"
-deref-into-dyn-supertrait = "warn"
-elided-lifetimes-in-paths = "warn"
-explicit-outlives-requirements = "warn"
-ffi-unwind-calls = "warn"
-impl-trait-redundant-captures = "warn"
-keyword-idents = "warn"
-macro-use-extern-crate = "warn"
-meta-variable-misuse = "warn"
-missing-abi = "warn"
-missing-copy-implementations = "warn"
-#missing-debug-implementations = "warn"                              # TODO
-non-ascii-idents = "warn"
-redundant-imports = "warn"
-redundant-lifetimes = "warn"
-rust-2021-incompatible-closure-captures = "warn"
-rust-2021-incompatible-or-patterns = "warn"
-rust-2021-prefixes-incompatible-syntax = "warn"
-rust-2021-prelude-collisions = "warn"
-semicolon-in-expressions-from-macros = "warn"
-single-use-lifetimes = "warn"
-trivial-casts = "warn"
-trivial-numeric-casts = "warn"
-unit-bindings = "warn"
-unnameable-types = "warn"
-unreachable-pub = "warn"
-unsafe-op-in-unsafe-fn = "warn"
-unstable-features = "warn"
-unused-extern-crates = "warn"
-unused-import-braces = "warn"
-unused-lifetimes = "warn"
-unused-macro-rules = "warn"
-unused-must-use = "warn"
-unused-qualifications = "warn"
-#unused-results = "warn"                                             # TODO
+absolute_paths_not_starting_with_crate = "warn"
+ambiguous_negative_literals = "warn"
+closure_returning_async_block = "warn"
+deprecated_in_future = "warn"
+deref_into_dyn_supertrait = "warn"
+elided_lifetimes_in_paths = "warn"
+explicit_outlives_requirements = "warn"
+ffi_unwind_calls = "warn"
+impl_trait_redundant_captures = "warn"
+keyword_idents = { level = "warn", priority = -1 }
+macro_use_extern_crate = "warn"
+meta_variable_misuse = "warn"
+missing_abi = "warn"
+missing_copy_implementations = "warn"
+#missing_debug_implementations = "warn"                              # TODO
+non_ascii_idents = "warn"
+redundant_imports = "warn"
+redundant_lifetimes = "warn"
+rust_2021_incompatible_closure_captures = "warn"
+rust_2021_incompatible_or_patterns = "warn"
+rust_2021_prefixes_incompatible_syntax = "warn"
+rust_2021_prelude_collisions = "warn"
+semicolon_in_expressions_from_macros = "warn"
+single_use_lifetimes = "warn"
+trivial_casts = "warn"
+trivial_numeric_casts = "warn"
+unit_bindings = "warn"
+unnameable_types = "warn"
+unreachable_pub = "warn"
+unsafe_op_in_unsafe_fn = "warn"
+unstable_features = "warn"
+unused_extern_crates = "warn"
+unused_import_braces = "warn"
+unused_lifetimes = "warn"
+unused_macro_rules = "warn"
+unused_must_use = "warn"
+unused_qualifications = "warn"
+#unused_results = "warn"                                             # TODO
 
 ## some sadness
 mismatched_lifetime_syntaxes = "allow"
@@ -1075,9 +1075,11 @@ style = { level = "warn", priority = -1 }
 ## some sadness
 # trivial assertions are quite alright
 assertions_on_constants = { level = "allow", priority = 1 }
+# async_trait marks its generated pinned-box futures must_use; not ours to remove
+double_must_use = { level = "allow", priority = 1 }
 module_inception = { level = "allow", priority = 1 }
 obfuscated_if_else = { level = "allow", priority = 1 }
-toplevel-ref-arg = { level = "allow", priority = 1 }
+toplevel_ref_arg = { level = "allow", priority = 1 }
 
 ###################
 suspicious = { level = "warn", priority = -1 }

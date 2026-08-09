@@ -1097,7 +1097,7 @@ fn txn_record_golden() {
 	assert_eq!(next_record(&mut records), Some((0, b"key".as_slice())));
 	assert_eq!(next_record(&mut records), Some((0, b"deleted".as_slice())));
 	assert_eq!(next_record(&mut records), Some((0, b"empty".as_slice())));
-	assert!(records.is_empty());
+	assert!(records.is_empty(), "{records:?}");
 }
 
 #[test]
@@ -1113,7 +1113,7 @@ fn txn_record_golden_long_key() {
 		.expect("batch shorter than its header");
 
 	assert_eq!(next_record(&mut records), Some((0, long.as_slice())));
-	assert!(records.is_empty());
+	assert!(records.is_empty(), "{records:?}");
 }
 
 #[test]
@@ -1125,7 +1125,7 @@ fn txn_record_cf() {
 
 	assert_eq!(next_record(&mut records), Some((200, b"k".as_slice())));
 	assert_eq!(next_record(&mut records), Some((9, b"del".as_slice())));
-	assert!(records.is_empty());
+	assert!(records.is_empty(), "{records:?}");
 }
 
 #[test]

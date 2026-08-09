@@ -175,7 +175,9 @@ mod tests {
 			.deserialize()
 			.expect("typing event should deserialize");
 
-		assert!(event.content.user_ids.is_empty());
+		let user_ids = event.content.user_ids;
+
+		assert!(user_ids.is_empty(), "{user_ids:?}");
 	}
 
 	#[test]
@@ -188,11 +190,15 @@ mod tests {
 		let missing =
 			collected(room_id, users.clone(), initial_only).into_response(&BTreeMap::new());
 
-		assert!(missing.rooms.is_empty());
+		let missing = missing.rooms;
+
+		assert!(missing.is_empty(), "{missing:?}");
 
 		let payloads = [(room_id.to_owned(), ResponseRoom::default())].into();
 		let noninitial = collected(room_id, users.clone(), initial_only).into_response(&payloads);
-		assert!(noninitial.rooms.is_empty());
+		let noninitial = noninitial.rooms;
+
+		assert!(noninitial.is_empty(), "{noninitial:?}");
 
 		let payload = ResponseRoom {
 			initial: Some(true),
