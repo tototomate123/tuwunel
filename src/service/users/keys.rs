@@ -19,7 +19,7 @@ use tuwunel_core::{
 		stream::{BroadbandExt, TryIgnore},
 	},
 };
-use tuwunel_database::{Deserialized, Ignore, Interfix, Json};
+use tuwunel_database::{Deserialized, Ignore, Interfix, Json, KeyBuf, serialize_key};
 
 type Servers = SmallVec<[OwnedServerName; 1]>;
 
@@ -367,68 +367,95 @@ pub async fn add_cross_signing_keys(
 	notify: bool,
 ) -> Result {
 	// TODO: Check signatures
-	let mut prefix = user_id.as_bytes().to_vec();
-	prefix.push(0xFF);
+	{
+		let master_key_key = master_key
+			.as_ref()
+			.map(|master_key| parse_master_key(user_id, master_key).map(|(key, _)| key))
+			.transpose()?;
 
-	if let Some(master_key) = master_key {
-		let (master_key_key, _) = parse_master_key(user_id, master_key)?;
+		let self_signing_key_key = self_signing_key
+			.as_ref()
+			.map(|self_signing_key| parse_self_signing_key(user_id, self_signing_key))
+			.transpose()?;
 
-		self.db
-			.keyid_key
-			.insert(&master_key_key, master_key.json().get().as_bytes());
+		let user_signing_key_id = user_signing_key
+			.as_ref()
+			.map(parse_user_signing_key)
+			.transpose()?;
 
-		self.db
-			.userid_masterkeyid
-			.insert(user_id.as_bytes(), &master_key_key);
-	}
+		let mut txn = self.services.db.txn();
 
-	// Self-signing key
-	if let Some(self_signing_key) = self_signing_key {
-		let mut self_signing_key_ids = self_signing_key
-			.deserialize()
-			.map_err(|e| err!(Request(InvalidParam("Invalid self signing key: {e:?}"))))?
-			.keys
-			.into_values();
-
-		let self_signing_key_id = self_signing_key_ids
-			.next()
-			.ok_or_else(|| err!(Request(InvalidParam("Self signing key contained no key."))))?;
-
-		if self_signing_key_ids.next().is_some() {
-			return Err!(Request(InvalidParam("Self signing key contained more than one key.")));
+		if let Some((master_key, master_key_key)) =
+			master_key.as_ref().zip(master_key_key.as_ref())
+		{
+			txn.insert_raw(
+				&self.db.keyid_key,
+				master_key_key,
+				master_key.json().get().as_bytes(),
+			);
+			txn.insert_raw(&self.db.userid_masterkeyid, user_id.as_bytes(), master_key_key);
 		}
 
-		let mut self_signing_key_key = prefix.clone();
-		self_signing_key_key.extend_from_slice(self_signing_key_id.as_bytes());
+		if let Some((self_signing_key, self_signing_key_key)) = self_signing_key
+			.as_ref()
+			.zip(self_signing_key_key.as_ref())
+		{
+			txn.insert_raw(
+				&self.db.keyid_key,
+				self_signing_key_key,
+				self_signing_key.json().get(),
+			);
+			txn.insert_raw(
+				&self.db.userid_selfsigningkeyid,
+				user_id.as_bytes(),
+				self_signing_key_key,
+			);
+		}
 
-		self.db
-			.keyid_key
-			.insert(&self_signing_key_key, self_signing_key.json().get().as_bytes());
+		if let Some((user_signing_key, user_signing_key_id)) = user_signing_key
+			.as_ref()
+			.zip(user_signing_key_id.as_ref())
+		{
+			let user_signing_key_key = (user_id, user_signing_key_id);
 
-		self.db
-			.userid_selfsigningkeyid
-			.insert(user_id.as_bytes(), &self_signing_key_key);
-	}
+			txn.put_raw(
+				&self.db.keyid_key,
+				user_signing_key_key,
+				user_signing_key.json().get().as_bytes(),
+			);
 
-	// User-signing key
-	if let Some(user_signing_key) = user_signing_key {
-		let user_signing_key_id = parse_user_signing_key(user_signing_key)?;
+			txn.raw_put(&self.db.userid_usersigningkeyid, user_id, user_signing_key_key);
+		}
 
-		let user_signing_key_key = (user_id, &user_signing_key_id);
-		self.db
-			.keyid_key
-			.put_raw(user_signing_key_key, user_signing_key.json().get().as_bytes());
-
-		self.db
-			.userid_usersigningkeyid
-			.raw_put(user_id, user_signing_key_key);
-	}
+		txn.execute();
+	};
 
 	if notify {
 		self.mark_device_key_update(user_id).await;
 	}
 
 	Ok(())
+}
+
+fn parse_self_signing_key(
+	user_id: &UserId,
+	self_signing_key: &Raw<CrossSigningKey>,
+) -> Result<KeyBuf> {
+	let mut self_signing_key_ids = self_signing_key
+		.deserialize()
+		.map_err(|e| err!(Request(InvalidParam("Invalid self signing key: {e:?}"))))?
+		.keys
+		.into_values();
+
+	let self_signing_key_id = self_signing_key_ids
+		.next()
+		.ok_or_else(|| err!(Request(InvalidParam("Self signing key contained no key."))))?;
+
+	if self_signing_key_ids.next().is_some() {
+		return Err!(Request(InvalidParam("Self signing key contained more than one key.")));
+	}
+
+	serialize_key((user_id, self_signing_key_id))
 }
 
 #[implement(super::Service)]
