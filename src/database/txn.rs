@@ -246,6 +246,53 @@ where
 	self.batch.put_cf(&map.cf(), key, val);
 }
 
+/// Serializes the key and queues one raw-value insertion.
+///
+/// The key uses the database record codec, while the value bytes are copied
+/// unchanged into the batch. The operation remains pending until
+/// [`Txn::execute`], and the map must belong to the transaction's database
+/// engine.
+///
+/// # Panics
+///
+/// Panics when the map belongs to another database engine or serialization of
+/// the key fails.
+#[implement(Txn)]
+pub fn put_raw<K, V>(&mut self, map: &Map, key: K, val: V)
+where
+	K: Serialize + Debug,
+	V: AsRef<[u8]>,
+{
+	self.assert_map(map);
+
+	let key = serialize_key(key).expect("failed to serialize batch key");
+
+	self.batch.put_cf(&map.cf(), key, val);
+}
+
+/// Queues one raw-key insertion after serializing the value.
+///
+/// The key bytes are copied unchanged into the batch, while the value uses the
+/// database record codec. The operation remains pending until [`Txn::execute`],
+/// and the map must belong to the transaction's database engine.
+///
+/// # Panics
+///
+/// Panics when the map belongs to another database engine or serialization of
+/// the value fails.
+#[implement(Txn)]
+pub fn raw_put<K, V>(&mut self, map: &Map, key: K, val: V)
+where
+	K: AsRef<[u8]>,
+	V: Serialize,
+{
+	self.assert_map(map);
+
+	let val = serialize_val(val).expect("failed to serialize batch val");
+
+	self.batch.put_cf(&map.cf(), key, val);
+}
+
 /// Serializes and queues one deletion.
 ///
 /// The key uses the database record codec, and the operation remains pending
