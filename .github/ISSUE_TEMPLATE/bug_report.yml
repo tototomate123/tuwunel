@@ -48,11 +48,16 @@ body:
       label: Database origin
       description: >-
         Was this database created by Tuwunel, or migrated from another
-        server implementation?
+        server implementation? Pick the exact one you migrated from; each
+        origin has its own schema history and its own class of bugs.
       options:
         - Created by Tuwunel
-        - Migrated from Conduit / conduwuit / conduwuit-lineage fork
+        - Migrated from Conduit
+        - Migrated from conduwuit
+        - Migrated from a conduwuit-lineage fork
         - Unsure
+    validations:
+      required: true
   - type: textarea
     id: description
     attributes:
