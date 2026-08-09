@@ -31,6 +31,7 @@ pub fn maximize_fd_limit() -> Result {
 }
 
 #[cfg(not(unix))]
+/// Performs no file-descriptor limit adjustment on unsupported platforms.
 pub fn maximize_fd_limit() -> Result { Ok(()) }
 
 #[cfg(all(unix, not(target_os = "macos")))]
@@ -54,6 +55,8 @@ pub fn maximize_thread_limit() -> Result {
 }
 
 #[cfg(any(not(unix), target_os = "macos"))]
+/// Performs no thread limit adjustment on platforms where nix does not expose
+/// `RLIMIT_NPROC`, notably macOS.
 pub fn maximize_thread_limit() -> Result { Ok(()) }
 
 /// Returns the soft and hard file-descriptor limits.
