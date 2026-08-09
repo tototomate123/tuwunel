@@ -406,22 +406,18 @@ async fn append_pdu_effects(
 fn append_pdu_json(&self, pdu_id: &RawPduId, pdu: &PduEvent, json: &CanonicalJsonObject) {
 	debug_assert!(matches!(pdu_id.pdu_count(), PduCount::Normal(_)), "PduCount not Normal");
 
-	self.db.pduid_pdu.raw_put(pdu_id, Json(json));
+	let mut txn = self.db.db.txn();
 
-	self.db
-		.eventid_pduid
-		.insert(pdu.event_id.as_bytes(), pdu_id);
+	txn.raw_put(&self.db.pduid_pdu, pdu_id, Json(json));
+	txn.insert_raw(&self.db.eventid_pduid, pdu.event_id.as_bytes(), pdu_id);
+	txn.del_raw(&self.db.eventid_outlierpdu, pdu.event_id.as_bytes());
 
-	self.db
-		.eventid_outlierpdu
-		.remove(pdu.event_id.as_bytes());
-
-	let ts = u64::from(pdu.origin_server_ts);
 	let count_key = bias_count(pdu_id.count());
+	let ts = u64::from(pdu.origin_server_ts);
+	let key = (pdu.room_id(), ts, count_key);
+	txn.put_raw(&self.db.roomid_tscount_pducount, key, pdu_id.count());
 
-	self.db
-		.roomid_tscount_pducount
-		.put_raw((pdu.room_id(), ts, count_key), pdu_id.count());
+	txn.execute();
 }
 
 #[cfg(test)]
