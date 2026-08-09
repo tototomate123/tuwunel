@@ -17,7 +17,7 @@ use tuwunel_core::{
 };
 
 use crate::{
-	Cbor, Database, Ignore, Interfix,
+	Cbor, Database, Ignore, Interfix, Txn,
 	de::from_slice,
 	keyval::{serialize_key, serialize_val},
 	ser,
@@ -1179,10 +1179,11 @@ async fn txn_insert_raw_preserves_bytes() -> Result {
 	let encoded_put_raw_key = serialize_key(put_raw_key)?;
 	let encoded_raw_put_value = serialize_val(raw_put_value)?;
 
-	let mut txn = database.txn();
+	let mut txn = Txn::insert_each([
+		(first.as_ref(), first_key, first_value),
+		(second.as_ref(), second_key, second_value),
+	]);
 
-	txn.insert_raw(first, first_key, first_value);
-	txn.insert_raw(second, second_key, second_value);
 	txn.put_raw(first, put_raw_key, put_raw_value);
 	txn.raw_put(second, raw_put_key, raw_put_value);
 
@@ -1219,10 +1220,13 @@ async fn txn_insert_raw_preserves_bytes() -> Result {
 	let watch = first.watch_raw_prefix(first_key);
 	let mut txn = database.txn();
 
-	txn.del_raw(first, first_key);
-	txn.del_raw(second, second_key);
-	txn.del_raw(first, &encoded_put_raw_key);
-	txn.del_raw(second, raw_put_key);
+	txn.extend([
+		(first.as_ref(), first_key),
+		(second.as_ref(), second_key),
+		(first.as_ref(), encoded_put_raw_key.as_ref()),
+		(second.as_ref(), raw_put_key),
+	]);
+
 	txn.execute();
 
 	watch.await;

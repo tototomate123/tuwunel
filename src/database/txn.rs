@@ -152,14 +152,12 @@ where
 		.next()
 		.expect("insert_each: at least one item");
 
-	let txn = Self::new(map.engine());
+	let mut txn = Self::new(map.engine());
 
-	once((map, key, val))
-		.chain(items)
-		.fold(txn, |mut txn, (map, key, val)| {
-			txn.insert_raw(map, key, val);
-			txn
-		})
+	txn.insert_raw(map, key, val);
+	txn.extend(items);
+
+	txn
 }
 
 /// Queues a nonempty raw slice across maps with a capacity estimate.
@@ -184,13 +182,15 @@ where
 
 	let capacity_bytes = size_hint(items.iter().map(|(_, key, val)| (key, val)));
 
-	items.iter().fold(
-		Self::with_capacity_bytes(map.engine(), capacity_bytes),
-		|mut txn, (map, key, val)| {
-			txn.insert_raw(map, key, val);
-			txn
-		},
-	)
+	let mut txn = Self::with_capacity_bytes(map.engine(), capacity_bytes);
+
+	txn.extend(
+		items
+			.iter()
+			.map(|(map, key, val)| (*map, key, val)),
+	);
+
+	txn
 }
 
 /// Serializes and queues entries across maps from a nonempty pass.
@@ -488,6 +488,52 @@ impl<'a> Iterator for Keys<'a> {
 		}
 
 		None
+	}
+}
+
+/// Extends this transaction with raw insertions across maps.
+///
+/// Each tuple queues its raw key and value through [`Txn::insert_raw`]. Use
+/// [`Txn::put_each`] when the keys and values need serialization. Every map
+/// must belong to the transaction's database engine.
+///
+/// # Panics
+///
+/// Panics when any map belongs to another database engine.
+impl<'a, K, V> Extend<(&'a Map, K, V)> for Txn
+where
+	K: AsRef<[u8]>,
+	V: AsRef<[u8]>,
+{
+	fn extend<I>(&mut self, items: I)
+	where
+		I: IntoIterator<Item = (&'a Map, K, V)>,
+	{
+		for (map, key, val) in items {
+			self.insert_raw(map, key, val);
+		}
+	}
+}
+
+/// Extends this transaction with raw-key deletions across maps.
+///
+/// Each tuple queues its raw key through [`Txn::del_raw`]. Every map must
+/// belong to the transaction's database engine.
+///
+/// # Panics
+///
+/// Panics when any map belongs to another database engine.
+impl<'a, K> Extend<(&'a Map, K)> for Txn
+where
+	K: AsRef<[u8]>,
+{
+	fn extend<I>(&mut self, items: I)
+	where
+		I: IntoIterator<Item = (&'a Map, K)>,
+	{
+		for (map, key) in items {
+			self.del_raw(map, key);
+		}
 	}
 }
 
