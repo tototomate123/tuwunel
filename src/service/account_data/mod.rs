@@ -203,20 +203,23 @@ pub fn changes_since_fallible<'a>(
 #[implement(Service)]
 pub async fn erase_user(&self, user_id: &UserId, room_id: Option<&RoomId>) {
 	let prefix = (room_id, user_id, Interfix);
+	let mut txn = self.services.db.txn();
 
 	self.db
 		.roomuserdataid_accountdata
 		.keys_prefix_raw(&prefix)
 		.ignore_err()
-		.ready_for_each(|key| self.db.roomuserdataid_accountdata.remove(key))
+		.ready_for_each(|key| txn.del_raw(&self.db.roomuserdataid_accountdata, key))
 		.await;
 
 	self.db
 		.roomusertype_roomuserdataid
 		.keys_prefix_raw(&prefix)
 		.ignore_err()
-		.ready_for_each(|key| self.db.roomusertype_roomuserdataid.remove(key))
+		.ready_for_each(|key| txn.del_raw(&self.db.roomusertype_roomuserdataid, key))
 		.await;
+
+	txn.execute();
 }
 
 /// Returns all changes to the account data that happened after `since`.
