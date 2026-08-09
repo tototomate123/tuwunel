@@ -61,10 +61,6 @@ pub async fn update(
 
 	let count = self.services.globals.next_count();
 	let roomuserdataid = (room_id, user_id, *count, &event_type);
-	self.db
-		.roomuserdataid_accountdata
-		.put(roomuserdataid, Json(data));
-
 	let key = (room_id, user_id, &event_type);
 	let prev = self
 		.db
@@ -72,14 +68,16 @@ pub async fn update(
 		.qry(&key)
 		.await;
 
-	self.db
-		.roomusertype_roomuserdataid
-		.put(key, roomuserdataid);
+	let mut txn = self.services.db.txn();
 
-	// Remove old entry
+	txn.put(&self.db.roomuserdataid_accountdata, roomuserdataid, Json(data));
+	txn.put(&self.db.roomusertype_roomuserdataid, key, roomuserdataid);
+
 	if let Ok(prev) = prev {
-		self.db.roomuserdataid_accountdata.remove(&prev);
+		txn.del_raw(&self.db.roomuserdataid_accountdata, prev);
 	}
+
+	txn.execute();
 
 	Ok(())
 }
