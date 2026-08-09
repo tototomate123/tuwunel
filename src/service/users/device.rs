@@ -21,7 +21,7 @@ use tuwunel_core::{
 		},
 	},
 };
-use tuwunel_database::{Cbor, Deserialized, Ignore, Interfix, Json, Map};
+use tuwunel_database::{Cbor, Deserialized, Ignore, Interfix, Json, Map, Txn};
 
 /// generated device ID length
 const DEVICE_ID_LENGTH: usize = 10;
@@ -425,20 +425,24 @@ async fn find_refresh_token_expires_at(
 #[implement(super::Service)]
 pub async fn remove_refresh_token(&self, user_id: &UserId, device_id: &DeviceId) -> Result {
 	let userdeviceid = (user_id, device_id);
-
-	if let Ok(refresh_token) = self
+	let refresh_token = self
 		.db
 		.userdeviceid_refresh
 		.qry(&userdeviceid)
-		.await
-	{
-		self.db.token_userdeviceid.remove(&refresh_token);
+		.await;
+
+	let mut txn = self.services.db.txn();
+
+	if let Ok(refresh_token) = refresh_token {
+		txn.del_raw(&self.db.token_userdeviceid, &refresh_token);
 	}
 
-	self.db.userdeviceid_refresh.del(userdeviceid);
+	txn.del(&self.db.userdeviceid_refresh, userdeviceid);
 
-	self.forget_spent_refresh_token(user_id, device_id)
+	self.forget_spent_refresh_token(user_id, device_id, &mut txn)
 		.await;
+
+	txn.execute();
 
 	Ok(())
 }
@@ -446,7 +450,12 @@ pub async fn remove_refresh_token(&self, user_id: &UserId, device_id: &DeviceId)
 /// Drop the spent (previous-generation) refresh token retained for reuse
 /// detection, if any.
 #[implement(super::Service)]
-async fn forget_spent_refresh_token(&self, user_id: &UserId, device_id: &DeviceId) {
+async fn forget_spent_refresh_token(
+	&self,
+	user_id: &UserId,
+	device_id: &DeviceId,
+	txn: &mut Txn,
+) {
 	let userdeviceid = (user_id, device_id);
 
 	if let Ok(spent) = self
@@ -455,12 +464,10 @@ async fn forget_spent_refresh_token(&self, user_id: &UserId, device_id: &DeviceI
 		.qry(&userdeviceid)
 		.await
 	{
-		self.db.spentrefresh_userdeviceid.remove(&spent);
+		txn.del_raw(&self.db.spentrefresh_userdeviceid, &spent);
 	}
 
-	self.db
-		.userdeviceid_spentrefresh
-		.del(userdeviceid);
+	txn.del(&self.db.userdeviceid_spentrefresh, userdeviceid);
 }
 
 /// Classification of a refresh token presented for rotation at a token
