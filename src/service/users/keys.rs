@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, mem};
+use std::{collections::BTreeMap, mem, ops::Deref};
 
 use futures::{Stream, StreamExt, TryFutureExt, pin_mut};
 use ruma::{
@@ -19,7 +19,7 @@ use tuwunel_core::{
 		stream::{BroadbandExt, TryIgnore},
 	},
 };
-use tuwunel_database::{Deserialized, Ignore, Interfix, Json, KeyBuf, serialize_key};
+use tuwunel_database::{Deserialized, Ignore, Interfix, Json, KeyBuf, Txn, serialize_key};
 
 type Servers = SmallVec<[OwnedServerName; 1]>;
 
@@ -38,20 +38,37 @@ struct FallbackEntry {
 type OtkRowKey<'a> = (&'a UserId, &'a DeviceId, u64, &'a OneTimeKeyId);
 
 #[implement(super::Service)]
-pub async fn add_one_time_keys<'a, Keys>(
+pub async fn add_one_time_keys(
 	&self,
 	user_id: &UserId,
 	device_id: &DeviceId,
-	keys: Keys,
-) -> Result
-where
-	Keys: Iterator<Item = (&'a OneTimeKeyId, &'a Raw<OneTimeKey>)> + Send + 'a,
-{
-	for (id, key) in keys {
-		self.add_one_time_key(user_id, device_id, id, key)
+	keys: &BTreeMap<OwnedOneTimeKeyId, Raw<OneTimeKey>>,
+	limit: usize,
+) -> Result {
+	let mut txn = self.services.db.txn();
+	// Hold the oldest permit so the retirement frontier cannot pass this batch
+	// before commit.
+	let mut oldest_count = None;
+	let mut last_count = None;
+
+	for (id, key) in keys.iter().take(limit) {
+		let Ok(Some(count)) = self
+			.add_one_time_key(user_id, device_id, id, key, &mut txn)
 			.await
-			.ok();
+		else {
+			continue;
+		};
+
+		last_count = Some(*count);
+		oldest_count = oldest_count.or(Some(count));
 	}
+
+	if let Some(count) = last_count {
+		txn.raw_put(&self.db.userid_lastonetimekeyupdate, user_id, count);
+	}
+
+	txn.execute();
+	drop(oldest_count);
 
 	Ok(())
 }
@@ -63,7 +80,8 @@ pub async fn add_one_time_key(
 	device_id: &DeviceId,
 	one_time_key_key: &KeyId<OneTimeKeyAlgorithm, OneTimeKeyName>,
 	one_time_key_value: &Raw<OneTimeKey>,
-) -> Result {
+	txn: &mut Txn,
+) -> Result<Option<impl Deref<Target = u64> + Send + use<>>> {
 	let Some(otk) = self.db.onetimekeyid4225_otk.as_ref() else {
 		return Err!(Database("one-time-key column unavailable"));
 	};
@@ -99,23 +117,20 @@ pub async fn add_one_time_key(
 		.await;
 
 	if already_present {
-		return Ok(());
+		return Ok(None);
 	}
 
 	let count = self.services.globals.next_count();
 
 	// MSC4225: RocksDB iterates the (user, device) prefix in count_be ascending
 	// order, so /keys/claim issues one-time keys in the order they were uploaded.
-	otk.put(
+	txn.put(
+		otk,
 		(user_id, device_id, *count, one_time_key_key.as_str()),
 		Json(one_time_key_value),
 	);
 
-	self.db
-		.userid_lastonetimekeyupdate
-		.raw_put(user_id, *count);
-
-	Ok(())
+	Ok(Some(count))
 }
 
 #[implement(super::Service)]
@@ -128,11 +143,30 @@ pub async fn add_fallback_keys<'a, Keys>(
 where
 	Keys: Iterator<Item = (&'a OneTimeKeyId, &'a Raw<OneTimeKey>)> + Send + 'a,
 {
+	let mut txn = self.services.db.txn();
+	// Hold the oldest permit so the retirement frontier cannot pass this batch
+	// before commit.
+	let mut oldest_count = None;
+	let mut last_count = None;
+
 	for (id, key) in keys {
-		self.add_fallback_key(user_id, device_id, id, key)
+		let Ok(count) = self
+			.add_fallback_key(user_id, device_id, id, key, &mut txn)
 			.await
-			.ok();
+		else {
+			continue;
+		};
+
+		last_count = Some(*count);
+		oldest_count = oldest_count.or(Some(count));
 	}
+
+	if let Some(count) = last_count {
+		txn.raw_put(&self.db.userid_lastonetimekeyupdate, user_id, count);
+	}
+
+	txn.execute();
+	drop(oldest_count);
 
 	Ok(())
 }
@@ -144,7 +178,8 @@ pub async fn add_fallback_key(
 	device_id: &DeviceId,
 	one_time_key_key: &KeyId<OneTimeKeyAlgorithm, OneTimeKeyName>,
 	one_time_key_value: &Raw<OneTimeKey>,
-) -> Result {
+	txn: &mut Txn,
+) -> Result<impl Deref<Target = u64> + Send + use<>> {
 	if !self.device_exists(user_id, device_id).await {
 		return Err!(Database(error!(
 			?user_id,
@@ -173,16 +208,11 @@ pub async fn add_fallback_key(
 	};
 
 	let key = (user_id, device_id, one_time_key_key.algorithm());
-	self.db
-		.userdeviceidalgorithm_fallback
-		.put(key, Json(&entry));
-
 	let count = self.services.globals.next_count();
-	self.db
-		.userid_lastonetimekeyupdate
-		.raw_put(user_id, *count);
 
-	Ok(())
+	txn.put(&self.db.userdeviceidalgorithm_fallback, key, Json(&entry));
+
+	Ok(count)
 }
 
 #[implement(super::Service)]
