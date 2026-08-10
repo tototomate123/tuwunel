@@ -14,7 +14,7 @@ use sentry::{
 		protocol::v7::{Context, Event},
 	},
 };
-use tuwunel_core::{config::Config, debug, trace};
+use tuwunel_core::{config::Config, debug, error, error::error_chain, trace};
 
 static SEND_PANIC: OnceLock<bool> = OnceLock::new();
 static SEND_ERROR: OnceLock<bool> = OnceLock::new();
@@ -77,6 +77,12 @@ fn build_transport(options: &ClientOptions) -> Arc<dyn Transport> {
 		.flatten()
 		.fold(builder, ClientBuilder::proxy)
 		.build()
+		.inspect_err(|e| {
+			error!(
+				chain = %error_chain(e),
+				"Failed to build the sentry transport client",
+			);
+		})
 		.expect("reqwest client must build for sentry transport");
 
 	let transport_options = TransportOptions::try_from_client_options(options)
