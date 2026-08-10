@@ -2284,6 +2284,8 @@ target "runtime" {
 base_pkgs = [
     "adduser",
     "ca-certificates",
+    # procps owns /usr/bin/kill, which the reload documented for containers
+    # in docs/deploying/configuration-reload.md invokes.
     "procps",
 ]
 
