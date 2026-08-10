@@ -357,18 +357,10 @@ async fn apply_preset_state_pdus(
 				)
 			});
 
-	let guest_access_pdubuilder =
-		take_initial(&mut initial_state, &StateEventType::RoomGuestAccess, "")
-			.map(Into::into)
-			.unwrap_or_else(|| {
-				PduBuilder::state(
-					String::new(),
-					&RoomGuestAccessEventContent::new(match preset {
-						| RoomPreset::PublicChat => GuestAccess::Forbidden,
-						| _ => GuestAccess::CanJoin,
-					}),
-				)
-			});
+	let guest_access = guest_access_pdu(
+		take_initial(&mut initial_state, &StateEventType::RoomGuestAccess, "").map(Into::into),
+		preset,
+	);
 
 	// 5.1 Join Rules
 	services
@@ -385,13 +377,23 @@ async fn apply_preset_state_pdus(
 		.await?;
 
 	// 5.3 Guest Access
-	services
-		.timeline
-		.build_and_append_pdu(guest_access_pdubuilder, sender_user, room_id, state_lock)
-		.boxed()
-		.await?;
+	if let Some(guest_access) = guest_access {
+		services
+			.timeline
+			.build_and_append_pdu(guest_access, sender_user, room_id, state_lock)
+			.boxed()
+			.await?;
+	}
 
 	Ok(initial_state)
+}
+
+fn guest_access_pdu(initial: Option<PduBuilder>, preset: &RoomPreset) -> Option<PduBuilder> {
+	let can_join = || {
+		PduBuilder::state(String::new(), &RoomGuestAccessEventContent::new(GuestAccess::CanJoin))
+	};
+
+	initial.or_else(|| preset.ne(&RoomPreset::PublicChat).then(can_join))
 }
 
 async fn apply_initial_state_pdus(
@@ -1019,6 +1021,13 @@ mod tests {
 
 	use super::*;
 
+	fn guest_access(pdu: &PduBuilder) -> GuestAccess {
+		pdu.content
+			.deserialize_as_unchecked::<RoomGuestAccessEventContent>()
+			.expect("guest access content")
+			.guest_access
+	}
+
 	#[test]
 	fn default_power_levels_content_applies_server_default_override() {
 		let version_rules = rules(&RoomVersionId::V11).expect("supported room version");
@@ -1070,5 +1079,34 @@ mod tests {
 
 		assert_eq!(content["users_default"], json!(50));
 		assert_eq!(content["users"][creator.as_str()], json!(100));
+	}
+
+	#[test]
+	fn public_chat_omits_default_guest_access() {
+		assert!(guest_access_pdu(None, &RoomPreset::PublicChat).is_none());
+	}
+
+	#[test]
+	fn private_presets_default_to_guest_access() {
+		for preset in [RoomPreset::PrivateChat, RoomPreset::TrustedPrivateChat] {
+			let pdu = guest_access_pdu(None, &preset).expect("guest access pdu");
+
+			assert_eq!(pdu.event_type, TimelineEventType::RoomGuestAccess);
+			assert_eq!(pdu.state_key.as_deref(), Some(""));
+			assert_eq!(guest_access(&pdu), GuestAccess::CanJoin);
+		}
+	}
+
+	#[test]
+	fn explicit_guest_access_survives_public_preset() {
+		let explicit = PduBuilder::state(
+			String::new(),
+			&RoomGuestAccessEventContent::new(GuestAccess::Forbidden),
+		);
+
+		let pdu = guest_access_pdu(Some(explicit), &RoomPreset::PublicChat)
+			.expect("explicit guest access pdu");
+
+		assert_eq!(guest_access(&pdu), GuestAccess::Forbidden);
 	}
 }
