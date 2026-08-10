@@ -4,16 +4,16 @@ Tuwunel runs the [Complement](https://github.com/matrix-org/complement) Matrix h
 
 ## Counts
 
-- Test groups: 205. Passing: **82.4%**
-  - ✅ `pass`: 169
+- Test groups: 205. Passing: **82.9%**
+  - ✅ `pass`: 170
   - 🟨 `some`: 16
-  - ❌ `fail`: 18
-  - ⬛ `skip`: 2
+  - ❌ `fail`: 19
+  - ⬛ `skip`: 0
 
-- Subtests: 587. Passing: **78.9%**
-  - ✅ `pass`: 463
-  - ❌ `fail`: 111
-  - ⬛ `skip`: 13
+- Subtests: 595. Passing: **78.5%**
+  - ✅ `pass`: 467
+  - ❌ `fail`: 120
+  - ⬛ `skip`: 8
 
 ## All Top-Level Tests
 
@@ -26,7 +26,7 @@ Tuwunel runs the [Complement](https://github.com/matrix-org/complement) Matrix h
 | ✅ | 6/0/0 | `AsyncUpload` |
 | ✅ | – | `AvatarUrlUpdate` |
 | ✅ | – | `BannedUserCannotSendJoin` |
-| ⬛ | – | `CanRegisterAdmin` |
+| ✅ | – | `CanRegisterAdmin` |
 | ✅ | – | `CannotKickLeftUser` |
 | ✅ | – | `CannotKickNonPresentUser` |
 | ✅ | 6/0/0 | `CannotSendKnockViaSendKnockInMSC3787Room` |
@@ -140,7 +140,7 @@ Tuwunel runs the [Complement](https://github.com/matrix-org/complement) Matrix h
 | ❌ | – | `OutboundFederationIgnoresMissingEventWithBadJSONForRoomVersion6` |
 | ✅ | 1/0/0 | `OutboundFederationProfile` |
 | ✅ | – | `OutboundFederationSend` |
-| ❌ | 0/58/7 | `PartialStateJoin` |
+| ❌ | 0/59/6 | `PartialStateJoin` |
 | ✅ | 1/0/0 | `PollsLocalPushRules` |
 | ✅ | 3/0/0 | `PowerLevels` |
 | 🟨 | 4/1/0 | `Presence` |
@@ -152,7 +152,7 @@ Tuwunel runs the [Complement](https://github.com/matrix-org/complement) Matrix h
 | 🟨 | 3/2/0 | `PushRuleRoomUpgrade` |
 | ✅ | 5/0/0 | `PushSync` |
 | ✅ | 1/0/0 | `Redact` |
-| ✅ | 19/0/4 | `Registration` |
+| ✅ | 23/0/0 | `Registration` |
 | ✅ | – | `Relations` |
 | ✅ | – | `RelationsPagination` |
 | ✅ | – | `RelationsPaginationSync` |
@@ -195,7 +195,7 @@ Tuwunel runs the [Complement](https://github.com/matrix-org/complement) Matrix h
 | ❌ | – | `SendJoinPartialStateResponse` |
 | ✅ | – | `SendMessageWithTxn` |
 | ✅ | – | `ServerCapabilities` |
-| ⬛ | – | `ServerNotices` |
+| ❌ | 0/8/0 | `ServerNotices` |
 | 🟨 | 10/3/0 | `Sync` |
 | ✅ | 2/0/0 | `SyncFilter` |
 | ✅ | 3/0/0 | `SyncLeaveSection` |
