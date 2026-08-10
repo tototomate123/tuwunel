@@ -57,8 +57,8 @@ pub struct MembershipUpdate<'a> {
 
 	/// Servers supplied as routing hints for an invite.
 	///
-	/// Invite handling stores non-empty lists after committing the membership
-	/// indexes.
+	/// Invite handling stores only non-empty lists. The routing hints commit
+	/// with the membership indexes.
 	pub invite_via: Option<Vec<OwnedServerName>>,
 
 	/// Whether to rebuild the room's aggregate membership counts.
@@ -367,12 +367,13 @@ pub(crate) async fn mark_as_invited(
 	txn.del_raw(&self.db.roomuserid_leftcount, &roomuser_id);
 	txn.del_raw(&self.db.userroomid_knockedstate, &userroom_id);
 	txn.del_raw(&self.db.roomuserid_knockedcount, &roomuser_id);
-	txn.execute();
 
 	if let Some(servers) = invite_via.filter(is_not_empty!()) {
-		self.add_servers_invite_via(room_id, servers)
+		self.add_servers_invite_via(&mut txn, room_id, servers)
 			.await;
 	}
+
+	txn.execute();
 }
 
 #[implement(super::Service)]
