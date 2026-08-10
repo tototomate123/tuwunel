@@ -130,7 +130,7 @@ struct Notification {
 /// stale. The deeper indexes are read only when a loser exists.
 #[tracing::instrument(level = "debug", skip_all)]
 pub(super) async fn scan(services: &Services) -> Result<Scan> {
-	info!("Scanning short id mappings for injectivity.");
+	info!("Scanning ShortID columns for duplicate values...");
 
 	let counter = services.globals.current_count();
 
@@ -192,13 +192,15 @@ pub(super) fn anomalous(&self) -> bool {
 		|| self.malformed_diffs > 0
 }
 
-/// Scans one family in three passes: reverse keys, forward values, then
-/// the reverse rows again for losers and their identities.
+/// Scans one family in two passes, and a third only where the bitmaps
+/// disagree.
 ///
 /// The reverse bitmap completes before the forward stream begins, so a
 /// concurrent allocation surfaces only forward-side and cannot be counted
-/// dangling or stale. Returns the family and its reverse-key bitmap, which
-/// the deep sweep reuses to detect orphaned statediff entries.
+/// dangling or stale. The third pass names each loser and its identity; on
+/// a clean family the bitmap difference proves there are none, so it never
+/// runs. Returns the family and its reverse-key bitmap, which the deep sweep
+/// reuses to detect orphaned statediff entries.
 #[tracing::instrument(
 	level = "debug",
 	skip_all,
@@ -216,12 +218,16 @@ async fn family(
 ) -> (Family, Bits) {
 	let db = &services.db;
 
-	let (reverse_bits, reverse_malformed) = reverse_bitmap(&db[reverse], words).await;
+	let (reverse_bits, rows, reverse_malformed) = reverse_bitmap(&db[reverse], words).await;
 
 	let (forward_bits, dangling, forward_malformed) =
 		dangling_winners(&db[forward], &reverse_bits, counter, words).await;
 
-	let (rows, candidates) = loser_candidates(&db[reverse], &forward_bits, counter).await;
+	// A set reverse bit no forward value claims is what the pass collects.
+	let candidates = match any_unclaimed(&reverse_bits, &forward_bits, counter) {
+		| false => Candidates::new(),
+		| true => loser_candidates(&db[reverse], &forward_bits, counter).await,
+	};
 
 	drop(forward_bits);
 
@@ -245,22 +251,28 @@ async fn family(
 		"Scanned one short id family."
 	);
 
+	info!(?forward, ?reverse, "Finished scanning column pair.",);
+
 	(family, reverse_bits)
 }
 
-/// Streams a reverse map into its keyset bitmap.
+/// Streams a reverse map into its keyset bitmap, its row count, and its
+/// count of keys that are not an 8-byte short id.
 ///
-/// The second element counts keys that are not an 8-byte short id.
-async fn reverse_bitmap(map: &Arc<Map>, words: usize) -> (Bits, u64) {
+/// The rows are counted here rather than in the loser pass, which a clean
+/// family skips.
+async fn reverse_bitmap(map: &Arc<Map>, words: usize) -> (Bits, u64, u64) {
 	map.raw_keys()
 		.ignore_err()
-		.ready_fold((vec![0_u64; words], 0_u64), |(mut bits, malformed), key| {
+		.ready_fold((vec![0_u64; words], 0_u64, 0_u64), |(mut bits, rows, malformed), key| {
+			let rows = rows.saturating_add(1);
+
 			match short_of(key) {
-				| None => (bits, malformed.saturating_add(1)),
+				| None => (bits, rows, malformed.saturating_add(1)),
 				| Some(short) => {
 					set_bit(&mut bits, short);
 
-					(bits, malformed)
+					(bits, rows, malformed)
 				},
 			}
 		})
@@ -297,17 +309,40 @@ async fn dangling_winners(
 		.await
 }
 
+/// Whether any reverse key's short id went unclaimed by a forward value.
+///
+/// The bitmaps round up to a whole word, so ids past the counter are
+/// addressable in the last one and are masked off. The mask keeps the
+/// counter's own bit, matching the bound the loser pass applies.
+fn any_unclaimed(reverse_bits: &[u64], forward_bits: &[u64], counter: u64) -> bool {
+	let last = usize::try_from(counter / 64).unwrap_or(usize::MAX);
+	let tail = u64::MAX >> 63_u64.saturating_sub(counter % 64);
+
+	debug_assert_eq!(reverse_bits.len(), last.saturating_add(1), "bitmap spans the counter");
+	debug_assert_eq!(forward_bits.len(), reverse_bits.len(), "bitmaps span one id space");
+
+	reverse_bits
+		.iter()
+		.copied()
+		.zip(forward_bits.iter().copied())
+		.enumerate()
+		.any(|(word, (reverse, forward))| {
+			let mask = match word < last {
+				| true => u64::MAX,
+				| false => tail,
+			};
+
+			(reverse & !forward & mask) != 0
+		})
+}
+
 /// Collects reverse keys no forward value claims.
 ///
 /// The identity each row names rides along for the dereference pass.
-async fn loser_candidates(
-	map: &Arc<Map>,
-	forward_bits: &[u64],
-	counter: u64,
-) -> (u64, Candidates) {
+async fn loser_candidates(map: &Arc<Map>, forward_bits: &[u64], counter: u64) -> Candidates {
 	map.raw_stream()
 		.ignore_err()
-		.ready_fold((0_u64, Candidates::new()), |(rows, mut candidates), (key, value)| {
+		.ready_fold(Candidates::new(), |mut candidates, (key, value)| {
 			let unclaimed =
 				short_of(key).filter(|short| *short <= counter && !get_bit(forward_bits, *short));
 
@@ -315,7 +350,7 @@ async fn loser_candidates(
 				candidates.push((short, Identity::from_slice(value)));
 			}
 
-			(rows.saturating_add(1), candidates)
+			candidates
 		})
 		.await
 }
@@ -476,7 +511,7 @@ async fn sweep(
 		})
 		.await;
 
-	debug!(
+	warn!(
 		dirty,
 		entries,
 		infected = counts.infected.len(),
