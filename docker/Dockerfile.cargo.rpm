@@ -56,8 +56,12 @@ ARG pkg_dir
 
 WORKDIR ${pkg_dir}
 COPY --link --from=rpm . .
+# dnf resolves the Requires the package declares, where rpm -i only asserts
+# they are installed already and failed on anything the base image happened
+# not to carry. An unsigned local package installs regardless of the gpgcheck
+# in dnf.conf, which localpkg_gpgcheck governs and leaves off by default.
 RUN <<EOF
 	set -eux
-	rpm -i --test tuwunel.rpm
-	rpm -i tuwunel.rpm
+	rpm -qip tuwunel.rpm
+	dnf -y install ./tuwunel.rpm
 EOF

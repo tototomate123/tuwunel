@@ -63,9 +63,14 @@ ARG pkg_dir
 
 WORKDIR ${pkg_dir}
 COPY --from=deb . .
+# apt resolves the Depends the package declares, where dpkg only asserts they
+# are installed already. The runtime image carries no more than base_pkgs, so
+# a bare dpkg --install failed on each dependency the package gained until
+# that list was edited to match it.
 RUN <<EOF
 	set -eux
 	dpkg --info tuwunel.deb
 	dpkg --contents tuwunel.deb
-	dpkg --install tuwunel.deb
+	apt-get -y update
+	apt-get -y install --no-install-recommends ./tuwunel.deb
 EOF
