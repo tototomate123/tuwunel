@@ -4,15 +4,15 @@ Tuwunel runs the [Complement](https://github.com/matrix-org/complement) Matrix h
 
 ## Counts
 
-- Test groups: 205. Passing: **82.0%**
-  - ✅ `pass`: 168
-  - 🟨 `some`: 17
+- Test groups: 205. Passing: **82.4%**
+  - ✅ `pass`: 169
+  - 🟨 `some`: 16
   - ❌ `fail`: 18
   - ⬛ `skip`: 2
 
-- Subtests: 587. Passing: **77.9%**
-  - ✅ `pass`: 457
-  - ❌ `fail`: 117
+- Subtests: 587. Passing: **78.9%**
+  - ✅ `pass`: 463
+  - ❌ `fail`: 111
   - ⬛ `skip`: 13
 
 ## All Top-Level Tests
@@ -79,7 +79,7 @@ Tuwunel runs the [Complement](https://github.com/matrix-org/complement) Matrix h
 | ✅ | – | `GetMissingEventsGapFilling` |
 | ✅ | – | `GetRoomMembers` |
 | ❌ | – | `GetRoomMembersAtPoint` |
-| ❌ | 0/4/0 | `InboundCanReturnMissingEvents` |
+| ✅ | 4/0/0 | `InboundCanReturnMissingEvents` |
 | ✅ | – | `InboundFederationKeys` |
 | ✅ | 2/0/0 | `InboundFederationProfile` |
 | ❌ | – | `InboundFederationRejectsEventsWithRejectedAuthEvents` |
@@ -175,7 +175,7 @@ Tuwunel runs the [Complement](https://github.com/matrix-org/complement) Matrix h
 | ✅ | 5/0/0 | `RoomAlias` |
 | ✅ | 10/0/0 | `RoomCanonicalAlias` |
 | ✅ | 15/0/0 | `RoomCreate` |
-| 🟨 | 4/2/0 | `RoomCreationReportsEventsToMyself` |
+| ✅ | 6/0/0 | `RoomCreationReportsEventsToMyself` |
 | 🟨 | 7/2/0 | `RoomDeleteAlias` |
 | 🟨 | 6/2/0 | `RoomForget` |
 | ✅ | – | `RoomImageRoundtrip` |
@@ -192,7 +192,7 @@ Tuwunel runs the [Complement](https://github.com/matrix-org/complement) Matrix h
 | ✅ | 9/0/0 | `RoomsInvite` |
 | ✅ | 7/0/0 | `Search` |
 | ✅ | – | `SendAndFetchMessage` |
-| ✅ | – | `SendJoinPartialStateResponse` |
+| ❌ | – | `SendJoinPartialStateResponse` |
 | ✅ | – | `SendMessageWithTxn` |
 | ✅ | – | `ServerCapabilities` |
 | ⬛ | – | `ServerNotices` |
