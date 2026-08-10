@@ -2250,18 +2250,18 @@ checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 
 [[package]]
 name = "jevmalloc"
-version = "0.0.0+5.3.0-1-g54eaed1d8b56b1aa528be3bdd1877e59c56fa90c"
-source = "git+https://github.com/matrix-construct/jevmalloc?rev=192b66e1a4d2c16bd6db7a84385ecb9c20889637#192b66e1a4d2c16bd6db7a84385ecb9c20889637"
+version = "0.0.0+5.3.1-1-g3a02c75e04e4286f03e931926bb3b322a769bd2c"
+source = "git+https://github.com/matrix-construct/jevmalloc?rev=faa391081abf35f6ff084c40104d2645be132dd7#faa391081abf35f6ff084c40104d2645be132dd7"
 dependencies = [
+ "arrayvec",
  "jevmalloc-sys",
  "libc",
- "paste",
 ]
 
 [[package]]
 name = "jevmalloc-sys"
-version = "0.0.0+5.3.0-1-g54eaed1d8b56b1aa528be3bdd1877e59c56fa90c"
-source = "git+https://github.com/matrix-construct/jevmalloc?rev=192b66e1a4d2c16bd6db7a84385ecb9c20889637#192b66e1a4d2c16bd6db7a84385ecb9c20889637"
+version = "0.0.0+5.3.1-1-g3a02c75e04e4286f03e931926bb3b322a769bd2c"
+source = "git+https://github.com/matrix-construct/jevmalloc?rev=faa391081abf35f6ff084c40104d2645be132dd7#faa391081abf35f6ff084c40104d2645be132dd7"
 dependencies = [
  "cc",
  "libc",
@@ -3271,12 +3271,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "paste"
-version = "1.0.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
-
-[[package]]
 name = "pear"
 version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4022,8 +4016,8 @@ dependencies = [
 
 [[package]]
 name = "rust-librocksdb-sys"
-version = "0.46.0+11.1.1"
-source = "git+https://github.com/matrix-construct/rust-rocksdb?rev=842a4c25d5e8b86e4c858ba98bdfabe24adb2641#842a4c25d5e8b86e4c858ba98bdfabe24adb2641"
+version = "0.48.0+11.8.1"
+source = "git+https://github.com/matrix-construct/rust-rocksdb?rev=22e4c7739a7f49af08c3c4c71abd294a9f881875#22e4c7739a7f49af08c3c4c71abd294a9f881875"
 dependencies = [
  "bindgen",
  "bzip2-sys",
@@ -4034,13 +4028,14 @@ dependencies = [
  "libz-sys",
  "lz4-sys",
  "pkg-config",
+ "rustflags",
  "zstd-sys",
 ]
 
 [[package]]
 name = "rust-rocksdb"
-version = "0.50.0"
-source = "git+https://github.com/matrix-construct/rust-rocksdb?rev=842a4c25d5e8b86e4c858ba98bdfabe24adb2641#842a4c25d5e8b86e4c858ba98bdfabe24adb2641"
+version = "0.52.0"
+source = "git+https://github.com/matrix-construct/rust-rocksdb?rev=22e4c7739a7f49af08c3c4c71abd294a9f881875#22e4c7739a7f49af08c3c4c71abd294a9f881875"
 dependencies = [
  "libc",
  "parking_lot",
@@ -6416,7 +6411,6 @@ version = "2.0.16+zstd.1.5.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "91e19ebc2adc8f83e43039e79776e3fda8ca919132d68a1fed6a5faca2683748"
 dependencies = [
- "bindgen",
  "cc",
  "pkg-config",
 ]

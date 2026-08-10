@@ -553,11 +553,11 @@
     "rocksdb": {
       "flake": false,
       "locked": {
-        "lastModified": 1780949524,
-        "narHash": "sha256-THAHov40punmqm3J9kNYwFXfdRZ2VwjR/+lmFhun/xk=",
+        "lastModified": 1786309864,
+        "narHash": "sha256-7hiKaIssPpqB8UTAR4ZE19pZTp09sVGOMht7sAitZAs=",
         "owner": "matrix-construct",
         "repo": "rocksdb",
-        "rev": "0bd7e6d6438d318d66e8374ec1fe24126204f3b3",
+        "rev": "eb79ddeff0ea32ebb8f8b69dd1df95c557328e85",
         "type": "github"
       },
       "original": {
