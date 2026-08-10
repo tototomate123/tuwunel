@@ -9,7 +9,7 @@ use ruma::{
 		},
 	},
 	events::TimelineEventType,
-	push::{Action, HttpPusherData, PushFormat, Ruleset, Tweak},
+	push::{Action, HighlightTweakValue, HttpPusherData, PushFormat, Ruleset, Tweak},
 };
 use serde_json::Value;
 use tuwunel_core::{Err, Result, err, implement, matrix::Event, utils::BoolExt, warn};
@@ -110,82 +110,88 @@ async fn send_notice<Pdu: Event>(
 ) -> Result {
 	// TODO: email
 	match &pusher.kind {
-		| PusherKind::Http(http) => {
-			let mut device = self.prepare_http_pusher(pusher, http)?;
-
-			// TODO (timo): can pusher/devices have conflicting formats
-			let event_id_only = http.format == Some(PushFormat::EventIdOnly);
-
-			// Tweaks are only added if the format is NOT event_id_only
-			if !event_id_only {
-				device.tweaks.clone_from(&tweaks);
-			}
-
-			let d = vec![device];
-			let mut notify = Notification::new(d);
-
-			notify.event_id = Some(event.event_id().to_owned());
-			notify.room_id = Some(event.room_id().to_owned());
-
-			let unread = badge_count_disabled(http)
-				.is_false()
-				.then_async(async || {
-					UInt::new(self.global_notification_count(user_id).await).unwrap_or(UInt::MAX)
-				});
-
-			let unread = if !event_id_only {
-				if *event.kind() == TimelineEventType::RoomEncrypted
-					|| tweaks.iter().any(|t| {
-						matches!(
-							t,
-							Tweak::Highlight(ruma::push::HighlightTweakValue::Yes)
-								| Tweak::Sound(_)
-						)
-					}) {
-					notify.prio = NotificationPriority::High;
-				} else {
-					notify.prio = NotificationPriority::Low;
-				}
-				notify.sender = Some(event.sender().to_owned());
-				notify.event_type = Some(event.kind().to_owned());
-				notify.content = serde_json::value::to_raw_value(event.content()).ok();
-
-				if *event.kind() == TimelineEventType::RoomMember {
-					notify.user_is_target = event.state_key() == Some(event.sender().as_str());
-				}
-
-				let (display_name, room_name, room_alias, unread) = join4(
-					self.services.profile.displayname(event.sender()),
-					self.services
-						.state_accessor
-						.get_name(event.room_id()),
-					self.services
-						.state_accessor
-						.get_canonical_alias(event.room_id()),
-					unread,
-				)
-				.await;
-
-				notify.sender_display_name = display_name.ok();
-				notify.room_name = room_name.ok();
-				notify.room_alias = room_alias.ok();
-
-				unread
-			} else {
-				unread.await
-			};
-
-			if let Some(unread) = unread {
-				notify.counts = NotificationCounts::new_explicit(Some(unread), None);
-			}
-
-			self.send_http_notice(user_id, pusher, http, notify, unread)
-				.await
-		},
+		| PusherKind::Http(http) =>
+			self.send_http_event_notice(user_id, pusher, http, tweaks, event)
+				.await,
 		// TODO: Handle email
 		//PusherKind::Email(_) => Ok(()),
 		| _ => Ok(()),
 	}
+}
+
+#[implement(super::Service)]
+async fn send_http_event_notice<Pdu: Event>(
+	&self,
+	user_id: &UserId,
+	pusher: &Pusher,
+	http: &HttpPusherData,
+	tweaks: Vec<Tweak>,
+	event: &Pdu,
+) -> Result {
+	let mut device = self.prepare_http_pusher(pusher, http)?;
+
+	// TODO (timo): can pusher/devices have conflicting formats
+	let event_id_only = http.format == Some(PushFormat::EventIdOnly);
+
+	if !event_id_only {
+		device.tweaks.clone_from(&tweaks);
+	}
+
+	let mut notify = Notification::new(vec![device]);
+
+	notify.event_id = Some(event.event_id().to_owned());
+	notify.room_id = Some(event.room_id().to_owned());
+
+	let unread = badge_count_disabled(http)
+		.is_false()
+		.then_async(async || {
+			UInt::new(self.global_notification_count(user_id).await).unwrap_or(UInt::MAX)
+		});
+
+	let unread = if !event_id_only {
+		if *event.kind() == TimelineEventType::RoomEncrypted
+			|| tweaks.iter().any(|t| {
+				matches!(t, Tweak::Highlight(HighlightTweakValue::Yes) | Tweak::Sound(_))
+			}) {
+			notify.prio = NotificationPriority::High;
+		} else {
+			notify.prio = NotificationPriority::Low;
+		}
+		notify.sender = Some(event.sender().to_owned());
+		notify.event_type = Some(event.kind().to_owned());
+		notify.content = serde_json::value::to_raw_value(event.content()).ok();
+
+		if *event.kind() == TimelineEventType::RoomMember {
+			notify.user_is_target = event.state_key() == Some(event.sender().as_str());
+		}
+
+		let (display_name, room_name, room_alias, unread) = join4(
+			self.services.profile.displayname(event.sender()),
+			self.services
+				.state_accessor
+				.get_name(event.room_id()),
+			self.services
+				.state_accessor
+				.get_canonical_alias(event.room_id()),
+			unread,
+		)
+		.await;
+
+		notify.sender_display_name = display_name.ok();
+		notify.room_name = room_name.ok();
+		notify.room_alias = room_alias.ok();
+
+		unread
+	} else {
+		unread.await
+	};
+
+	if let Some(unread) = unread {
+		notify.counts = NotificationCounts::new_explicit(Some(unread), None);
+	}
+
+	self.send_http_notice(user_id, pusher, http, notify, unread)
+		.await
 }
 
 #[implement(super::Service)]
