@@ -4,15 +4,15 @@ Tuwunel runs the [Complement](https://github.com/matrix-org/complement) Matrix h
 
 ## Counts
 
-- Test groups: 205. Passing: **82.9%**
-  - ✅ `pass`: 170
-  - 🟨 `some`: 16
+- Test groups: 205. Passing: **83.4%**
+  - ✅ `pass`: 171
+  - 🟨 `some`: 15
   - ❌ `fail`: 19
   - ⬛ `skip`: 0
 
-- Subtests: 595. Passing: **78.5%**
-  - ✅ `pass`: 467
-  - ❌ `fail`: 120
+- Subtests: 595. Passing: **78.8%**
+  - ✅ `pass`: 469
+  - ❌ `fail`: 118
   - ⬛ `skip`: 8
 
 ## All Top-Level Tests
@@ -149,7 +149,7 @@ Tuwunel runs the [Complement](https://github.com/matrix-org/complement) Matrix h
 | ✅ | 2/0/0 | `ProfileDisplayName` |
 | ✅ | 9/0/0 | `PublicRooms` |
 | ✅ | – | `PushRuleCacheHealth` |
-| 🟨 | 3/2/0 | `PushRuleRoomUpgrade` |
+| ✅ | 5/0/0 | `PushRuleRoomUpgrade` |
 | ✅ | 5/0/0 | `PushSync` |
 | ✅ | 1/0/0 | `Redact` |
 | ✅ | 23/0/0 | `Registration` |

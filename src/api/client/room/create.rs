@@ -17,7 +17,7 @@ use ruma::{
 		StateEventType, TimelineEventType,
 		room::{
 			canonical_alias::RoomCanonicalAliasEventContent,
-			create::RoomCreateEventContent,
+			create::{PreviousRoom, RoomCreateEventContent},
 			encryption::RoomEncryptionEventContent,
 			guest_access::{GuestAccess, RoomGuestAccessEventContent},
 			history_visibility::{HistoryVisibility, RoomHistoryVisibilityEventContent},
@@ -170,6 +170,14 @@ pub(crate) async fn create_room_route(
 
 	finalize_alias_and_directory(&services, &body, alias.as_deref(), sender_user, &room_id)
 		.await?;
+
+	copy_creator_predecessor_push_rule(
+		&services,
+		body.creation_content.as_ref(),
+		sender_user,
+		&room_id,
+	)
+	.await;
 
 	info!("{sender_user} created a room with room ID {room_id}");
 
@@ -549,6 +557,32 @@ async fn finalize_alias_and_directory(
 	}
 
 	Ok(())
+}
+
+async fn copy_creator_predecessor_push_rule(
+	services: &Services,
+	creation_content: Option<&Raw<CreationContent>>,
+	sender_user: &UserId,
+	room_id: &RoomId,
+) {
+	let Some(from_room) = creation_content
+		.and_then(|content| {
+			content
+				.get_field::<PreviousRoom>("predecessor")
+				.ok()
+				.flatten()
+		})
+		.map(|predecessor| predecessor.room_id)
+	else {
+		return;
+	};
+
+	services
+		.account_data
+		.copy_room_push_rule(sender_user, &from_room, room_id)
+		.await
+		.inspect_err(|e| warn!(%e, "Failed to copy predecessor push rules"))
+		.ok();
 }
 
 async fn create_create_event(
