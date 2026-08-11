@@ -1,6 +1,6 @@
 use std::{borrow::Borrow, collections::HashMap, iter::once, sync::Arc, time::Instant};
 
-use futures::{FutureExt, StreamExt};
+use futures::{FutureExt, StreamExt, TryFutureExt};
 use ruma::{
 	CanonicalJsonObject, EventId, OwnedEventId, RoomId, RoomVersionId, ServerName,
 	events::StateEventType, room_version_rules::RoomVersionRules,
@@ -24,7 +24,7 @@ use super::{
 use crate::rooms::{
 	state::{RoomMutexGuard, Trigger, prune_goal},
 	state_compressor::{CompressedState, HashSetCompressStateEvent},
-	state_res,
+	state_res::auth_check,
 	timeline::RawPduId,
 };
 
@@ -411,8 +411,18 @@ async fn auth_check_outlier_pdu(
 
 	let event_fetch = async |event_id: OwnedEventId| self.event_fetch(&event_id).await;
 
-	trace!("Performing auth check");
-	state_res::auth_check(room_rules, incoming_pdu, &event_fetch, &state_fetch).await?;
+	trace!("Performing positional auth check.");
+	auth_check(room_rules, incoming_pdu, &event_fetch, &state_fetch)
+		.inspect_err(|error| {
+			warn!(
+				auth_leg = "positional",
+				event_id = %incoming_pdu.event_id(),
+				%room_id,
+				%error,
+				"Positional auth check failed.",
+			);
+		})
+		.await?;
 
 	trace!("Gathering auth events");
 	let auth_events = self
@@ -436,8 +446,18 @@ async fn auth_check_outlier_pdu(
 			.ok_or_else(|| err!(Request(NotFound("state event not found"))))
 	};
 
-	trace!("Performing auth check");
-	state_res::auth_check(room_rules, incoming_pdu, &event_fetch, &state_fetch).await?;
+	trace!("Performing current-state auth check.");
+	auth_check(room_rules, incoming_pdu, &event_fetch, &state_fetch)
+		.inspect_err(|error| {
+			warn!(
+				auth_leg = "current_state",
+				event_id = %incoming_pdu.event_id(),
+				%room_id,
+				%error,
+				"Current-state auth check failed.",
+			);
+		})
+		.await?;
 
 	Ok(())
 }
