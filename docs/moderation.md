@@ -171,17 +171,21 @@ Operator-relevant implications when enabling:
   and inbound events to soft-fail.
 - **Inbound soft-fails withhold the event, and are reversible.** A soft-failed
   event is kept out of the room timeline and is never relayed to clients, but
-  it stays stored, still answers federation requests for it, and still carries
-  the state that descendant events resolve against. The verdict is re-checked
-  whenever federation supplies the event again, on a schedule that widens from
-  five minutes to a day. An explicit refusal is itself cached for 24 hours, so
-  re-checks inside that window answer from the cache and the policy server is
-  only asked again once it lapses; `!admin rooms clear-soft-failed-events
-  <room>` drops the stored verdicts for one room to force the question
-  immediately.
+  it stays stored and can still be fetched directly over federation.
+  Contributors include invalid redact permission, an explicit policy-server
+  refusal, and failure to pass authorization against current room state
+  (server-server receipt check 6). The standing verdict is not permanent. It
+  is re-checked whenever federation supplies the event again, on a schedule
+  that widens from five minutes to a day, and is released when the event later
+  passes. An explicit refusal is itself cached for 24 hours, so re-checks inside
+  that window answer from the cache and the policy server is only asked again
+  once it lapses. `!admin rooms clear-soft-failed-events <room>` drops the
+  stored verdicts for one room to force the question immediately.
 - **Soft-failed events do not move the room forward.** They are not added to
-  the room's forward extremities and do not resolve into current state, so a
-  refused membership or power-level change cannot take effect locally.
+  the room's forward extremities and do not directly drive current state, so a
+  refused membership or power-level change cannot take effect locally. Their
+  committed state remains available when descendant events participate in
+  state resolution.
 - **Privacy in encrypted rooms.** The PDU is forwarded to the policy server
   for signing. Ciphertext is opaque, but metadata (sender, timestamp, room,
   event type) is not. Encrypted-room policy delegation is the room's call;

@@ -111,7 +111,7 @@ pub(super) async fn upgrade_outlier_to_timeline_pdu(
 	self.auth_check_outlier_pdu(room_id, &incoming_pdu, &room_rules, &state_at_incoming_event)
 		.await?;
 
-	let soft_fail = !cleared
+	let soft_fail_pre = !cleared
 		&& self
 			.compute_soft_fail(&incoming_pdu, &room_rules, &mut pdu_json)
 			.await?;
@@ -120,6 +120,13 @@ pub(super) async fn upgrade_outlier_to_timeline_pdu(
 	// We start looking at current room state now, so lets lock the room
 	trace!("Locking the room");
 	let state_lock = self.services.state.mutex.lock(room_id).await;
+
+	// 14. Check if the event passes auth based on the current room state.
+	let soft_fail_current_state = !self
+		.current_state_auth_passes(room_id, &incoming_pdu, &room_rules)
+		.await;
+
+	let soft_fail = soft_fail_pre || soft_fail_current_state;
 
 	let mut extremities = self
 		.compute_remaining_extremities(room_id, &incoming_pdu)
@@ -180,10 +187,6 @@ pub(super) async fn upgrade_outlier_to_timeline_pdu(
 		.await?;
 	}
 
-	// 14. Check if the event passes auth based on the "current state" of the room,
-	//     if not soft fail it
-	//
-	// Now that the event has passed all auth it is added into the timeline.
 	// We use the `state_at_event` instead of `state_after` so we accurately
 	// represent the state for this event.
 	trace!("Appending pdu to timeline");
@@ -224,6 +227,8 @@ pub(super) async fn upgrade_outlier_to_timeline_pdu(
 		drop(state_lock);
 		warn!(
 			event_id = %incoming_pdu.event_id(),
+			redact_or_policy = soft_fail_pre,
+			current_state = soft_fail_current_state,
 			elapsed = ?timer.elapsed(),
 			"Event was soft failed.",
 		);
@@ -248,6 +253,70 @@ pub(super) async fn upgrade_outlier_to_timeline_pdu(
 	);
 
 	Ok(pdu_id.zip(Some(true)))
+}
+
+#[implement(super::Service)]
+#[tracing::instrument(
+	name = "auth_current",
+	level = "debug",
+	skip_all,
+	fields(%room_id, event_id = %incoming_pdu.event_id()),
+)]
+async fn current_state_auth_passes(
+	&self,
+	room_id: &RoomId,
+	incoming_pdu: &PduEvent,
+	room_rules: &RoomVersionRules,
+) -> bool {
+	trace!("Gathering current-state auth events.");
+	let Ok(auth_events) = self
+		.services
+		.state
+		.get_auth_events(
+			room_id,
+			incoming_pdu.kind(),
+			incoming_pdu.sender(),
+			incoming_pdu.state_key(),
+			incoming_pdu.content(),
+			&room_rules.authorization,
+			true,
+		)
+		.await
+		.inspect_err(|error| {
+			warn!(
+				auth_leg = "current_state",
+				event_id = %incoming_pdu.event_id(),
+				%room_id,
+				%error,
+				"Current-state auth event lookup failed; soft-failing event.",
+			);
+		})
+	else {
+		return false;
+	};
+
+	let state_fetch = async |k: StateEventType, s: StateKey| {
+		auth_events
+			.get(&k.with_state_key(s.as_str()))
+			.map(ToOwned::to_owned)
+			.ok_or_else(|| err!(Request(NotFound("state event not found"))))
+	};
+
+	let event_fetch = async |event_id: OwnedEventId| self.event_fetch(&event_id).await;
+
+	trace!("Performing current-state auth check.");
+	auth_check(room_rules, incoming_pdu, &event_fetch, &state_fetch)
+		.await
+		.inspect_err(|error| {
+			warn!(
+				auth_leg = "current_state",
+				event_id = %incoming_pdu.event_id(),
+				%room_id,
+				%error,
+				"Current-state auth check failed; soft-failing event.",
+			);
+		})
+		.is_ok()
 }
 
 /// Re-examines an event that already carries a soft-fail marker.
@@ -420,41 +489,6 @@ async fn auth_check_outlier_pdu(
 				%room_id,
 				%error,
 				"Positional auth check failed.",
-			);
-		})
-		.await?;
-
-	trace!("Gathering auth events");
-	let auth_events = self
-		.services
-		.state
-		.get_auth_events(
-			room_id,
-			incoming_pdu.kind(),
-			incoming_pdu.sender(),
-			incoming_pdu.state_key(),
-			incoming_pdu.content(),
-			&room_rules.authorization,
-			true,
-		)
-		.await?;
-
-	let state_fetch = async |k: StateEventType, s: StateKey| {
-		auth_events
-			.get(&k.with_state_key(s.as_str()))
-			.map(ToOwned::to_owned)
-			.ok_or_else(|| err!(Request(NotFound("state event not found"))))
-	};
-
-	trace!("Performing current-state auth check.");
-	auth_check(room_rules, incoming_pdu, &event_fetch, &state_fetch)
-		.inspect_err(|error| {
-			warn!(
-				auth_leg = "current_state",
-				event_id = %incoming_pdu.event_id(),
-				%room_id,
-				%error,
-				"Current-state auth check failed.",
 			);
 		})
 		.await?;
