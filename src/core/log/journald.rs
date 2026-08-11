@@ -3,13 +3,14 @@
 //! The module routes formatted messages to the journal socket and records
 //! structured tracing fields for journal queries.
 
+#[cfg(unix)]
+use std::os::unix::net::UnixDatagram;
 use std::{
 	cell::RefCell,
 	env::args_os,
 	ffi::OsStr,
 	fmt::Debug,
 	io::{self, Write, stderr},
-	os::unix::net::UnixDatagram,
 	path::Path,
 };
 
@@ -25,6 +26,8 @@ use tracing_subscriber::{
 	registry::LookupSpan,
 };
 
+#[cfg(not(unix))]
+use self::unsupported::UnixDatagram;
 use super::is_systemd_mode;
 use crate::{
 	Config, Result,
@@ -40,6 +43,34 @@ use crate::{
 
 #[cfg(test)]
 mod tests;
+
+/// The journald submission socket is a unix datagram socket, which targets
+/// outside the unix family do not have. This module is compiled everywhere, so
+/// rather than a `#[cfg]` on each of the six items that mention a socket, those
+/// targets get one that cannot be opened.
+///
+/// Nothing constructs it: `enabled()` requires `is_systemd_mode()`, which tests
+/// `SYSTEMD_EXEC_PID` and `JOURNAL_STREAM`, so it is false wherever systemd is
+/// absent. These exist to keep the type checker honest, and they report failure
+/// rather than pretend to succeed.
+#[cfg(not(unix))]
+mod unsupported {
+	use std::io::{Error, ErrorKind::Unsupported, Result};
+
+	pub(super) struct UnixDatagram;
+
+	impl UnixDatagram {
+		pub(super) fn unbound() -> Result<Self> { Err(unavailable()) }
+
+		pub(super) fn send_to(&self, _payload: &[u8], _path: &str) -> Result<usize> {
+			Err(unavailable())
+		}
+	}
+
+	fn unavailable() -> Error {
+		Error::new(Unsupported, "journald requires unix datagram sockets")
+	}
+}
 
 /// Encoded journal fields; a longer run spills to the heap.
 type Buffer = SmallVec<[u8; 128]>;
