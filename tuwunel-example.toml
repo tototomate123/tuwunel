@@ -2498,12 +2498,16 @@
 #
 #url_preview_url_contains_allowlist = []
 
-# Maximum body size allowed when spidering a URL for previews. Accepts an
-# integer byte count or a string with SI/IEC suffix such as "256 KB".
+# Maximum body size allowed when spidering a URL for previews.
+#
+# Accepts an integer byte count or a string with SI/IEC suffix such as
+# "768 KiB". A page whose OpenGraph tags sit past this point yields an
+# empty preview, so a site that front-loads a large script block needs a
+# larger budget than one that does not.
 #
 # reloadable: yes
 #
-#url_preview_max_spider_size = 256000
+#url_preview_max_spider_size = 786432
 
 # Maximum size of a single media item fetched or relayed for a URL
 # preview: the og:image measurement fetch and the lazy-media relay.

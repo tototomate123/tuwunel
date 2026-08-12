@@ -2882,11 +2882,15 @@ pub struct Config {
 	#[serde(default)]
 	pub url_preview_url_contains_allowlist: Vec<String>,
 
-	/// Maximum body size allowed when spidering a URL for previews. Accepts an
-	/// integer byte count or a string with SI/IEC suffix such as "256 KB".
+	/// Maximum body size allowed when spidering a URL for previews.
+	///
+	/// Accepts an integer byte count or a string with SI/IEC suffix such as
+	/// "768 KiB". A page whose OpenGraph tags sit past this point yields an
+	/// empty preview, so a site that front-loads a large script block needs a
+	/// larger budget than one that does not.
 	///
 	/// reloadable: yes
-	/// default: 256000
+	/// default: 786432
 	#[serde(
 		default = "default_url_preview_max_spider_size",
 		deserialize_with = "deserialize_bytesize_usize"
@@ -5291,7 +5295,7 @@ fn default_ip_range_denylist() -> Vec<String> {
 }
 
 fn default_url_preview_max_spider_size() -> usize {
-	256_000 // 256KB
+	768 * 1024 // 768 KiB
 }
 
 fn default_url_preview_max_media_size() -> usize {

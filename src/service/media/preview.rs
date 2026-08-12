@@ -16,9 +16,9 @@ use reqwest::header::CONTENT_TYPE;
 #[cfg(feature = "url_preview")]
 use ruma::Mxc;
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "url_preview")]
-use tuwunel_core::utils::random_string;
 use tuwunel_core::{Err, Result, debug, err, implement, utils::time::timepoint_from_now};
+#[cfg(feature = "url_preview")]
+use tuwunel_core::{debug_warn, utils::random_string};
 #[cfg(feature = "url_preview")]
 use tuwunel_database::Txn;
 use url::{Host, Url};
@@ -490,28 +490,18 @@ fn checked_media_size(response: &reqwest::Response, limit: usize) -> Result<Opti
 
 #[cfg(feature = "url_preview")]
 #[implement(Service)]
-async fn download_html(
-	&self,
-	url: &Url,
-	mut response: reqwest::Response,
-) -> Result<UrlPreviewData> {
+async fn download_html(&self, url: &Url, response: reqwest::Response) -> Result<UrlPreviewData> {
 	use webpage::HTML;
 
-	let mut bytes: Vec<u8> = Vec::new();
-	while let Some(chunk) = response.chunk().await? {
-		bytes.extend_from_slice(&chunk);
-		if bytes.len() > self.services.config.url_preview_max_spider_size {
-			debug!(
-				"Response body from URL {} exceeds url_preview_max_spider_size ({}), not \
-				 processing the rest of the response body and assuming our necessary data is in \
-				 this range.",
-				url, self.services.config.url_preview_max_spider_size
-			);
-			break;
-		}
-	}
-	let body = String::from_utf8_lossy(&bytes);
-	let Ok(html) = HTML::from_string(body.to_string(), Some(url.to_string())) else {
+	let limit = self.services.config.url_preview_max_spider_size;
+	let (bytes, truncated) = spider_body(response, limit).await?;
+
+	// the parser needs an owned string, so the read buffer becomes one rather
+	// than being copied into a second buffer of the same size
+	let body = String::from_utf8(bytes)
+		.unwrap_or_else(|e| String::from_utf8_lossy(e.as_bytes()).into_owned());
+
+	let Ok(html) = HTML::from_string(body, Some(url.as_str().to_owned())) else {
 		return Err!(Request(Unknown("Failed to parse HTML")));
 	};
 
@@ -634,6 +624,17 @@ async fn download_html(
 	data.og_type = Some(html.opengraph.og_type);
 	data.og_url = props.get("url").cloned();
 
+	// a page whose head metadata sits past the cap parses clean and yields
+	// nothing, which is indistinguishable from a page carrying no tags
+	if truncated && data.title.is_none() && data.description.is_none() && data.image.is_none() {
+		debug_warn!(
+			%url,
+			%limit,
+			"Preview page was truncated before any metadata was found; a larger \
+			 url_preview_max_spider_size or a different url_preview_user_agent may be needed"
+		);
+	}
+
 	Ok(data)
 }
 
@@ -646,6 +647,55 @@ async fn download_html(
 	_response: reqwest::Response,
 ) -> Result<UrlPreviewData> {
 	Err!(FeatureDisabled("url_preview"))
+}
+
+/// Read a page body up to `limit`, reporting whether the cap cut it short.
+///
+/// An advertised length seeds the buffer, and growth past that stays
+/// geometric but never exceeds the cap, so a truncated page costs the cap
+/// rather than the next power of two above it.
+#[cfg(feature = "url_preview")]
+async fn spider_body(mut response: reqwest::Response, limit: usize) -> Result<(Vec<u8>, bool)> {
+	let hint = response
+		.content_length()
+		.and_then(|len| usize::try_from(len).ok())
+		.map_or(0, |len| len.min(limit));
+
+	let mut bytes: Vec<u8> = Vec::with_capacity(hint);
+
+	while let Some(chunk) = response.chunk().await? {
+		let want = chunk.len().min(limit.saturating_sub(bytes.len()));
+
+		reserve_capped(&mut bytes, want, limit);
+		bytes.extend_from_slice(&chunk[..want]);
+
+		if want < chunk.len() {
+			return Ok((bytes, true));
+		}
+	}
+
+	Ok((bytes, false))
+}
+
+/// Reserve `want` more bytes, growing geometrically but never past `limit`.
+///
+/// `want` is expected to be clamped to the remaining budget by the caller; a
+/// larger value is honored rather than dropped, since refusing to reserve it
+/// would only move the allocation into the following `extend_from_slice`.
+#[cfg(feature = "url_preview")]
+fn reserve_capped(bytes: &mut Vec<u8>, want: usize, limit: usize) {
+	let need = bytes.len().saturating_add(want);
+
+	if need <= bytes.capacity() {
+		return;
+	}
+
+	let target = bytes
+		.capacity()
+		.saturating_mul(2)
+		.clamp(need, limit.max(need));
+
+	bytes.reserve_exact(target.saturating_sub(bytes.len()));
 }
 
 #[implement(Service)]
@@ -795,6 +845,8 @@ mod tests {
 
 	use minicbor_serde::{from_slice, to_vec};
 
+	#[cfg(feature = "url_preview")]
+	use super::reserve_capped;
 	use super::{CachedPreview, UrlPreviewData};
 
 	fn sample() -> UrlPreviewData {
@@ -887,5 +939,44 @@ mod tests {
 
 		cached.expire = SystemTime::now() - Duration::from_secs(1);
 		assert!(!cached.valid());
+	}
+
+	#[cfg(feature = "url_preview")]
+	#[test]
+	fn reserve_capped_never_exceeds_the_cap() {
+		const LIMIT: usize = 768 * 1024;
+
+		let mut bytes: Vec<u8> = Vec::new();
+		let chunk = vec![0_u8; 16 * 1024];
+		let mut reallocs = 0;
+
+		while bytes.len() < LIMIT {
+			let want = chunk.len().min(LIMIT.saturating_sub(bytes.len()));
+			let before = bytes.capacity();
+
+			reserve_capped(&mut bytes, want, LIMIT);
+			bytes.extend_from_slice(&chunk[..want]);
+
+			if bytes.capacity() != before {
+				reallocs += 1;
+			}
+
+			assert!(bytes.capacity() <= LIMIT, "capacity {} past cap", bytes.capacity());
+		}
+
+		assert_eq!(bytes.len(), LIMIT);
+
+		// geometric growth, not one reallocation per chunk
+		assert!(reallocs < 12, "{reallocs} reallocations");
+	}
+
+	#[cfg(feature = "url_preview")]
+	#[test]
+	fn reserve_capped_honors_an_unclamped_request() {
+		let mut bytes: Vec<u8> = Vec::new();
+
+		reserve_capped(&mut bytes, 64, 16);
+
+		assert!(bytes.capacity() >= 64);
 	}
 }
