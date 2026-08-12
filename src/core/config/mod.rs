@@ -4085,15 +4085,6 @@ pub struct LdapConfig {
 	#[serde(default = "default_ldap_uid_attribute")]
 	pub uid_attribute: String,
 
-	/// Attribute containing the distinguished name of the user.
-	///
-	/// reloadable: yes
-	/// example: "givenName" or "sn"
-	///
-	/// default: "givenName"
-	#[serde(default = "default_ldap_name_attribute")]
-	pub name_attribute: String,
-
 	/// Root of the searches for admin users.
 	///
 	/// Defaults to `base_dn` if empty.
@@ -5383,8 +5374,6 @@ fn default_sender_shutdown_timeout() -> u64 { 5 }
 fn default_ldap_search_filter() -> String { "(objectClass=*)".to_owned() }
 
 fn default_ldap_uid_attribute() -> String { String::from("uid") }
-
-fn default_ldap_name_attribute() -> String { String::from("givenName") }
 
 fn default_jwt_algorithm() -> String { "HS256".to_owned() }
 

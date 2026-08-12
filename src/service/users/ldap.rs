@@ -45,7 +45,7 @@ pub async fn search_ldap(&self, user_id: &UserId) -> Result<Vec<(String, bool)>>
 		| (..) => {},
 	}
 
-	let attr = [&config.uid_attribute, &config.name_attribute];
+	let attr = [&config.uid_attribute];
 
 	let escaped_localpart = ldap_escape(&lowercased_localpart);
 
@@ -73,9 +73,9 @@ pub async fn search_ldap(&self, user_id: &UserId) -> Result<Vec<(String, bool)>>
 			search_entry
 				.attrs
 				.get(&config.uid_attribute)
-				.into_iter()
-				.chain(search_entry.attrs.get(&config.name_attribute))
-				.any(|ids| ids.contains(&localpart) || ids.contains(&lowercased_localpart))
+				.is_some_and(|ids| {
+					ids.contains(&localpart) || ids.contains(&lowercased_localpart)
+				})
 				.then_some((search_entry.dn, false))
 		})
 		.collect();
@@ -109,9 +109,9 @@ pub async fn search_ldap(&self, user_id: &UserId) -> Result<Vec<(String, bool)>>
 			search_entry
 				.attrs
 				.get(&config.uid_attribute)
-				.into_iter()
-				.chain(search_entry.attrs.get(&config.name_attribute))
-				.any(|ids| ids.contains(&localpart) || ids.contains(&lowercased_localpart))
+				.is_some_and(|ids| {
+					ids.contains(&localpart) || ids.contains(&lowercased_localpart)
+				})
 				.then_some((search_entry.dn, true))
 		}));
 	}

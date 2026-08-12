@@ -90,15 +90,13 @@ the directory under a service account.
 | `bind_dn` | — | DN used for the initial bind. Contains `{username}` for direct-bind mode; otherwise identifies a service account. Omit for anonymous search. |
 | `bind_password_file` | — | Path to a file containing the password for `bind_dn`. Ignored in direct-bind mode (the user's login password is used). |
 | `filter` | `"(objectClass=*)"` | LDAP search filter applied during user lookup. Supports `{username}` substitution. |
-| `uid_attribute` | `"uid"` | Attribute that uniquely identifies the user. Returned entries must contain the user's localpart in this attribute (or in `name_attribute`). |
-| `name_attribute` | `"givenName"` | Secondary attribute checked for the localpart. Useful when login should match either an account name or a display name. |
+| `uid_attribute` | `"uid"` | Attribute that uniquely identifies the user. Returned entries must contain the user's localpart in this attribute. |
 | `admin_base_dn` | `""` | Subtree for the admin search. Falls back to `base_dn` when empty. |
 | `admin_filter` | `""` | Filter that selects administrative users. Empty disables admin synchronization entirely. Supports `{username}` substitution. |
 
 The localpart match is case-insensitive — Tuwunel sends a lowercased version
 of the localpart through `{username}` substitution and accepts an entry if
-either the original or lowercased form appears in `uid_attribute` or
-`name_attribute`.
+either the original or lowercased form appears in `uid_attribute`.
 
 ## Admin synchronization
 

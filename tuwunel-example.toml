@@ -3398,13 +3398,6 @@
 #
 #uid_attribute = "uid"
 
-# Attribute containing the distinguished name of the user.
-#
-# reloadable: yes
-# example: "givenName" or "sn"
-#
-#name_attribute = "givenName"
-
 # Root of the searches for admin users.
 #
 # Defaults to `base_dn` if empty.
