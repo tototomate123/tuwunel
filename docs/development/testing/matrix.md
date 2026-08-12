@@ -80,6 +80,10 @@ Cross-compilation to `aarch64` runs on `ARM64` GitHub Actions runners and
 produces binaries for Raspberry Pi 4+, AWS Graviton, and Apple Silicon (via
 Rosetta or native under Linux).
 
+64-bit RISC-V is absent from the matrix because no runner provides that
+architecture, but it does build and run. See [RISC-V](../riscv.md) for the
+cross-compilation recipe.
+
 
 ## CPU Optimization Levels (System Targets)
 
