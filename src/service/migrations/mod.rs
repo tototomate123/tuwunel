@@ -4,7 +4,10 @@
 //! through the named migrations, once the version and server name gates
 //! decide it is safe to touch.
 
-use std::cmp::{self, Ordering};
+use std::{
+	cmp::{self, Ordering},
+	time::Duration,
+};
 
 use futures::{FutureExt, StreamExt};
 use ruma::{
@@ -12,6 +15,7 @@ use ruma::{
 	events::room::member::MembershipState,
 };
 use serde::{Deserialize, de::IgnoredAny};
+use tokio::time::sleep;
 use tuwunel_core::{
 	Err, Result, debug, debug_info, debug_warn, err, info,
 	itertools::Itertools,
@@ -43,6 +47,8 @@ pub(crate) const DATABASE_VERSION: u64 = 17;
 
 const SERVER_NAME_KEY: &[u8] = b"server_name";
 
+const FORCE_MIGRATION_DELAY: Duration = Duration::from_secs(15);
+
 /// A marker written by a sibling conduwuit-lineage server but never by tuwunel.
 /// Its presence identifies a foreign database at a higher schema number even
 /// after tuwunel has stamped its own `server_name`, so a database opened by
@@ -50,6 +56,18 @@ const SERVER_NAME_KEY: &[u8] = b"server_name";
 const FOREIGN_LINEAGE_MARKER: &[u8] = b"populate_userroomid_leftstate_table";
 
 pub(crate) async fn migrations(services: &Services) -> Result {
+	if services.config.force_migration {
+		warn!(
+			delay = ?FORCE_MIGRATION_DELAY,
+			"The force_migration option is set. THIS IS NOT INTENDED TO BE USED UNDER ANY \
+			 NORMAL CIRCUMSTANCES AND YOU MAY BE CORRUPTING YOUR DATABASE BY PROCEEDING. \
+			 Remove force_migration from the configuration to clear this warning; startup \
+			 continues after the delay."
+		);
+
+		sleep(FORCE_MIGRATION_DELAY).await;
+	}
+
 	if !services.config.database_migrations {
 		warn!("Skipping database migrations due to configuration...");
 		return Ok(());
@@ -102,8 +120,7 @@ async fn check_database_version(services: &Services, foreign_lineage: bool) -> R
 	if discovered > DATABASE_VERSION && !foreign_lineage && !services.config.force_migration {
 		return Err!(Database(
 			"Database schema version {discovered} is newer than this build supports \
-			 ({DATABASE_VERSION}). Upgrade tuwunel, or set force_migration = true to open it \
-			 anyway; a downgrade may cause permanent data loss."
+			 ({DATABASE_VERSION}). Upgrade tuwunel to a build supporting this database."
 		));
 	}
 

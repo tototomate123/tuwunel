@@ -3094,25 +3094,6 @@
 #
 #database_migrations = true
 
-# Open a database whose schema version is newer than this build supports.
-#
-# A database reporting a higher schema version than this build is normally
-# refused, since opening it stamps the schema down to this build's version
-# and may permanently lose data written by the newer build. Setting this
-# to true overrides that refusal: the database opens, one-time migrations
-# run, and the schema is stamped down to this build's version.
-#
-# It has no effect when the discovered version is at or below this build's
-# version, where migrations apply normally either way. It is also not
-# needed to import a Conduit database or a fork of conduwuit; those are
-# recognized by lineage and open without it.
-#
-# This option is extremely dangerous and intended for developer debugging
-# and testing only. Never set it unless you have been instructed to do so;
-# it may cause permanent damage and permanent loss of data.
-#
-#force_migration = false
-
 # When importing a Conduit database in place, the filesystem path to
 # Conduit's media directory. Leave unset to use `<database_path>/media`,
 # which is Conduit's own default location.

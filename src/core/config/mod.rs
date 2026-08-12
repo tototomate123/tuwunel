@@ -98,7 +98,8 @@ use crate::{
 ### https://tuwunel.chat/configuration.html
 "#,
 	ignore = "catchall well_known tls allow_invalid_tls_certificates ldap jwt appservice \
-	          identity_provider storage_provider registration_terms smtp database_restore_backup"
+	          identity_provider storage_provider registration_terms smtp \
+	          database_restore_backup force_migration"
 )]
 pub struct Config {
 	/// The server_name is the pretty name of this server. It is used as a
