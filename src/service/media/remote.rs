@@ -288,7 +288,7 @@ pub(super) async fn location_request(
 		| Fetch::Preview(agent) => {
 			let request = self.services.client.url_preview.get(url.as_str());
 
-			self.preview_headers(request, agent)
+			self.preview_headers(request, &url, agent)
 		},
 	};
 

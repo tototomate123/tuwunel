@@ -12,7 +12,7 @@ use std::{
 
 #[cfg(feature = "url_preview")]
 use reqwest::header::CONTENT_DISPOSITION;
-use reqwest::header::{CONTENT_TYPE, USER_AGENT};
+use reqwest::header::{CONTENT_TYPE, COOKIE, HeaderValue, USER_AGENT};
 #[cfg(feature = "url_preview")]
 use ruma::Mxc;
 use serde::{Deserialize, Serialize};
@@ -26,6 +26,8 @@ use url::{Host, Url};
 #[cfg(feature = "url_preview")]
 use super::MXC_LENGTH;
 use super::Service;
+#[cfg(feature = "url_preview")]
+use crate::client::read_response_capped;
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct UrlPreviewData {
@@ -146,6 +148,47 @@ pub(super) enum Agent {
 	Media,
 }
 
+/// Hosts whose pages carry their `<head>` metadata only for an allowlisted
+/// crawler, and which answer oEmbed for any agent.
+const YOUTUBE_HOSTS: [&str; 5] = [
+	"youtu.be",
+	"youtube.com",
+	"www.youtube.com",
+	"m.youtube.com",
+	"music.youtube.com",
+];
+
+/// Consent state that suppresses the interstitial Google serves in place of
+/// the page in some regions.
+///
+/// `SOCS` is the cookie Google reads today and `CONSENT` the one older
+/// endpoints still honor.
+const YOUTUBE_CONSENT_COOKIE: &str = "SOCS=CAI; CONSENT=PENDING+999";
+
+/// Endpoint answering oEmbed for every host in `YOUTUBE_HOSTS`, including
+/// the short and subdomain forms.
+#[cfg(feature = "url_preview")]
+const YOUTUBE_OEMBED: &str = "https://www.youtube.com/oembed";
+
+/// An oEmbed document runs to a few hundred bytes; the cap bounds only a
+/// hostile origin.
+#[cfg(feature = "url_preview")]
+const OEMBED_MAX_SIZE: usize = 64 * 1024;
+
+/// The oEmbed fields a preview can carry.
+///
+/// Every other field of the document is ignored, and each of these is
+/// optional in the specification.
+#[cfg(feature = "url_preview")]
+#[derive(Deserialize)]
+struct Oembed {
+	#[serde(rename = "type")]
+	kind: Option<String>,
+	title: Option<String>,
+	author_name: Option<String>,
+	thumbnail_url: Option<String>,
+}
+
 #[implement(Service)]
 pub async fn get_url_preview(&self, url: &Url) -> Result<UrlPreviewData> {
 	if let Ok(cached) = self.db.get_url_preview(url.as_str()).await {
@@ -214,7 +257,9 @@ pub async fn request_url_preview(&self, url: &Url) -> Result<UrlPreviewData> {
 				))));
 			}
 
-			self.download_html(url, response).await?
+			let data = self.download_html(url, response).await?;
+
+			self.oembed_recover(url, data).await
 		},
 		| img if img.starts_with("image/") => {
 			let response = self
@@ -255,12 +300,13 @@ pub async fn request_url_preview(&self, url: &Url) -> Result<UrlPreviewData> {
 fn preview_get(&self, url: &Url, agent: Agent) -> reqwest::RequestBuilder {
 	let request = self.services.client.url_preview.get(url.as_str());
 
-	self.preview_headers(request, agent)
+	self.preview_headers(request, url, agent)
 }
 
-/// Apply the configured User-Agent to a preview request.
+/// Apply the configured User-Agent and any origin-specific headers to a
+/// preview request.
 ///
-/// It is read per request rather than baked into the client, so a
+/// Both are read per request rather than baked into the client, so a
 /// configuration reload takes effect without restarting the server. The
 /// configuration is bound once so the two agent options are read through a
 /// single handle.
@@ -268,6 +314,7 @@ fn preview_get(&self, url: &Url, agent: Agent) -> reqwest::RequestBuilder {
 pub(super) fn preview_headers(
 	&self,
 	request: reqwest::RequestBuilder,
+	url: &Url,
 	agent: Agent,
 ) -> reqwest::RequestBuilder {
 	let config: &Config = &self.services.config;
@@ -279,10 +326,23 @@ pub(super) fn preview_headers(
 			.or(config.url_preview_user_agent.as_deref()),
 	};
 
-	match user_agent {
+	let request = match user_agent {
 		| Some(user_agent) => request.header(USER_AGENT, user_agent),
 		| None => request,
+	};
+
+	// the consent cookie is scoped to the hosts that gate on it so it never
+	// travels to another origin
+	match is_youtube(url) {
+		| true => request.header(COOKIE, HeaderValue::from_static(YOUTUBE_CONSENT_COOKIE)),
+		| false => request,
 	}
+}
+
+#[must_use]
+fn is_youtube(url: &Url) -> bool {
+	url.host_str()
+		.is_some_and(|host| YOUTUBE_HOSTS.contains(&host))
 }
 
 /// Screen a preview response's peer address against the CIDR denylist.
@@ -302,6 +362,135 @@ fn check_remote_addr(&self, response: &reqwest::Response) -> Result {
 		.valid_cidr_range_ip(remote_addr.ip())
 		.then_some(())
 		.ok_or_else(|| err!(Request(Forbidden("Requesting from this address is forbidden"))))
+}
+
+/// Recover a preview from the origin's oEmbed endpoint when the page yielded
+/// nothing usable.
+///
+/// Some origins serve their `<head>` metadata only to an agent they
+/// recognise as a link-preview crawler, while answering oEmbed for anyone.
+/// A page that parsed to nothing is therefore worth one much smaller second
+/// request, and the original preview stands if that request fails too.
+#[cfg(feature = "url_preview")]
+#[implement(Service)]
+async fn oembed_recover(&self, url: &Url, data: UrlPreviewData) -> UrlPreviewData {
+	// an already-staged image would be orphaned by replacing the preview
+	if data.title.is_some() || data.image.is_some() {
+		return data;
+	}
+
+	let Some(endpoint) = oembed_endpoint(url) else {
+		return data;
+	};
+
+	self.oembed_preview(&endpoint, url)
+		.await
+		.inspect_err(|e| debug!(%url, %e, "oEmbed recovery failed"))
+		.unwrap_or(data)
+}
+
+#[cfg(not(feature = "url_preview"))]
+#[implement(Service)]
+#[expect(clippy::unused_async)]
+async fn oembed_recover(&self, _url: &Url, data: UrlPreviewData) -> UrlPreviewData { data }
+
+/// The oEmbed endpoint answering for `url`, when its origin has one.
+#[cfg(feature = "url_preview")]
+fn oembed_endpoint(url: &Url) -> Option<Url> {
+	is_youtube(url)
+		.then(|| {
+			Url::parse_with_params(YOUTUBE_OEMBED, [("url", url.as_str()), ("format", "json")])
+		})
+		.and_then(Result::ok)
+}
+
+/// Fetch an oEmbed document and render it as a preview.
+///
+/// The document names a thumbnail rather than carrying one, so the image is
+/// measured and staged through the same path an `og:image` takes.
+#[cfg(feature = "url_preview")]
+#[implement(Service)]
+async fn oembed_preview(&self, endpoint: &Url, page: &Url) -> Result<UrlPreviewData> {
+	// this host is chosen here rather than named by the page, so the operator's
+	// own allowlist decides whether it may be contacted at all
+	if !self.url_preview_allowed(endpoint) {
+		return Err!(Request(Forbidden(debug_warn!(
+			%endpoint,
+			"oEmbed endpoint is not allowed for previewing"
+		))));
+	}
+
+	self.check_url_host(endpoint)?;
+
+	let response = self
+		.preview_get(endpoint, Agent::Page)
+		.send()
+		.await?;
+
+	self.check_remote_addr(&response)?;
+
+	let status = response.status();
+
+	if !status.is_success() {
+		return Err!(Request(NotFound(debug_warn!(
+			?status,
+			%endpoint,
+			"oEmbed request failed"
+		))));
+	}
+
+	let body = read_response_capped(response, OEMBED_MAX_SIZE).await?;
+	let oembed: Oembed = serde_json::from_slice(&body)
+		.map_err(|e| err!(Request(Unknown("Invalid oEmbed document: {e}"))))?;
+
+	// oEmbed carries no description; the author is the only other prose the
+	// document offers and reads as a byline in every client that shows one
+	let image = self
+		.oembed_image(oembed.thumbnail_url.as_deref())
+		.await;
+
+	Ok(UrlPreviewData {
+		title: oembed.title,
+		description: oembed.author_name,
+		og_type: og_type(oembed.kind.as_deref()),
+		og_url: Some(page.as_str().to_owned()),
+		..image
+	})
+}
+
+/// Translate an oEmbed `type` into the OpenGraph vocabulary the preview
+/// response is defined in.
+///
+/// oEmbed names its own kinds (`video`, `photo`, `link`, `rich`), none of
+/// which is an OpenGraph type; anything without a counterpart takes the
+/// OpenGraph default the page path would have produced.
+#[cfg(feature = "url_preview")]
+fn og_type(kind: Option<&str>) -> Option<String> {
+	kind.map(|kind| match kind {
+		| "video" => "video.other",
+		| _ => "website",
+	})
+	.map(ToOwned::to_owned)
+}
+
+/// Measure an oEmbed thumbnail, yielding an empty preview when it is absent
+/// or unusable.
+///
+/// A thumbnail failure must not cost the textual preview the document has
+/// already provided.
+#[cfg(feature = "url_preview")]
+#[implement(Service)]
+async fn oembed_image(&self, thumbnail_url: Option<&str>) -> UrlPreviewData {
+	let Some(thumbnail) = thumbnail_url
+		.and_then(|thumbnail| Url::parse(thumbnail).ok())
+		.filter(|thumbnail| ["http", "https"].contains(&thumbnail.scheme()))
+	else {
+		return UrlPreviewData::default();
+	};
+
+	self.preview_image(&thumbnail)
+		.await
+		.unwrap_or_default()
 }
 
 /// Fetch and measure a preview image, keeping the textual preview when the
@@ -362,7 +551,7 @@ pub async fn download_image(&self, response: reqwest::Response) -> Result<UrlPre
 		.map(ToOwned::to_owned);
 
 	let limit = self.services.config.url_preview_max_media_size;
-	let image = crate::client::read_response_capped(response, limit).await?;
+	let image = read_response_capped(response, limit).await?;
 
 	let cursor = std::io::Cursor::new(&image);
 	let (width, height) = match ImageReader::new(cursor).with_guessed_format() {
@@ -880,10 +1069,11 @@ mod tests {
 	use std::time::{Duration, SystemTime};
 
 	use minicbor_serde::{from_slice, to_vec};
+	use url::Url;
 
+	use super::{CachedPreview, UrlPreviewData, is_youtube};
 	#[cfg(feature = "url_preview")]
-	use super::reserve_capped;
-	use super::{CachedPreview, UrlPreviewData};
+	use super::{oembed_endpoint, reserve_capped};
 
 	fn sample() -> UrlPreviewData {
 		UrlPreviewData {
@@ -975,6 +1165,51 @@ mod tests {
 
 		cached.expire = SystemTime::now() - Duration::from_secs(1);
 		assert!(!cached.valid());
+	}
+
+	#[test]
+	fn youtube_hosts_matched() {
+		let youtube = [
+			"https://www.youtube.com/watch?v=abc",
+			"https://youtu.be/abc",
+			"https://music.youtube.com/watch?v=abc",
+			"https://m.youtube.com/watch?v=abc",
+			"https://youtube.com/watch?v=abc",
+			"https://WWW.YOUTUBE.COM/watch?v=abc",
+		];
+
+		for url in youtube {
+			assert!(is_youtube(&Url::parse(url).expect("parses")), "{url}");
+		}
+
+		// a host merely ending in the domain is a different origin
+		let other = [
+			"https://youtube.com.evil.example/watch?v=abc",
+			"https://notyoutube.com/watch?v=abc",
+			"https://i.ytimg.com/vi/abc/hqdefault.jpg",
+			"https://example.org/",
+		];
+
+		for url in other {
+			assert!(!is_youtube(&Url::parse(url).expect("parses")), "{url}");
+		}
+	}
+
+	#[cfg(feature = "url_preview")]
+	#[test]
+	fn oembed_endpoint_carries_the_page_url() {
+		let url = Url::parse("https://www.youtube.com/watch?v=a&b=c").expect("parses");
+		let endpoint = oembed_endpoint(&url).expect("youtube has an endpoint");
+
+		assert_eq!(endpoint.path(), "/oembed");
+
+		let params: Vec<_> = endpoint.query_pairs().collect();
+		assert_eq!(params, [
+			("url".into(), url.as_str().into()),
+			("format".into(), "json".into())
+		]);
+
+		assert!(oembed_endpoint(&Url::parse("https://example.org/").expect("parses")).is_none());
 	}
 
 	#[cfg(feature = "url_preview")]
