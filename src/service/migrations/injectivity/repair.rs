@@ -8,7 +8,7 @@ use tuwunel_core::{
 };
 use tuwunel_database::{Map, Txn};
 
-use super::scan::{Scan, short_of};
+use super::scan::{Family, Scan, short_of};
 use crate::{
 	Service, Services,
 	rooms::state_compressor::{
@@ -22,6 +22,82 @@ use crate::{
 /// A digest key of any other width is unreachable by digest lookup and so
 /// cannot misdirect a dedup; only the 32-byte rows are collected.
 type Digests = BTreeMap<u64, SmallVec<[Digest; 1]>>;
+
+/// What one family's heal staged.
+///
+/// A reinstated row is a dangling winner regaining the reverse row its
+/// forward row already names; a promoted row is an unresolved loser
+/// regaining the forward row its identity lost.
+#[derive(Default)]
+struct Healed {
+	reinstated: usize,
+	promoted: usize,
+}
+
+/// Completes the torn writes the residue names on its own.
+///
+/// The pre-fix allocator put the forward and reverse rows separately, so a
+/// lost tail write leaves one half of a pair behind: a dangling winner has
+/// the forward row and wants its reverse row back, a promotable loser has
+/// the reverse row and wants the forward row its identity lost. Returns
+/// whether anything was written, which is the caller's signal to rescan
+/// before judging the counts a heal changes.
+///
+/// Never run this and [`repair`] in the same pass: a promoted row is also
+/// a loser, so `delete_losers` would remove the reverse row the promotion
+/// just completed.
+#[tracing::instrument(level = "debug", skip_all)]
+pub(super) fn heal(services: &Services, scan: &Scan) -> bool {
+	if scan.unverifiable || !scan.healable() {
+		return false;
+	}
+
+	let db = &services.db;
+	let mut txn = db.txn();
+
+	let event_reverse = &db["shorteventid_eventid"];
+	let event_forward = &db["eventid_shorteventid"];
+	let events = heal_family(&mut txn, event_reverse, event_forward, &scan.events);
+
+	let statekey_reverse = &db["shortstatekey_statekey"];
+	let statekey_forward = &db["statekey_shortstatekey"];
+	let statekeys = heal_family(&mut txn, statekey_reverse, statekey_forward, &scan.statekeys);
+
+	info!(
+		reinstated_events = events.reinstated,
+		promoted_events = events.promoted,
+		reinstated_statekeys = statekeys.reinstated,
+		promoted_statekeys = statekeys.promoted,
+		"Completing torn short id writes; rescanning to re-measure what they explain."
+	);
+
+	txn.execute();
+
+	true
+}
+
+/// Stages one family's reinstatements and promotions.
+///
+/// A family any anomaly impugns stages nothing, since the bitmaps naming
+/// its residue are the ones in doubt. Returns the counts staged.
+fn heal_family(txn: &mut Txn, reverse: &Map, forward: &Map, family: &Family) -> Healed {
+	if !family.healable() {
+		return Healed::default();
+	}
+
+	for (short, identity) in &family.dangling {
+		txn.insert_raw(reverse, short.to_be_bytes(), identity.as_slice());
+	}
+
+	for (short, identity) in &family.promotable {
+		txn.insert_raw(forward, identity.as_slice(), short.to_be_bytes());
+	}
+
+	Healed {
+		reinstated: family.dangling.len(),
+		promoted: family.promotable.len(),
+	}
+}
 
 /// Applies whatever repair the scan cleared, in hazard order.
 ///
@@ -58,12 +134,32 @@ pub(super) async fn repair(services: &Services, scan: &Scan) -> Result<bool> {
 		services.auth_chain.clear_cache().await;
 	}
 
+	// Refused rather than repaired, so the cache-clearing lane above still
+	// runs on a boot whose heals never settled. A promoted row is also a
+	// loser, so repairing an unhealed residue would delete the reverse row
+	// a promotion was about to complete.
+	if scan.healable() {
+		warn!(
+			dangling_events = scan.events.dangling.len(),
+			dangling_statekeys = scan.statekeys.dangling.len(),
+			promotable_events = scan.events.promotable.len(),
+			promotable_statekeys = scan.statekeys.promotable.len(),
+			"Short id heals did not settle; refusing the repair while residue stays healable."
+		);
+
+		return Ok(false);
+	}
+
 	if scan.events.losers.is_empty() && scan.statekeys.losers.is_empty() {
 		match scan.anomalous() {
 			| false => info!("Short id mappings verified injective."),
 			| true => warn!(
-				dangling_events = scan.events.dangling,
-				dangling_statekeys = scan.statekeys.dangling,
+				dangling_events = scan.events.dangling.len(),
+				dangling_statekeys = scan.statekeys.dangling.len(),
+				contended_events = scan.events.contended,
+				contended_statekeys = scan.statekeys.contended,
+				unresolved_events = scan.events.unresolved,
+				unresolved_statekeys = scan.statekeys.unresolved,
 				malformed_event_keys = scan.events.malformed,
 				malformed_statekey_keys = scan.statekeys.malformed,
 				"Short id anomalies exist with no stale mappings to repair; not scanning again."
@@ -75,8 +171,12 @@ pub(super) async fn repair(services: &Services, scan: &Scan) -> Result<bool> {
 
 	if scan.anomalous() {
 		warn!(
-			dangling_events = scan.events.dangling,
-			dangling_statekeys = scan.statekeys.dangling,
+			dangling_events = scan.events.dangling.len(),
+			dangling_statekeys = scan.statekeys.dangling.len(),
+			promotable_events = scan.events.promotable.len(),
+			promotable_statekeys = scan.statekeys.promotable.len(),
+			contended_events = scan.events.contended,
+			contended_statekeys = scan.statekeys.contended,
 			unresolved_events = scan.events.unresolved,
 			unresolved_statekeys = scan.statekeys.unresolved,
 			malformed_event_keys = scan.events.malformed,
@@ -85,8 +185,9 @@ pub(super) async fn repair(services: &Services, scan: &Scan) -> Result<bool> {
 			missing_parents = scan.missing_parents,
 			infected_parents = scan.infected_parents,
 			malformed_diffs = scan.malformed_diffs,
-			"Refusing the destructive short id repair; the nonzero counts name the unhandled \
-			 shapes and the scan repeats each boot."
+			"Refusing the destructive short id repair; the nonzero counts name shapes it does \
+			 not handle. Please report this line upstream, since the scan repeats each boot \
+			 until a release handles them."
 		);
 
 		return Ok(false);

@@ -11,7 +11,10 @@ mod scan;
 
 use tuwunel_core::{Result, result::NotFound};
 
-use self::{repair::repair, scan::scan};
+use self::{
+	repair::{heal, repair},
+	scan::scan,
+};
 use crate::Services;
 
 /// Global marker recording the repair ran to completion.
@@ -20,20 +23,43 @@ use crate::Services;
 /// scans again.
 static MARKER: &[u8] = b"fix_short_injectivity";
 
-/// Runs the injectivity scan and repair once, behind [`MARKER`].
+/// Scan passes one boot allows before giving up on convergence.
+///
+/// A heal completes torn writes and rescans to re-measure what they
+/// explain, and each pass strictly reduces the classes it heals, so the
+/// second pass is the one that repairs. The last pass never heals, which
+/// bounds a shape that does not settle and keeps the cache-clearing lane
+/// reachable on every boot.
+const PASSES: usize = 3;
+
+/// Runs the injectivity scan, heal, and repair behind [`MARKER`].
 ///
 /// The stamp follows the repair's own verdict: only a settled repair
-/// writes it.
+/// writes it. A heal rescans rather than repairing, because the orphan and
+/// parent counts a refusal turns on are taken against bitmaps the heal
+/// changes.
 #[tracing::instrument(level = "debug", skip_all)]
 pub(super) async fn fix(services: &Services) -> Result {
 	let global = &services.db["global"];
 
-	if global.get(MARKER).await.is_not_found() {
+	if !global.get(MARKER).await.is_not_found() {
+		return Ok(());
+	}
+
+	for pass in 1..=PASSES {
 		let residue = scan(services).await?;
+
+		// The last pass repairs rather than heals, so the cache-clearing lane
+		// still fires on a boot whose heals never settle.
+		if pass < PASSES && heal(services, &residue) {
+			continue;
+		}
 
 		if repair(services, &residue).await? {
 			global.insert(MARKER, []);
 		}
+
+		break;
 	}
 
 	Ok(())

@@ -1,4 +1,5 @@
 use std::{
+	cmp::Ordering,
 	collections::{BTreeMap, BTreeSet},
 	sync::Arc,
 };
@@ -35,13 +36,30 @@ pub(super) type Relations = Vec<(RelationKey, u64)>;
 /// testing one is false.
 type Bits = Vec<u64>;
 
+/// One short id paired with the identity its row names.
+type Candidate = (u64, Identity);
+
 /// Reverse rows no forward value claims, paired with the identities they
 /// name.
-type Candidates = Vec<(u64, Identity)>;
+type Candidates = Vec<Candidate>;
 
-/// One family's resolution: losers, the winner each maps to, and the
-/// count that resolved to nothing.
-type Resolution = (Vec<u64>, BTreeMap<u64, u64>, u64);
+/// One family's resolution: losers, the winner each maps to, the rows a
+/// promotion can heal, and the count the dereference could not settle.
+///
+/// Only a row proved absent is promotable; an unsettled one may still hold
+/// a live forward row, so it refuses instead.
+type Resolution = (Vec<u64>, BTreeMap<u64, u64>, Candidates, u64);
+
+/// What dereferencing one candidate's identity proved.
+///
+/// Absent is the only outcome a promotion may act on. A failed read and a
+/// forward row whose value is not a short id both leave the row unsettled,
+/// which is not the same as proving nothing is there.
+enum Resolved {
+	Winner(u64),
+	Absent,
+	Unsettled,
+}
 
 /// Exclusive upper bound on verifiable short ids.
 ///
@@ -50,17 +68,21 @@ type Resolution = (Vec<u64>, BTreeMap<u64, u64>, u64);
 /// reports unverifiable instead.
 const MAX_SHORT: u64 = 1 << 30;
 
-/// One family's residue: its losers, their winners, and the anomaly counts
-/// that impugn the scan.
+/// One family's residue: its losers, their winners, the rows a heal pass
+/// completes, and the counts that impugn the scan.
 ///
-/// The losers include any unresolved ones, so `winners` is total exactly
-/// when `unresolved` is zero.
+/// The losers include every row the dereference could not pair, so
+/// `winners` is total exactly when `promotable` is empty and `unresolved`
+/// is zero. A contended slot leaves both its claimants unhealed, since
+/// nothing in the residue names which one the allocator meant.
 #[derive(Default)]
 pub(super) struct Family {
 	pub(super) rows: u64,
 	pub(super) losers: Vec<u64>,
 	pub(super) winners: BTreeMap<u64, u64>,
-	pub(super) dangling: u64,
+	pub(super) dangling: Candidates,
+	pub(super) promotable: Candidates,
+	pub(super) contended: u64,
 	pub(super) unresolved: u64,
 	pub(super) malformed: u64,
 }
@@ -163,8 +185,8 @@ pub(super) async fn scan(services: &Services) -> Result<Scan> {
 	let scan = Scan { events, statekeys, ..swept };
 
 	// The stray census is the widest pass and gates nothing; it reports on
-	// the boot that acts and skips the rescans a refusal causes.
-	match scan.anomalous() {
+	// the boot that acts and skips the rescans a refusal or a heal causes.
+	match scan.anomalous() || scan.healable() {
 		| true => Ok(scan),
 		| false => {
 			let strays = strays(&services.db, counter, words).await;
@@ -177,19 +199,42 @@ pub(super) async fn scan(services: &Services) -> Result<Scan> {
 /// Whether any count impugns the scan or exceeds what the repair handles.
 ///
 /// Any anomaly refuses the destructive repair lane; the cache-clearing
-/// lane is unconditionally safe and proceeds regardless.
+/// lane is unconditionally safe and proceeds regardless. The classes a
+/// heal pass completes are gone by the time this decides, so they are
+/// absent here.
 #[implement(Scan)]
 pub(super) fn anomalous(&self) -> bool {
-	self.events.dangling > 0
-		|| self.statekeys.dangling > 0
-		|| self.events.unresolved > 0
-		|| self.statekeys.unresolved > 0
-		|| self.events.malformed > 0
-		|| self.statekeys.malformed > 0
+	self.events.anomalous()
+		|| self.statekeys.anomalous()
 		|| self.orphans > 0
 		|| self.missing_parents > 0
 		|| self.infected_parents > 0
 		|| self.malformed_diffs > 0
+}
+
+/// Whether a heal pass has rows to complete in either family.
+///
+/// The orphan and parent counts are taken against bitmaps a heal then
+/// changes, so a healable scan decides nothing else until it rescans.
+#[implement(Scan)]
+pub(super) fn healable(&self) -> bool { self.events.healable() || self.statekeys.healable() }
+
+/// Whether this family carries a shape the repair does not handle.
+///
+/// A contended slot has two claimants and nothing to break the tie, an
+/// unresolved row was never proved absent, and a malformed key leaves the
+/// bitmaps too incomplete for any other verdict to stand.
+#[implement(Family)]
+fn anomalous(&self) -> bool { self.contended > 0 || self.unresolved > 0 || self.malformed > 0 }
+
+/// Whether this family has rows a heal pass completes.
+///
+/// Anything impugning the family withholds both classes: the same
+/// bitmaps that name a dangling winner are the ones a malformed key
+/// leaves incomplete.
+#[implement(Family)]
+pub(super) fn healable(&self) -> bool {
+	!self.anomalous() && (!self.dangling.is_empty() || !self.promotable.is_empty())
 }
 
 /// Scans one family in two passes, and a third only where the bitmaps
@@ -220,7 +265,7 @@ async fn family(
 
 	let (reverse_bits, rows, reverse_malformed) = reverse_bitmap(&db[reverse], words).await;
 
-	let (forward_bits, dangling, forward_malformed) =
+	let (forward_bits, mut dangling, forward_malformed) =
 		dangling_winners(&db[forward], &reverse_bits, counter, words).await;
 
 	// A set reverse bit no forward value claims is what the pass collects.
@@ -231,13 +276,18 @@ async fn family(
 
 	drop(forward_bits);
 
-	let (losers, winners, unresolved) = resolve(&db[forward], &candidates).await;
+	let (losers, winners, mut promotable, unresolved) = resolve(&db[forward], &candidates).await;
+
+	let contended = contenders(&mut dangling, by_short)
+		.saturating_add(contenders(&mut promotable, by_identity));
 
 	let family = Family {
 		rows,
 		losers,
 		winners,
 		dangling,
+		promotable,
+		contended,
 		unresolved,
 		malformed: reverse_malformed.saturating_add(forward_malformed),
 	};
@@ -245,7 +295,9 @@ async fn family(
 	debug!(
 		rows = family.rows,
 		losers = family.losers.len(),
-		dangling = family.dangling,
+		dangling = family.dangling.len(),
+		promotable = family.promotable.len(),
+		contended = family.contended,
 		unresolved = family.unresolved,
 		malformed = family.malformed,
 		"Scanned one short id family."
@@ -282,23 +334,25 @@ async fn reverse_bitmap(map: &Arc<Map>, words: usize) -> (Bits, u64, u64) {
 /// Streams a forward map against the reverse bitmap for dangling winners.
 ///
 /// A dangling winner is a forward value no reverse row answers for.
-/// Values past the counter are concurrent allocations, not danglings.
+/// Values past the counter are concurrent allocations, not danglings. Each
+/// one carries the identity its forward row is keyed by, which is the
+/// reverse row a heal reinstates.
 async fn dangling_winners(
 	map: &Arc<Map>,
 	reverse_bits: &[u64],
 	counter: u64,
 	words: usize,
-) -> (Bits, u64, u64) {
+) -> (Bits, Candidates, u64) {
 	map.raw_stream()
 		.ignore_err()
 		.ready_fold(
-			(vec![0_u64; words], 0_u64, 0_u64),
-			|(mut bits, dangling, malformed), (_, value)| match short_of(value) {
+			(vec![0_u64; words], Candidates::new(), 0_u64),
+			|(mut bits, mut dangling, malformed), (key, value)| match short_of(value) {
 				| None => (bits, dangling, malformed.saturating_add(1)),
 				| Some(short) => {
-					let dangling = dangling.saturating_add(u64::from(
-						short <= counter && !get_bit(reverse_bits, short),
-					));
+					if short <= counter && !get_bit(reverse_bits, short) {
+						dangling.push((short, Identity::from_slice(key)));
+					}
 
 					set_bit(&mut bits, short);
 
@@ -361,30 +415,39 @@ async fn loser_candidates(map: &Arc<Map>, forward_bits: &[u64], counter: u64) ->
 /// whose value is the winner. A candidate resolving to itself was a
 /// concurrent allocation, not a loser.
 async fn resolve(map: &Arc<Map>, candidates: &[(u64, Identity)]) -> Resolution {
-	let (mut losers, winners, unresolved, paired) = candidates
+	let (mut losers, winners, promotable, unsettled, paired) = candidates
 		.iter()
 		.map(candidate_identity)
 		.stream()
 		.get(map)
 		.map(resolution)
-		.zip(candidates.iter().map(candidate_short).stream())
+		.zip(candidates.iter().stream())
 		.ready_fold(
-			(Vec::new(), BTreeMap::new(), 0_u64, 0_usize),
-			|(mut losers, mut winners, unresolved, paired), (winner, loser)| {
+			(Vec::new(), BTreeMap::new(), Candidates::new(), 0_u64, 0_usize),
+			|(mut losers, mut winners, mut promotable, unsettled, paired),
+			 (resolved, candidate)| {
 				let paired = paired.saturating_add(1);
+				let loser = candidate_short(candidate);
 
-				match winner {
-					| Some(winner) if winner == loser => (losers, winners, unresolved, paired),
-					| Some(winner) => {
+				match resolved {
+					| Resolved::Winner(winner) if winner == loser =>
+						(losers, winners, promotable, unsettled, paired),
+					| Resolved::Winner(winner) => {
 						losers.push(loser);
 						winners.insert(loser, winner);
 
-						(losers, winners, unresolved, paired)
+						(losers, winners, promotable, unsettled, paired)
 					},
-					| None => {
+					| Resolved::Absent => {
+						losers.push(loser);
+						promotable.push(candidate.clone());
+
+						(losers, winners, promotable, unsettled, paired)
+					},
+					| Resolved::Unsettled => {
 						losers.push(loser);
 
-						(losers, winners, unresolved.saturating_add(1), paired)
+						(losers, winners, promotable, unsettled.saturating_add(1), paired)
 					},
 				}
 			},
@@ -392,24 +455,53 @@ async fn resolve(map: &Arc<Map>, candidates: &[(u64, Identity)]) -> Resolution {
 		.await;
 
 	// A batched lookup can compress a failed chunk into one error item,
-	// desynchronizing the zip; the unpaired tail stays unresolved so the
-	// refusal gate holds.
+	// desynchronizing the zip; the unpaired tail is undereferenced, so it refuses.
 	let tail = candidates.get(paired..).unwrap_or_default();
 	losers.extend(tail.iter().map(candidate_short));
 
-	let unresolved = unresolved.saturating_add(u64::try_from(tail.len()).unwrap_or(u64::MAX));
+	let unresolved = unsettled.saturating_add(u64::try_from(tail.len()).unwrap_or(u64::MAX));
 
-	(losers, winners, unresolved)
+	(losers, winners, promotable, unresolved)
+}
+
+/// Counts candidates contending for a slot another candidate already
+/// claims.
+///
+/// Sorting is what makes contenders adjacent; the comparator names the
+/// half of the pair that decides the slot, the short id for a
+/// reinstatement and the identity for a promotion.
+fn contenders<F>(candidates: &mut [Candidate], cmp: F) -> u64
+where
+	F: Fn(&Candidate, &Candidate) -> Ordering,
+{
+	candidates.sort_unstable_by(&cmp);
+
+	let contenders = candidates
+		.windows(2)
+		.filter(|pair| cmp(&pair[0], &pair[1]).is_eq())
+		.count();
+
+	u64::try_from(contenders).unwrap_or(u64::MAX)
 }
 
 // Named for the higher-ranked closure generality the dereference stream
 // needs; an inline closure pins the item lifetimes.
-fn candidate_identity((_, identity): &(u64, Identity)) -> &Identity { identity }
+fn candidate_identity((_, identity): &Candidate) -> &Identity { identity }
 
-fn candidate_short((short, _): &(u64, Identity)) -> u64 { *short }
+fn candidate_short((short, _): &Candidate) -> u64 { *short }
 
-fn resolution(result: Result<Handle<'_>>) -> Option<u64> {
-	result.ok().as_deref().and_then(short_of)
+fn by_short(a: &Candidate, b: &Candidate) -> Ordering { a.0.cmp(&b.0) }
+
+fn by_identity(a: &Candidate, b: &Candidate) -> Ordering { a.1.cmp(&b.1) }
+
+// A failed read is not an absent row; only the not-found error proves the
+// forward row is missing, and a promotion is a write.
+fn resolution(result: Result<Handle<'_>>) -> Resolved {
+	match result {
+		| Ok(handle) => short_of(&handle).map_or(Resolved::Unsettled, Resolved::Winner),
+		| Err(error) if error.is_not_found() => Resolved::Absent,
+		| Err(_) => Resolved::Unsettled,
+	}
 }
 
 /// Reads the deeper indexes once a loser exists in either family.
@@ -762,4 +854,79 @@ fn get_bit(bits: &[u64], index: u64) -> bool {
 		.ok()
 		.and_then(|word| bits.get(word))
 		.is_some_and(|word| word & (1_u64 << (index % 64)) != 0)
+}
+
+#[cfg(test)]
+mod tests {
+	use super::{Candidate, Family, Identity, by_identity, by_short, contenders};
+
+	fn candidate(short: u64, identity: &[u8]) -> Candidate {
+		(short, Identity::from_slice(identity))
+	}
+
+	#[test]
+	fn contenders_counts_two_forward_rows_claiming_one_short() {
+		let mut dangling = vec![candidate(7, b"$a"), candidate(7, b"$b"), candidate(9, b"$c")];
+
+		assert_eq!(contenders(&mut dangling, by_short), 1);
+	}
+
+	#[test]
+	fn contenders_counts_two_reverse_rows_naming_one_identity() {
+		let mut promotable = vec![candidate(7, b"$a"), candidate(9, b"$a"), candidate(11, b"$b")];
+
+		assert_eq!(contenders(&mut promotable, by_identity), 1);
+	}
+
+	#[test]
+	fn contenders_is_zero_when_every_slot_is_claimed_once() {
+		let mut dangling = vec![candidate(9, b"$a"), candidate(7, b"$b")];
+
+		assert_eq!(contenders(&mut dangling, by_short), 0);
+	}
+
+	#[test]
+	fn a_lone_dangling_winner_heals_without_refusing() {
+		let family = Family {
+			dangling: vec![candidate(7, b"$a")],
+			..Default::default()
+		};
+
+		assert!(family.healable());
+		assert!(!family.anomalous());
+	}
+
+	#[test]
+	fn a_contended_short_refuses_instead_of_healing() {
+		let family = Family {
+			dangling: vec![candidate(7, b"$a"), candidate(7, b"$b")],
+			contended: 1,
+			..Default::default()
+		};
+
+		assert!(!family.healable());
+		assert!(family.anomalous());
+	}
+
+	#[test]
+	fn a_malformed_key_withholds_the_heal() {
+		let family = Family {
+			dangling: vec![candidate(7, b"$a")],
+			malformed: 1,
+			..Default::default()
+		};
+
+		assert!(!family.healable());
+	}
+
+	#[test]
+	fn an_unresolved_row_withholds_the_promotion() {
+		let family = Family {
+			promotable: vec![candidate(7, b"$a")],
+			unresolved: 1,
+			..Default::default()
+		};
+
+		assert!(!family.healable());
+	}
 }
