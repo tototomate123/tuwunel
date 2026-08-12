@@ -142,6 +142,20 @@ fn invalid_room_create() {
 	);
 	check_room_create(&RoomCreateEvent::new(event), &AuthorizationRules::V1).unwrap_err();
 
+	// With an authorization event.
+	let content = json!({ "creator": alice() });
+	let event = to_pdu_event(
+		"CREATE",
+		alice(),
+		TimelineEventType::RoomCreate,
+		Some(""),
+		to_raw_json_value(&content).unwrap(),
+		&["MESSAGE"],
+		&[],
+	);
+
+	check_room_create(&RoomCreateEvent::new(event), &AuthorizationRules::V1).unwrap_err();
+
 	// Sender with a different domain.
 	let creator = user_id!("@bot:bar");
 	let content = json!({
