@@ -19,7 +19,6 @@ type DisableEncoding = fn(ClientBuilder) -> ClientBuilder;
 pub struct Clients {
 	pub default: Client,
 	pub url_preview: Client,
-	pub url_preview_media: Client,
 	pub extern_media: Client,
 	pub well_known: Client,
 	pub federation: Client,
@@ -103,27 +102,7 @@ fn make_clients(services: &Services) -> Result<Clients> {
 	Ok(Clients {
 		default: with!(cb => cb.dns_resolver(Arc::clone(&services.resolver.resolver))),
 
-		url_preview: with!("preview", cb => preview_builder(
-			services,
-			cb,
-			services
-				.config
-				.url_preview_user_agent
-				.as_deref(),
-		)?),
-
-		url_preview_media: with!("preview", cb => preview_builder(
-			services,
-			cb,
-			services
-				.config
-				.url_preview_media_user_agent
-				.as_deref()
-				.or(services
-					.config
-					.url_preview_user_agent
-					.as_deref()),
-		)?),
+		url_preview: with!("preview", cb => preview_builder(services, cb)?),
 
 		extern_media: with!(cb => cb
 			.dns_resolver(Validating::new(
@@ -196,14 +175,12 @@ fn make_clients(services: &Services) -> Result<Clients> {
 	})
 }
 
-/// Shared construction for the URL preview clients: bound to the configured
-/// interface, resolving through the CIDR-validating resolver, with an
-/// optional User-Agent override.
-fn preview_builder(
-	services: &Services,
-	builder: ClientBuilder,
-	user_agent: Option<&str>,
-) -> Result<ClientBuilder> {
+/// Construction for the URL preview client: bound to the configured
+/// interface and resolving through the CIDR-validating resolver.
+///
+/// The configured User-Agent is applied per request rather than here, so a
+/// configuration reload takes effect without rebuilding the client.
+fn preview_builder(services: &Services, builder: ClientBuilder) -> Result<ClientBuilder> {
 	let interface = &services.config.url_preview_bound_interface;
 
 	let bind_addr = interface.clone().and_then(Either::left);
@@ -213,11 +190,6 @@ fn preview_builder(
 		Arc::clone(&services.resolver.resolver),
 		Arc::clone(&services.client.cidr_range_denylist),
 	);
-
-	let builder = match user_agent {
-		| Some(user_agent) => builder.user_agent(user_agent),
-		| None => builder,
-	};
 
 	Ok(builder_interface(builder, bind_iface.as_deref())?
 		.local_address(bind_addr)

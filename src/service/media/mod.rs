@@ -38,9 +38,9 @@ use tuwunel_core::{
 };
 use url::Url;
 
-use self::data::Data;
 #[cfg(feature = "media_thumbnail")]
 use self::video::{FAILURES, Failures, sweep_staging_dir};
+use self::{data::Data, preview::Agent, remote::Fetch};
 pub use self::{data::Metadata, preview::UrlPreviewData, thumbnail::Dim};
 use crate::storage::Provider;
 
@@ -476,7 +476,8 @@ impl Service {
 				};
 
 				let limit = self.services.config.url_preview_max_media_size;
-				self.location_request(&self.services.client.url_preview_media, &url, limit)
+
+				self.location_request(Fetch::Preview(Agent::Media), &url, limit)
 					.await?
 			},
 		};

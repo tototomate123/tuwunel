@@ -12,11 +12,11 @@ use std::{
 
 #[cfg(feature = "url_preview")]
 use reqwest::header::CONTENT_DISPOSITION;
-use reqwest::header::CONTENT_TYPE;
+use reqwest::header::{CONTENT_TYPE, USER_AGENT};
 #[cfg(feature = "url_preview")]
 use ruma::Mxc;
 use serde::{Deserialize, Serialize};
-use tuwunel_core::{Err, Result, debug, err, implement, utils::time::timepoint_from_now};
+use tuwunel_core::{Config, Err, Result, debug, err, implement, utils::time::timepoint_from_now};
 #[cfg(feature = "url_preview")]
 use tuwunel_core::{debug_warn, utils::random_string};
 #[cfg(feature = "url_preview")]
@@ -136,6 +136,16 @@ impl CachedPreview {
 	pub(super) fn valid(&self) -> bool { self.expire > SystemTime::now() }
 }
 
+/// Which configured agent a preview request speaks as.
+///
+/// Origins commonly gate a page and the media it references differently, so
+/// the two are configured separately.
+#[derive(Clone, Copy)]
+pub(super) enum Agent {
+	Page,
+	Media,
+}
+
 #[implement(Service)]
 pub async fn get_url_preview(&self, url: &Url) -> Result<UrlPreviewData> {
 	if let Ok(cached) = self.db.get_url_preview(url.as_str()).await {
@@ -155,24 +165,11 @@ pub async fn get_url_preview(&self, url: &Url) -> Result<UrlPreviewData> {
 pub async fn request_url_preview(&self, url: &Url) -> Result<UrlPreviewData> {
 	self.check_url_host(url)?;
 
-	let client = &self.services.client.url_preview;
-	let response = client.get(url.as_str()).send().await?;
+	let response = self.preview_get(url, Agent::Page).send().await?;
 
 	debug!(?url, "URL preview response headers: {:?}", response.headers());
 
-	let Some(remote_addr) = response.remote_addr() else {
-		return Err!(Request(Forbidden("URL preview response has no peer address")));
-	};
-
-	debug!(?url, ?remote_addr, "URL preview response remote address");
-
-	if !self
-		.services
-		.client
-		.valid_cidr_range_ip(remote_addr.ip())
-	{
-		return Err!(Request(Forbidden("Requesting from this address is forbidden")));
-	}
+	self.check_remote_addr(&response)?;
 
 	// an upstream error response must not be turned into a cached preview.
 	// origins commonly gate pages and media differently by agent, so when a
@@ -252,6 +249,94 @@ pub async fn request_url_preview(&self, url: &Url) -> Result<UrlPreviewData> {
 	Ok(cached.preview)
 }
 
+/// Build a preview request through the preview client, carrying the headers
+/// `preview_headers` applies.
+#[implement(Service)]
+fn preview_get(&self, url: &Url, agent: Agent) -> reqwest::RequestBuilder {
+	let request = self.services.client.url_preview.get(url.as_str());
+
+	self.preview_headers(request, agent)
+}
+
+/// Apply the configured User-Agent to a preview request.
+///
+/// It is read per request rather than baked into the client, so a
+/// configuration reload takes effect without restarting the server. The
+/// configuration is bound once so the two agent options are read through a
+/// single handle.
+#[implement(Service)]
+pub(super) fn preview_headers(
+	&self,
+	request: reqwest::RequestBuilder,
+	agent: Agent,
+) -> reqwest::RequestBuilder {
+	let config: &Config = &self.services.config;
+	let user_agent = match agent {
+		| Agent::Page => config.url_preview_user_agent.as_deref(),
+		| Agent::Media => config
+			.url_preview_media_user_agent
+			.as_deref()
+			.or(config.url_preview_user_agent.as_deref()),
+	};
+
+	match user_agent {
+		| Some(user_agent) => request.header(USER_AGENT, user_agent),
+		| None => request,
+	}
+}
+
+/// Screen a preview response's peer address against the CIDR denylist.
+///
+/// A completed response carrying no peer address is not a real reqwest
+/// outcome, so it fails closed rather than skipping the screen.
+#[implement(Service)]
+fn check_remote_addr(&self, response: &reqwest::Response) -> Result {
+	let Some(remote_addr) = response.remote_addr() else {
+		return Err!(Request(Forbidden("URL preview response has no peer address")));
+	};
+
+	debug!(url = %response.url(), ?remote_addr, "URL preview response remote address");
+
+	self.services
+		.client
+		.valid_cidr_range_ip(remote_addr.ip())
+		.then_some(())
+		.ok_or_else(|| err!(Request(Forbidden("Requesting from this address is forbidden"))))
+}
+
+/// Fetch and measure a preview image, keeping the textual preview when the
+/// origin refuses it.
+///
+/// The measurement is a media fetch: it carries the media agent, or the
+/// origin could serve the measurement different content than it serves the
+/// relayed mxc.
+#[cfg(feature = "url_preview")]
+#[implement(Service)]
+async fn preview_image(&self, image_url: &Url) -> Result<UrlPreviewData> {
+	self.check_url_host(image_url)?;
+
+	let response = self
+		.preview_get(image_url, Agent::Media)
+		.send()
+		.await?;
+
+	self.check_remote_addr(&response)?;
+
+	// a failing preview image must not become a preview mxc the relay is
+	// guaranteed to reject; skip it and keep the textual preview
+	if !response.status().is_success() {
+		debug!(
+			%image_url,
+			status = ?response.status(),
+			"Skipping preview image with unsuccessful response"
+		);
+
+		return Ok(UrlPreviewData::default());
+	}
+
+	self.download_image(response).await
+}
+
 /// Download an image for URL preview metadata.
 ///
 /// When URL previews are enabled, the image is staged for lazy media retrieval;
@@ -328,20 +413,9 @@ pub async fn download_image(&self, _response: reqwest::Response) -> Result<UrlPr
 #[cfg(feature = "url_preview")]
 #[implement(Service)]
 async fn media_response(&self, url: &Url) -> Result<reqwest::Response> {
-	let client = &self.services.client.url_preview_media;
-	let response = client.get(url.as_str()).send().await?;
+	let response = self.preview_get(url, Agent::Media).send().await?;
 
-	let Some(remote_addr) = response.remote_addr() else {
-		return Err!(Request(Forbidden("URL preview media response has no peer address")));
-	};
-
-	if !self
-		.services
-		.client
-		.valid_cidr_range_ip(remote_addr.ip())
-	{
-		return Err!(Request(Forbidden("Requesting from this address is forbidden")));
-	}
+	self.check_remote_addr(&response)?;
 
 	if !response.status().is_success() {
 		return Err!(Request(NotFound(debug_warn!(
@@ -505,14 +579,6 @@ async fn download_html(&self, url: &Url, response: reqwest::Response) -> Result<
 		return Err!(Request(Unknown("Failed to parse HTML")));
 	};
 
-	// `webpage` does not resolve relative URLs in `og:` meta tags; resolve
-	// against the page URL so e.g. `og:image=test.png` becomes absolute.
-	//
-	// the measurement fetch is a media fetch: it must use the same client
-	// as the relay, or the origin could serve the measurement different
-	// content than the relayed mxc.
-	let client = &self.services.client.url_preview_media;
-
 	// twitter:* card tags mirror og:; some pages emit only the twitter set,
 	// or (fixvx) an empty og: value beside the real twitter: one
 	let twitter = |key| {
@@ -522,7 +588,8 @@ async fn download_html(&self, url: &Url, response: reqwest::Response) -> Result<
 			.filter(|content| !content.is_empty())
 	};
 
-	// only http(s) image URLs are fetchable; others keep the textual preview
+	// `webpage` does not resolve relative URLs in `og:` meta tags; resolve
+	// against the page URL, then keep only the http(s) ones we can fetch
 	let image_url = html
 		.opengraph
 		.images
@@ -538,38 +605,7 @@ async fn download_html(&self, url: &Url, response: reqwest::Response) -> Result<
 
 	let mut data = match image_url {
 		| None => UrlPreviewData::default(),
-		| Some(image_url) => {
-			self.check_url_host(&image_url)?;
-			let image_response = client.get(image_url.as_str()).send().await?;
-
-			let Some(remote_addr) = image_response.remote_addr() else {
-				return Err!(Request(Forbidden("preview image response has no peer address")));
-			};
-
-			debug!(?image_url, ?remote_addr, "preview image remote address");
-
-			if !self
-				.services
-				.client
-				.valid_cidr_range_ip(remote_addr.ip())
-			{
-				return Err!(Request(Forbidden("Requesting from this address is forbidden")));
-			}
-
-			// a failing preview image must not become a preview mxc the relay is
-			// guaranteed to reject; skip it and keep the textual preview
-			if image_response.status().is_success() {
-				self.download_image(image_response).await?
-			} else {
-				debug!(
-					?image_url,
-					status = ?image_response.status(),
-					"Skipping preview image with unsuccessful response"
-				);
-
-				UrlPreviewData::default()
-			}
-		},
+		| Some(image_url) => self.preview_image(&image_url).await?,
 	};
 
 	// og:video/og:audio are registered as lazy media (see register_lazy_media)

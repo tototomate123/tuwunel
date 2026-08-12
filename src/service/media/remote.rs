@@ -17,11 +17,21 @@ use tuwunel_core::{
 };
 use url::Url;
 
-use super::{Dim, Media};
+use super::{Dim, Media, preview::Agent};
 use crate::{
 	client::read_response_capped,
 	federation::scheme::{FedAuth, FedPath},
 };
+
+/// Which client fetches a media location, and as whom.
+///
+/// The client and the agent are not independent, so they travel together:
+/// only preview media carries a configured agent, and only the extern client
+/// serves federation and remote-media downloads.
+pub(super) enum Fetch {
+	Extern,
+	Preview(Agent),
+}
 
 #[implement(super::Service)]
 #[tracing::instrument(level = "debug", skip(self))]
@@ -248,7 +258,7 @@ async fn handle_content_file(&self, mxc: &Mxc<'_>, content: Content) -> Result<M
 async fn handle_location(&self, mxc: &Mxc<'_>, location: &str) -> Result<Media> {
 	let limit = self.services.server.config.max_response_size;
 
-	self.location_request(&self.services.client.extern_media, location, limit)
+	self.location_request(Fetch::Extern, location, limit)
 		.await
 		.map_err(|error| {
 			err!(Request(NotFound(
@@ -260,7 +270,7 @@ async fn handle_location(&self, mxc: &Mxc<'_>, location: &str) -> Result<Media> 
 #[implement(super::Service)]
 pub(super) async fn location_request(
 	&self,
-	client: &reqwest::Client,
+	fetch: Fetch,
 	location: &str,
 	limit: usize,
 ) -> Result<Media> {
@@ -269,7 +279,20 @@ pub(super) async fn location_request(
 
 	self.check_url_host(&url)?;
 
-	let response = client.get(url.as_str()).send().await?;
+	let request = match fetch {
+		| Fetch::Extern => self
+			.services
+			.client
+			.extern_media
+			.get(url.as_str()),
+		| Fetch::Preview(agent) => {
+			let request = self.services.client.url_preview.get(url.as_str());
+
+			self.preview_headers(request, agent)
+		},
+	};
+
+	let response = request.send().await?;
 
 	// a completed response without a peer address is not a real reqwest
 	// outcome; fail closed rather than skip the screen
