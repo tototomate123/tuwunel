@@ -297,7 +297,9 @@ with it.
 ## URL previews
 
 URL previews are disabled unless at least one allowlist is configured.
-All allowlist checks are evaluated before the denylist check.
+All allowlist checks are evaluated before the denylist check. The
+[URL Previews](media/url-previews.md) page covers user agents, the spider
+budget, caching, and troubleshooting an empty preview.
 
 | Option | Default | Description |
 |---|---|---|
@@ -306,7 +308,7 @@ All allowlist checks are evaluated before the denylist check.
 | `url_preview_url_contains_allowlist` | `[]` | Substring match against the full URL (not just the domain). Set to `["*"]` to allow all URLs. |
 | `url_preview_domain_explicit_denylist` | `[]` | Exact domain matches explicitly blocked. The denylist is checked first. Setting to `["*"]` has no effect. |
 | `url_preview_check_root_domain` | `false` | When enabled, domain allowlist checks are applied to the root domain. Allows all subdomains of any allowed domain — e.g. allowing `wikipedia.org` also allows `en.m.wikipedia.org`. |
-| `url_preview_max_spider_size` | `256000` | Maximum bytes fetched from a URL when generating a preview (default: 256 KB). |
+| `url_preview_max_spider_size` | `786432` | Maximum bytes read from a page when generating a preview (default: 768 KiB). A page whose OpenGraph tags sit past this point yields an empty preview. |
 | `url_preview_max_media_size` | `52428800` | Maximum size of a single media item fetched or relayed for a URL preview: the og:image measurement fetch and the lazy-media relay. Media larger than this is not registered, and an over-cap relay is refused (default: 50 MiB). |
 | `url_preview_bound_interface` | — | Network interface name or IP address to bind when making URL preview requests. Example: `"eth0"` or `"1.2.3.4"`. |
 | `url_preview_user_agent` | — | User-Agent header sent when fetching pages to extract their OpenGraph tags. Defaults to the versioned server User-Agent, e.g. `"Tuwunel/1.8.1 preview"`. |
@@ -319,19 +321,20 @@ All allowlist checks are evaluated before the denylist check.
 
 `og:image`, `og:video`, and `og:audio` (and direct links to image, video,
 and audio files) resolve to an `mxc://` URI on this server rather than the
-third-party URL, and none of the content is stored: requests for that
+third-party URL, and are not copied into media storage: requests for that
 `mxc://` URI are relayed — the server fetches the source URL on the client's
 behalf (subject to the same SSRF/CIDR checks as everything else on this
-page, and capped at `max_response_size`) and passes the content through, so
-the third party sees the server's address rather than the client's, and the
-server hosts nothing. Images are additionally downloaded once while
-generating the preview to measure `og:image:width`/`og:image:height` and
-`matrix:image:size`, then discarded. `og:video:width`/`og:video:height` are
-populated when the page declares them. Clients cache the results themselves
-per the immutable cache headers on media downloads. Because nothing is
-stored, a preview's `mxc://` URI is only as durable as its source URL: if
-the source expires or changes, later fetches reflect that, unlike uploaded
-media. Upstream error responses are never relayed as media.
+page, and capped at `url_preview_max_media_size`) and passes the content
+through, so the third party sees the server's address rather than the
+client's. Images are the exception to the lazy fetch: one is downloaded
+while generating the preview to measure `og:image:width`/`og:image:height`
+and `matrix:image:size`, and those bytes are staged so the first client
+download does not fetch the origin a second time.
+`og:video:width`/`og:video:height` are populated when the page declares
+them. Clients cache the results themselves per the immutable cache headers
+on media downloads. A preview's `mxc://` URI is only as durable as its
+source URL: if the source expires or changes, later fetches reflect that,
+unlike uploaded media. Upstream error responses are never relayed as media.
 
 ## Blurhash
 

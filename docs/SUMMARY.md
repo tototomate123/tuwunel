@@ -40,6 +40,7 @@
     - [Matrix Authentication Service](authentication/providers/mas.md)
 - [Multimedia and Storage](media.md)
   - [Storage Providers](media/storage.md)
+  - [URL Previews](media/url-previews.md)
   - [Management](media/management.md)
 - [Video and Voice Conferencing](calls.md)
   - [Matrix RTC (Element Call)](calls/matrix_rtc.md)
