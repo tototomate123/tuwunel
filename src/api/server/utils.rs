@@ -1,6 +1,7 @@
 use futures::{FutureExt, StreamExt, join};
-use ruma::{EventId, RoomId, ServerName};
-use tuwunel_core::{Err, Result, implement, is_false, utils::option::OptionExt};
+use ruma::{EventId, OwnedRoomId, RoomId, ServerName};
+use serde::Deserialize;
+use tuwunel_core::{Err, Result, err, implement, is_false, utils::option::OptionExt};
 use tuwunel_service::Services;
 
 pub(super) struct AccessCheck<'a> {
@@ -73,4 +74,23 @@ pub(super) async fn require_known_room(
 		.event_handler
 		.acl_check(origin, room_id)
 		.await
+}
+
+pub(super) async fn require_event_in_room(
+	services: &Services,
+	event_id: &EventId,
+	room_id: &RoomId,
+) -> Result {
+	#[derive(Deserialize)]
+	struct PduRoomId {
+		room_id: OwnedRoomId,
+	}
+
+	services
+		.timeline
+		.get::<PduRoomId>(event_id)
+		.await
+		.is_ok_and(|pdu| pdu.room_id == room_id)
+		.then_some(())
+		.ok_or_else(|| err!(Request(NotFound("Event not found."))))
 }
