@@ -1,3 +1,5 @@
+use std::pin::pin;
+
 use futures::{FutureExt, StreamExt, join};
 use ruma::{EventId, OwnedRoomId, RoomId, ServerName};
 use serde::Deserialize;
@@ -31,11 +33,15 @@ pub(super) async fn check(&self) -> Result {
 
 	// if any user on our homeserver is trying to knock this room, we'll need to
 	// acknowledge bans or leaves
-	let user_is_knocking = self
-		.services
-		.state_cache
-		.room_members_knocked(self.room_id)
-		.count();
+	let user_is_knocking = async {
+		let knocked = self
+			.services
+			.state_cache
+			.room_members_knocked(self.room_id);
+		let mut knocked = pin!(knocked);
+
+		knocked.next().await.is_some()
+	};
 
 	let server_can_see = self.event_id.map_async(|event_id| {
 		self.services
@@ -50,7 +56,7 @@ pub(super) async fn check(&self) -> Result {
 		return Err!(Request(Forbidden("Server access denied.")));
 	}
 
-	if !world_readable && !server_in_room && user_is_knocking == 0 {
+	if !world_readable && !server_in_room && !user_is_knocking {
 		return Err!(Request(Forbidden("Server is not in room.")));
 	}
 
