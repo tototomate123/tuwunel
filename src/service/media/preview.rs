@@ -22,6 +22,8 @@ use tuwunel_core::{debug_warn, utils::random_string};
 #[cfg(feature = "url_preview")]
 use tuwunel_database::Txn;
 use url::{Host, Url};
+#[cfg(feature = "url_preview")]
+use webpage::OpengraphObject;
 
 #[cfg(feature = "url_preview")]
 use super::MXC_LENGTH;
@@ -806,6 +808,7 @@ async fn download_html(&self, url: &Url, response: reqwest::Response) -> Result<
 	// reject.
 	if let Some(obj) = html.opengraph.videos.first()
 		&& !obj.url.is_empty()
+		&& declares_media_type(obj, "video/")
 		&& let Ok(video_url) = url.join(&obj.url)
 		&& ["http", "https"].contains(&video_url.scheme())
 		&& self.check_url_host(&video_url).is_ok()
@@ -823,6 +826,7 @@ async fn download_html(&self, url: &Url, response: reqwest::Response) -> Result<
 
 	if let Some(obj) = html.opengraph.audios.first()
 		&& !obj.url.is_empty()
+		&& declares_media_type(obj, "audio/")
 		&& let Ok(audio_url) = url.join(&obj.url)
 		&& ["http", "https"].contains(&audio_url.scheme())
 		&& self.check_url_host(&audio_url).is_ok()
@@ -921,6 +925,18 @@ fn reserve_capped(bytes: &mut Vec<u8>, want: usize, limit: usize) {
 		.clamp(need, limit.max(need));
 
 	bytes.reserve_exact(target.saturating_sub(bytes.len()));
+}
+
+/// Whether an OpenGraph media object's declared type belongs to `class`.
+///
+/// A missing `og:*:type` is accepted, since most origins omit it. A type
+/// outside the class means the URL addresses a player page rather than a
+/// file, which the relay cannot serve as media.
+#[cfg(feature = "url_preview")]
+fn declares_media_type(obj: &OpengraphObject, class: &str) -> bool {
+	obj.properties
+		.get("type")
+		.is_none_or(|kind| kind.starts_with(class))
 }
 
 #[implement(Service)]
