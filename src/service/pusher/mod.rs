@@ -7,24 +7,29 @@ mod suppressed;
 #[cfg(test)]
 mod tests;
 
-use std::sync::Arc;
+use std::{
+	collections::BTreeMap,
+	sync::{Arc, LazyLock},
+};
 
 use futures::{Stream, StreamExt, TryFutureExt, future::join};
 use ipaddress::IPAddress;
 use ruma::{
-	DeviceId, OwnedDeviceId, OwnedRoomId, OwnedUserId, RoomId, UserId,
+	DeviceId, OwnedDeviceId, OwnedEventId, OwnedRoomId, OwnedUserId, RoomId, UserId,
 	api::client::push::{Pusher, PusherKind, set_pusher::v3::PusherAction},
 	events::{AnySyncTimelineEvent, room::power_levels::RoomPowerLevels},
-	push::{Action, PushConditionPowerLevelsCtx, PushConditionRoomCtx, Ruleset},
+	push::{Action, FlattenedJson, PushConditionPowerLevelsCtx, PushConditionRoomCtx, Ruleset},
 	serde::Raw,
 	uint,
 };
+use serde::Deserialize;
 use tuwunel_core::{
 	Err, Result, err, implement,
+	matrix::Event,
 	utils::{
 		MutexMap,
 		future::TryExtExt,
-		stream::{BroadbandExt, ReadyExt, TryIgnore},
+		stream::{BroadbandExt, IterStream, ReadyExt, TryIgnore, WidebandExt},
 	},
 };
 use tuwunel_database::{Database, Deserialized, Ignore, Interfix, Json, Map};
@@ -32,6 +37,53 @@ use url::Url;
 
 pub use self::append::Notified;
 use self::badge::SentBadges;
+
+/// The events an event relates to, keyed by relation type, for MSC3664.
+type RelatedEvents = BTreeMap<String, FlattenedJson>;
+
+/// The inputs for evaluating one user's push rules against one event.
+pub struct Evaluate<'a, 'b> {
+	/// The user whose rules are evaluated, and who is notified.
+	pub user: &'b UserId,
+	/// The user's ruleset, which outlives the borrowed actions returned.
+	pub ruleset: &'a Ruleset,
+	/// The room's power levels, without which some conditions never match.
+	pub power_levels: Option<&'b RoomPowerLevels>,
+	/// The event being evaluated, in the format the conditions flatten.
+	pub pdu: &'b Raw<AnySyncTimelineEvent>,
+	/// The room the event was sent to.
+	pub room_id: &'b RoomId,
+	/// The events it relates to, or `None` where they are not resolved at all.
+	pub related_events: Option<&'b Arc<RelatedEvents>>,
+}
+
+/// MSC3664 matches a reply as if it carried a relation of this type.
+const IN_REPLY_TO: &str = "m.in_reply_to";
+
+/// Shared by every event that resolves no relations, which is every event
+/// while MSC3664 evaluation is disabled.
+static NO_RELATED_EVENTS: LazyLock<Arc<RelatedEvents>> = LazyLock::new(Arc::default);
+
+#[derive(Deserialize)]
+struct ExtractRelatesTo {
+	#[serde(rename = "m.relates_to")]
+	relates_to: RelatesTo,
+}
+
+#[derive(Deserialize)]
+struct RelatesTo {
+	rel_type: Option<String>,
+
+	event_id: Option<OwnedEventId>,
+
+	#[serde(rename = "m.in_reply_to")]
+	in_reply_to: Option<InReplyTo>,
+}
+
+#[derive(Deserialize)]
+struct InReplyTo {
+	event_id: OwnedEventId,
+}
 
 pub struct Service {
 	services: Arc<crate::services::OnceServices>,
@@ -248,11 +300,14 @@ pub fn get_notifications<'a>(
 #[tracing::instrument(level = "debug", skip_all)]
 pub async fn get_actions<'a>(
 	&self,
-	user: &UserId,
-	ruleset: &'a Ruleset,
-	power_levels: Option<&RoomPowerLevels>,
-	pdu: &Raw<AnySyncTimelineEvent>,
-	room_id: &RoomId,
+	Evaluate {
+		user,
+		ruleset,
+		power_levels,
+		pdu,
+		room_id,
+		related_events,
+	}: Evaluate<'a, '_>,
 ) -> &'a [Action] {
 	let user_display_name = self
 		.services
@@ -283,10 +338,66 @@ pub async fn get_actions<'a>(
 		user.to_owned(),
 		user_display_name,
 	);
+
+	let ctx = match related_events {
+		| Some(related_events) => ctx.with_related_events(related_events.clone()),
+		| None => ctx,
+	};
+
 	let ctx = match power_levels {
 		| Some(pl) => ctx.with_power_levels(pl),
 		| None => ctx,
 	};
 
 	ruleset.get_actions(pdu, &ctx).await
+}
+
+/// Resolve the events an event relates to, for the MSC3664 push condition.
+///
+/// `None` while `msc3664_related_event_match` is disabled, which leaves every
+/// MSC3664 condition unable to match. The relations do not vary by recipient,
+/// so the append path resolves them once for the whole room; the push-notice
+/// path resolves them per notice, since it holds one event at a time.
+#[implement(Service)]
+#[tracing::instrument(level = "debug", skip_all)]
+pub async fn related_events<E: Event>(&self, event: &E) -> Option<Arc<RelatedEvents>> {
+	let config = &self.services.server.config;
+
+	if !config.msc3664_related_event_match {
+		return None;
+	}
+
+	let Ok(ExtractRelatesTo { relates_to }) = event.get_content() else {
+		return Some(NO_RELATED_EVENTS.clone());
+	};
+
+	let reply = relates_to
+		.in_reply_to
+		.map(|reply| (IN_REPLY_TO.to_owned(), reply.event_id));
+
+	let related = relates_to
+		.rel_type
+		.zip(relates_to.event_id)
+		.into_iter()
+		.chain(reply)
+		.stream()
+		.wide_filter_map(async |(rel_type, event_id)| {
+			let related = self
+				.services
+				.timeline
+				.get_pdu(&event_id)
+				.await
+				.ok()
+				// A relation crossing rooms is not one the sender could have made, and
+				// following it would expose an event the recipient may not be in a room for.
+				.filter(|related| related.room_id() == event.room_id())?;
+
+			let related: Raw<AnySyncTimelineEvent> = related.to_format();
+
+			Some((rel_type, FlattenedJson::from_raw(&related)))
+		})
+		.collect()
+		.await;
+
+	Some(Arc::new(related))
 }

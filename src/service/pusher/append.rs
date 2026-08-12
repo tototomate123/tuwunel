@@ -25,6 +25,7 @@ use tuwunel_core::{
 };
 use tuwunel_database::{Deserialized, Json, Map};
 
+use super::{Evaluate, RelatedEvents};
 use crate::rooms::short::ShortRoomId;
 
 /// Compact metadata stored for each notified event.
@@ -45,6 +46,20 @@ pub struct Notified {
 
 	/// Actions vector
 	pub actions: Actions,
+}
+
+/// The values of one appended event shared by every recipient of it.
+///
+/// Each is resolved once per event and read once per recipient, so grouping
+/// them keeps the per-recipient call from growing an argument per lookup.
+#[derive(Clone, Copy)]
+struct Appended<'a> {
+	pdu_id: &'a RawPduId,
+	pdu: &'a Pdu,
+	power_levels: Option<&'a RoomPowerLevels>,
+	serialized: &'a Raw<AnySyncTimelineEvent>,
+	thread_root: Option<&'a EventId>,
+	related_events: Option<&'a Arc<RelatedEvents>>,
 }
 
 /// Called by timeline append_pdu.
@@ -86,19 +101,26 @@ pub(crate) async fn append_pdu(&self, pdu_id: RawPduId, pdu: &Pdu) -> Result {
 		push_target.insert(target_user_id);
 	}
 
+	if push_target.is_empty() {
+		return Ok(());
+	}
+
 	let serialized = pdu.to_format();
-	let thread_root = self.services.threads.get_thread_id(pdu).await;
+	let (thread_root, related_events) =
+		join(self.services.threads.get_thread_id(pdu), self.related_events(pdu)).await;
+
+	let appended = Appended {
+		pdu_id: &pdu_id,
+		pdu,
+		power_levels: power_levels.as_ref(),
+		serialized: &serialized,
+		thread_root: thread_root.as_deref(),
+		related_events: related_events.as_ref(),
+	};
+
 	let _cork = self.db.db.cork();
 	for user in &push_target {
-		self.append_pdu_for_user(
-			&pdu_id,
-			pdu,
-			user,
-			power_levels.as_ref(),
-			&serialized,
-			thread_root.as_deref(),
-		)
-		.await;
+		self.append_pdu_for_user(user, appended).await;
 	}
 
 	Ok(())
@@ -107,12 +129,15 @@ pub(crate) async fn append_pdu(&self, pdu_id: RawPduId, pdu: &Pdu) -> Result {
 #[implement(super::Service)]
 async fn append_pdu_for_user(
 	&self,
-	pdu_id: &RawPduId,
-	pdu: &Pdu,
 	user: &UserId,
-	power_levels: Option<&RoomPowerLevels>,
-	serialized: &Raw<AnySyncTimelineEvent>,
-	thread_root: Option<&EventId>,
+	Appended {
+		pdu_id,
+		pdu,
+		power_levels,
+		serialized,
+		thread_root,
+		related_events,
+	}: Appended<'_>,
 ) {
 	let rules_for_user = self
 		.services
@@ -122,7 +147,14 @@ async fn append_pdu_for_user(
 		.map_or_else(|_| Ruleset::server_default(user), |ev: PushRulesEvent| ev.content.global);
 
 	let actions = self
-		.get_actions(user, &rules_for_user, power_levels, serialized, pdu.room_id())
+		.get_actions(Evaluate {
+			user,
+			ruleset: &rules_for_user,
+			power_levels,
+			pdu: serialized,
+			room_id: pdu.room_id(),
+			related_events,
+		})
 		.await;
 
 	let notify = actions

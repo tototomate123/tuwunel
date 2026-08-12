@@ -1,4 +1,7 @@
-use futures::future::join4;
+use futures::{
+	FutureExt,
+	future::{join, join4},
+};
 use ipaddress::IPAddress;
 use ruma::{
 	UInt, UserId,
@@ -14,6 +17,8 @@ use ruma::{
 use serde_json::Value;
 use tuwunel_core::{Err, Result, err, implement, matrix::Event, utils::BoolExt, warn};
 use url::Url;
+
+use super::Evaluate;
 
 #[implement(super::Service)]
 #[tracing::instrument(level = "debug", skip_all)]
@@ -34,12 +39,20 @@ where
 		.services
 		.state_accessor
 		.get_power_levels(event.room_id())
-		.await
-		.ok();
+		.map(Result::ok);
+
+	let (power_levels, related_events) = join(power_levels, self.related_events(event)).await;
 
 	let serialized = event.to_format();
 	let actions = self
-		.get_actions(user_id, ruleset, power_levels.as_ref(), &serialized, event.room_id())
+		.get_actions(Evaluate {
+			user: user_id,
+			ruleset,
+			power_levels: power_levels.as_ref(),
+			pdu: &serialized,
+			room_id: event.room_id(),
+			related_events: related_events.as_ref(),
+		})
 		.await;
 
 	for action in actions {

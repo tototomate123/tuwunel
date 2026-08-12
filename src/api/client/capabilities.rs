@@ -88,6 +88,12 @@ pub(crate) async fn get_capabilities_route(
 	capabilities
 		.set("io.element.msc4452.preview_url", json!({"enabled": preview_url_enabled}))?;
 
+	// MSC3664: absent rather than present-and-disabled, since a client testing
+	// for the key rather than its value would otherwise read support.
+	if services.config.msc3664_related_event_match {
+		capabilities.set("im.nheko.msc3664.related_event_match", json!({"enabled": true}))?;
+	}
+
 	// MSC4323: advertise admin moderation only to admins; absence implies
 	// neither suspend nor lock is available to the caller.
 	if services

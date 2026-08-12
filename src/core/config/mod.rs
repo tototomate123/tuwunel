@@ -2352,6 +2352,21 @@ pub struct Config {
 	#[serde(default)]
 	pub push_everything: bool,
 
+	/// Evaluate the `im.nheko.msc3664.related_event_match` push rule condition,
+	/// which matches on a property of the event that an incoming event relates
+	/// to.
+	///
+	/// A user can then write a push rule that notifies for replies or reactions
+	/// to their own messages, which no other condition can express. Enabling
+	/// this costs one extra event lookup for every event carrying a relation.
+	///
+	/// No default push rule uses the condition, so it stays inert until a
+	/// client adds one, and only clients implementing MSC3664 evaluate such a
+	/// rule locally.
+	/// reloadable: yes
+	#[serde(default)]
+	pub msc3664_related_event_match: bool,
+
 	/// Setting to false disables the heroes calculation made by sliding and
 	/// legacy client sync. The heroes calculation is mandated by the Matrix
 	/// specification and your client may not operate properly unless this

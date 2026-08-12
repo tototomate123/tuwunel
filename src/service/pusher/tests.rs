@@ -1,9 +1,12 @@
 #![cfg(test)]
 
 use ruma::{EventId, RoomId, UserId};
+use serde_json::{from_value, json};
 use tuwunel_database::{
 	Ignore, IgnoreAll, Interfix, SEP, deserialize_from_slice, serialize_to_vec,
 };
+
+use super::ExtractRelatesTo;
 
 const ROOM: &str = "!room:example.com";
 const USER: &str = "@user:example.com";
@@ -72,4 +75,78 @@ fn notification_key_room_survives_main_and_thread_tail() {
 
 		assert_eq!(room_id, room());
 	}
+}
+
+/// A reaction relates to the event it annotates, which is the relation
+/// MSC3664 follows to notify an author of reactions to their own message.
+#[test]
+fn reaction_relates_to_the_annotated_event() {
+	let content = json!({
+		"m.relates_to": {
+			"rel_type": "m.annotation",
+			"event_id": THREAD_ROOT_A,
+			"key": "👍",
+		},
+	});
+
+	let ExtractRelatesTo { relates_to } =
+		from_value(content).expect("deserialize reaction content");
+
+	assert_eq!(relates_to.rel_type.as_deref(), Some("m.annotation"));
+	assert_eq!(relates_to.event_id.as_deref(), Some(root_a()));
+	assert!(relates_to.in_reply_to.is_none());
+}
+
+/// A rich reply carries no `rel_type`, so it is only reachable through the
+/// nested `m.in_reply_to`, which MSC3664 matches as its own relation type.
+#[test]
+fn reply_relates_only_through_in_reply_to() {
+	let content = json!({
+		"body": "Sounds good",
+		"msgtype": "m.text",
+		"m.relates_to": {
+			"m.in_reply_to": { "event_id": THREAD_ROOT_A },
+		},
+	});
+
+	let ExtractRelatesTo { relates_to } = from_value(content).expect("deserialize reply content");
+
+	let in_reply_to = relates_to.in_reply_to.map(|reply| reply.event_id);
+
+	assert!(relates_to.rel_type.is_none());
+	assert!(relates_to.event_id.is_none());
+	assert_eq!(in_reply_to.as_deref(), Some(root_a()));
+}
+
+/// A threaded message carries both relations, so both are resolved: the
+/// thread root and the reply fallback target.
+#[test]
+fn threaded_message_relates_to_root_and_reply() {
+	let content = json!({
+		"body": "Sounds good",
+		"msgtype": "m.text",
+		"m.relates_to": {
+			"rel_type": "m.thread",
+			"event_id": THREAD_ROOT_A,
+			"is_falling_back": true,
+			"m.in_reply_to": { "event_id": THREAD_ROOT_B },
+		},
+	});
+
+	let ExtractRelatesTo { relates_to } =
+		from_value(content).expect("deserialize threaded content");
+
+	let in_reply_to = relates_to.in_reply_to.map(|reply| reply.event_id);
+
+	assert_eq!(relates_to.event_id.as_deref(), Some(root_a()));
+	assert_eq!(in_reply_to.as_deref(), Some(root_b()));
+}
+
+/// Content without a relation must not resolve one, which is what keeps
+/// the lookup off the path of every ordinary message.
+#[test]
+fn unrelated_message_resolves_no_relation() {
+	let content = json!({ "body": "Dinner at 7?", "msgtype": "m.text" });
+
+	assert!(from_value::<ExtractRelatesTo>(content).is_err(), "content carries no relation");
 }
