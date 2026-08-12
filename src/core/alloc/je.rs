@@ -2,27 +2,21 @@
 
 use std::{
 	alloc::Layout,
-	ffi::{CStr, c_char, c_void},
 	io::Write,
 	panic::catch_unwind,
 	process::abort,
 	sync::atomic::{AtomicBool, AtomicU64, Ordering},
 };
 
-// A control that collides with the wrapper adapting its error type below is
-// aliased on import.
 use jevmalloc::{
 	Jemalloc,
-	ctl::{
-		Error as CtlError, background_thread_enable as ctl_background_thread_enable,
-		refresh_epoch, trim as ctl_trim,
-	},
-	ffi,
-	global_alloc::hook::{ALLOC, ALLOC_ZEROED},
+	global::hook::{ALLOC, ALLOC_ZEROED},
+	stats::print as print_stats,
 };
-use libc::{STDOUT_FILENO, write};
+pub use jevmalloc::{arenas::trim, background_thread_enable};
+use libc::{STDOUT_FILENO, c_void, write};
 
-use crate::{Result, arrayvec::ArrayVec, err, utils::BoolExt};
+use crate::{arrayvec::ArrayVec, utils::BoolExt};
 
 /// Line buffer for one allocation-trace record. A record of three integers at
 /// their maximum widths occupies 74 bytes.
@@ -125,115 +119,28 @@ fn handle_global_alloc(layout: Layout) {
 #[must_use]
 pub fn global_alloc_count() -> u64 { GLOBAL_ALLOCS.load(Ordering::Relaxed) }
 
-/// Returns a human-readable snapshot of allocator memory usage when available.
+/// Collects jemalloc's UTF-8 statistics report with the supplied print options.
 ///
-/// Detailed summary reporting is currently disabled for this build, so this
-/// implementation returns `None`. Raw allocator output remains available
-/// through [`memory_stats`].
+/// Returns `None` if jemalloc produces no report, the report exceeds 1 MiB, or
+/// the report contains invalid UTF-8.
 #[must_use]
-pub fn memory_usage() -> Option<String> { None }
-
-/// Collects jemalloc's raw statistics report with the supplied print options.
-///
-/// The allocator statistics epoch is refreshed before invoking
-/// `malloc_stats_print`. Refresh failure returns `None`, and output is
-/// truncated to 1 MiB.
-///
-/// # Panics
-///
-/// Panics if `opts` contains an interior NUL byte.
 pub fn memory_stats(opts: &str) -> Option<String> {
 	const MAX_LENGTH: usize = 1_048_576;
 
-	let mut str = String::new();
-	let opaque = std::ptr::from_mut(&mut str).cast::<c_void>();
-	let opts_p: *const c_char = std::ffi::CString::new(opts)
-		.expect("cstring")
-		.into_raw()
-		.cast_const();
-
-	// Acquire the epoch; ensure latest stats are pulled in
-	refresh_epoch().ok()?;
-
-	// SAFETY: calls malloc_stats_print() with our string instance which must remain
-	// in this frame. https://docs.rs/tikv-jemalloc-sys/latest/tikv_jemalloc_sys/fn.malloc_stats_print.html
-	unsafe { ffi::malloc_stats_print(Some(malloc_stats_cb), opaque, opts_p) };
-
-	str.truncate(MAX_LENGTH);
-
-	Some(str)
-}
-
-/// Appends a jemalloc statistics fragment through the C callback boundary.
-///
-/// Panics are caught and converted into process aborts before control returns
-/// to jemalloc.
-///
-/// # Safety
-///
-/// `opaque` must point to the live `String` supplied by [`memory_stats`], and
-/// `msg` must point to a NUL-terminated string valid for the duration of the
-/// call.
-unsafe extern "C" fn malloc_stats_cb(opaque: *mut c_void, msg: *const c_char) {
-	catch_unwind(move || handle_malloc_stats(opaque, msg))
-		.map_err(|_| abort())
-		.ok();
-}
-
-fn handle_malloc_stats(opaque: *mut c_void, msg: *const c_char) {
-	// SAFETY: we have to trust the opaque points to our String
-	let res: &mut String = unsafe {
-		opaque
-			.cast::<String>()
-			.as_mut()
-			.expect("failed to cast void* to &mut String")
-	};
-
-	// SAFETY: we have to trust the string is null terminated.
-	let msg = unsafe { CStr::from_ptr(msg) };
-
-	let msg = String::from_utf8_lossy(msg.to_bytes());
-	res.push_str(msg.as_ref());
-}
-
-/// Reclaims unused pages from one arena or from all arenas.
-///
-/// The operation applies time-based decay before purging remaining unused dirty
-/// pages. Passing `None` selects every arena.
-pub fn trim<I: Into<Option<usize>>>(arena: I) -> Result { ctl_trim(arena).map_err(map_err) }
-
-/// Enables or disables jemalloc background purge threads.
-///
-/// Disabling waits for the workers to terminate before returning. The previous
-/// setting is returned.
-pub fn background_thread_enable(enable: bool) -> Result<bool> {
-	ctl_background_thread_enable(enable).map_err(map_err)
-}
-
-/// Controls jemalloc state associated with the calling thread.
-///
-/// These wrappers resolve the thread's own arena before applying the operation.
-/// Control failures are returned through the crate's allocator error type.
-pub mod this_thread {
-	use jevmalloc::ctl::this_thread::{
-		decay as ctl_decay, set_muzzy_decay as ctl_set_muzzy_decay,
-	};
-
-	use super::{Result, map_err};
-
-	/// Applies decay-based purging to the calling thread's arena.
-	///
-	/// Jemalloc selects unused dirty and muzzy pages according to their
-	/// configured decay intervals.
-	pub fn decay() -> Result { ctl_decay().map_err(map_err) }
-
-	/// Sets the calling thread's arena muzzy-page decay interval.
-	///
-	/// A value of `0` requests immediate purging, while `-1` disables purging.
-	/// The previous interval is returned.
-	pub fn set_muzzy_decay(decay_ms: isize) -> Result<isize> {
-		ctl_set_muzzy_decay(decay_ms).map_err(map_err)
+	let mut stats = vec![0; MAX_LENGTH];
+	let length = print_stats(opts, &mut stats).ok()?.len();
+	if length == 0 {
+		return None;
 	}
+
+	stats.truncate(length);
+	String::from_utf8(stats).ok()
 }
 
-fn map_err(error: CtlError) -> crate::Error { err!("mallctl: {error}") }
+/// Exposes jemalloc state controls associated with the calling thread.
+///
+/// These functions resolve the thread's own arena before applying the
+/// operation. They return jevmalloc's control errors unchanged.
+pub mod this_thread {
+	pub use jevmalloc::thread::this::{decay, set_muzzy_decay};
+}
