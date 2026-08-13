@@ -1,12 +1,16 @@
 #![cfg(test)]
 
 use axum::Extension;
+use http::{
+	HeaderMap, Response,
+	header::{CONTENT_SECURITY_POLICY, CONTENT_TYPE, X_FRAME_OPTIONS},
+};
 use ipnet::IpNet;
 use tower::util::Either;
 use tuwunel_api::router::{ConfiguredIpSource, TrustedPeerSubnets};
 use tuwunel_core::config::IpSource;
 
-use super::{ip_source_layer, trusted_peer_subnets_layer};
+use super::{ip_source_layer, set_html_headers, trusted_peer_subnets_layer};
 
 #[test]
 fn ip_source_layer_none_returns_identity_branch() {
@@ -42,4 +46,36 @@ fn trusted_peer_subnets_layer_populated_returns_extension_branch() {
 	};
 
 	assert_eq!(nets.len(), 2);
+}
+
+#[test]
+fn html_is_framed_and_constrained_in_any_case() {
+	for content_type in ["text/html", "Text/HTML", "text/html; charset=utf-8"] {
+		let headers = html_headers_for(content_type);
+
+		assert!(
+			headers.contains_key(CONTENT_SECURITY_POLICY),
+			"{content_type} gets a content security policy"
+		);
+		assert!(headers.contains_key(X_FRAME_OPTIONS), "{content_type} is denied framing");
+	}
+}
+
+#[test]
+fn a_parameter_mentioning_html_is_left_alone() {
+	for content_type in ["application/json; x=text/html", "application/json"] {
+		let headers = html_headers_for(content_type);
+
+		assert!(!headers.contains_key(CONTENT_SECURITY_POLICY), "{content_type} is not html");
+		assert!(!headers.contains_key(X_FRAME_OPTIONS), "{content_type} is not html");
+	}
+}
+
+fn html_headers_for(content_type: &str) -> HeaderMap {
+	let response = Response::builder()
+		.header(CONTENT_TYPE, content_type)
+		.body(())
+		.expect("the response builds");
+
+	set_html_headers(response).headers().clone()
 }

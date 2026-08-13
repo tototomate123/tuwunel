@@ -18,7 +18,10 @@ use axum::{
 use futures::{FutureExt, future::Map};
 use http::{
 	HeaderValue, Method, StatusCode,
-	header::{self, ETAG, HeaderName, IF_MATCH, IF_NONE_MATCH},
+	header::{
+		self, CONTENT_SECURITY_POLICY, CONTENT_TYPE, ETAG, HeaderName, IF_MATCH, IF_NONE_MATCH,
+		X_FRAME_OPTIONS,
+	},
 	uri::PathAndQuery,
 };
 use ipnet::IpNet;
@@ -37,7 +40,9 @@ use tower_http::{
 };
 use tracing::Level;
 use tuwunel_api::router::{ConfiguredIpSource, TrustedPeerSubnets, state::Guard};
-use tuwunel_core::{Result, Server, config::IpSource, debug, error};
+use tuwunel_core::{
+	Result, Server, config::IpSource, debug, error, utils::content_disposition::content_type_is,
+};
 use tuwunel_service::Services;
 
 use crate::{request, router};
@@ -208,7 +213,7 @@ fn cors_layer(server: &Server) -> CorsLayer {
 	let headers: [HeaderName; 7] = [
 		header::ACCEPT,
 		header::AUTHORIZATION,
-		header::CONTENT_TYPE,
+		CONTENT_TYPE,
 		IF_MATCH,
 		IF_NONE_MATCH,
 		header::ORIGIN,
@@ -256,26 +261,33 @@ fn ip_source_layer(source: Option<IpSource>) -> Either<Extension<ConfiguredIpSou
 }
 
 fn html_layer<T>() -> MapResponseLayer<impl Fn(http::Response<T>) -> http::Response<T> + Clone> {
-	MapResponseLayer::new(|mut response: http::Response<T>| {
-		let headers = response.headers_mut();
+	MapResponseLayer::new(set_html_headers)
+}
 
-		if headers
-			.get(header::CONTENT_TYPE)
-			.map(HeaderValue::to_str)
-			.and_then(Result::ok)
-			.is_some_and(|val| val.contains("text/html"))
-		{
-			headers
-				.entry(header::CONTENT_SECURITY_POLICY)
-				.or_insert(HeaderValue::from_static(const_str::join!(TUWUNEL_CSP, ";")));
+/// Denies framing and foreign scripts for a response that is HTML.
+///
+/// The Content-Type is echoed from whoever uploaded the media, so the media
+/// type decides on its own and regardless of case: a parameter that merely
+/// mentions HTML leaves a response that is not HTML alone.
+fn set_html_headers<T>(mut response: http::Response<T>) -> http::Response<T> {
+	let headers = response.headers_mut();
 
-			headers
-				.entry(header::X_FRAME_OPTIONS)
-				.or_insert(HeaderValue::from_static("DENY"));
-		}
+	let content_type = headers
+		.get(CONTENT_TYPE)
+		.map(HeaderValue::to_str)
+		.and_then(Result::ok);
 
-		response
-	})
+	if content_type_is(content_type, "text/html") {
+		headers
+			.entry(CONTENT_SECURITY_POLICY)
+			.or_insert(HeaderValue::from_static(const_str::join!(TUWUNEL_CSP, ";")));
+
+		headers
+			.entry(X_FRAME_OPTIONS)
+			.or_insert(HeaderValue::from_static("DENY"));
+	}
+
+	response
 }
 
 #[tracing::instrument(name = "panic", level = "error", skip_all)]
@@ -307,7 +319,7 @@ fn catch_panic(
 
 	http::Response::builder()
 		.status(StatusCode::INTERNAL_SERVER_ERROR)
-		.header(header::CONTENT_TYPE, "application/json")
+		.header(CONTENT_TYPE, "application/json")
 		.body(http_body_util::Full::from(body.to_string()))
 		.expect("Failed to create response for our panic catcher?")
 }
