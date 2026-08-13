@@ -51,37 +51,39 @@ That is the default set with `io_uring` and `systemd` removed.
 
 ## RocksDB on arm64
 
-On `aarch64` the RocksDB build fails out of the box:
+Nothing extra is needed here now, but a build against an older `rust-rocksdb`
+pin fails on `aarch64` like this:
 
 ```
 rocksdb/util/crc32c_arm64.cc:60:16: error: use of undeclared identifier 'AT_HWCAP'
    60 |   elf_aux_info(AT_HWCAP, &auxv, sizeof(auxv));
 ```
 
-`crc32c_arm64.cc` carries include blocks for `__APPLE__` and `__OpenBSD__` but
+`crc32c_arm64.cc` carried include blocks for `__APPLE__` and `__OpenBSD__` but
 none for `__FreeBSD__`, while its FreeBSD branch calls `elf_aux_info(AT_HWCAP,
 ...)`. `elf_aux_info` is declared in `<sys/auxv.h>` and `AT_HWCAP` in
-`<sys/elf_common.h>`, and neither header is reached on this platform.
+`<sys/elf_common.h>`, and neither header was reached on this platform.
 
-Supplying both to the C++ compile is enough. `<sys/elf_common.h>` is not
-self contained, so `<sys/types.h>` has to precede it:
+The include block is present as of `rust-rocksdb` `c6e73b5`, which is what the
+workspace pins. Building an older revision needs the headers supplied by hand
+instead, and `<sys/elf_common.h>` is not self contained, so `<sys/types.h>` has
+to precede it:
 
 ```sh
 export CXXFLAGS="-include sys/types.h -include sys/elf_common.h -include sys/auxv.h"
 ```
 
 This affects `aarch64` only. `crc32c_arm64.cc` is not compiled on `amd64`, so an
-`amd64` build needs none of this.
+`amd64` build never needed it.
 
-With the headers in place the runtime check works as intended and RocksDB
-selects the hardware CRC32C and PMULL paths when the CPU reports them.
+The runtime check then works as intended and RocksDB selects the hardware
+CRC32C and PMULL paths when the CPU reports them.
 
 
 ## Building
 
 ```sh
 export LIBCLANG_PATH=/usr/local/llvm21/lib
-export CXXFLAGS="-include sys/types.h -include sys/elf_common.h -include sys/auxv.h"
 
 cargo build --release -p tuwunel --no-default-features \
     --features brotli_compression,element_hacks,gzip_compression,jemalloc,jemalloc_conf,media_thumbnail,release_max_log_level,url_preview,zstd_compression

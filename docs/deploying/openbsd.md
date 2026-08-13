@@ -119,16 +119,21 @@ Set `CARGO_TARGET_DIR` accordingly rather than building in place.
 
 ## RocksDB include ordering
 
-The RocksDB build fails out of the box on `aarch64`:
+Nothing extra is needed here now, but a build against an older `rust-rocksdb`
+pin fails on `aarch64` like this:
 
 ```
 /usr/include/sys/sysctl.h:373:2: error: unknown type name 'u_int64_t'
 ```
 
-`rocksdb/util/crc32c_arm64.cc` has an OpenBSD include block, and it lists
+`rocksdb/util/crc32c_arm64.cc` has an OpenBSD include block, and it listed
 `<sys/sysctl.h>` before `<sys/types.h>`. OpenBSD's `sysctl.h` is not self
-contained and needs the types first, so the whole header fails to parse.
-Forcing the types in ahead of everything is enough:
+contained and needs the types first, so the whole header failed to parse. That
+block has probably never compiled since it was written.
+
+The order is corrected as of `rust-rocksdb` `c6e73b5`, which is what the
+workspace pins. Building an older revision needs the types forced in ahead of
+everything instead:
 
 ```sh
 export CXXFLAGS="-include sys/types.h"
@@ -136,9 +141,9 @@ export CXXFLAGS="-include sys/types.h"
 
 This affects `aarch64` only. `crc32c_arm64.cc` is not compiled on `amd64`.
 
-With that in place the file compiles and the runtime check works as written:
-OpenBSD reads `CTL_MACHDEP`/`CPU_ID_AA64ISAR0` through `sysctl` and selects the
-hardware CRC32C path when the CPU reports it.
+The file then compiles and the runtime check works as written: OpenBSD reads
+`CTL_MACHDEP`/`CPU_ID_AA64ISAR0` through `sysctl` and selects the hardware
+CRC32C path when the CPU reports it.
 
 
 ## Features
@@ -170,7 +175,6 @@ known bad. OpenBSD's own allocator is the one in use otherwise.
 export PATH=/usr/local/bin:/usr/local/sbin:$PATH
 export LIBCLANG_PATH=/usr/local/llvm21/lib
 export CARGO_TARGET_DIR=/home/build/target
-export CXXFLAGS="-include sys/types.h"
 
 cargo build --release -p tuwunel --no-default-features \
     --features brotli_compression,element_hacks,gzip_compression,media_thumbnail,release_max_log_level,url_preview,zstd_compression
