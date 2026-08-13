@@ -3,6 +3,8 @@ mod log;
 mod panic;
 mod response;
 mod serde;
+#[cfg(test)]
+mod tests;
 
 use std::{
 	any::Any,
@@ -387,8 +389,9 @@ pub enum Error {
 
 	/// Reports an error response received from a federated server.
 	///
-	/// The variant preserves both the origin and its structured Matrix error.
-	/// Response mapping forwards the remote status and error kind.
+	/// The variant preserves both the origin and its structured Matrix error,
+	/// so internal callers can dispatch on what the remote said. Response
+	/// mapping does not forward that status and kind unconditionally.
 	#[error("Remote server {0} responded with: {1}")]
 	Federation(ruma::OwnedServerName, ruma::api::error::Error),
 
