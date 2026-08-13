@@ -8,9 +8,12 @@ use tuwunel_core::{
 };
 use tuwunel_database::{Map, Txn};
 
-use super::scan::{Family, Scan, short_of};
+use super::{
+	clear_chains,
+	scan::{Family, Scan, short_of},
+};
 use crate::{
-	Service, Services,
+	Services,
 	rooms::state_compressor::{
 		CompressedState, CompressedStateEvent, StateDiff, compress_state_event,
 		parse_compressed_state_event,
@@ -127,11 +130,7 @@ pub(super) async fn repair(services: &Services, scan: &Scan) -> Result<bool> {
 			 chain cache."
 		);
 
-		let _cork = services.db.cork_and_sync();
-
-		// Snapshot-based, so it holds only because migrations precede the
-		// workers that populate these caches.
-		services.auth_chain.clear_cache().await;
+		clear_chains(services).await;
 	}
 
 	// Refused rather than repaired, so the cache-clearing lane above still
