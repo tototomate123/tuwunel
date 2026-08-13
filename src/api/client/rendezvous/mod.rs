@@ -14,7 +14,7 @@ use http::{
 	header::{CACHE_CONTROL, CONTENT_LENGTH, CONTENT_TYPE, ETAG, EXPIRES, LAST_MODIFIED, PRAGMA},
 };
 use ruma::http_headers::system_time_to_http_date;
-use tuwunel_core::{Err, Result, err};
+use tuwunel_core::{Err, Result, err, utils::content_disposition::content_type_is};
 use tuwunel_service::{Services, rendezvous::Meta};
 
 pub(crate) use self::{
@@ -68,10 +68,7 @@ fn validate_content_type(headers: &HeaderMap) -> Result {
 		.to_str()
 		.map_err(|_| err!(Request(InvalidParam("Content-Type must be text/plain"))))?;
 
-	content_type
-		.split(';')
-		.next()
-		.is_some_and(|essence| essence.trim().eq_ignore_ascii_case(TEXT_PLAIN))
+	content_type_is(Some(content_type), TEXT_PLAIN)
 		.then_some(())
 		.ok_or_else(|| err!(Request(InvalidParam("Content-Type must be text/plain"))))
 }
