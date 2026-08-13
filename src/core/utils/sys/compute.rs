@@ -125,6 +125,11 @@ pub fn node_affinity(id: Id) -> impl Iterator<Item = Id> {
 #[must_use]
 pub fn available_parallelism() -> usize { cores_available().count() }
 
+/// Reports the number of CPUs OpenBSD currently has online.
+///
+/// The count is read from the system directly rather than from the core mask
+/// recorded at startup, and is not narrowed by process affinity, which OpenBSD
+/// does not expose.
 #[cfg(target_os = "openbsd")]
 #[inline]
 #[must_use]
