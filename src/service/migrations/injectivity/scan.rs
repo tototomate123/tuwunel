@@ -555,8 +555,8 @@ async fn sweep(
 				.await,
 	};
 
-	// Chains are dedup'd in the short id domain, so a stale reference in a
-	// key or a value poisons the row either way.
+	// A key or value that is stale or not a whole number of short ids
+	// poisons the row either way.
 	let authchain = db["shorteventid_authchain"]
 		.raw_stream()
 		.ignore_err();
@@ -566,8 +566,8 @@ async fn sweep(
 		.ignore_err()
 		.chain(authchain)
 		.ready_fold((0_u64, 0_u64), |(dirty, entries), (key, chain)| {
-			let hit = references(key, &event_stale, &statekey_stale)
-				|| references(chain, &event_stale, &statekey_stale);
+			let hit = disposable(key, &event_stale, &statekey_stale)
+				|| disposable(chain, &event_stale, &statekey_stale);
 
 			(dirty.saturating_add(u64::from(hit)), entries.saturating_add(1))
 		})
@@ -828,6 +828,11 @@ fn bits_of(shorts: &[u64], words: usize) -> Bits {
 
 			bits
 		})
+}
+
+fn disposable(bytes: &[u8], event_stale: &[u64], statekey_stale: &[u64]) -> bool {
+	!bytes.len().is_multiple_of(size_of::<u64>())
+		|| references(bytes, event_stale, statekey_stale)
 }
 
 fn references(bytes: &[u8], event_stale: &[u64], statekey_stale: &[u64]) -> bool {

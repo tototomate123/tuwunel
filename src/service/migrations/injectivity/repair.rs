@@ -123,8 +123,8 @@ pub(super) async fn repair(services: &Services, scan: &Scan) -> Result<bool> {
 		warn!(
 			dirty_entries = scan.dirty,
 			total_entries = scan.entries,
-			"Cached auth chains reference stale short id mappings; clearing the auth chain \
-			 cache."
+			"Cached auth chains contain malformed or stale short id data; clearing the auth \
+			 chain cache."
 		);
 
 		let _cork = services.db.cork_and_sync();
