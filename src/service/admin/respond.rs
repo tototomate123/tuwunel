@@ -1,5 +1,3 @@
-use std::io;
-
 use futures::{FutureExt, TryStreamExt};
 use ruma::{
 	EventId, OwnedEventId, RoomId, UserId,
@@ -19,7 +17,7 @@ use tuwunel_core::{
 	error::default_log,
 	implement,
 	pdu::{MAX_PDU_BYTES, PduBuilder},
-	utils::{stream::IterStream, string::chunk},
+	utils::{json::serialized_len, stream::IterStream, string::chunk},
 };
 
 use super::CommandOutput;
@@ -59,11 +57,6 @@ struct ExtractRelatesTo {
 	#[serde(rename = "m.relates_to")]
 	relates_to: EncryptedRelation,
 }
-
-/// An `io::Write` sink that counts bytes without buffering them, for measuring
-/// serialized length.
-#[derive(Default)]
-struct Counter(usize);
 
 #[implement(super::Service)]
 pub(super) async fn handle_response(
@@ -254,10 +247,7 @@ fn command_thread(pdu: &impl Event) -> Option<OwnedEventId> {
 }
 
 fn fits_segment(text: &str, markdown: bool) -> bool {
-	let mut counter = Counter::default();
-
-	serde_json::to_writer(&mut counter, &notice(text, markdown))
-		.is_ok_and(|()| counter.0 <= SEGMENT_BUDGET)
+	serialized_len(&notice(text, markdown)).is_ok_and(|len| len <= SEGMENT_BUDGET)
 }
 
 impl Mode {
@@ -276,16 +266,6 @@ fn notice(text: &str, markdown: bool) -> RoomMessageEventContent {
 		| true => RoomMessageEventContent::notice_markdown(text),
 		| false => RoomMessageEventContent::notice_plain(text),
 	}
-}
-
-impl io::Write for Counter {
-	fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-		self.0 = self.0.saturating_add(buf.len());
-
-		Ok(buf.len())
-	}
-
-	fn flush(&mut self) -> io::Result<()> { Ok(()) }
 }
 
 fn thread_relation(root: &EventId) -> MessageRelation {

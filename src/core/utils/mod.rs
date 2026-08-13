@@ -73,7 +73,7 @@ pub use self::{
 	debug::slice_truncated as debug_slice_truncated,
 	future::{BoolExt as FutureBoolExt, OptionStream, TryExtExt as TryFutureExtExt},
 	hash::sha256::delimited as calculate_hash,
-	json::{deserialize_from_str, to_canonical_object},
+	json::{deserialize_from_str, serialized_len, to_canonical_object},
 	mutex_map::{Guard as MutexMapGuard, MutexMap},
 	option::OptionExt,
 	rand::{shuffle, string as random_string, string_from as random_string_from},
