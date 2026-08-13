@@ -1,7 +1,10 @@
 use std::{
 	collections::{BTreeSet, HashSet},
 	iter::once,
-	sync::Arc,
+	sync::{
+		Arc,
+		atomic::{AtomicBool, Ordering},
+	},
 	time::Instant,
 };
 
@@ -168,7 +171,7 @@ where
 		starting_events = %starting_events.clone().count(),
 	)
 )]
-pub fn get_chunk_auth_chain<'a, I>(
+fn get_chunk_auth_chain<'a, I>(
 	&'a self,
 	room_id: &'a RoomId,
 	started: &'a Instant,
@@ -178,19 +181,49 @@ pub fn get_chunk_auth_chain<'a, I>(
 where
 	I: Iterator<Item = (ShortEventId, &'a EventId)> + Clone + Send + Sync + 'a,
 {
-	let starting_shortids = starting_events.clone().map(at!(0));
+	self.get_cached_auth_chain(starting_events.clone().map(at!(0)))
+		.map_ok(IntoIterator::into_iter)
+		.map_ok(IterStream::try_stream)
+		.or_else(async move |_| {
+			let chain = self
+				.build_chunk_auth_chain(room_id, started, starting_events, room_rules)
+				.await;
+
+			Ok(chain.into_iter().try_stream())
+		})
+		.try_flatten_stream()
+		.map_expect("either cache hit or cache miss yields a chain")
+}
+
+#[implement(Service)]
+async fn build_chunk_auth_chain<'a, I>(
+	&'a self,
+	room_id: &'a RoomId,
+	started: &'a Instant,
+	starting_events: I,
+	room_rules: &'a RoomVersionRules,
+) -> Vec<ShortEventId>
+where
+	I: Iterator<Item = (ShortEventId, &'a EventId)> + Clone + Send + Sync + 'a,
+{
+	let chunk_complete = AtomicBool::new(true);
 
 	let build_chain = async |(shortid, event_id): (ShortEventId, &'a EventId)| {
 		if let Ok(cached) = self.get_cached_auth_chain(once(shortid)).await {
 			return cached;
 		}
 
+		let event_complete = AtomicBool::new(true);
 		let auth_chain: Vec<_> = self
-			.get_event_auth_chain(room_id, event_id, room_rules)
+			.get_event_auth_chain(room_id, event_id, room_rules, &event_complete)
 			.collect()
 			.await;
 
-		self.put_cached_auth_chain(once(shortid), auth_chain.as_slice());
+		match event_complete.load(Ordering::Relaxed) {
+			| true => self.put_cached_auth_chain(once(shortid), auth_chain.as_slice()),
+			| false => chunk_complete.store(false, Ordering::Relaxed),
+		}
+
 		debug!(
 			?event_id,
 			elapsed = ?started.elapsed(),
@@ -200,48 +233,47 @@ where
 		auth_chain
 	};
 
-	let cache_chain = move |chunk_cache: &Vec<_>| {
-		self.put_cached_auth_chain(starting_shortids, chunk_cache.as_slice());
-		debug!(
-			chunk_cache_length = ?chunk_cache.len(),
-			elapsed = ?started.elapsed(),
-			"Cache missed chunk",
-		);
-	};
+	let chunk_chain: Vec<_> = starting_events
+		.clone()
+		.stream()
+		.broad_then(build_chain)
+		.collect::<Vec<_>>()
+		.map(IntoIterator::into_iter)
+		.map(Iterator::flatten)
+		.map(Itertools::sorted_unstable)
+		.map(Itertools::dedup)
+		.map(Iterator::collect)
+		.await;
 
-	self.get_cached_auth_chain(starting_events.clone().map(at!(0)))
-		.map_ok(IntoIterator::into_iter)
-		.map_ok(IterStream::try_stream)
-		.or_else(async move |_| {
-			starting_events
-				.clone()
-				.stream()
-				.broad_then(build_chain)
-				.collect::<Vec<_>>()
-				.map(IntoIterator::into_iter)
-				.map(Iterator::flatten)
-				.map(Itertools::sorted_unstable)
-				.map(Itertools::dedup)
-				.map(Iterator::collect)
-				.inspect(cache_chain)
-				.map(IntoIterator::into_iter)
-				.map(IterStream::try_stream)
-				.map(Ok)
-				.await
-		})
-		.try_flatten_stream()
-		.map_expect("either cache hit or cache miss yields a chain")
+	match chunk_complete.load(Ordering::Relaxed) {
+		| false => debug!(
+			elapsed = ?started.elapsed(),
+			"Incomplete chunk not cached",
+		),
+		| true => {
+			self.put_cached_auth_chain(starting_events.map(at!(0)), chunk_chain.as_slice());
+
+			debug!(
+				chunk_chain_length = ?chunk_chain.len(),
+				elapsed = ?started.elapsed(),
+				"Cache missed chunk",
+			);
+		},
+	}
+
+	chunk_chain
 }
 
 #[implement(Service)]
 #[tracing::instrument(name = "inner", level = "trace", skip_all)]
-pub fn get_event_auth_chain<'a>(
+fn get_event_auth_chain<'a>(
 	&'a self,
 	room_id: &'a RoomId,
 	event_id: &'a EventId,
 	room_rules: &'a RoomVersionRules,
+	complete: &'a AtomicBool,
 ) -> impl Stream<Item = ShortEventId> + Send + 'a {
-	self.get_event_auth_chain_ids(room_id, event_id, room_rules)
+	self.get_event_auth_chain_ids(room_id, event_id, room_rules, complete)
 		.broad_then(async move |auth_event| {
 			self.services
 				.short
@@ -257,11 +289,12 @@ pub fn get_event_auth_chain<'a>(
 	skip_all,
 	fields(%event_id)
 )]
-pub fn get_event_auth_chain_ids<'a>(
+fn get_event_auth_chain_ids<'a>(
 	&'a self,
 	room_id: &'a RoomId,
 	event_id: &'a EventId,
 	room_rules: &'a RoomVersionRules,
+	complete: &'a AtomicBool,
 ) -> impl Stream<Item = OwnedEventId> + Send + 'a {
 	struct State<Fut> {
 		todo: FuturesUnordered<Fut>,
@@ -313,8 +346,15 @@ pub fn get_event_auth_chain_ids<'a>(
 	unfold(state, move |mut state| async move {
 		match state.todo.next().await {
 			| None => None,
-			| Some(Err(_)) => Some((AuthEvents::new().into_iter().stream(), state)),
 			| Some(Ok(auth_events)) => Some(eval(auth_events, state)),
+			| Some(Err(e)) => {
+				complete.store(false, Ordering::Relaxed);
+
+				// A missing ancestor is a normal backfill gap and is skipped;
+				// any other error is corrupt data and ends the walk.
+				e.is_not_found()
+					.then(move || (AuthEvents::new().into_iter().stream(), state))
+			},
 		}
 	})
 	.flatten()

@@ -1,16 +1,18 @@
 #![cfg(test)]
 
-use std::{env::var, fs::remove_dir_all, path::PathBuf, process::id as process_id};
+use std::{env::var, fs::remove_dir_all, iter::once, path::PathBuf, process::id as process_id};
 
 use futures::TryStreamExt;
 use serde_json::json;
 use tuwunel::{Args, Runtime, Server, async_run, async_start, async_stop};
 use tuwunel_core::{
 	Result,
+	result::NotFound,
 	ruma::{
 		CanonicalJsonObject, EventId, OwnedEventId, RoomId, RoomVersionId, event_id, room_id,
 	},
 };
+use tuwunel_database::serialize_key;
 use tuwunel_service::Services;
 
 const NUM_BUCKETS: u64 = 50;
@@ -22,7 +24,7 @@ impl Drop for DatabasePath {
 }
 
 #[test]
-fn event_ids_iter_is_distinct_for_auth_diamond() -> Result {
+fn auth_chain_is_distinct_and_caches_only_complete_walks() -> Result {
 	let root = var("TMPDIR").unwrap_or_else(|_| "/nvme/target/tmp".into());
 	let path = PathBuf::from(root).join(format!("tuwunel-auth-chain-distinct-{}", process_id()));
 	let db_path = DatabasePath(path);
@@ -55,29 +57,88 @@ fn event_ids_iter_is_distinct_for_auth_diamond() -> Result {
 
 async fn exercise(services: &Services) -> Result {
 	let room_id = room_id!("!auth-chain-distinct:localhost");
+	let foreign_room_id = room_id!("!auth-chain-foreign:localhost");
 	let left = event_id!("$left:localhost");
 	let tail = event_id!("$tail:localhost");
+	let torn = event_id!("$torn:localhost");
+	let absent = event_id!("$absent:localhost");
+	let stray = event_id!("$stray:localhost");
+	let cross = event_id!("$cross:localhost");
 
 	add_outlier(services, room_id, tail, &[])?;
 	add_outlier(services, room_id, left, &[tail])?;
+	add_outlier(services, room_id, torn, &[tail, absent])?;
+	add_outlier(services, foreign_room_id, stray, &[])?;
+	add_outlier(services, room_id, cross, &[stray])?;
 
 	let left_short = services
 		.short
 		.get_or_create_shorteventid(left)
 		.await;
 
+	let torn_short = services
+		.short
+		.get_or_create_shorteventid(torn)
+		.await;
+
+	let cross_short = services
+		.short
+		.get_or_create_shorteventid(cross)
+		.await;
+
 	let right = mint_distinct_bucket(services, room_id, tail, left_short).await?;
 
 	let room_version = RoomVersionId::V6;
-	let chain: Vec<_> = services
-		.auth_chain
-		.event_ids_iter(room_id, &room_version, [left, right.as_ref()].into_iter())
-		.try_collect()
-		.await?;
+	let cache = services.db.get("authchainkey_authchain")?;
+	let left_key = serialize_key([left_short].as_slice())?;
+	let torn_key = serialize_key([torn_short].as_slice())?;
+	let cross_key = serialize_key([cross_short].as_slice())?;
+
+	let foreign_chain = walk(services, foreign_room_id, &room_version, once(left)).await?;
+
+	assert!(foreign_chain.is_empty(), "foreign room walk yields nothing");
+	assert!(cache.exists(&left_key).await.is_not_found());
+
+	let mut torn_chain = walk(services, room_id, &room_version, once(torn)).await?;
+
+	torn_chain.sort_unstable();
+
+	assert_eq!(torn_chain, [absent.to_owned(), tail.to_owned()]);
+	assert!(cache.exists(&torn_key).await.is_not_found());
+
+	let cross_chain = walk(services, room_id, &room_version, once(cross)).await?;
+
+	assert_eq!(cross_chain, [stray.to_owned()]);
+	assert!(cache.exists(&cross_key).await.is_not_found());
+
+	let chain =
+		walk(services, room_id, &room_version, [left, right.as_ref()].into_iter()).await?;
 
 	assert_eq!(chain, [tail.to_owned()]);
+	assert!(cache.exists(&left_key).await.is_ok(), "complete walk is memoized");
+
+	let cached_chain =
+		walk(services, room_id, &room_version, [left, right.as_ref()].into_iter()).await?;
+
+	assert_eq!(cached_chain, [tail.to_owned()]);
 
 	Ok(())
+}
+
+async fn walk<'a, I>(
+	services: &'a Services,
+	room_id: &'a RoomId,
+	room_version: &'a RoomVersionId,
+	starting_events: I,
+) -> Result<Vec<OwnedEventId>>
+where
+	I: Iterator<Item = &'a EventId> + Clone + ExactSizeIterator + Send + 'a,
+{
+	services
+		.auth_chain
+		.event_ids_iter(room_id, room_version, starting_events)
+		.try_collect()
+		.await
 }
 
 /// Mints right-side events until one lands outside the left bucket.
