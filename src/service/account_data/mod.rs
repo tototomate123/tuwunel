@@ -11,6 +11,7 @@ use ruma::{
 		AnyGlobalAccountDataEvent, AnyRawAccountDataEvent, AnyRoomAccountDataEvent,
 		GlobalAccountDataEventType, RoomAccountDataEventType,
 	},
+	push::{RuleKind, Ruleset},
 	serde::Raw,
 };
 use serde::Deserialize;
@@ -20,6 +21,24 @@ use tuwunel_core::{
 	utils::{ReadyExt, TryReadyExt, result::LogErr, stream::TryIgnore},
 };
 use tuwunel_database::{Deserialized, Handle, Ignore, Interfix, Json, Map};
+
+/// Maximum number of push rules one account may hold.
+///
+/// The ruleset is a single account-data blob rewritten in full on every
+/// mutation and matched against every event for every local recipient, so the
+/// count bounds the write cost and the per-event matching work alike.
+pub const MAX_RULES: usize = 10_000;
+
+/// Longest rule ID stored, in bytes.
+///
+/// Room IDs reach 255 bytes and are routinely used as rule IDs, so the ceiling
+/// sits above that rather than at it.
+pub const MAX_RULE_ID_BYTES: usize = 300;
+
+/// Largest match and action data stored for one rule, in bytes.
+///
+/// Rule IDs are excluded and bounded separately by [`MAX_RULE_ID_BYTES`].
+pub const MAX_RULE_BYTES: usize = 1024;
 
 pub struct Service {
 	services: Arc<crate::services::OnceServices>,
@@ -43,6 +62,19 @@ impl crate::Service for Service {
 	}
 
 	fn name(&self) -> &str { crate::service::make_name(std::module_path!()) }
+}
+
+/// Whether a ruleset has room for the rule with the given kind and ID.
+///
+/// A rule replacing one already present adds nothing, so only an unseen ID is
+/// held against [`MAX_RULES`]. The ID is bounded here rather than at each call
+/// site because a room ID serves as the rule ID for room rules and carries no
+/// length of its own once arbitrary-length identifiers are accepted.
+#[must_use]
+pub fn admits_rule(ruleset: &Ruleset, kind: RuleKind, rule_id: &str) -> bool {
+	rule_id.len() <= MAX_RULE_ID_BYTES
+		&& (ruleset.get(kind, rule_id).is_some()
+			|| ruleset.iter().take(MAX_RULES).count() < MAX_RULES)
 }
 
 /// Places one event in the account data of the user and removes the

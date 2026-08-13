@@ -3,7 +3,9 @@ use ruma::{
 	events::{GlobalAccountDataEventType, push_rules::PushRulesEvent},
 	push::{AnyPushRuleRef, NewPushRule, NewSimplePushRule, RuleKind},
 };
-use tuwunel_core::{Result, err, implement};
+use tuwunel_core::{Result, debug_warn, err, implement, utils::json::serialized_len};
+
+use super::{MAX_RULE_BYTES, admits_rule};
 
 #[implement(super::Service)]
 pub async fn copy_room_push_rule(
@@ -26,6 +28,15 @@ pub async fn copy_room_push_rule(
 	};
 
 	let actions = rule.actions.clone();
+
+	if !admits_rule(ruleset, RuleKind::Room, to_room.as_str())
+		|| serialized_len(&actions)? > MAX_RULE_BYTES
+	{
+		debug_warn!(%user_id, %to_room, "Ruleset has no room for the copied push rule");
+
+		return Ok(());
+	}
+
 	let rule = NewPushRule::Room(NewSimplePushRule::new(to_room.to_owned(), actions));
 
 	ruleset

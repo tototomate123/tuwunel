@@ -50,6 +50,8 @@ pub(crate) async fn set_pushrule_route(
 	let sender_user = body.sender_user();
 	let mut account_data = super::load_push_rules(&services, sender_user).await?;
 
+	super::check_rule_admission(&account_data.content.global, &body.rule)?;
+
 	if let Err(error) = account_data.content.global.insert(
 		body.rule.clone(),
 		body.after.as_deref(),
@@ -76,6 +78,8 @@ pub(crate) async fn set_pushrule_route(
 			| _ => Err!(Request(InvalidParam("Invalid data."))),
 		};
 	}
+
+	super::check_rule_size(&account_data.content.global, body.rule.kind(), body.rule.rule_id())?;
 
 	super::save_push_rules(&services, sender_user, &account_data).await?;
 

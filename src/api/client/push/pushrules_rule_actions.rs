@@ -48,6 +48,8 @@ pub(crate) async fn set_pushrule_actions_route(
 		return Err!(Request(NotFound("Push rule not found.")));
 	}
 
+	super::check_rule_size(&account_data.content.global, body.kind.clone(), &body.rule_id)?;
+
 	super::save_push_rules(&services, sender_user, &account_data).await?;
 
 	Ok(set_pushrule_actions::v3::Response {})
