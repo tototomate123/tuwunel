@@ -3758,8 +3758,13 @@ pub struct TlsConfig {
 	          support_pgp_key support_policy"
 )]
 pub struct WellKnownConfig {
-	/// The server URL that the client well-known file will serve. This should
-	/// not contain a port, and should just be a valid HTTPS URL.
+	/// The server URL that the client well-known file will serve.
+	///
+	/// This should not contain a port, and should just be a valid HTTPS URL.
+	/// While this is unset, `/.well-known/matrix/client` answers 404 and
+	/// auto-discovery from the server name yields nothing, so the base URL has
+	/// to reach clients some other way. Leave it unset only when a reverse
+	/// proxy or another host publishes that file for this domain.
 	///
 	/// example: "https://matrix.example.com"
 	pub client: Option<Url>,
