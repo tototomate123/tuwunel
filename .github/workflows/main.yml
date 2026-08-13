@@ -171,7 +171,7 @@ jobs:
       package_containers: ${{inputs.package_containers || env.default_package_containers}}
       enable_package_distro: ${{fromJSON(inputs.enable_package_distro || env.is_fat || 'false')}}
       package_distros: ${{inputs.package_distros || env.default_package_distros}}
-      enable_package_checks: ${{fromJSON(inputs.enable_package_checks || env.is_test || 'false')}}
+      enable_package_checks: ${{fromJSON(inputs.enable_package_checks || env.is_fat || 'false')}}
       enable_publish: ${{fromJSON(inputs.enable_publish || 'true')}}
       is_release: ${{fromJSON(env.is_release || 'false')}}
       is_main: ${{fromJSON(env.is_main || 'false')}}
