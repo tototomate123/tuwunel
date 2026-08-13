@@ -73,6 +73,7 @@
     - [Complement Testing](development/testing/complement.md)
   - [Hot Reloading ("Live" Development)](development/hot_reload.md)
   - [RISC-V](development/riscv.md)
+  - [32-bit ARM](development/arm32.md)
 
 ---
 

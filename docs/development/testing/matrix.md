@@ -84,6 +84,10 @@ Rosetta or native under Linux).
 architecture, but it does build and run. See [RISC-V](../riscv.md) for the
 cross-compilation recipe.
 
+32-bit ARM is absent for the same reason, and likewise builds and runs. See
+[32-bit ARM](../arm32.md), which also covers why that port uses a glibc cross
+toolchain where the RISC-V one uses musl.
+
 
 ## CPU Optimization Levels (System Targets)
 
