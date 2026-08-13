@@ -73,4 +73,8 @@ RUN <<EOF
 	dpkg --contents tuwunel.deb
 	apt-get -y update
 	apt-get -y install --no-install-recommends ./tuwunel.deb
+	# Every program the unit runs comes from the package or from something it
+	# depends on, so hold them against the filesystem the install produced.
+	sed -nE 's/^Exec[A-Za-z]+=[-+!@]*(\/[^ ]+).*/\1/p' \
+		/usr/lib/systemd/system/tuwunel.service | xargs -rt -n1 test -x
 EOF
