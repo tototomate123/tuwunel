@@ -208,6 +208,87 @@ in about two and a quarter seconds, and the server answers requests within
 about nine seconds of launch.
 
 
+## Compiling with io_uring
+
+The recipe above leaves `io_uring` out so that the image runs under emulation.
+The feature does compile and link for 32-bit ARM, and this section covers that,
+but treat it as a compile test only: user-mode emulation does not implement the
+`io_uring` syscalls, so none of it says the code works on real hardware.
+
+Two things have to join the toolchain stage. The first is `pkg-config`. The tree
+enables plain `rust-rocksdb/io-uring`, so `librocksdb-sys` takes the
+`pkg_config::probe_library("liburing")` path, and the pkg-config crate shells
+out to that binary. The second is liburing built for the target.
+
+liburing has to be compiled with `-fPIC`. Its build reserves that flag for the
+shared library and compiles the archive's objects without it, which does not
+suit the position independent executable this target produces. Installing the
+archive and no shared object leaves `-luring` resolving to `liburing.a`, so the
+binary carries io_uring with no runtime liburing dependency.
+
+```dockerfile
+RUN apt-get update; \
+    apt-get install -y --no-install-recommends pkg-config curl ca-certificates
+
+ARG LIBURING_VERSION=2.6
+RUN set -eux; \
+    cd /tmp; \
+    curl -fSL "https://github.com/axboe/liburing/archive/refs/tags/liburing-${LIBURING_VERSION}.tar.gz" \
+        -o liburing.tgz; \
+    tar xf liburing.tgz; \
+    cd "liburing-liburing-${LIBURING_VERSION}"; \
+    ./configure --cc="${CROSS}-gcc" --cxx="${CROSS}-g++" --prefix="${SYSROOT}"; \
+    make -C src liburing.a CC="${CROSS}-gcc -fPIC"; \
+    install -Dm644 src/liburing.a "${SYSROOT}/lib/liburing.a"; \
+    cp -a src/include/liburing.h src/include/liburing "${SYSROOT}/include/"; \
+    mkdir -p "${SYSROOT}/lib/pkgconfig"; \
+    printf '%s\n' \
+        "prefix=${SYSROOT}" \
+        'exec_prefix=${prefix}' \
+        'libdir=${exec_prefix}/lib' \
+        'includedir=${prefix}/include' \
+        '' \
+        'Name: liburing' \
+        "Version: ${LIBURING_VERSION}" \
+        'Description: io_uring library' \
+        'Libs: -L${libdir} -luring' \
+        'Cflags: -I${includedir}' \
+        > "${SYSROOT}/lib/pkgconfig/liburing.pc"; \
+    rm -rf /tmp/liburing*
+```
+
+Unlike the musl cross images, this base exports no `TARGET_PKG_CONFIG_LIBDIR`
+and `TARGET_PKG_CONFIG_ALLOW_CROSS`, so the probe has to be pointed at the
+target's pkgconfig directory itself. Add these to the build environment
+alongside `io_uring` in `FEATURES`, and leave `PKG_CONFIG_SYSROOT_DIR` unset,
+since the generated `liburing.pc` already carries an absolute prefix:
+
+```dockerfile
+    PKG_CONFIG_ALLOW_CROSS=1 \
+    PKG_CONFIG_LIBDIR="${SYSROOT}/lib/pkgconfig" \
+```
+
+Confirm the feature really compiled in rather than being quietly skipped by
+looking for RocksDB's io_uring code in the result. These message strings exist
+only under `ROCKSDB_IOURING_PRESENT`:
+
+```console
+$ strings -a tuwunel | grep -c io_uring_submit
+10
+```
+
+`readelf -d` should still list no liburing entry, which confirms the static
+link:
+
+```console
+$ arm-linux-gnueabihf-readelf -d tuwunel | grep NEEDED
+ 0x00000001 (NEEDED)   Shared library: [libstdc++.so.6]
+ 0x00000001 (NEEDED)   Shared library: [libgcc_s.so.1]
+ 0x00000001 (NEEDED)   Shared library: [libm.so.6]
+ 0x00000001 (NEEDED)   Shared library: [libc.so.6]
+```
+
+
 ## Differences from the shipped architectures
 
 **The address space is the operating limit.** A 32-bit process has a user
@@ -233,16 +314,54 @@ $ ldd /usr/local/bin/tuwunel
         /lib/ld-linux-armhf.so.3
 ```
 
+**`time_t` is 32 bits on this baseline.** Debian bookworm's `armhf` port
+predates the 64-bit `time_t` transition and defines `__TIMESIZE 32`:
+
+```console
+$ arm-linux-gnueabihf-gcc -E -dM -x c /dev/null | grep __TIMESIZE
+#define __TIMESIZE 32
+```
+
+Rust's own time handling does not go through glibc's `time_t`, so this reaches
+only RocksDB and the rest of the C++ in the graph, and it has not been traced to
+a concrete failure here. Building with `-D_FILE_OFFSET_BITS=64 -D_TIME_BITS=64`
+widens it, and a base image newer than bookworm carries the widened type
+already. Worth knowing before running a 32-bit ARM server long enough for 2038
+to matter.
+
 **`io_uring` is off here.** The recipe omits it, so a 32-bit ARM image built
-this way is not feature equivalent to an x86_64 or ARM64 one.
+this way is not feature equivalent to an x86_64 or ARM64 one. It does compile
+and link, as described below, but has never been run.
 
 **No CPU feature levels.** The `sys_target` dimension has no 32-bit ARM
 equivalent here. The build targets the Debian `armhf` baseline, ARMv7-A with
 VFPv3-D16, and selects no profile above it.
 
-**ARMv6 is untested.** Rust defines targets for it, and the Raspberry Pi 1 and
-Zero need them, but nothing here has been built or run against one. Expect the
-libstdc++ trap above to matter more rather than less at that baseline.
+**ARMv6 needs a toolchain neither route provides.** Rust defines targets for it,
+and the Raspberry Pi 1 and Zero need them, but no build has been produced here
+because both candidate toolchains rule themselves out.
+
+The musl image for that target, `arm-musleabihf`, carries the same defect as its
+ARMv7 sibling. The `cc` crate compiles for `arm-unknown-linux-musleabihf` with
+`-march=armv6 -marm -mfpu=vfp`, which is ARMv6 with lock free integer atomics,
+so it takes the futex path and fails against that ARMv5TE `libstdc++.a` exactly
+as described above.
+
+The Debian toolchain used here cannot target ARMv6 either, because its runtime
+libraries are built for the `armhf` port baseline:
+
+```console
+$ arm-linux-gnueabihf-readelf -A /usr/arm-linux-gnueabihf/lib/libstdc++.so.6.0.30
+  Tag_CPU_name: "7-A"
+  Tag_CPU_arch: v7
+  Tag_FP_arch: VFPv3-D16
+```
+
+Compiling our own code at ARMv6 would still link against that, and the result
+would fault on ARMv6 hardware: the library contains over a thousand `dmb`
+instructions, which ARMv6 does not implement. An ARMv6 port therefore needs a
+toolchain whose C++ runtime is built at that baseline, such as the one
+Raspberry Pi OS ships.
 
 
 ## Adding it to the build matrix
