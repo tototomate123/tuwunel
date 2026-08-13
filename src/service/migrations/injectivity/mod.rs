@@ -12,7 +12,11 @@
 mod repair;
 mod scan;
 
-use tuwunel_core::{Result, result::NotFound, warn};
+use tuwunel_core::{
+	Result,
+	result::{LogErr, NotFound},
+	warn,
+};
 
 use self::{
 	repair::{heal, repair},
@@ -51,9 +55,15 @@ const PASSES: usize = 3;
 /// counts a refusal turns on are taken against bitmaps the heal changes.
 #[tracing::instrument(level = "debug", skip_all)]
 pub(super) async fn fix(services: &Services) -> Result {
-	clear_chain_cache(services).await;
-
 	let global = &services.db["global"];
+
+	if global.get(CLEAR_MARKER).await.is_not_found() {
+		clear_chain_cache(services).await;
+		services.db["authchainkey_authchain"]
+			.sort()
+			.log_err()
+			.ok();
+	}
 
 	if !global.get(MARKER).await.is_not_found() {
 		return Ok(());
@@ -86,10 +96,6 @@ pub(super) async fn fix(services: &Services) -> Result {
 #[tracing::instrument(level = "debug", skip_all)]
 async fn clear_chain_cache(services: &Services) {
 	let global = &services.db["global"];
-
-	if !global.get(CLEAR_MARKER).await.is_not_found() {
-		return;
-	}
 
 	warn!("Discarding cached auth chains; entries from earlier releases may be truncated.");
 

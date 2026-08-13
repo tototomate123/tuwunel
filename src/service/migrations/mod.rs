@@ -536,11 +536,10 @@ async fn fix_bad_double_separator_in_state_cache(services: &Services) -> Result 
 		})
 		.await;
 
-	db.engine.sort()?;
-	db["global"].insert(b"fix_bad_double_separator_in_state_cache", []);
-
 	info!("Finished fixing");
-	Ok(())
+
+	db["global"].insert(b"fix_bad_double_separator_in_state_cache", []);
+	roomuserid_joined.sort()
 }
 
 async fn retroactively_fix_bad_data_from_roomuserid_joined(services: &Services) -> Result {
@@ -594,10 +593,9 @@ async fn retroactively_fix_bad_data_from_roomuserid_joined(services: &Services) 
 		})
 		.await;
 
-	db.engine.sort()?;
-	db["global"].insert(b"retroactively_fix_bad_data_from_roomuserid_joined", []);
-
 	info!("Finished fixing");
+
+	db["global"].insert(b"retroactively_fix_bad_data_from_roomuserid_joined", []);
 	Ok(())
 }
 
@@ -640,7 +638,7 @@ async fn fix_referencedevents_missing_sep(services: &Services) -> Result {
 	info!(?total, ?fixed, "Fixed missing record separators in 'referencedevents'.");
 
 	db["global"].insert(b"fix_referencedevents_missing_sep", []);
-	db.engine.sort()
+	referencedevents.sort()
 }
 
 async fn fix_readreceiptid_readreceipt_duplicates(services: &Services) -> Result {
@@ -692,7 +690,7 @@ async fn fix_readreceiptid_readreceipt_duplicates(services: &Services) -> Result
 	info!(?total, ?fixed, "Fixed undeleted entries in readreceiptid_readreceipt.");
 
 	db["global"].insert(b"fix_readreceiptid_readreceipt_duplicates", []);
-	db.engine.sort()
+	readreceiptid_readreceipt.sort()
 }
 
 async fn fix_hashed_sentinel_passwords(services: &Services) -> Result {
@@ -746,7 +744,7 @@ async fn fix_hashed_sentinel_passwords(services: &Services) -> Result {
 	info!(?checked, ?good, ?bad, "Fixed any occurrences of hashed sentinel passwords");
 
 	db["global"].insert(b"fix_hashed_sentinel_passwords", []);
-	db.engine.sort()
+	userid_password.sort()
 }
 
 async fn upgrade_legacy_mediaid_user(services: &Services) -> Result {
@@ -807,7 +805,7 @@ async fn upgrade_legacy_mediaid_user(services: &Services) -> Result {
 	);
 
 	db["global"].insert(b"upgrade_legacy_mediaid_user", []);
-	db.engine.sort()
+	mediaid_user.sort()
 }
 
 async fn remove_remote_media_userid(services: &Services) -> Result {
@@ -858,7 +856,7 @@ async fn remove_remote_media_userid(services: &Services) -> Result {
 	);
 
 	db["global"].insert(b"remove_remote_media_userid", []);
-	db.engine.sort()
+	mediaid_user.sort()
 }
 
 #[derive(Deserialize)]
@@ -898,7 +896,7 @@ async fn rebuild_roomid_tscount_pducount(services: &Services) -> Result {
 	info!(%count, "Rebuilt roomid_tscount_pducount index");
 
 	db["global"].insert(b"rebuild_roomid_tscount_pducount", []);
-	db.engine.sort()
+	roomid_tscount_pducount.sort()
 }
 
 /// Relocates the per-user displayname and avatar_url out of their dedicated
@@ -981,17 +979,18 @@ async fn migrate_profile_keys(services: &Services) -> Result {
 	info!(%displaynames, %avatar_urls, %blurhashes, %fixed_strings, "Relocated profile keys into useridprofilekey_value");
 
 	db["global"].insert(b"migrate_profile_keys_to_useridprofilekey", []);
-	db.engine.sort()
+	useridprofilekey_value.sort()
 }
 
 /// One-time clear of the ephemeral peer-status reachability rows, so the new
 /// span-based backoff fold does not misread v1.8.1's per-bucket failure rows.
 async fn clear_servername_status(services: &Services) -> Result {
 	let db = &services.db;
+	let servername_status = db["servername_status"].clone();
 
 	warn!("Clearing federation peer-status reachability rows");
-	db["servername_status"].clear().await;
+	servername_status.clear().await;
 
 	db["global"].insert(b"clear_servername_status", []);
-	db.engine.sort()
+	servername_status.sort()
 }

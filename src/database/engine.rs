@@ -117,6 +117,7 @@ impl Engine {
 		),
 	)]
 	pub fn sort(&self) -> Result {
+		//TODO: Call flush_cfs_opt instead.
 		let flushoptions = rocksdb::FlushOptions::default();
 		result(DBCommon::flush_opt(&self.db, &flushoptions))
 	}

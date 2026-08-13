@@ -39,7 +39,7 @@ use std::{
 	sync::Arc,
 };
 
-use rocksdb::{AsColumnFamilyRef, ColumnFamily, ReadOptions, WriteOptions};
+use rocksdb::{AsColumnFamilyRef, ColumnFamily, DBCommon, ReadOptions, WriteOptions};
 use tuwunel_core::Result;
 
 pub(crate) use self::options::{
@@ -52,7 +52,7 @@ use self::watch::Watch;
 /// `Get` accepts raw keys, while `Qry` serializes structured keys before
 /// lookup. Both yield pinned value handles through an asynchronous stream.
 pub use self::{get_batch::Get, qry_batch::Qry};
-use crate::Engine;
+use crate::{Engine, util::map_err};
 
 /// Provides typed and raw access to one RocksDB column family.
 ///
@@ -84,6 +84,26 @@ impl Map {
 			cache_read_options: cache_read_options_default(engine),
 			write_options: write_options_default(engine),
 		}))
+	}
+
+	/// Flush this map's memtable to SST files (a RocksDB LSM-tree flush).
+	///
+	/// Forces the column family's buffered writes out of memory into the
+	/// on-disk LSM tree. An LSM flush, not a libc `fflush(3)` or `fsync(2)`,
+	/// and distinct from the engine's `flush` and `sync`, which act on the
+	/// write-ahead log.
+	#[tracing::instrument(
+		level = "info",
+		skip_all,
+		fields(
+			map = self.name(),
+			sequence = ?self.engine.current_sequence(),
+		),
+	)]
+	pub fn sort(&self) -> Result {
+		let cf = self.cf();
+		let flushoptions = rocksdb::FlushOptions::default();
+		DBCommon::flush_cf_opt(&self.engine.db, &cf, &flushoptions).map_err(map_err)
 	}
 
 	/// Reads an integer RocksDB property for this map.
