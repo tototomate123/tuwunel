@@ -592,7 +592,7 @@ in the [Out of scope](#out-of-scope) section.
 | MSC3682 | ❌ ● | 0/0 | Sending Account Data to Application Services | AS transactions do not include account_data field |
 | MSC3673 | ❌ ● | 0/0 | Encrypting ephemeral data units | branch MSC; no encrypted EDU envelope support |
 | MSC3672 | ❌ ● | 0/0 | Sharing ephemeral streams of location data | branch MSC; no m.beacon EDU support or location streaming |
-| MSC3664 | 🟨 ● | 80/80 | Pushrules for relations | related_event_match condition landed; no default reply rule, no insert-time v... |
+| MSC3664 | 🟨 ● | 80/80 | Pushrules for relations | related_event_match landed with e2e coverage; no default reply rule, no inser... |
 | MSC3647 | ❌ ● | 0/0 | Bring Your Own Bridge - Decentralising Bridges | WIP bridge negotiation; no spec-level details, no server impl |
 | MSC3618 | ❌ ◐ | 0/0 | Simplify federation `/send` response | branch MSC; tuwunel returns full pdus map per current spec |
 | MSC3613 | ❌ ● | 0/0 | Combinatorial join rules | branch MSC; no combinatorial join_rules array logic in tuwunel |
