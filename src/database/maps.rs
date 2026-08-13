@@ -3,10 +3,13 @@ use std::{collections::BTreeMap, sync::Arc};
 use rocksdb::DBCompressionType as CompressionType;
 use tuwunel_core::Result;
 
+// The descriptor aliases keep this file's other qualified descriptor
+// spellings clean under unused_qualifications.
 use crate::{
 	Engine, Map,
 	engine::descriptor::{
-		self, CacheDisp, Descriptor, RANDOM_SMALL as PRIVATE_READ_SYNC_DESCRIPTOR,
+		self, CacheDisp, DROPPED as LEGACY_AUTH_CHAIN_DESCRIPTOR, Descriptor,
+		RANDOM_SMALL as PRIVATE_READ_SYNC_DESCRIPTOR,
 	},
 };
 
@@ -67,12 +70,11 @@ pub(super) static MAPS: &[Descriptor] = &[
 	},
 	Descriptor {
 		name: "authchainkey_authchain",
-		cache_disp: CacheDisp::SharedWith("shorteventid_authchain"),
 		compression: CompressionType::None,
 		cache_shards: 32,
 		index_size: 1024,
 		block_size: 4096,
-		key_size_hint: Some(8), // intentionally match shorteventid_authchain
+		key_size_hint: Some(8),
 		val_size_hint: Some(256),
 		..descriptor::RANDOM_CACHE
 	},
@@ -444,12 +446,7 @@ pub(super) static MAPS: &[Descriptor] = &[
 	},
 	Descriptor {
 		name: "shorteventid_authchain",
-		cache_disp: CacheDisp::SharedWith("authchainkey_authchain"),
-		key_size_hint: Some(8),
-		val_size_hint: Some(256),
-		index_size: 512,
-		block_size: 4096,
-		..descriptor::SEQUENTIAL
+		..LEGACY_AUTH_CHAIN_DESCRIPTOR
 	},
 	Descriptor {
 		name: "shorteventid_eventid",

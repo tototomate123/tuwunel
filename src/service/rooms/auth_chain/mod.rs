@@ -42,7 +42,6 @@ pub struct Service {
 
 struct Data {
 	authchainkey_authchain: Arc<Map>,
-	shorteventid_authchain: Arc<Map>,
 }
 
 type Bucket<'a> = BTreeSet<(ShortEventId, &'a EventId)>;
@@ -55,15 +54,11 @@ impl crate::Service for Service {
 			services: args.services.clone(),
 			db: Data {
 				authchainkey_authchain: args.db["authchainkey_authchain"].clone(),
-				shorteventid_authchain: args.db["shorteventid_authchain"].clone(),
 			},
 		}))
 	}
 
-	async fn clear_cache(&self) {
-		self.db.authchainkey_authchain.clear().await;
-		self.db.shorteventid_authchain.clear().await;
-	}
+	async fn clear_cache(&self) { self.db.authchainkey_authchain.clear().await; }
 
 	fn name(&self) -> &str { crate::service::make_name(std::module_path!()) }
 }
@@ -403,23 +398,11 @@ where
 		return Ok(Vec::new());
 	}
 
-	// On miss, fall back to the single-event legacy table for older entries.
 	let chain = self
 		.db
 		.authchainkey_authchain
 		.qry(key.as_slice())
 		.map_err(|_| err!(Request(NotFound("auth_chain not cached"))))
-		.or_else(async |e| {
-			if key.len() > 1 {
-				return Err(e);
-			}
-
-			self.db
-				.shorteventid_authchain
-				.qry(&key[0])
-				.map_err(|_| err!(Request(NotFound("auth_chain not found"))))
-				.await
-		})
 		.await?
 		.as_chunks::<{ size_of::<u64>() }>()
 		.0

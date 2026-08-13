@@ -296,10 +296,9 @@ pub struct Config {
 	#[serde(default = "default_pdu_cache_capacity")]
 	pub pdu_cache_capacity: u32,
 
-	/// Maximum number of entries in the RocksDB block cache shared by the
-	/// `shorteventid_authchain` and `authchainkey_authchain` column
-	/// families: a room event's full auth chain, keyed by its short event ID
-	/// or by the auth chain's own key.
+	/// Maximum number of entries in the RocksDB block cache for the
+	/// `authchainkey_authchain` column family: a room event's full auth
+	/// chain, keyed by the set of events the chain was derived from.
 	///
 	/// Same entry-count semantics as `pdu_cache_capacity` above; see there
 	/// for how this becomes a byte capacity and how

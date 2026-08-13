@@ -557,14 +557,9 @@ async fn sweep(
 
 	// A key or value that is stale or not a whole number of short ids
 	// poisons the row either way.
-	let authchain = db["shorteventid_authchain"]
-		.raw_stream()
-		.ignore_err();
-
 	let (dirty, entries) = db["authchainkey_authchain"]
 		.raw_stream()
 		.ignore_err()
-		.chain(authchain)
 		.ready_fold((0_u64, 0_u64), |(dirty, entries), (key, chain)| {
 			let hit = disposable(key, &event_stale, &statekey_stale)
 				|| disposable(chain, &event_stale, &statekey_stale);

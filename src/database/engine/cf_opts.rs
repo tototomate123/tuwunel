@@ -210,8 +210,7 @@ fn get_cache(ctx: &Context, desc: &Descriptor) -> Option<Cache> {
 		| "statekey_shortstatekey" => Some(config.statekeyshort_cache_capacity),
 		| "servernameevent_data" => Some(config.servernameevent_data_cache_capacity),
 		| "pduid_pdu" | "eventid_outlierpdu" => Some(config.pdu_cache_capacity),
-		| "shorteventid_authchain" | "authchainkey_authchain" =>
-			Some(config.auth_chain_cache_capacity),
+		| "authchainkey_authchain" => Some(config.auth_chain_cache_capacity),
 		| _ => None,
 	}
 	.map(TryInto::try_into)
