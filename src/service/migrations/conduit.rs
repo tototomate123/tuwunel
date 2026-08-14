@@ -82,12 +82,13 @@ const PROVIDER_READ_ATTEMPTS: u32 = 2;
 const PROVIDER_READ_RETRY_DELAY: Duration = Duration::from_secs(2);
 
 /// Imports the original media files of a Conduit database, re-uploading each
-/// `servernamemediaid_metadata` entry through `media.create`. A malformed entry
-/// or a missing source file is logged and skipped, but a source storage
-/// provider that stays unreachable aborts the import: nothing is committed in a
-/// way that needs cleanup, so the operator can fix the provider and restart to
-/// resume from the beginning (re-importing an already-copied original is
-/// idempotent).
+/// `servernamemediaid_metadata` entry through `media.create`.
+///
+/// Malformed entries, unreadable filesystem files, missing provider objects,
+/// and moderator-blocked media are skipped. Persistent source-provider faults,
+/// blocklist read errors, and destination creation failures abort without
+/// setting the completion marker; a restart safely overwrites deterministic
+/// partial metadata and provider objects.
 pub(super) async fn migrate_conduit_media(services: &Services) -> Result {
 	let db = &services.db;
 	let config = &services.server.config;
@@ -149,9 +150,11 @@ pub(super) async fn migrate_conduit_media(services: &Services) -> Result {
 	Ok(())
 }
 
-/// Imports one `servernamemediaid_metadata` entry, returning whether an
-/// original was imported (`false` = skipped). The skip/abort contract is
-/// decided in [`read_conduit_original`].
+/// Imports one `servernamemediaid_metadata` entry and reports whether it was
+/// stored.
+///
+/// `false` denotes an intentional source-entry skip. Destination creation
+/// errors propagate so the caller can withhold the completion marker.
 async fn import_conduit_original(
 	services: &Services,
 	owners: Option<&Arc<Map>>,
@@ -180,17 +183,12 @@ async fn import_conduit_original(
 		media_id: entry.media_id,
 	};
 
-	match services
+	services
 		.media
 		.create(&mxc, owner.as_deref(), Some(&content_disposition), entry.content_type, &file)
-		.await
-	{
-		| Ok(()) => Ok(true),
-		| Err(e) => {
-			debug_warn!(error = %e, "skipping Conduit media entry that failed to store");
-			Ok(false)
-		},
-	}
+		.await?;
+
+	Ok(true)
 }
 
 /// Parses a `servernamemediaid_metadata` entry: the key is
