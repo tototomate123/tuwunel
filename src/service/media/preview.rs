@@ -16,7 +16,10 @@ use reqwest::header::{CONTENT_TYPE, COOKIE, HeaderValue, USER_AGENT};
 #[cfg(feature = "url_preview")]
 use ruma::Mxc;
 use serde::{Deserialize, Serialize};
-use tuwunel_core::{Config, Err, Result, debug, err, implement, utils::time::timepoint_from_now};
+use tuwunel_core::{
+	Config, Err, Result, debug, err, implement, smallstr::SmallString,
+	utils::time::timepoint_from_now,
+};
 #[cfg(feature = "url_preview")]
 use tuwunel_core::{debug_warn, utils::random_string};
 #[cfg(feature = "url_preview")]
@@ -30,6 +33,9 @@ use super::MXC_LENGTH;
 use super::Service;
 #[cfg(feature = "url_preview")]
 use crate::client::read_response_capped;
+
+/// A media type as declared by a page, inline for every common spelling.
+type MediaType = SmallString<[u8; 32]>;
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct UrlPreviewData {
@@ -75,6 +81,12 @@ pub struct UrlPreviewData {
 		rename = "og:video"
 	)]
 	pub video: Option<String>,
+	#[serde(
+		default,
+		skip_serializing_if = "Option::is_none",
+		rename = "og:video:type"
+	)]
+	pub video_type: Option<MediaType>,
 	#[serde(
 		default,
 		skip_serializing_if = "Option::is_none",
@@ -454,10 +466,21 @@ async fn oembed_preview(&self, endpoint: &Url, page: &Url) -> Result<UrlPreviewD
 	Ok(UrlPreviewData {
 		title: oembed.title,
 		description: oembed.author_name,
+		video_type: video_type(oembed.kind.as_deref()).map(Into::into),
 		og_type: og_type(oembed.kind.as_deref()),
 		og_url: Some(page.as_str().to_owned()),
 		..image
 	})
+}
+
+/// Translate an oEmbed `video` document into the type a preview can carry.
+///
+/// oEmbed hands back an HTML player rather than a media file, so the player
+/// type is all a preview can report. Clients read that type on its own to
+/// mark the preview playable at the origin.
+#[cfg(feature = "url_preview")]
+fn video_type(kind: Option<&str>) -> Option<&'static str> {
+	kind.eq(&Some("video")).then_some("text/html")
 }
 
 /// Translate an oEmbed `type` into the OpenGraph vocabulary the preview
@@ -799,39 +822,33 @@ async fn download_html(&self, url: &Url, response: reqwest::Response) -> Result<
 		| Some(image_url) => self.preview_image(&image_url).await?,
 	};
 
-	// og:video/og:audio are registered as lazy media (see register_lazy_media)
-	// rather than fetched here, so a page with a large og:video never costs a
-	// preview request any bandwidth; the URL is only fetched, SSRF-checked,
-	// and relayed when a client asks for the resulting mxc:// URI.
-	// check_url_host screens IP-literal URLs here only so a preview never
-	// hands out an mxc that the same check at relay time is guaranteed to
-	// reject.
 	if let Some(obj) = html.opengraph.videos.first()
 		&& !obj.url.is_empty()
-		&& declares_media_type(obj, "video/")
-		&& let Ok(video_url) = url.join(&obj.url)
-		&& ["http", "https"].contains(&video_url.scheme())
-		&& self.check_url_host(&video_url).is_ok()
 	{
-		data.video = Some(self.register_lazy_media(video_url.as_str()));
+		// the declared type is reported even when the URL cannot be relayed
+		data.video_type = obj
+			.properties
+			.get("type")
+			.map(String::as_str)
+			.map(Into::into);
+
 		data.video_width = obj
 			.properties
 			.get("width")
 			.and_then(|w| w.parse().ok());
+
 		data.video_height = obj
 			.properties
 			.get("height")
 			.and_then(|h| h.parse().ok());
+
+		data.video = self.lazy_media(url, obj, "video/");
 	}
 
 	if let Some(obj) = html.opengraph.audios.first()
 		&& !obj.url.is_empty()
-		&& declares_media_type(obj, "audio/")
-		&& let Ok(audio_url) = url.join(&obj.url)
-		&& ["http", "https"].contains(&audio_url.scheme())
-		&& self.check_url_host(&audio_url).is_ok()
 	{
-		data.audio = Some(self.register_lazy_media(audio_url.as_str()));
+		data.audio = self.lazy_media(url, obj, "audio/");
 	}
 
 	let props = html.opengraph.properties;
@@ -925,6 +942,25 @@ fn reserve_capped(bytes: &mut Vec<u8>, want: usize, limit: usize) {
 		.clamp(need, limit.max(need));
 
 	bytes.reserve_exact(target.saturating_sub(bytes.len()));
+}
+
+/// Mint an `mxc://` URI for a page's declared media, or nothing when it is not
+/// relayable.
+///
+/// The URL is recorded rather than fetched, so a page naming a large video
+/// costs the preview request no bandwidth; it is fetched and checked only once
+/// a client asks for the resulting URI. Screening IP literals here as well
+/// keeps a preview from handing out a URI that the same check at relay time is
+/// guaranteed to refuse.
+#[cfg(feature = "url_preview")]
+#[implement(Service)]
+fn lazy_media(&self, page: &Url, obj: &OpengraphObject, class: &str) -> Option<String> {
+	declares_media_type(obj, class)
+		.then(|| page.join(&obj.url).ok())
+		.flatten()
+		.filter(|url| ["http", "https"].contains(&url.scheme()))
+		.filter(|url| self.check_url_host(url).is_ok())
+		.map(|url| self.register_lazy_media(url.as_str()))
 }
 
 /// Whether an OpenGraph media object's declared type belongs to `class`.
@@ -1089,7 +1125,7 @@ mod tests {
 
 	use super::{CachedPreview, UrlPreviewData, is_youtube};
 	#[cfg(feature = "url_preview")]
-	use super::{oembed_endpoint, reserve_capped};
+	use super::{oembed_endpoint, reserve_capped, video_type};
 
 	fn sample() -> UrlPreviewData {
 		UrlPreviewData {
@@ -1101,6 +1137,7 @@ mod tests {
 			image_width: Some(640),
 			image_height: Some(0xFF),
 			video: Some("mxc://example.org/video".to_owned()),
+			video_type: Some("video/mp4".into()),
 			video_size: Some(123_456),
 			video_width: Some(1920),
 			video_height: Some(1080),
@@ -1134,6 +1171,7 @@ mod tests {
 		assert!(object.contains_key("og:title"));
 		assert!(object.contains_key("matrix:image:size"));
 		assert!(object.contains_key("og:video:width"));
+		assert!(object.contains_key("og:video:type"));
 		assert!(object.contains_key("og:url"));
 		assert!(!object.contains_key("title"));
 
@@ -1226,6 +1264,16 @@ mod tests {
 		]);
 
 		assert!(oembed_endpoint(&Url::parse("https://example.org/").expect("parses")).is_none());
+	}
+
+	#[cfg(feature = "url_preview")]
+	#[test]
+	fn oembed_video_declares_a_player() {
+		assert_eq!(video_type(Some("video")), Some("text/html"));
+
+		for kind in [Some("photo"), Some("rich"), Some("link"), None] {
+			assert!(video_type(kind).is_none(), "{kind:?}");
+		}
 	}
 
 	#[cfg(feature = "url_preview")]

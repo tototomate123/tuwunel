@@ -152,9 +152,23 @@ only the URL is recorded, and the source is fetched on the first request for
 that `mxc://` URI, subject to the same address checks as every other outbound
 request.
 
-An `og:video` or `og:audio` that declares a non-media type is skipped. Those
-point at an embed player page rather than a file, so relaying one would hand
-the client markup where it expected media.
+An `og:video` or `og:audio` that declares a non-media type is not relayed.
+Those point at an embed player page rather than a file, so handing back an
+`mxc://` URI would give the client markup where it expected media.
+
+What the page declared about that video is still reported: `og:video:type`
+alongside `og:video:width` and `og:video:height`, whether or not the URL
+itself could be relayed. Clients read the type to show a preview as
+playable, so the card offers to open the video at its source instead of
+appearing to be a still image.
+
+YouTube arrives by both routes. Its `og:video` is an embed page rather
+than a video file, so a preview taken from the page reports the type the
+page declares. A preview recovered through oEmbed has no page metadata to
+report, so for a document oEmbed marks as a video the server supplies the
+type itself, `text/html`, describing the player that document embeds. That
+value is the server's, not the origin's, and it is the only thing on that
+route that tells a client the link is playable.
 
 Because the source is fetched rather than copied, a preview's `mxc://` URI is
 only as durable as the URL behind it. If the source changes or expires, later
