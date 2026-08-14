@@ -25,7 +25,6 @@ use crate::users::PASSWORD_SENTINEL;
 
 pub struct Service {
 	userdevicesessionid_uiaarequest: RwLock<RequestMap>,
-	userdevicesessionid_threepid: RwLock<ThreepidMap>,
 	db: Data,
 	services: Arc<crate::services::OnceServices>,
 }
@@ -35,16 +34,20 @@ struct Data {
 }
 
 type RequestMap = BTreeMap<RequestKey, CanonicalJsonValue>;
-type ThreepidMap = BTreeMap<RequestKey, ThirdpartyIdCredentials>;
 type RequestKey = (OwnedUserId, OwnedDeviceId, String);
 
 pub const SESSION_ID_LENGTH: usize = 32;
+
+#[derive(Clone, Copy)]
+enum EmailIdentityMode {
+	Validate,
+	Claim,
+}
 
 impl crate::Service for Service {
 	fn build(args: &crate::Args<'_>) -> Result<Arc<Self>> {
 		Ok(Arc::new(Self {
 			userdevicesessionid_uiaarequest: RwLock::new(RequestMap::new()),
-			userdevicesessionid_threepid: RwLock::new(ThreepidMap::new()),
 			db: Data {
 				userdevicesessionid_uiaainfo: args.db["userdevicesessionid_uiaainfo"].clone(),
 			},
@@ -76,6 +79,10 @@ pub fn create(
 	self.update_uiaa_session(user_id, device_id, session, Some(uiaainfo));
 }
 
+/// Authenticate one stage without taking ownership of an email proof.
+///
+/// Generic UIAA consumers may validate email identity, but only registration
+/// assigns a durable owner to that proof.
 #[implement(Service)]
 pub async fn try_auth(
 	&self,
@@ -83,6 +90,35 @@ pub async fn try_auth(
 	device_id: &DeviceId,
 	auth: &AuthData,
 	uiaainfo: &UiaaInfo,
+) -> Result<(bool, UiaaInfo)> {
+	self.try_auth_inner(user_id, device_id, auth, uiaainfo, EmailIdentityMode::Validate)
+		.await
+}
+
+/// Authenticate one registration stage and claim an email proof when present.
+///
+/// The claim is tied to the exact user, device, and UIAA session tuple before
+/// the email stage is recorded as complete.
+#[implement(Service)]
+pub async fn try_auth_registration(
+	&self,
+	user_id: &UserId,
+	device_id: &DeviceId,
+	auth: &AuthData,
+	uiaainfo: &UiaaInfo,
+) -> Result<(bool, UiaaInfo)> {
+	self.try_auth_inner(user_id, device_id, auth, uiaainfo, EmailIdentityMode::Claim)
+		.await
+}
+
+#[implement(Service)]
+async fn try_auth_inner(
+	&self,
+	user_id: &UserId,
+	device_id: &DeviceId,
+	auth: &AuthData,
+	uiaainfo: &UiaaInfo,
+	email_identity_mode: EmailIdentityMode,
 ) -> Result<(bool, UiaaInfo)> {
 	let mut uiaainfo = if let Some(session) = auth.session() {
 		self.get_uiaa_session(user_id, device_id, session)
@@ -162,13 +198,14 @@ pub async fn try_auth(
 		| AuthData::EmailIdentity(EmailIdentity { thirdparty_id_creds, .. }) => {
 			// A stray id_server is tolerated and id_access_token is never required.
 			let validated = self
-				.services
-				.threepid
-				.session_validated(
-					thirdparty_id_creds.sid.as_str(),
-					thirdparty_id_creds.client_secret.as_str(),
+				.authenticate_email_identity(
+					user_id,
+					device_id,
+					&uiaainfo,
+					thirdparty_id_creds,
+					email_identity_mode,
 				)
-				.await;
+				.await?;
 
 			if !validated {
 				uiaainfo.auth_error = Some(Box::new(StandardErrorBody {
@@ -180,12 +217,6 @@ pub async fn try_auth(
 			}
 
 			uiaainfo.completed.push(AuthType::EmailIdentity);
-
-			// Retain the validated credentials so a later stage can still bind the email
-			// (MSC2263).
-			if let Some(session) = uiaainfo.session.as_deref() {
-				self.set_uiaa_threepid(user_id, device_id, session, thirdparty_id_creds);
-			}
 		},
 		| auth => error!("AuthData type not supported: {auth:?}"),
 	}
@@ -207,16 +238,81 @@ pub async fn try_auth(
 		.as_ref()
 		.expect("session is always set");
 
+	if matches!(email_identity_mode, EmailIdentityMode::Claim)
+		&& !matches!(auth, AuthData::EmailIdentity(_))
+		&& uiaainfo
+			.completed
+			.contains(&AuthType::EmailIdentity)
+	{
+		let claim = (user_id.to_owned(), device_id.to_owned(), session.as_str().into());
+
+		if !self
+			.services
+			.threepid
+			.refresh_claim(&claim)
+			.await?
+		{
+			uiaainfo
+				.completed
+				.retain(|stage| stage != &AuthType::EmailIdentity);
+
+			uiaainfo.auth_error = Some(Box::new(StandardErrorBody {
+				kind: ErrorKind::forbidden(),
+				message: "Email address has not been validated.".to_owned(),
+			}));
+
+			self.update_uiaa_session(user_id, device_id, session, Some(&uiaainfo));
+
+			return Ok((false, uiaainfo));
+		}
+	}
+
 	if !completed {
 		self.update_uiaa_session(user_id, device_id, session, Some(&uiaainfo));
 
 		return Ok((false, uiaainfo));
 	}
 
-	// UIAA was successful! Remove this session and return true
-	self.update_uiaa_session(user_id, device_id, session, None);
+	// Retain the session until registration spends its email claim.
+	let retain_session = matches!(email_identity_mode, EmailIdentityMode::Claim)
+		&& uiaainfo
+			.completed
+			.contains(&AuthType::EmailIdentity);
+
+	self.update_uiaa_session(user_id, device_id, session, retain_session.then_some(&uiaainfo));
 
 	Ok((true, uiaainfo))
+}
+
+#[implement(Service)]
+async fn authenticate_email_identity(
+	&self,
+	user_id: &UserId,
+	device_id: &DeviceId,
+	uiaainfo: &UiaaInfo,
+	creds: &ThirdpartyIdCredentials,
+	mode: EmailIdentityMode,
+) -> Result<bool> {
+	match mode {
+		| EmailIdentityMode::Validate => Ok(self
+			.services
+			.threepid
+			.session_validated(creds.sid.as_str(), creds.client_secret.as_str())
+			.await),
+		| EmailIdentityMode::Claim => {
+			let session = uiaainfo
+				.session
+				.as_ref()
+				.expect("session is always set");
+
+			let claim = (user_id.to_owned(), device_id.to_owned(), session.as_str().into());
+
+			self.services
+				.threepid
+				.claim_validated(creds.sid.as_str(), creds.client_secret.as_str(), claim)
+				.await
+		},
+	}
 }
 
 #[implement(Service)]
@@ -331,37 +427,6 @@ pub fn get_uiaa_request(
 		.expect("locked for reading")
 		.get(&key)
 		.cloned()
-}
-
-#[implement(Service)]
-fn set_uiaa_threepid(
-	&self,
-	user_id: &UserId,
-	device_id: &DeviceId,
-	session: &str,
-	creds: &ThirdpartyIdCredentials,
-) {
-	let key = (user_id.to_owned(), device_id.to_owned(), session.to_owned());
-
-	self.userdevicesessionid_threepid
-		.write()
-		.expect("locked for writing")
-		.insert(key, creds.to_owned());
-}
-
-#[implement(Service)]
-pub fn take_uiaa_threepid(
-	&self,
-	user_id: &UserId,
-	device_id: &DeviceId,
-	session: &str,
-) -> Option<ThirdpartyIdCredentials> {
-	let key = (user_id.to_owned(), device_id.to_owned(), session.to_owned());
-
-	self.userdevicesessionid_threepid
-		.write()
-		.expect("locked for writing")
-		.remove(&key)
 }
 
 #[implement(Service)]

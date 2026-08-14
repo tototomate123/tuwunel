@@ -27,7 +27,7 @@ pub(crate) async fn add_3pid_route(
 
 	let association = services
 		.threepid
-		.consume_validated(body.sid.as_str(), body.client_secret.as_str())
+		.redeem_validated(body.sid.as_str(), body.client_secret.as_str())
 		.await?;
 
 	if services

@@ -16,6 +16,7 @@ use crate::{
 	engine::descriptor::{
 		self, CacheDisp, DROPPED as LEGACY_AUTH_CHAIN_DESCRIPTOR, Descriptor,
 		RANDOM_SMALL as PRIVATE_READ_SYNC_DESCRIPTOR,
+		RANDOM_SMALL_CACHE as THREEPID_SESSION_DESCRIPTOR,
 	},
 };
 
@@ -516,7 +517,8 @@ pub(super) static MAPS: &[Descriptor] = &[
 	},
 	Descriptor {
 		name: "threepidsid_pending",
-		..descriptor::RANDOM_SMALL
+		ttl: 60 * 60 * 24, // pending validation session; minutes to complete
+		..THREEPID_SESSION_DESCRIPTOR
 	},
 	Descriptor {
 		name: "timeredacted_eventid",
@@ -583,6 +585,11 @@ pub(super) static MAPS: &[Descriptor] = &[
 	Descriptor {
 		name: "userdeviceidalgorithm_fallback",
 		..descriptor::RANDOM_SMALL
+	},
+	Descriptor {
+		name: "userdevicesessionid_threepid",
+		ttl: 60 * 60 * 24, // interactive-auth session; minutes to complete
+		..THREEPID_SESSION_DESCRIPTOR
 	},
 	Descriptor {
 		name: "userdevicesessionid_uiaainfo",
