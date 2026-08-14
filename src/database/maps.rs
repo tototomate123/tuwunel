@@ -76,6 +76,7 @@ pub(super) static MAPS: &[Descriptor] = &[
 		block_size: 4096,
 		key_size_hint: Some(8),
 		val_size_hint: Some(256),
+		limit_size: 1024 * 1024 * 1024 * 4,
 		..descriptor::RANDOM_CACHE
 	},
 	Descriptor {

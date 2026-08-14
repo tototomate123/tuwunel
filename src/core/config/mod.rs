@@ -5053,7 +5053,7 @@ fn default_pdu_cache_capacity() -> u32 { parallelism_scaled_u32(10_000).saturati
 fn default_cache_capacity_modifier() -> f64 { 1.0 }
 
 fn default_auth_chain_cache_capacity() -> u32 {
-	parallelism_scaled_u32(375_000).saturating_add(1_250_000)
+	parallelism_scaled_u32(250_000).saturating_add(750_000)
 }
 
 fn default_shorteventid_cache_capacity() -> u32 {
