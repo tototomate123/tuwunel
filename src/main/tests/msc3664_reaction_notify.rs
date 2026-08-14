@@ -4,11 +4,18 @@ use std::{
 	env::var, fs::remove_dir_all, net::TcpListener, path::PathBuf, process::id as process_id,
 };
 
-use serde_json::json;
+use serde_json::{Value, json};
 use tuwunel::{Args, Runtime, Server, async_run, async_start, async_stop};
 use tuwunel_core::{
 	Err, Result,
-	ruma::{EventId, RoomId, UserId},
+	ruma::{
+		EventId, RoomId, UserId,
+		events::{
+			GlobalAccountDataEventType,
+			push_rules::{PushRulesEvent, PushRulesEventContent},
+		},
+		push::{PredefinedOverrideRuleId, Ruleset},
+	},
 	utils::BoolExt,
 };
 use tuwunel_service::Services;
@@ -87,6 +94,9 @@ async fn exercise(services: &Services, base: &str) -> Result {
 
 	let writer = Client { services, base, token: AUTHOR_TOKEN };
 	let reader = Client { services, base, token: READER_TOKEN };
+
+	old_rulesets_gain_reply(services, &writer, &author).await?;
+
 	let room = writer.create_room().await?;
 
 	reader.join(&room).await?;
@@ -196,37 +206,74 @@ async fn exercise(services: &Services, base: &str) -> Result {
 		return Err!("a reaction to another user's message notified the author");
 	}
 
-	replies_notify(services, &writer, &reader, &author, &room, &mine).await?;
+	replies_notify(services, &reader, &author, &room, &mine).await?;
 	cross_room_relations_are_not_followed(services, &writer, &reader, &author, &room).await
 }
 
-/// A reply is matched as a relation of its own type, and a thread's reply
-/// fallback is not a reply.
+async fn old_rulesets_gain_reply(
+	services: &Services,
+	client: &Client<'_>,
+	author: &UserId,
+) -> Result {
+	let ty = GlobalAccountDataEventType::PushRules;
+	let event = PushRulesEvent {
+		content: PushRulesEventContent { global: Ruleset::new() },
+	};
+	let event = serde_json::to_value(event)?;
+
+	services
+		.account_data
+		.update(None, author, ty.to_string().into(), &event)
+		.await?;
+
+	let rules = push_rules(client).await?;
+	let has_reply = rules
+		.get("global")
+		.and_then(|global| global.get("override"))
+		.and_then(Value::as_array)
+		.is_some_and(|rules| {
+			rules.iter().any(|rule| {
+				rule.get("rule_id")
+					.and_then(Value::as_str)
+					.is_some_and(|rule_id| rule_id == PredefinedOverrideRuleId::Reply.as_str())
+			})
+		});
+
+	if has_reply.is_false() {
+		return Err!("an existing ruleset did not gain the default reply rule");
+	}
+
+	Ok(())
+}
+
+/// Fetch the caller's current rules, exercising the stored-ruleset repair path.
+async fn push_rules(client: &Client<'_>) -> Result<Value> {
+	client
+		.services
+		.client
+		.clients
+		.default
+		.get(format!("{}/_matrix/client/v3/pushrules/", client.base))
+		.bearer_auth(client.token)
+		.send()
+		.await?
+		.error_for_status()?
+		.json::<Value>()
+		.await
+		.map_err(Into::into)
+}
+
+/// The default reply rule matches a reply, while a thread's fallback does not.
 ///
-/// The rule asks for the highlight tweak because the default rule notifying for
-/// any message would otherwise satisfy an assertion on the notification count.
+/// Both events target the author's message, so the rule's fallback setting
+/// determines the result.
 async fn replies_notify(
 	services: &Services,
-	writer: &Client<'_>,
 	reader: &Client<'_>,
 	author: &UserId,
 	room: &RoomId,
 	mine: &EventId,
 ) -> Result {
-	let rule = json!({
-		"conditions": [{
-			"kind": CONDITION_KIND,
-			"rel_type": "m.in_reply_to",
-			"key": "sender",
-			"pattern": author.as_str(),
-		}],
-		"actions": ["notify", { "set_tweak": "highlight" }],
-	});
-
-	writer
-		.set_push_rule("msc3664_replies_to_me", &rule)
-		.await?;
-
 	let before = services
 		.pusher
 		.highlight_count(author, room)

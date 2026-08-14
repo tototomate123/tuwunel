@@ -56,6 +56,9 @@ pub(crate) async fn get_pushrules_all_route(
 			|| global_ruleset
 				.get(Content, PredefinedContentRuleId::ContainsUserName.as_str())
 				.is_some()
+			|| global_ruleset
+				.get(Override, PredefinedOverrideRuleId::Reply.as_str())
+				.is_none()
 		{
 			global_ruleset
 				.remove(Override, PredefinedOverrideRuleId::ContainsDisplayName)
