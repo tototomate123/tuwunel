@@ -32,7 +32,7 @@ pub async fn put_binding(
 		.userid_email
 		.put((user_id, email_canon), Cbor(binding));
 
-	self.db.email_userid.raw_put(email_canon, user_id);
+	self.db.email_userid.insert(email_canon, user_id);
 }
 
 /// All third-party identifiers bound to `user_id`, lazily decoded from the
@@ -95,13 +95,11 @@ pub async fn del_binding(&self, user_id: &UserId, email_canon: &str) {
 #[implement(super::Service)]
 #[tracing::instrument(level = "debug", skip(self))]
 pub async fn user_id_for_email(&self, email_canon: &str) -> Result<Option<OwnedUserId>> {
-	self.db
-		.email_userid
-		.get(email_canon)
-		.await
-		.ok()
-		.map(|handle| handle.deserialized())
-		.transpose()
+	match self.db.email_userid.get(email_canon).await {
+		| Ok(handle) => handle.deserialized().map(Some),
+		| Err(error) if error.is_not_found() => Ok(None),
+		| Err(error) => Err(error),
+	}
 }
 
 /// Whether a canonical email address is already bound to some user.

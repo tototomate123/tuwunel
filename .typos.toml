@@ -3,6 +3,7 @@
 extend-ignore-re = ["mis-[a-z]+"]
 
 [default.extend-words]
+"HELO" = "HELO"
 "allocatedp" = "allocatedp"
 "conduwuit" = "conduwuit"
 "execuse" = "execuse"

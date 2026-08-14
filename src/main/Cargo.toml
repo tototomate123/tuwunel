@@ -257,8 +257,11 @@ criterion.workspace = true
 futures.workspace = true
 insta.workspace = true
 maplit.workspace = true
+quoted_printable.workspace = true
 reqwest.workspace = true
+reqwest.features = ["form", "query"]
 serde_json.workspace = true
+serde_urlencoded.workspace = true
 similar.workspace = true
 
 [lints]

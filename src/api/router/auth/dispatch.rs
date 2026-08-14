@@ -7,7 +7,7 @@ use ruma::{
 			AccessToken, AccessTokenOptional, AppserviceToken, AppserviceTokenOptional,
 			AuthScheme, NoAccessToken, NoAuthentication,
 		},
-		client::rtc::transports,
+		client::{account::change_password, rtc::transports},
 		error::{ErrorKind, UnknownTokenErrorData},
 		federation::authentication::ServerSignatures,
 	},
@@ -122,11 +122,14 @@ impl AuthDispatch for AccessToken {
 	}
 }
 
-/// MSC4143 transport discovery happens before Element Call attaches Matrix
-/// authentication. The response contains only operator-configured public SFU
-/// metadata, matching the same data exposed through client `.well-known`.
+/// Allow endpoints with a dedicated unauthenticated authorization path through
+/// the request authentication gate.
+///
+/// Transport discovery exposes only configured public metadata. Password reset
+/// derives its target from a validated and bound email proof in the route.
 fn allows_missing_access_token(route: TypeId) -> bool {
 	route == TypeId::of::<transports::v1::Request>()
+		|| route == TypeId::of::<change_password::v3::Request>()
 }
 
 impl AuthDispatch for AccessTokenOptional {
@@ -255,8 +258,9 @@ mod tests {
 	use super::*;
 
 	#[test]
-	fn only_rtc_transport_discovery_bypasses_access_token_auth() {
+	fn dedicated_routes_bypass_access_token_auth() {
 		assert!(allows_missing_access_token(TypeId::of::<transports::v1::Request>()));
+		assert!(allows_missing_access_token(TypeId::of::<change_password::v3::Request>()));
 		assert!(!allows_missing_access_token(TypeId::of::<get_supported_versions::Request>()));
 	}
 }

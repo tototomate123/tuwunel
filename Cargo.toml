@@ -343,6 +343,9 @@ version = "1.0"
 [workspace.dependencies.quote]
 version = "1.0"
 
+[workspace.dependencies.quoted_printable]
+version = "0.5"
+
 [workspace.dependencies.rand]
 version = "0.10"
 
@@ -489,6 +492,9 @@ version = "0.4"
 version = "1.0"
 default-features = false
 features = ["raw_value"]
+
+[workspace.dependencies.serde_urlencoded]
+version = "0.7"
 
 [workspace.dependencies.serde_regex]
 version = "1.1"
