@@ -118,6 +118,11 @@ fn set_table_options(opts: &mut Options, desc: &Descriptor, cache: Option<&Cache
 }
 
 fn set_compression(desc: &mut Descriptor, config: &Config) {
+	// A column opting out of compression is never overridden by the config.
+	if desc.compression == CompressionType::None {
+		return;
+	}
+
 	desc.compression = match config.rocksdb_compression_algo.as_ref() {
 		| "snappy" => CompressionType::Snappy,
 		| "zlib" => CompressionType::Zlib,
