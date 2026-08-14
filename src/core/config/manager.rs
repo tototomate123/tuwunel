@@ -1,3 +1,9 @@
+//! Maintains the active reloadable configuration.
+//!
+//! [`Manager`] exposes the current [`Config`] through `Deref` and atomically
+//! replaces it on reload. It also manages the lifetime of configurations still
+//! visible to readers.
+
 use std::{
 	cell::{Cell, RefCell},
 	ops::Deref,

@@ -1,3 +1,8 @@
+//! Extensions for fixed-capacity `ArrayVec` values.
+//!
+//! The module adds fluent slice extension while preserving the collection's
+//! fixed storage budget. Capacity exhaustion remains explicit through a panic.
+
 use ::arrayvec::ArrayVec;
 
 /// Adds fluent slice extension to fixed-capacity vectors.

@@ -1,3 +1,8 @@
+//! Captured tracing-event data and common accessors.
+//!
+//! Values borrow the event, current span, and fields for one filter or callback
+//! invocation. They must not escape that invocation.
+
 use tracing::Level;
 use tracing_core::{Event, span::Current};
 

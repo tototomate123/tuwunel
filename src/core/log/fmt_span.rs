@@ -1,3 +1,8 @@
+//! Parsing for tracing span-lifecycle formatting modes.
+//!
+//! Known text values map case-insensitively to `FmtSpan` flags. Unknown values
+//! return `FmtSpan::NONE` in the error variant.
+
 use tracing_subscriber::fmt::format::FmtSpan;
 
 use crate::Result;

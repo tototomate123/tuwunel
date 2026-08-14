@@ -1,3 +1,9 @@
+//! HTML and Markdown formatting for captured log events.
+//!
+//! Each helper appends one entry or table header to a caller-provided
+//! formatter. Event entries include tracing level and span context, while the
+//! header helper writes column labels.
+
 use std::fmt::Write;
 
 use super::{Level, color};

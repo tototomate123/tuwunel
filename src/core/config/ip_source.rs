@@ -1,3 +1,8 @@
+//! Defines sources for trusted client IP extraction.
+//!
+//! [`IpSource`] enumerates the TCP peer address and supported forwarding
+//! headers. The default uses the TCP peer address without trusting a proxy.
+
 use serde::Deserialize;
 
 /// Selects the source used to determine the connecting client's IP

@@ -1,3 +1,8 @@
+//! Serde deserializers for normalized strings.
+//!
+//! The module currently exposes a helper that lowercases a deserialized string.
+//! It is intended for use with Serde field attributes.
+
 use std::fmt;
 
 use serde::de::{Deserializer, Error, Visitor};

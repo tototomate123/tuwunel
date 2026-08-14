@@ -1,44 +1,19 @@
-/// Validates configuration before startup and reload.
-///
-/// Checks reject invalid combinations while emitting warnings for deprecated or
-/// risky values. Reload validation also prevents runtime changes to fixed
-/// identity and network fields.
+//! Loads and validates server configuration.
+//!
+//! Configuration types preserve startup sources for reloads and expose typed
+//! settings to the rest of the workspace. Field documentation also supplies the
+//! generated example configuration.
+
 pub mod check;
 mod identity_provider_serde;
-/// Defines sources for trusted client IP extraction.
-///
-/// [`IpSource`] enumerates the TCP peer address and supported forwarding
-/// headers. The default uses the TCP peer address without trusting a proxy.
 pub mod ip_source;
-/// Maintains the active reloadable configuration.
-///
-/// [`Manager`] exposes the current [`Config`] through `Deref` and atomically
-/// replaces it on reload. It also manages the lifetime of configurations still
-/// visible to readers.
 pub mod manager;
 mod net;
-/// Defines outbound proxy configuration and domain matching.
-///
-/// The module supports no proxy, one global proxy, or domain-specific include
-/// and exclude rules. URL matching selects the applicable proxy at request
-/// time.
 pub mod proxy;
-/// Defines supported Matrix room-version policy.
-///
-/// Stable, unstable, and experimental version lists are kept here. [`Config`]
-/// helpers apply the opt-in flags and report each enabled version's stability.
 pub mod room_version;
-/// Defines the inputs used to assemble configuration.
-///
-/// [`Sources`] retains file paths and optional overrides so reloads reproduce
-/// startup inputs. Loading layers extra paths before applying those overrides.
 pub mod sources;
 #[cfg(test)]
 mod tests;
-/// Converts discovery configuration into Matrix API values.
-///
-/// Helpers build support contacts, policies, registration terms, and MatrixRTC
-/// transports from config. Endpoint handlers share these conversions.
 pub mod well_known;
 
 use std::{

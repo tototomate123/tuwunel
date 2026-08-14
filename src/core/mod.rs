@@ -7,36 +7,14 @@
 #![deny(missing_docs)]
 
 pub mod alloc;
-/// Loads and validates server configuration.
-///
-/// Configuration types preserve startup sources for reloads and expose typed
-/// settings to the rest of the workspace. Field documentation also supplies the
-/// generated example configuration.
 pub mod config;
 pub mod debug;
-/// Defines shared error and result types.
-///
-/// Errors retain protocol and transport context across crate boundaries. The
-/// module also provides the macros used to construct and report them.
 pub mod error;
 pub mod info;
-/// Configures structured logging and in-memory capture.
-///
-/// The module builds tracing layers for supported output targets. It also
-/// exposes scoped capture and reload controls to the server.
 pub mod log;
 pub mod matrix;
-/// Collects task, runtime, and request metrics.
-///
-/// Runtime instrumentation is enabled when the required Tokio facilities are
-/// available. Snapshot helpers expose interval data to diagnostics and
-/// telemetry.
 pub mod metrics;
 pub mod mods;
-/// Tracks server lifecycle state and its runtime handle.
-///
-/// The server coordinates reload, restart, and shutdown notifications. Shared
-/// services use its state to stop work promptly during teardown.
 pub mod server;
 pub mod utils;
 

@@ -1,16 +1,14 @@
-//! String conversion, formatting, parsing, and slicing utilities.
+//! String conversion, formatting, parsing, serialization, and slicing
+//! utilities.
 //!
-//! The module combines formatting macros, UTF-8 conversion, case conversion,
-//! and deterministic prefix selection. Specialized string traits and helpers
+//! The module includes borrowed unquoted views, Serde adapters, chunking, case
+//! conversion, deterministic prefix selection, and UTF-8 conversion.
+//! Specialized display wrappers avoid allocation. String traits and helpers
 //! are re-exported from child modules.
 
 mod between;
 mod chunk;
 
-/// Serde deserializers for normalized strings.
-///
-/// The module currently exposes a helper that lowercases a deserialized string.
-/// It is intended for use with Serde field attributes.
 pub mod de;
 
 mod split;

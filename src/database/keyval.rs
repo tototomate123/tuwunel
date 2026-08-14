@@ -1,9 +1,10 @@
 //! Key and value byte aliases plus database codec adapters.
 //!
-//! Raw aliases default to borrowed byte slices, while buffer aliases provide
-//! inline capacity for common payload sizes. Serialization helpers use the
-//! database record codec, and projection helpers consume pairs to return one
-//! component without cloning or reserializing it.
+//! The aliases distinguish keys from values while sharing compact storage; raw
+//! aliases default to borrowed byte slices, while buffer aliases provide inline
+//! capacity for common payload sizes. Serialization helpers encode typed
+//! components with the database record codec, and projection helpers consume
+//! pairs to return one component without cloning or reserializing it.
 
 use serde::{Deserialize, Serialize};
 use tuwunel_core::{Result, smallvec::SmallVec};

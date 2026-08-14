@@ -1,3 +1,9 @@
+//! Collects task, runtime, and request metrics.
+//!
+//! Runtime instrumentation is enabled when the required Tokio facilities are
+//! available. Snapshot helpers expose interval data to diagnostics and
+//! telemetry.
+
 pub mod dump;
 
 use std::sync::{

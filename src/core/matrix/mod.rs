@@ -4,23 +4,9 @@
 //! room-version rule lookup used throughout the server. Short identifiers are
 //! compact database surrogates for Matrix identifiers.
 
-/// Event access, conversion, filtering, and state-key utilities.
-///
-/// The module defines the common event trait and adapters for client and
-/// federation representations. It also exposes helpers for inspecting event
-/// data.
 pub mod event;
 pub mod event_id;
-/// Persistent data unit storage and federation-format utilities.
-///
-/// The module contains the stored event representation, sequence identifiers,
-/// builders, and validation helpers. Its wire-format adapters account for
-/// room-version rules.
 pub mod pdu;
-/// Room-version identifiers and rule lookup.
-///
-/// The module re-exports Ruma's room-version types and resolves the rules for
-/// supported versions. It also extracts versions from room creation events.
 pub mod room_version;
 
 pub use event::{Event, StateKey, TypeExt as EventTypeExt, TypeStateKey, state_key};

@@ -1,3 +1,8 @@
+//! Tracing subscriber layer for ephemeral event captures.
+//!
+//! The layer selects active captures, records event fields, and invokes their
+//! callbacks synchronously.
+
 use std::{fmt, sync::Arc};
 
 use arrayvec::ArrayVec;

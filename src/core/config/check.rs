@@ -1,3 +1,9 @@
+//! Validates configuration before startup and reload.
+//!
+//! Checks reject invalid combinations while emitting warnings for deprecated or
+//! risky values. Reload validation also prevents runtime changes to fixed
+//! identity and network fields.
+
 use std::{
 	env::consts::OS,
 	fs::read_to_string,

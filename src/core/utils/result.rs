@@ -1,3 +1,8 @@
+//! Result aliases and composable result extensions.
+//!
+//! The module covers filtering, inspection, logging, flattening, and
+//! expectation helpers. Most adapters preserve the original result type.
+
 mod and_then_ref;
 mod debug_inspect;
 mod expect_unchecked;

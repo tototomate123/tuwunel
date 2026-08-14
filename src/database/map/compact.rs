@@ -1,3 +1,8 @@
+//! Manual compaction controls for database maps.
+//!
+//! The module exposes range, level, completion, and exclusivity settings.
+//! `Map::compact_blocking` applies them synchronously.
+
 use rocksdb::{BottommostLevelCompaction, CompactOptions};
 use tuwunel_core::{Err, Result, implement};
 

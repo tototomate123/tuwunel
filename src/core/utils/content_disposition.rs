@@ -1,3 +1,8 @@
+//! HTTP content-disposition selection and filename sanitization.
+//!
+//! Media types are checked against the safe-inline list before selecting a
+//! disposition. Optional filenames are sanitized before header construction.
+
 use ruma::http_headers::{ContentDisposition, ContentDispositionType};
 
 use crate::debug_info;

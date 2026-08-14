@@ -1,4 +1,8 @@
-//! System utilities related to devices/peripherals
+//! Block-device and queue-discovery utilities.
+//!
+//! The helpers inspect filesystem metadata and system block-device information.
+//! Discovery covers backing device names, software RAID, and multi-queue
+//! properties.
 
 use std::{
 	ffi::OsStr,

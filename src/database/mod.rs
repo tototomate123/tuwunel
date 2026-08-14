@@ -17,18 +17,8 @@ mod de;
 mod deserialized;
 mod engine;
 mod handle;
-/// Serialized database key and value types.
-///
-/// The aliases distinguish keys from values while sharing compact byte buffers.
-/// Helpers encode typed components into the byte representation used by
-/// database maps.
 pub mod keyval;
 mod map;
-/// Column family descriptors used by the homeserver database.
-///
-/// The catalog names every configured map and supplies its RocksDB tuning
-/// profile. Database startup opens these descriptors as one coherent
-/// collection.
 pub mod maps;
 mod pool;
 mod ser;

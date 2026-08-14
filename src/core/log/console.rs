@@ -1,3 +1,8 @@
+//! Console formatting and output routing.
+//!
+//! The module selects stdout, stderr, or native journal output and formats each
+//! event according to logging configuration.
+
 use std::{
 	env, io,
 	io::{IsTerminal, stdin},

@@ -1,3 +1,8 @@
+//! Converts discovery configuration into Matrix API values.
+//!
+//! Helpers build support contacts, policies, registration terms, and MatrixRTC
+//! transports from config. Endpoint handlers share these conversions.
+
 use std::collections::BTreeMap;
 
 use ruma::api::{

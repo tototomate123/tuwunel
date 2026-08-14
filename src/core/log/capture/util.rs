@@ -1,3 +1,8 @@
+//! Callback constructors for formatting captured log events.
+//!
+//! Helpers append HTML or Markdown lines to a shared formatter. A generic
+//! constructor accepts compatible formatting functions.
+
 use std::sync::{Arc, Mutex};
 
 use super::{

@@ -4,11 +4,6 @@
 //! human-readable durations, and choose display units. These clocks are not
 //! monotonic and can be affected by system-time changes.
 
-/// Retry-backoff calculations.
-///
-/// The helpers determine whether a retry delay remains active and derive
-/// retry-streak caps from duration bounds. Delay calculations saturate at the
-/// configured maximum where applicable.
 pub mod exponential_backoff;
 
 use std::time::{Duration, SystemTime, UNIX_EPOCH};

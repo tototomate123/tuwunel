@@ -1,3 +1,9 @@
+//! Column family descriptors used by the homeserver database.
+//!
+//! The catalog names every configured map and supplies its RocksDB tuning
+//! profile. Database startup opens these descriptors as one coherent
+//! collection.
+
 use std::{collections::BTreeMap, sync::Arc};
 
 use rocksdb::DBCompressionType as CompressionType;

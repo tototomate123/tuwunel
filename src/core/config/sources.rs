@@ -1,3 +1,8 @@
+//! Defines the inputs used to assemble configuration.
+//!
+//! [`Sources`] retains file paths and optional overrides so reloads reproduce
+//! startup inputs. Loading layers extra paths before applying those overrides.
+
 #[cfg(test)]
 mod tests;
 

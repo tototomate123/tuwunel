@@ -1,3 +1,8 @@
+//! Defines supported Matrix room-version policy.
+//!
+//! Stable, unstable, and experimental version lists are kept here. [`Config`]
+//! helpers apply the opt-in flags and report each enabled version's stability.
+
 use ruma::{RoomVersionId, api::client::discovery::get_capabilities::v3::RoomVersionStability};
 
 use crate::Config;

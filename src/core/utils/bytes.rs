@@ -1,3 +1,8 @@
+//! Byte-size parsing, display, and integer encoding helpers.
+//!
+//! The module handles human-readable sizes alongside fixed-width big-endian
+//! counters. Its size deserializers integrate human-readable values with Serde.
+
 use bytesize::ByteSize;
 use serde::{Deserialize, Deserializer, de};
 

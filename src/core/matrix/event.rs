@@ -1,13 +1,15 @@
+//! Event access, conversion, filtering, and state-key utilities.
+//!
+//! The module defines the common event trait and adapters for client and
+//! federation representations. It also exposes helpers for inspecting event
+//! data.
+
 mod content;
 mod filter;
 mod format;
 mod id;
 mod redact;
 mod relation;
-/// State-event key types and ordering helpers.
-///
-/// Keys combine a state event type with its state key for use in maps. The
-/// module also provides forward and reverse comparison functions.
 pub mod state_key;
 mod type_ext;
 mod unsigned;

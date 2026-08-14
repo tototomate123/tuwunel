@@ -1,3 +1,8 @@
+//! Additional combinators for futures and optional futures.
+//!
+//! The extensions compose Boolean, optional, and fallible outputs without
+//! awaiting them early. Comparison and selection helpers are included.
+
 mod bool_ext;
 mod ext_ext;
 mod option_ext;

@@ -1,3 +1,9 @@
+//! Process resource-limit utilities.
+//!
+//! The helpers query soft and hard limits and raise selected soft limits when
+//! supported. Platform-specific implementations provide neutral fallbacks when
+//! an interface is unavailable.
+
 #[cfg(unix)]
 use nix::sys::resource::{Resource, getrlimit};
 #[cfg(unix)]

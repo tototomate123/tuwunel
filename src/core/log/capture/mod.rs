@@ -1,23 +1,12 @@
-/// Captured tracing-event data and common accessors.
-///
-/// Values borrow the event, current span, and fields for one filter or callback
-/// invocation. They must not escape that invocation.
+//! Ephemeral tracing-event capture.
+//!
+//! Captures combine optional predicates with callbacks and remain active for a
+//! scope guard's lifetime. Formatting helpers support administrative output.
+
 pub mod data;
 mod guard;
-/// Tracing subscriber layer for ephemeral event captures.
-///
-/// The layer selects active captures, records event fields, and invokes their
-/// callbacks synchronously.
 pub mod layer;
-/// Shared registration state for active captures.
-///
-/// The state coordinates capture guards with the subscriber layer.
-/// Registrations are reference counted and protected for concurrent access.
 pub mod state;
-/// Callback constructors for formatting captured log events.
-///
-/// Helpers append HTML or Markdown lines to a shared formatter. A generic
-/// constructor accepts compatible formatting functions.
 pub mod util;
 
 use std::sync::{Arc, Mutex};

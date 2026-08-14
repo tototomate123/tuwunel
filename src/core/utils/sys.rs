@@ -4,32 +4,12 @@
 //! Top-level helpers normalize executable paths, parse device metadata, and
 //! classify socket file descriptors on Unix.
 
-/// CPU topology, affinity, and parallelism utilities.
-///
-/// The helpers inspect logical-core availability and derive sibling sets for
-/// simultaneous multithreading and hardware nodes. Platform-specific
-/// implementations provide available parallelism and current-CPU data.
 pub mod compute;
 
-/// Process resource-limit utilities.
-///
-/// The helpers query soft and hard limits and raise selected soft limits when
-/// supported. Platform-specific implementations provide neutral fallbacks when
-/// an interface is unavailable.
 pub mod limits;
 
-/// Block-device and queue-discovery utilities.
-///
-/// The helpers inspect filesystem metadata and system block-device information.
-/// Discovery covers backing device names, software RAID, and multi-queue
-/// properties.
 pub mod storage;
 
-/// Process and thread resource-usage utilities.
-///
-/// The helpers expose memory measurements and operating-system usage records.
-/// Platform-specific implementations provide neutral fallback values where
-/// native accounting is unavailable.
 pub mod usage;
 
 #[cfg(unix)]

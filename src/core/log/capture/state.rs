@@ -1,3 +1,8 @@
+//! Shared registration state for active captures.
+//!
+//! The state coordinates capture guards with the subscriber layer.
+//! Registrations are reference counted and protected for concurrent access.
+
 use std::sync::{Arc, RwLock};
 
 use super::Capture;

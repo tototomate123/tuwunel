@@ -1,33 +1,13 @@
-/// Ephemeral tracing-event capture.
-///
-/// Captures combine optional predicates with callbacks and remain active for a
-/// scope guard's lifetime. Formatting helpers support administrative output.
+//! Configures structured logging and in-memory capture.
+//!
+//! The module builds tracing layers for supported output targets. It also
+//! exposes scoped capture and reload controls to the server.
+
 pub mod capture;
-/// HTML color values for log levels.
-///
-/// Helpers map tracing metadata to hexadecimal colors for Matrix-formatted log
-/// output. HTML and code-tag capture formatters share these values.
 pub mod color;
-/// Console formatting and output routing.
-///
-/// The module selects stdout, stderr, or native journal output and formats each
-/// event according to logging configuration.
 pub mod console;
-/// HTML and Markdown formatting for captured log events.
-///
-/// Each helper appends one entry or table header to a caller-provided
-/// formatter. Event entries include tracing level and span context, while the
-/// header helper writes column labels.
 pub mod fmt;
-/// Parsing for tracing span-lifecycle formatting modes.
-///
-/// Known text values map case-insensitively to `FmtSpan` flags. Unknown values
-/// return `FmtSpan::NONE` in the error variant.
 pub mod fmt_span;
-/// Native systemd journal submission and field recording.
-///
-/// The module routes formatted messages to the journal socket and records
-/// structured tracing fields for journal queries.
 pub mod journald;
 mod reload;
 mod suppress;

@@ -1,3 +1,9 @@
+//! Process and thread resource-usage utilities.
+//!
+//! The helpers expose memory measurements and operating-system usage records.
+//! Platform-specific implementations provide neutral fallback values where
+//! native accounting is unavailable.
+
 #[cfg(unix)]
 use nix::sys::resource::{Usage as NixUsage, UsageWho, getrusage};
 

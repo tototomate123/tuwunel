@@ -1,3 +1,8 @@
+//! Defines shared error and result types.
+//!
+//! Errors retain protocol and transport context across crate boundaries. The
+//! module also provides the macros used to construct and report them.
+
 mod err;
 mod log;
 mod panic;

@@ -1,3 +1,9 @@
+//! Persistent data unit storage and federation-format utilities.
+//!
+//! The module contains the stored event representation, sequence identifiers,
+//! builders, and validation helpers. Its wire-format adapters account for
+//! room-version rules.
+
 mod builder;
 mod count;
 mod format;

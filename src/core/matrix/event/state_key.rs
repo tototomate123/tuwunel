@@ -1,3 +1,8 @@
+//! State-event key types and ordering helpers.
+//!
+//! Keys combine a state event type with its state key for use in maps. The
+//! module also provides forward and reverse comparison functions.
+
 use std::cmp::Ordering;
 
 use ruma::events::StateEventType;

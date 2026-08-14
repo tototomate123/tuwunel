@@ -1,3 +1,9 @@
+//! Defines outbound proxy configuration and domain matching.
+//!
+//! The module supports no proxy, one global proxy, or domain-specific include
+//! and exclude rules. URL matching selects the applicable proxy at request
+//! time.
+
 use reqwest::{Proxy, Url};
 use serde::Deserialize;
 

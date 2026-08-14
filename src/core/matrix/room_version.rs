@@ -1,3 +1,8 @@
+//! Room-version identifiers and rule lookup.
+//!
+//! The module re-exports Ruma's room-version types and resolves the rules for
+//! supported versions. It also extracts versions from room creation events.
+
 use ruma::{RoomVersionId, events::room::create::RoomCreateEventContent};
 pub use ruma::{RoomVersionId as RoomVersion, room_version_rules::RoomVersionRules};
 

@@ -5,10 +5,6 @@
 
 mod argon;
 
-/// SHA-256 digest helpers.
-///
-/// The module hashes individual byte slices as well as concatenated or
-/// delimited collections. Results use fixed-size digest byte arrays.
 pub mod sha256;
 
 use crate::Result;

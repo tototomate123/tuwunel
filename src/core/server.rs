@@ -1,3 +1,8 @@
+//! Tracks server lifecycle state and its runtime handle.
+//!
+//! The server coordinates reload, restart, and shutdown notifications. Shared
+//! services use its state to stop work promptly during teardown.
+
 #[cfg(test)]
 mod tests;
 

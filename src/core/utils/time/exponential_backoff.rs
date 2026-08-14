@@ -1,3 +1,9 @@
+//! Retry-backoff calculations.
+//!
+//! The helpers determine whether a retry delay remains active and derive
+//! retry-streak caps from duration bounds. Delay calculations saturate at the
+//! configured maximum where applicable.
+
 use std::time::Duration;
 
 /// Returns false if the exponential backoff has expired based on the inputs

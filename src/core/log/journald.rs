@@ -1,3 +1,8 @@
+//! Native systemd journal submission and field recording.
+//!
+//! The module routes formatted messages to the journal socket and records
+//! structured tracing fields for journal queries.
+
 use std::{
 	cell::RefCell,
 	env::args_os,

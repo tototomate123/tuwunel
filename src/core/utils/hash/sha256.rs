@@ -1,3 +1,8 @@
+//! SHA-256 digest helpers.
+//!
+//! The module hashes individual byte slices as well as concatenated or
+//! delimited collections. Results use fixed-size digest byte arrays.
+
 use aws_lc_rs::{
 	digest,
 	digest::{Context, SHA256, SHA256_OUTPUT_LEN},

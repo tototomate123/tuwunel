@@ -1,4 +1,8 @@
-//! System utilities related to compute/processing
+//! CPU topology, affinity, and parallelism utilities.
+//!
+//! The helpers inspect logical-core availability and derive sibling sets for
+//! simultaneous multithreading and hardware nodes. Platform-specific
+//! implementations provide available parallelism and current-CPU data.
 
 use std::{cell::Cell, fmt::Debug, path::PathBuf, sync::LazyLock};
 

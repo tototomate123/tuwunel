@@ -1,8 +1,4 @@
 mod clear;
-/// Manual compaction controls for database maps.
-///
-/// The module exposes range, level, completion, and exclusivity settings.
-/// `Map::compact_blocking` applies them synchronously.
 pub mod compact;
 mod contains;
 mod count;

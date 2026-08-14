@@ -1,3 +1,8 @@
+//! Configuration-secret storage and resolution helpers.
+//!
+//! Secrets may come from files or inline configuration. The storage type does
+//! not redact output or erase memory when dropped.
+
 #[cfg(test)]
 mod tests;
 
