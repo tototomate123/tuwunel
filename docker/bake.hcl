@@ -208,6 +208,9 @@ nightly_rustflags = [
     "--cfg tokio_unstable",
     "--allow=unstable-features",
     "-Z enforce-type-length-limit",
+]
+
+dynamic_nightly_rustflags = [
     "-Z share-generics=yes",
 ]
 
@@ -244,6 +247,14 @@ stats_rustflags = [
     print_mono_items != "no"?   "-Z print-mono-items=${print_mono_items}":    "",
     mono_stats_dir != ""?       "-Z dump-mono-stats=${mono_stats_dir}":       "",
     mono_stats_dir != ""?       "-Z dump-mono-stats-format=json":             "",
+]
+
+#
+# Cargo flags
+#
+
+native_cargo_flags = [
+    "-Z build-std",
 ]
 
 #
@@ -1706,6 +1717,12 @@ target "deps-base" {
         cargo_cmd = "chef cook --all-targets --no-build"
         color_args = ""
 
+        cargo_flags = (
+            cargo_profile == "release-native"?
+                join(" ", native_cargo_flags):
+                ""
+        )
+
         # Base path
         CARGO_TARGET_DIR = "${cargo_tgt_dir_base}"
         # cased name of profile subdir within target complex
@@ -1813,6 +1830,7 @@ target "deps-base" {
                     join(" ", stats_rustflags),
                     join(" ", nightly_rustflags),
                     join(" ", dynamic_rustflags),
+                    join(" ", dynamic_nightly_rustflags),
                     sys_target_triple(sys_target) == "x86_64-linux-gnu"?
                         "-C target-cpu=${sys_target_isa(sys_target)}": "",
                     contains(split(",", cargo_feat_sets[feat_set]), "bzip2_compression")?
@@ -2040,6 +2058,10 @@ rustup_components = [
     "rustfmt",
 ]
 
+nightly_rustup_components = [
+    "rust-src",
+]
+
 cargo_installs = [
     "cargo-audit",
     #"cargo-arch",
@@ -2082,7 +2104,12 @@ target "rust" {
                 rust_toolchain
         )
 
-        rustup_components = join(" ", rustup_components)
+        rustup_components = join(" ", [
+            join(" ", rustup_components),
+            rust_toolchain == "nightly"?
+                join(" ", nightly_rustup_components): "",
+        ])
+
         cargo_installs = join(" ", cargo_installs)
 
         CARGO_TERM_VERBOSE = CARGO_TERM_VERBOSE
