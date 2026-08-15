@@ -4019,7 +4019,7 @@ dependencies = [
 [[package]]
 name = "rust-librocksdb-sys"
 version = "0.48.0+11.8.1"
-source = "git+https://github.com/matrix-construct/rust-rocksdb?rev=8753324edfc4dac51bea53c4e9d7a59857943824#8753324edfc4dac51bea53c4e9d7a59857943824"
+source = "git+https://github.com/matrix-construct/rust-rocksdb?rev=9c0aad8e358339afc1ab1acb658afe55a1a4c012#9c0aad8e358339afc1ab1acb658afe55a1a4c012"
 dependencies = [
  "bindgen",
  "bzip2-sys",
@@ -4037,7 +4037,7 @@ dependencies = [
 [[package]]
 name = "rust-rocksdb"
 version = "0.52.0"
-source = "git+https://github.com/matrix-construct/rust-rocksdb?rev=8753324edfc4dac51bea53c4e9d7a59857943824#8753324edfc4dac51bea53c4e9d7a59857943824"
+source = "git+https://github.com/matrix-construct/rust-rocksdb?rev=9c0aad8e358339afc1ab1acb658afe55a1a4c012#9c0aad8e358339afc1ab1acb658afe55a1a4c012"
 dependencies = [
  "libc",
  "parking_lot",

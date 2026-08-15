@@ -431,7 +431,7 @@ default-features = false
 
 [workspace.dependencies.rust-rocksdb]
 git = "https://github.com/matrix-construct/rust-rocksdb"
-rev = "8753324edfc4dac51bea53c4e9d7a59857943824"
+rev = "9c0aad8e358339afc1ab1acb658afe55a1a4c012"
 default-features = false
 features = [
 	"bindgen-runtime",
