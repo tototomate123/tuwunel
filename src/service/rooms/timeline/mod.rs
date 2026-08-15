@@ -44,6 +44,10 @@ use crate::rooms::short::{ShortRoomId, ShortStateHash};
 pub struct Service {
 	services: Arc<crate::services::OnceServices>,
 	db: Data,
+	/// Serializes timeline insertion as the leaf per-room operation.
+	///
+	/// Acquire it after any federation or state mutex held for the same room.
+	/// Never acquire either outer mutex while holding this guard.
 	pub mutex_insert: RoomMutexMap,
 }
 

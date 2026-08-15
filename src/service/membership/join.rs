@@ -76,10 +76,10 @@ pub async fn join<'a>(
 		extra_content,
 	}: Join<'a>,
 ) -> Result {
-	let state_lock = self.services.state.mutex.lock(room_id).await;
-
 	let servers =
 		get_servers_for_room(&self.services, sender_user, room_id, orig_room_id, servers).await?;
+
+	let (federation_lock, state_lock) = self.lock_join(room_id, &servers).await;
 
 	let user_is_guest = !is_appservice
 		&& self
@@ -125,31 +125,87 @@ pub async fn join<'a>(
 		return Err!(Request(Forbidden("You are banned from the room.")));
 	}
 
-	let server_in_room = self
-		.services
-		.state_cache
-		.server_in_room(self.services.globals.server_name(), room_id)
-		.await;
-
-	let local_join = server_in_room
-		|| servers.is_empty()
-		|| (servers.len() == 1 && self.services.globals.server_is_ours(&servers[0]));
-
-	if local_join {
-		self.join_local(sender_user, room_id, reason, &servers, state_lock, extra_content)
+	match federation_lock {
+		| Some(federation_lock) if !self.is_local_join(room_id, &servers).await =>
+			self.join_remote(
+				sender_user,
+				room_id,
+				reason,
+				&servers,
+				federation_lock,
+				state_lock,
+				extra_content,
+			)
 			.boxed()
-			.await?;
-	} else {
-		// Ask a remote server if we are not participating in this room
-		self.join_remote(sender_user, room_id, reason, &servers, state_lock, extra_content)
-			.boxed()
-			.await?;
+			.await?,
+		| federation_lock => {
+			drop(federation_lock);
+			self.join_local(sender_user, room_id, reason, &servers, state_lock, extra_content)
+				.boxed()
+				.await?;
+		},
 	}
 
 	self.copy_predecessor_push_rules(sender_user, room_id)
 		.await;
 
 	Ok(())
+}
+
+/// Acquires the room's federation and state mutexes in canonical order.
+///
+/// A remote join needs both mutexes, but the branch is final only under the
+/// state mutex. The unlocked prediction is revalidated under the locks, so
+/// correctness does not depend on it.
+#[implement(Service)]
+async fn lock_join(
+	&self,
+	room_id: &RoomId,
+	servers: &[OwnedServerName],
+) -> (Option<RoomMutexGuard>, RoomMutexGuard) {
+	if !self.is_local_join(room_id, servers).await {
+		let (federation_lock, state_lock) = self.lock_join_remote(room_id).await;
+
+		return (Some(federation_lock), state_lock);
+	}
+
+	let state_lock = self.services.state.mutex.lock(room_id).await;
+
+	if self.is_local_join(room_id, servers).await {
+		return (None, state_lock);
+	}
+
+	drop(state_lock);
+	let (federation_lock, state_lock) = self.lock_join_remote(room_id).await;
+
+	(Some(federation_lock), state_lock)
+}
+
+#[implement(Service)]
+async fn is_local_join(&self, room_id: &RoomId, servers: &[OwnedServerName]) -> bool {
+	servers.is_empty()
+		|| (servers.len() == 1 && self.services.globals.server_is_ours(&servers[0]))
+		|| self
+			.services
+			.state_cache
+			.server_in_room(self.services.globals.server_name(), room_id)
+			.await
+}
+
+#[implement(Service)]
+async fn lock_join_remote(&self, room_id: &RoomId) -> (RoomMutexGuard, RoomMutexGuard) {
+	// Hold federation before state so inbound events stay belayed until the join
+	// response is applied.
+	let federation_lock = self
+		.services
+		.event_handler
+		.mutex_federation
+		.lock(room_id)
+		.await;
+
+	let state_lock = self.services.state.mutex.lock(room_id).await;
+
+	(federation_lock, state_lock)
 }
 
 #[implement(Service)]
@@ -175,6 +231,7 @@ async fn copy_predecessor_push_rules(&self, user_id: &UserId, room_id: &RoomId) 
 }
 
 #[implement(Service)]
+#[expect(clippy::too_many_arguments)]
 #[tracing::instrument(
 	name = "remote",
 	level = "debug",
@@ -187,6 +244,7 @@ async fn join_remote(
 	room_id: &RoomId,
 	reason: Option<String>,
 	servers: &[OwnedServerName],
+	_federation_lock: RoomMutexGuard,
 	state_lock: RoomMutexGuard,
 	extra_content: Option<CanonicalJsonObject>,
 ) -> Result {
@@ -211,15 +269,6 @@ async fn join_remote(
 			extra_content,
 		)
 		.await?;
-
-	// Once send_join hits the remote server it may start sending us events which
-	// have to be belayed until we process this response first.
-	let _federation_lock = self
-		.services
-		.event_handler
-		.mutex_federation
-		.lock(room_id)
-		.await;
 
 	let mut response = self
 		.execute_send_join(

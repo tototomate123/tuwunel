@@ -24,6 +24,10 @@ use tuwunel_database::Map;
 pub use self::{policy_server::PolicyCheck, state_local_build::LocalBuildReport};
 
 pub struct Service {
+	/// Serializes room federation as the outermost per-room operation.
+	///
+	/// Acquire it before the state or timeline insertion mutex for the same
+	/// room. The canonical order is federation, state, then insertion.
 	pub mutex_federation: RoomMutexMap,
 	services: Arc<crate::services::OnceServices>,
 	db: Data,

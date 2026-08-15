@@ -41,6 +41,11 @@ use crate::{
 };
 
 pub struct Service {
+	/// Serializes room state as the middle per-room operation.
+	///
+	/// Acquire it after federation and before timeline insertion when those
+	/// mutexes share a room. Never acquire the federation mutex while holding
+	/// this guard.
 	pub mutex: RoomMutexMap,
 	services: Arc<OnceServices>,
 	db: Data,
