@@ -7,7 +7,7 @@ use std::{
 use futures::StreamExt;
 use serde::Deserialize;
 use tuwunel_core::{
-	Result, debug, err, implement, info,
+	Result, err, implement, info,
 	smallvec::SmallVec,
 	utils::{
 		BoolExt, ReadyExt,
@@ -292,7 +292,9 @@ async fn family(
 		malformed: reverse_malformed.saturating_add(forward_malformed),
 	};
 
-	debug!(
+	info!(
+		%forward,
+		%reverse,
 		rows = family.rows,
 		losers = family.losers.len(),
 		dangling = family.dangling.len(),
@@ -300,10 +302,8 @@ async fn family(
 		contended = family.contended,
 		unresolved = family.unresolved,
 		malformed = family.malformed,
-		"Scanned one short id family."
+		"Finished scanning column pair."
 	);
-
-	info!(?forward, ?reverse, "Finished scanning column pair.",);
 
 	(family, reverse_bits)
 }
@@ -598,6 +598,8 @@ async fn sweep(
 		})
 		.await;
 
+	// dirty and entries read zero on any boot whose chain clear ran first;
+	// a refusing database's later boots report the live dirt instead.
 	warn!(
 		dirty,
 		entries,
