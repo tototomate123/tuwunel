@@ -18,6 +18,7 @@ use tuwunel_core::{
 use tuwunel_database::Deserialized;
 
 use self::{
+	account_status::migrate_account_status,
 	clear_servername_status::clear_servername_status,
 	fix_bad_double_separator_in_state_cache::fix_bad_double_separator_in_state_cache,
 	fix_hashed_sentinel_passwords::fix_hashed_sentinel_passwords,
@@ -35,6 +36,7 @@ use self::{
 };
 use crate::Services;
 
+mod account_status;
 mod clear_servername_status;
 mod conduit;
 mod fix_bad_double_separator_in_state_cache;
@@ -212,6 +214,7 @@ async fn fresh(services: &Services) -> Result {
 	db["global"].insert(b"migrate_profile_keys_to_useridprofilekey", []);
 	db["global"].insert(b"rebuild_thread_activity", []);
 	db["global"].insert(b"clear_servername_status", []);
+	db["global"].insert(b"adopt_foreign_account_status", []);
 	mark_clean_injectivity(services);
 
 	// Create the admin room and server user on first run
@@ -378,6 +381,16 @@ async fn migrate(services: &Services, foreign_lineage: bool) -> Result {
 	// suspension added by an origin server after a prior tuwunel boot still
 	// carries on the next one.
 	moderation::migrate_moderation(services).await?;
+
+	if db["global"]
+		.get(b"adopt_foreign_account_status")
+		.await
+		.is_not_found()
+	{
+		migrate_account_status(services).await?;
+
+		db["global"].insert(b"adopt_foreign_account_status", []);
+	}
 
 	// A newer same-lineage database was already refused; stamping ours is safe. A
 	// foreign import above our version was already stamped down before the import
