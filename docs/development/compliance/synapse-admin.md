@@ -42,7 +42,7 @@ This page lists every `/_synapse/admin` endpoint Tuwunel is aware of and whether
 | ✅ | PUT | `/_synapse/admin/v2/users/{user_id}` | Create or modify a user account, including admin status, deactivation, profile, and third-party ids. |
 | ✅ | POST | `/_synapse/admin/v1/deactivate/{user_id}` | Deactivate a user, optionally erasing their data. |
 | ✅ | POST | `/_synapse/admin/v1/reset_password/{user_id}` | Reset a user's password. Not served when MAS is active. |
-| ✅ | GET | `/_synapse/admin/v1/users/{user_id}/admin` | Report whether a user is a server administrator. |
+| ✅ | GET | `/_synapse/admin/v1/users/{user_id}/admin` | Report whether a user is a server administrator. Not served when MAS is active. |
 | 🟨 | PUT | `/_synapse/admin/v1/users/{user_id}/admin` | Grant or revoke a user's server-administrator status. |
 | ✅ | GET | `/_synapse/admin/v1/users/{user_id}/joined_rooms` | List the rooms a user is joined to. |
 | ✅ | GET | `/_synapse/admin/v1/users/{user_id}/memberships` | Return the user's room memberships as a room-to-state map. |
@@ -50,7 +50,7 @@ This page lists every `/_synapse/admin` endpoint Tuwunel is aware of and whether
 | ✅ | GET | `/_synapse/admin/v1/users/{user_id}/accountdata` | Return a user's global and per-room account data. |
 | ✅ | GET | `/_synapse/admin/v1/whois/{user_id}` | Return connection and device information for a user. Also served on the client-server admin path. |
 | ✅ | PUT | `/_synapse/admin/v1/suspend/{user_id}` | Suspend or release a user account (MSC4323). |
-| ✅ | POST | `/_synapse/admin/v1/users/{user_id}/login` | Mint an access token to act as a user (impersonation). |
+| ✅ | POST | `/_synapse/admin/v1/users/{user_id}/login` | Mint an access token to act as a user (impersonation). Not served when MAS is active. |
 | 🟥 | POST, DELETE | `/_synapse/admin/v1/users/{user_id}/shadow_ban` | Not implemented; requires new per-user storage (deferred). |
 | 🟥 | GET, POST, DELETE | `/_synapse/admin/v1/users/{user_id}/override_ratelimit` | Not implemented; Tuwunel has no per-user request limiter to override (deferred). |
 | ✅ | POST | `/_synapse/admin/v1/user/{user_id}/redact` | Redact a user's events across their rooms as a background task. |
