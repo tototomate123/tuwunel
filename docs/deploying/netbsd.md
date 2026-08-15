@@ -136,7 +136,11 @@ RUSTFLAGS="-Ctarget-cpu=westmere" cargo build --release -p tuwunel \
 
 `sse4.2` alone buys the single stream hardware CRC32. The three way version
 RocksDB prefers also wants `pclmulqdq`, and `westmere` is the oldest
-`-Ctarget-cpu` supplying both; anything newer serves.
+`-Ctarget-cpu` supplying both; anything newer serves. Comparing the two builds
+confirms it: the baseline one carries RocksDB's software lookup tables and no
+`crc32c_3way`, and the `westmere` one carries `crc32c_3way` and no tables. The
+tuned build finished a minute and a half faster than the baseline and came out
+marginally smaller, so the flag costs nothing.
 
 This is the axis the `x86_64-v1` through `x86_64-v4` release packages sit on. A
 build with no `-Ctarget-cpu` is the `v1` one, and nothing selects a higher level

@@ -183,7 +183,10 @@ RUSTFLAGS="-Ctarget-cpu=westmere" cargo build --release -p tuwunel \
 
 `sse4.2` alone buys the single stream hardware CRC32. The three way version
 RocksDB prefers also wants `pclmulqdq`, and `westmere` is the oldest
-`-Ctarget-cpu` supplying both; anything newer serves.
+`-Ctarget-cpu` supplying both; anything newer serves. Comparing the two builds
+confirms it: the baseline one carries RocksDB's software lookup tables and no
+`crc32c_3way`, and the `westmere` one carries `crc32c_3way` and no tables.
+Neither build time nor binary size moved meaningfully.
 
 This is the axis the `x86_64-v1` through `x86_64-v4` release packages sit on. A
 build with no `-Ctarget-cpu` is the `v1` one, and nothing selects a higher level
@@ -238,10 +241,10 @@ error: missing documentation for a function
 
 Adding a doc comment above it is enough. This is fixed in the tree.
 
-A cold build took about 57 minutes on 2 jobs on `arm64`, producing an 81.6 MB
-binary. On `amd64` the equivalent build reported 68 minutes on 2 jobs for a 90 MB
-binary, having resumed from a partly populated cache after an interrupted first
-attempt, so a genuinely cold build there is somewhat longer. The result is
+A cold build took about 57 minutes on 2 jobs on `arm64`, and about 80 minutes on
+2 jobs on `amd64`, producing an 81.6 MB and a 90 MB binary respectively. The
+`amd64` timing is from the tuned build described above, which is the cold one
+that was measured; the flag does not change build time. The result is
 dynamically linked, and against base system libraries only:
 
 ```console
