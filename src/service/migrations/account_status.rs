@@ -3,12 +3,13 @@ use std::sync::Arc;
 use futures::StreamExt;
 use ruma::{OwnedUserId, UserId};
 use tuwunel_core::{
-	Result, info,
+	Result, err, info,
 	utils::{
 		ReadyExt,
 		option::OptionExt,
 		stream::{BroadbandExt, TryIgnore},
 	},
+	warn,
 };
 use tuwunel_database::Map;
 
@@ -33,11 +34,11 @@ pub(super) async fn migrate_account_status(services: &Services) -> Result {
 	let subjects = services.db.open_cf("openidsubject_localpart")?;
 
 	if let Some(deactivated) = deactivated.as_ref() {
-		adopt_deactivations(services, deactivated).await;
+		adopt_deactivations(services, deactivated).await?;
 	}
 
 	if let Some(subjects) = subjects.as_ref() {
-		adopt_passwordless(services, subjects, deactivated.as_ref()).await;
+		adopt_passwordless(services, subjects, deactivated.as_ref()).await?;
 	}
 
 	Ok(())
@@ -49,25 +50,23 @@ pub(super) async fn migrate_account_status(services: &Services) -> Result {
 /// account, restoring a login the origin had already withdrawn. An empty
 /// password is the same state spelled locally, and costs the foreign hash,
 /// which decides nothing for an account deactivated on both sides.
-async fn adopt_deactivations(services: &Services, deactivated: &Arc<Map>) {
+async fn adopt_deactivations(services: &Services, deactivated: &Arc<Map>) -> Result {
 	let userid_password = &services.db["userid_password"];
 	let cork = services.db.cork_and_sync();
 
-	let adopted = deactivated
+	let (adopted, unreadable) = deactivated
 		.keys::<&UserId>()
 		.ignore_err()
 		.map(ToOwned::to_owned)
 		.broad_filter_map(async |user_id: OwnedUserId| {
-			services
-				.users
-				.is_active(&user_id)
-				.await
-				.then_some(user_id)
+			match hash_empty(userid_password, &user_id).await {
+				| Ok(Some(false)) => Some(Ok(user_id)),
+				| Ok(_) => None,
+				| Err(e) => Some(Err(e)),
+			}
 		})
-		.ready_fold(0_usize, |adopted, user_id| {
-			userid_password.insert(&user_id, PASSWORD_DISABLED);
-
-			adopted.saturating_add(1)
+		.ready_fold((0_usize, 0_usize), |counts, account| {
+			write_password(userid_password, PASSWORD_DISABLED, counts, account)
 		})
 		.await;
 
@@ -76,6 +75,11 @@ async fn adopt_deactivations(services: &Services, deactivated: &Arc<Map>) {
 	if adopted > 0 {
 		info!(%adopted, "Adopted deactivated accounts from a foreign database");
 	}
+
+	unreadable
+		.eq(&0)
+		.then_some(())
+		.ok_or_else(|| err!(Database("{unreadable} accounts could not be read")))
 }
 
 /// Restores the sentinel password on accounts an identity provider
@@ -93,24 +97,24 @@ async fn adopt_passwordless(
 	services: &Services,
 	subjects: &Arc<Map>,
 	deactivated: Option<&Arc<Map>>,
-) {
+) -> Result {
 	let userid_password = &services.db["userid_password"];
 	let server_name = services.globals.server_name();
 	let cork = services.db.cork_and_sync();
 
-	let adopted = subjects
+	let (adopted, unreadable) = subjects
 		.stream()
 		.ignore_err()
 		.ready_filter_map(|(_, localpart): (&str, &str)| local_user_id(localpart, server_name))
 		.broad_filter_map(async |user_id: OwnedUserId| {
-			restorable(services, deactivated, &user_id)
-				.await
-				.then_some(user_id)
+			match restorable(services, deactivated, &user_id).await {
+				| Ok(false) => None,
+				| Ok(true) => Some(Ok(user_id)),
+				| Err(e) => Some(Err(e)),
+			}
 		})
-		.ready_fold(0_usize, |adopted, user_id| {
-			userid_password.insert(&user_id, PASSWORD_SENTINEL);
-
-			adopted.saturating_add(1)
+		.ready_fold((0_usize, 0_usize), |counts, account| {
+			write_password(userid_password, PASSWORD_SENTINEL, counts, account)
 		})
 		.await;
 
@@ -119,6 +123,11 @@ async fn adopt_passwordless(
 	if adopted > 0 {
 		info!(%adopted, "Restored accounts authenticated elsewhere from a foreign database");
 	}
+
+	unreadable
+		.eq(&0)
+		.then_some(())
+		.ok_or_else(|| err!(Database("{unreadable} accounts could not be read")))
 }
 
 /// Reports whether the account reads as deactivated here without the foreign
@@ -126,21 +135,63 @@ async fn adopt_passwordless(
 ///
 /// The empty password a foreign database gives an account authenticated
 /// elsewhere is the byte pattern this server writes for a deactivation, so the
-/// foreign marker is the only thing separating them.
+/// foreign marker is the only thing separating them. A row neither side can
+/// read is reported rather than guessed at.
 async fn restorable(
 	services: &Services,
 	deactivated: Option<&Arc<Map>>,
 	user_id: &UserId,
-) -> bool {
-	let passwordless = services
-		.users
-		.is_deactivated(user_id)
-		.await
-		.unwrap_or(false);
+) -> Result<bool> {
+	let userid_password = &services.db["userid_password"];
+	let passwordless = hash_empty(userid_password, user_id)
+		.await?
+		.is_some_and(|empty| empty);
 
-	passwordless
-		&& deactivated
-			.map_async(|deactivated| deactivated.exists(user_id))
-			.await
-			.is_none_or(|marked| marked.is_err())
+	let marked = match deactivated
+		.map_async(|deactivated| deactivated.exists(user_id))
+		.await
+	{
+		| None => false,
+		| Some(Ok(())) => true,
+		| Some(Err(e)) if e.is_not_found() => false,
+		| Some(Err(e)) => return Err(e),
+	};
+
+	Ok(passwordless && !marked)
+}
+
+/// Whether the account's stored password is empty, or `None` when it has no
+/// row at all.
+///
+/// Both folds need the three states kept apart: a read failure is neither an
+/// active account nor a deactivated one, and mistaking it for either is how a
+/// pass that runs once leaves an account in the wrong state for good.
+async fn hash_empty(userid_password: &Arc<Map>, user_id: &UserId) -> Result<Option<bool>> {
+	match userid_password.get(user_id).await {
+		| Ok(hash) => Ok(Some(hash.is_empty())),
+		| Err(e) if e.is_not_found() => Ok(None),
+		| Err(e) => Err(e),
+	}
+}
+
+/// Writes one adopted account, tallying it against the rows that could not be
+/// read.
+fn write_password(
+	userid_password: &Arc<Map>,
+	password: &str,
+	(adopted, unreadable): (usize, usize),
+	account: Result<OwnedUserId>,
+) -> (usize, usize) {
+	match account {
+		| Ok(user_id) => {
+			userid_password.insert(&user_id, password);
+
+			(adopted.saturating_add(1), unreadable)
+		},
+		| Err(e) => {
+			warn!(error = %e, "an account could not be read");
+
+			(adopted, unreadable.saturating_add(1))
+		},
+	}
 }

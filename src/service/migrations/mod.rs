@@ -56,9 +56,10 @@ mod rebuild_roomid_tscount_pducount;
 mod remove_remote_media_userid;
 mod retroactively_fix_bad_data_from_roomuserid_joined;
 mod split_conduit_highlight_counts;
+mod upgrade_legacy_mediaid_user;
+
 #[cfg(test)]
 mod tests;
-mod upgrade_legacy_mediaid_user;
 
 /// The current schema version.
 /// - If database is opened at greater version we reject with error. The

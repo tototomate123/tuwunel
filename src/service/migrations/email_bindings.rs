@@ -25,19 +25,13 @@ pub(super) async fn migrate_email_bindings(services: &Services) -> Result {
 	let bound_at = MilliSecondsSinceUnixEpoch::now();
 	let cork = services.db.cork_and_sync();
 
-	let (adopted, skipped) = localpart_email
+	let (adopted, skipped, unreadable) = localpart_email
 		.stream()
 		.ignore_err()
-		.fold((0_usize, 0_usize), async |acc, (localpart, address): (&str, &str)| {
-			let adopt = Adopt {
-				services,
-				server_name,
-				bound_at,
-				localpart,
-				address,
-			};
+		.fold((0_usize, 0_usize, 0_usize), async |acc, (localpart, address): (&str, &str)| {
+			let adopted = adopt_one(services, server_name, bound_at, localpart, address);
 
-			tally(acc, adopt_one(adopt).await)
+			tally_adoption(acc, adopted.await)
 		})
 		.await;
 
@@ -53,44 +47,45 @@ pub(super) async fn migrate_email_bindings(services: &Services) -> Result {
 		),
 	}
 
-	Ok(())
-}
-
-/// One foreign row and everything needed to bind it locally.
-struct Adopt<'a> {
-	services: &'a Services,
-	server_name: &'a ServerName,
-	bound_at: MilliSecondsSinceUnixEpoch,
-	localpart: &'a str,
-	address: &'a str,
+	// Leaving the marker unstamped is what makes a read failure recoverable: the
+	// pass is idempotent, so the next boot retries it whole.
+	unreadable
+		.eq(&0)
+		.then_some(())
+		.ok_or_else(|| err!(Database("{unreadable} email bindings could not be read")))
 }
 
 /// Binds one foreign row, reporting whether it produced a binding.
 ///
-/// A `false` return is an address already bound to a different account, which
-/// has no representation here: this store admits one owner per canonical
-/// address, while the foreign column enforces its own uniqueness over the
-/// uncanonicalized form.
+/// A `false` return is a row with nothing to bind: an unusable localpart or
+/// address, an account absent here, the server's own, or an address already
+/// held by a different account, which this store cannot represent twice. An
+/// error is a read that failed and must not be mistaken for any of them.
 async fn adopt_one(
-	Adopt {
-		services,
-		server_name,
-		bound_at,
-		localpart,
-		address,
-	}: Adopt<'_>,
+	services: &Services,
+	server_name: &ServerName,
+	bound_at: MilliSecondsSinceUnixEpoch,
+	localpart: &str,
+	address: &str,
 ) -> Result<bool> {
-	let user_id = local_user_id(localpart, server_name)
-		.ok_or_else(|| err!(SerdeDe("{localpart:?} is not a usable localpart")))?;
-
-	// An account that did not survive the import has no owner to bind to. A
-	// deactivated one still reserves its address, here as on the origin, since
-	// neither server unhooks a binding on deactivation.
-	if !services.users.exists(&user_id).await || user_id == services.globals.server_user {
+	let Some(user_id) = local_user_id(localpart, server_name) else {
+		debug_warn!(%localpart, "skipping an unusable localpart");
 		return Ok(false);
+	};
+
+	// A deactivated account still reserves its address, since neither server
+	// unhooks a binding on deactivation.
+	match services.db["userid_password"].get(&user_id).await {
+		| Ok(_) if user_id != services.globals.server_user => (),
+		| Ok(_) => return Ok(false),
+		| Err(e) if e.is_not_found() => return Ok(false),
+		| Err(e) => return Err(e),
 	}
 
-	let email_canon = canonicalize_email(address)?;
+	let Ok(email_canon) = canonicalize_email(address) else {
+		debug_warn!(%localpart, "skipping an unusable address");
+		return Ok(false);
+	};
 
 	if services
 		.threepid
@@ -108,13 +103,17 @@ async fn adopt_one(
 	Ok(true)
 }
 
-fn tally((adopted, skipped): (usize, usize), result: Result<bool>) -> (usize, usize) {
+fn tally_adoption(
+	(adopted, skipped, unreadable): (usize, usize, usize),
+	result: Result<bool>,
+) -> (usize, usize, usize) {
 	match result {
-		| Ok(true) => (adopted.saturating_add(1), skipped),
-		| Ok(false) => (adopted, skipped.saturating_add(1)),
+		| Ok(true) => (adopted.saturating_add(1), skipped, unreadable),
+		| Ok(false) => (adopted, skipped.saturating_add(1), unreadable),
 		| Err(e) => {
-			debug_warn!(error = %e, "skipping unusable email binding");
-			(adopted, skipped.saturating_add(1))
+			warn!(error = %e, "an email binding could not be read");
+
+			(adopted, skipped, unreadable.saturating_add(1))
 		},
 	}
 }

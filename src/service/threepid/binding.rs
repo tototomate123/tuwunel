@@ -94,9 +94,9 @@ pub async fn del_binding(&self, user_id: &UserId, email_canon: &str) {
 /// Whether a canonical email address is bound to an account other than this
 /// one.
 ///
-/// Separates rebinding an address a user already holds from claiming one
-/// another account owns. An address whose stored owner does not decode is an
-/// error rather than a free address; an absent row reads as unbound.
+/// Separates rebinding an address a user already holds, which is permitted,
+/// from claiming one another account owns, which is not. The lookup's own
+/// error handling decides what an unreadable row does.
 #[implement(super::Service)]
 #[tracing::instrument(
 	level = "debug",
