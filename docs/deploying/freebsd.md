@@ -5,10 +5,10 @@ Nothing in the CI matrix builds it, no release artifact is published for it, and
 there is no port or package. This page records a build that was verified end to
 end, and the handful of things that differ from the platforms we do ship.
 
-Verified against 1.8.3 on FreeBSD 15.1-RELEASE, `aarch64`. The resulting server
-opens its database, answers the client and federation version endpoints,
-registers an account, creates a room, sends and reads back a message, and exits
-cleanly on `SIGTERM`.
+Verified against 1.8.3 on FreeBSD 15.1-RELEASE, `aarch64` and `amd64`. The
+resulting server opens its database, answers the client and federation version
+endpoints, registers an account, creates a room, sends and reads back a message,
+reopens a populated database across a restart, and exits cleanly on `SIGTERM`.
 
 Contributions for getting Tuwunel into ports are welcome.
 
@@ -80,6 +80,46 @@ The runtime check then works as intended and RocksDB selects the hardware
 CRC32C and PMULL paths when the CPU reports them.
 
 
+## RocksDB on amd64
+
+Nothing fails to build here, but the default `amd64` build is slower than it
+needs to be. RocksDB picks its CRC32C implementation when it is compiled, and on
+x86 there is no runtime fallback:
+
+```
+// NOTE: runtime detection no longer supported on x86
+```
+
+`cargo build` targets the `x86-64` baseline, which carries `fxsr`, `sse` and
+`sse2` and nothing else. `__SSE4_2__` is therefore never defined, and the table
+driven software routine is what ends up in the binary. Every read and write goes
+through it, on hardware that has the instruction. `librocksdb-sys` says so during
+the build, though cargo hides build warnings from dependencies by default:
+
+```
+compiling without SSE4.2: CRC will be slow (set RUSTFLAGS="-Ctarget-cpu=..."
+to optimize RocksDB e.g. -Ctarget-cpu=broadwell)
+```
+
+Raising the target CPU is all it takes:
+
+```sh
+RUSTFLAGS="-Ctarget-cpu=westmere" cargo build --release -p tuwunel \
+    --no-default-features --features ...
+```
+
+`sse4.2` alone buys the single stream hardware CRC32. The three way version
+RocksDB prefers also wants `pclmulqdq`, and `westmere` is the oldest
+`-Ctarget-cpu` supplying both; anything newer serves. Comparing the two builds
+confirms it: the baseline one carries RocksDB's software lookup tables and no
+`crc32c_3way`, and the `westmere` one carries `crc32c_3way` and no tables.
+Neither build time nor binary size moved meaningfully.
+
+This is the axis the `x86_64-v1` through `x86_64-v4` release packages sit on. A
+build with no `-Ctarget-cpu` is the `v1` one, and nothing selects a higher level
+for you here.
+
+
 ## Building
 
 ```sh
@@ -89,7 +129,8 @@ cargo build --release -p tuwunel --no-default-features \
     --features brotli_compression,element_hacks,gzip_compression,jemalloc,jemalloc_conf,media_thumbnail,release_max_log_level,url_preview,zstd_compression
 ```
 
-A cold build took about 17 minutes on 8 jobs and produced a 79 MB binary. The
+A cold build took about 17 minutes on 8 jobs on `aarch64`, and about 33 minutes
+on 4 jobs on `amd64`, producing a 79 MB and a 92 MB binary respectively. The
 result is dynamically linked, and against base system libraries only:
 
 ```console
@@ -220,6 +261,8 @@ activation, and the reload handling described in
 [Reloading Configuration](configuration-reload.md) are all Linux only. Run the
 server under `rc.d` or a supervisor of your choice instead.
 
-**No CPU feature levels.** The `-v1` through `-v4` distinction that the x86_64
-packages carry has no equivalent here. The build targets the baseline for the
-architecture.
+**No CPU feature levels.** The build targets the architecture baseline, and
+nothing selects one of the `x86_64-v1` through `x86_64-v4` levels the release
+packages come in. On `aarch64` there is nothing to choose. On `amd64` the
+baseline is the `v1` level, which costs RocksDB its hardware CRC32C; see
+[RocksDB on amd64](#rocksdb-on-amd64) for the flag that raises it.

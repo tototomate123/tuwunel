@@ -6,10 +6,10 @@ there is no port or package. Of the three BSDs this takes the most setup, and
 one requirement is not optional: **the Rust in 7.9-release is too old**, so the
 compiler has to come from `-current`.
 
-Verified against 1.8.3 on OpenBSD 7.9, `arm64`. The resulting server opens its
-database, answers the client and federation version endpoints, registers an
-account, creates a room, sends and reads back a message, and exits cleanly on
-`SIGTERM`.
+Verified against 1.8.3 on OpenBSD 7.9, `arm64` and `amd64`. The resulting server
+opens its database, answers the client and federation version endpoints,
+registers an account, creates a room, sends and reads back a message, reopens a
+populated database across a restart, and exits cleanly on `SIGTERM`.
 
 Contributions for getting Tuwunel into ports are welcome.
 
@@ -30,10 +30,14 @@ error[E0658]: `if let` guards are experimental
 --ignore-rust-version` skips the manifest check but not the compiler, so it does
 not help here.
 
-The `-current` snapshots carry 1.97.1, which installs and runs on a 7.9 system:
+This is the same on both architectures: 7.9-release packages 1.94.1 for `arm64`
+and for `amd64`.
+
+The `-current` snapshots carry 1.97.1, which installs and runs on a 7.9 system.
+The last path element is the package architecture, `aarch64` or `amd64`:
 
 ```sh
-PKG_PATH=https://cdn.openbsd.org/pub/OpenBSD/snapshots/packages/aarch64/ \
+PKG_PATH=https://cdn.openbsd.org/pub/OpenBSD/snapshots/packages/amd64/ \
     pkg_add -u rust
 ```
 
@@ -99,7 +103,10 @@ Put the account doing the build into the class and log in again:
 usermod -L tuwunel root
 ```
 
-`ulimit -a` should then report `data unlimited` and `nofiles 8192`.
+`ulimit -a` should then report `nofiles 8192`, and a data segment raised well
+clear of the 4 GB default. `infinity` means the architecture ceiling rather than
+a literal absence of one, so `arm64` reports `unlimited` and `amd64` reports
+128 GB.
 
 
 ## Where to build
@@ -144,6 +151,43 @@ This affects `aarch64` only. `crc32c_arm64.cc` is not compiled on `amd64`.
 The file then compiles and the runtime check works as written: OpenBSD reads
 `CTL_MACHDEP`/`CPU_ID_AA64ISAR0` through `sysctl` and selects the hardware
 CRC32C path when the CPU reports it.
+
+
+## RocksDB on amd64
+
+Nothing fails to build here, but the default `amd64` build is slower than it
+needs to be. RocksDB picks its CRC32C implementation when it is compiled, and on
+x86 there is no runtime fallback:
+
+```
+// NOTE: runtime detection no longer supported on x86
+```
+
+`cargo build` targets the `x86-64` baseline, which carries `fxsr`, `sse` and
+`sse2` and nothing else. `__SSE4_2__` is therefore never defined, and the table
+driven software routine is what ends up in the binary. Every read and write goes
+through it, on hardware that has the instruction. `librocksdb-sys` says so during
+the build, though cargo hides build warnings from dependencies by default:
+
+```
+compiling without SSE4.2: CRC will be slow (set RUSTFLAGS="-Ctarget-cpu=..."
+to optimize RocksDB e.g. -Ctarget-cpu=broadwell)
+```
+
+Raising the target CPU is all it takes:
+
+```sh
+RUSTFLAGS="-Ctarget-cpu=westmere" cargo build --release -p tuwunel \
+    --no-default-features --features ...
+```
+
+`sse4.2` alone buys the single stream hardware CRC32. The three way version
+RocksDB prefers also wants `pclmulqdq`, and `westmere` is the oldest
+`-Ctarget-cpu` supplying both; anything newer serves.
+
+This is the axis the `x86_64-v1` through `x86_64-v4` release packages sit on. A
+build with no `-Ctarget-cpu` is the `v1` one, and nothing selects a higher level
+for you here.
 
 
 ## Features
@@ -194,8 +238,11 @@ error: missing documentation for a function
 
 Adding a doc comment above it is enough. This is fixed in the tree.
 
-A cold build took about 57 minutes on 2 jobs and produced an 81.6 MB binary. The
-result is dynamically linked, and against base system libraries only:
+A cold build took about 57 minutes on 2 jobs on `arm64`, producing an 81.6 MB
+binary. On `amd64` the equivalent build reported 68 minutes on 2 jobs for a 90 MB
+binary, having resumed from a partly populated cache after an interrupted first
+attempt, so a genuinely cold build there is somewhat longer. The result is
+dynamically linked, and against base system libraries only:
 
 ```console
 $ ldd /usr/local/bin/tuwunel
@@ -283,6 +330,8 @@ activation, and the reload handling described in
 [Reloading Configuration](configuration-reload.md) are all Linux only. Use the
 `rc.d` script above instead.
 
-**No CPU feature levels.** The `-v1` through `-v4` distinction that the x86_64
-packages carry has no equivalent here. The build targets the baseline for the
-architecture.
+**No CPU feature levels.** The build targets the architecture baseline, and
+nothing selects one of the `x86_64-v1` through `x86_64-v4` levels the release
+packages come in. On `arm64` there is nothing to choose. On `amd64` the baseline
+is the `v1` level, which costs RocksDB its hardware CRC32C; see
+[RocksDB on amd64](#rocksdb-on-amd64) for the flag that raises it.
