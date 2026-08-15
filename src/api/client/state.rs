@@ -211,7 +211,12 @@ async fn send_state_event_for_key_helper(
 	{
 		let content = json.deserialize_as_unchecked::<CanonicalJsonObject>()?;
 
-		if is_duplicate_state(event_type, sender, &content, &current)? {
+		if is_duplicate_state(event_type, sender, &content, &current)?
+			&& services
+				.state_cache
+				.is_joined(sender, room_id)
+				.await
+		{
 			return Ok(current.event_id().to_owned());
 		}
 	}
@@ -243,6 +248,15 @@ fn state_dedup_eligible(
 	timestamp.is_none() && !matches!(event_type, StateEventType::RoomMember)
 }
 
+/// Whether an incoming state event is a content-identical resend by its own
+/// author.
+///
+/// The caller's guard returns before `state_res::auth_check` runs, so every
+/// conjunct gating that early return must be a version-invariant fact that can
+/// only suppress a dedup, never permit one. Membership class qualifies; power
+/// levels and per-type rules do not, and wanting an exact status code there is
+/// a reason to move the guard after authorization rather than to add a
+/// conjunct.
 fn is_duplicate_state(
 	event_type: &StateEventType,
 	sender: &UserId,
