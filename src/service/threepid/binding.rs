@@ -91,6 +91,26 @@ pub async fn del_binding(&self, user_id: &UserId, email_canon: &str) {
 	}
 }
 
+/// Whether a canonical email address is bound to an account other than this
+/// one.
+///
+/// Separates rebinding an address a user already holds from claiming one
+/// another account owns. An address whose stored owner does not decode is an
+/// error rather than a free address; an absent row reads as unbound.
+#[implement(super::Service)]
+#[tracing::instrument(
+	level = "debug",
+	skip(self),
+	fields(
+		%user_id,
+	),
+)]
+pub async fn bound_elsewhere(&self, user_id: &UserId, email_canon: &str) -> Result<bool> {
+	self.user_id_for_email(email_canon)
+		.await
+		.map(|bound| bound.is_some_and(|bound| bound != user_id))
+}
+
 /// The user bound to a canonical email address, if any.
 #[implement(super::Service)]
 #[tracing::instrument(level = "debug", skip(self))]

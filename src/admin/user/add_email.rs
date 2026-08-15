@@ -17,9 +17,8 @@ pub(super) async fn add_email(&self, username: String, address: String) -> Resul
 	if self
 		.services
 		.threepid
-		.user_id_for_email(&email_canon)
+		.bound_elsewhere(&user_id, &email_canon)
 		.await?
-		.is_some_and(|bound| bound != user_id)
 	{
 		return Err!("Email {email_canon} is already bound to another user.");
 	}
