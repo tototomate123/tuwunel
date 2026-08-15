@@ -705,7 +705,7 @@
 {"Action":"pass","Test":"TestSearch/parallel/Search_results_with_recent_ordering_do_not_include_redacted_events"}
 {"Action":"pass","Test":"TestSearch/parallel/Search_works_across_an_upgraded_room_and_its_predecessor"}
 {"Action":"pass","Test":"TestSendAndFetchMessage"}
-{"Action":"fail","Test":"TestSendJoinPartialStateResponse"}
+{"Action":"pass","Test":"TestSendJoinPartialStateResponse"}
 {"Action":"pass","Test":"TestSendMessageWithTxn"}
 {"Action":"pass","Test":"TestServerCapabilities"}
 {"Action":"fail","Test":"TestServerNotices"}
@@ -717,6 +717,8 @@
 {"Action":"fail","Test":"TestServerNotices/Alice_cannot_reject_the_invite"}
 {"Action":"fail","Test":"TestServerNotices/Alice_is_invited_to_the_server_alert_room"}
 {"Action":"fail","Test":"TestServerNotices/Sending_a_notice_with_a_transactionID_is_idempotent"}
+{"Action":"pass","Test":"TestSharedHistoryAfterLeaving"}
+{"Action":"pass","Test":"TestStateDedupRequiresJoinedSender"}
 {"Action":"pass","Test":"TestSync"}
 {"Action":"fail","Test":"TestSync"}
 {"Action":"pass","Test":"TestSync/parallel"}

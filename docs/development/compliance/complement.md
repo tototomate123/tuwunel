@@ -4,10 +4,10 @@ Tuwunel runs the [Complement](https://github.com/matrix-org/complement) Matrix h
 
 ## Counts
 
-- Test groups: 205. Passing: **83.4%**
-  - ✅ `pass`: 171
+- Test groups: 207. Passing: **84.1%**
+  - ✅ `pass`: 174
   - 🟨 `some`: 15
-  - ❌ `fail`: 19
+  - ❌ `fail`: 18
   - ⬛ `skip`: 0
 
 - Subtests: 595. Passing: **78.8%**
@@ -192,10 +192,12 @@ Tuwunel runs the [Complement](https://github.com/matrix-org/complement) Matrix h
 | ✅ | 9/0/0 | `RoomsInvite` |
 | ✅ | 7/0/0 | `Search` |
 | ✅ | – | `SendAndFetchMessage` |
-| ❌ | – | `SendJoinPartialStateResponse` |
+| ✅ | – | `SendJoinPartialStateResponse` |
 | ✅ | – | `SendMessageWithTxn` |
 | ✅ | – | `ServerCapabilities` |
 | ❌ | 0/8/0 | `ServerNotices` |
+| ✅ | – | `SharedHistoryAfterLeaving` |
+| ✅ | – | `StateDedupRequiresJoinedSender` |
 | 🟨 | 10/3/0 | `Sync` |
 | ✅ | 2/0/0 | `SyncFilter` |
 | ✅ | 3/0/0 | `SyncLeaveSection` |
