@@ -118,9 +118,11 @@ x86 there is no runtime fallback:
 
 `cargo build` targets the `x86-64` baseline, which carries `fxsr`, `sse` and
 `sse2` and nothing else. `__SSE4_2__` is therefore never defined, and the table
-driven software routine is what ends up in the binary. Every read and write goes
-through it, on hardware that has the instruction. `librocksdb-sys` says so during
-the build, though cargo hides build warnings from dependencies by default:
+driven software routine is what ends up in the binary, on hardware that has the
+instruction. Every write-ahead log record is checksummed with it, and so is
+every record read back during recovery. Table blocks are checksummed with XXH3
+instead and are unaffected. `librocksdb-sys` says so during the build, though
+cargo hides build warnings from dependencies by default:
 
 ```
 compiling without SSE4.2: CRC will be slow (set RUSTFLAGS="-Ctarget-cpu=..."
@@ -247,10 +249,10 @@ CPU has the CRC32 and PMULL extensions. `crc32c_arm64.cc` can answer that
 question through `getauxval` on Linux, `elf_aux_info` on FreeBSD, `sysctlbyname`
 on Apple platforms, and `sysctl` on OpenBSD. NetBSD matches none of those, so
 the check falls through to `return 0` and the accelerated paths are never
-selected, even on hardware that supports them. Checksumming is on the hot path
-for every read and write, so expect it to cost throughput relative to a platform
-where detection works. Teaching that file to query NetBSD would be a worthwhile
-contribution upstream.
+selected, even on hardware that supports them. Every write-ahead log record is
+checksummed this way, so expect it to cost write throughput relative to a
+platform where detection works; table blocks use XXH3 and are unaffected.
+Teaching that file to query NetBSD would be a worthwhile contribution upstream.
 
 **No `io_uring`.** The feature is Linux only, so RocksDB uses the POSIX I/O
 backend. This is the same code path every non-Linux build takes.

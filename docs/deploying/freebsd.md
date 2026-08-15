@@ -92,9 +92,11 @@ x86 there is no runtime fallback:
 
 `cargo build` targets the `x86-64` baseline, which carries `fxsr`, `sse` and
 `sse2` and nothing else. `__SSE4_2__` is therefore never defined, and the table
-driven software routine is what ends up in the binary. Every read and write goes
-through it, on hardware that has the instruction. `librocksdb-sys` says so during
-the build, though cargo hides build warnings from dependencies by default:
+driven software routine is what ends up in the binary, on hardware that has the
+instruction. Every write-ahead log record is checksummed with it, and so is
+every record read back during recovery. Table blocks are checksummed with XXH3
+instead and are unaffected. `librocksdb-sys` says so during the build, though
+cargo hides build warnings from dependencies by default:
 
 ```
 compiling without SSE4.2: CRC will be slow (set RUSTFLAGS="-Ctarget-cpu=..."
