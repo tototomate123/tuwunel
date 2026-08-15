@@ -1,10 +1,9 @@
 use std::sync::Arc;
 
 use futures::StreamExt;
-use ruma::{OwnedUserId, ServerName, UserId};
+use ruma::{OwnedUserId, UserId};
 use tuwunel_core::{
-	Result, format_small_string, info,
-	smallstr::SmallString,
+	Result, info,
 	utils::{
 		ReadyExt,
 		option::OptionExt,
@@ -13,13 +12,11 @@ use tuwunel_core::{
 };
 use tuwunel_database::Map;
 
+use super::local_user_id;
 use crate::{
 	Services,
 	users::{PASSWORD_DISABLED, PASSWORD_SENTINEL},
 };
-
-/// Inline budget for a local user id assembled from a foreign localpart.
-type UserIdBuf = SmallString<[u8; 48]>;
 
 /// Reconciles account states a foreign database keeps outside the password
 /// column.
@@ -124,17 +121,6 @@ async fn adopt_passwordless(
 	}
 }
 
-/// Assembles a local user id from a localpart a foreign column records.
-///
-/// The id is formatted into an inline buffer and parsed from that slice, which
-/// keeps a short id in inline storage; parsing against a server name instead
-/// routes through an over-allocated `String` and spills to the heap.
-fn local_user_id(localpart: &str, server_name: &ServerName) -> Option<OwnedUserId> {
-	let user_id: UserIdBuf = format_small_string!("@{localpart}:{server_name}");
-
-	UserId::parse(user_id.as_str()).ok()
-}
-
 /// Reports whether the account reads as deactivated here without the foreign
 /// column marking it so.
 ///
@@ -157,33 +143,4 @@ async fn restorable(
 			.map_async(|deactivated| deactivated.exists(user_id))
 			.await
 			.is_none_or(|marked| marked.is_err())
-}
-
-#[cfg(test)]
-mod tests {
-	use ruma::server_name;
-
-	use super::local_user_id;
-
-	#[test]
-	fn localpart_becomes_a_local_user_id() {
-		let user_id = local_user_id("alice", server_name!("example.org"))
-			.expect("a plain localpart composes a user id");
-
-		assert_eq!(user_id.as_str(), "@alice:example.org");
-	}
-
-	#[test]
-	fn localpart_past_the_inline_budget_survives() {
-		let localpart = "a".repeat(64);
-		let user_id = local_user_id(&localpart, server_name!("example.org"))
-			.expect("a spilled buffer still composes a user id");
-
-		assert_eq!(user_id.localpart(), localpart);
-	}
-
-	#[test]
-	fn unusable_localpart_is_skipped() {
-		assert!(local_user_id("alice\0bob", server_name!("example.org")).is_none());
-	}
 }

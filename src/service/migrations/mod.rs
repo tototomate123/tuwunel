@@ -7,11 +7,13 @@
 use std::{cmp::Ordering, time::Duration};
 
 use futures::{FutureExt, StreamExt};
+use ruma::{OwnedUserId, ServerName, UserId};
 use tokio::time::sleep;
 use tuwunel_core::{
-	Err, Result, err, info,
+	Err, Result, err, format_small_string, info,
 	itertools::Itertools,
 	result::NotFound,
+	smallstr::SmallString,
 	utils::{BoolExt, ReadyExt},
 	warn,
 };
@@ -20,6 +22,7 @@ use tuwunel_database::Deserialized;
 use self::{
 	account_status::migrate_account_status,
 	clear_servername_status::clear_servername_status,
+	email_bindings::migrate_email_bindings,
 	fix_bad_double_separator_in_state_cache::fix_bad_double_separator_in_state_cache,
 	fix_hashed_sentinel_passwords::fix_hashed_sentinel_passwords,
 	fix_readreceiptid_readreceipt_duplicates::fix_readreceiptid_readreceipt_duplicates,
@@ -39,6 +42,7 @@ use crate::Services;
 mod account_status;
 mod clear_servername_status;
 mod conduit;
+mod email_bindings;
 mod fix_bad_double_separator_in_state_cache;
 mod fix_hashed_sentinel_passwords;
 mod fix_readreceiptid_readreceipt_duplicates;
@@ -52,6 +56,8 @@ mod rebuild_roomid_tscount_pducount;
 mod remove_remote_media_userid;
 mod retroactively_fix_bad_data_from_roomuserid_joined;
 mod split_conduit_highlight_counts;
+#[cfg(test)]
+mod tests;
 mod upgrade_legacy_mediaid_user;
 
 /// The current schema version.
@@ -71,6 +77,9 @@ const FORCE_MIGRATION_DELAY: Duration = Duration::from_secs(15);
 /// after tuwunel has stamped its own `server_name`, so a database opened by
 /// both servers in turn keeps booting rather than being refused as too new.
 const FOREIGN_LINEAGE_MARKER: &[u8] = b"populate_userroomid_leftstate_table";
+
+/// Inline budget for a local user id assembled from a foreign localpart.
+type UserIdBuf = SmallString<[u8; 48]>;
 
 pub(crate) async fn migrations(services: &Services) -> Result {
 	if services.config.force_migration {
@@ -215,6 +224,7 @@ async fn fresh(services: &Services) -> Result {
 	db["global"].insert(b"rebuild_thread_activity", []);
 	db["global"].insert(b"clear_servername_status", []);
 	db["global"].insert(b"adopt_foreign_account_status", []);
+	db["global"].insert(b"adopt_foreign_email_bindings", []);
 	mark_clean_injectivity(services);
 
 	// Create the admin room and server user on first run
@@ -392,6 +402,16 @@ async fn migrate(services: &Services, foreign_lineage: bool) -> Result {
 		db["global"].insert(b"adopt_foreign_account_status", []);
 	}
 
+	if db["global"]
+		.get(b"adopt_foreign_email_bindings")
+		.await
+		.is_not_found()
+	{
+		migrate_email_bindings(services).await?;
+
+		db["global"].insert(b"adopt_foreign_email_bindings", []);
+	}
+
 	// A newer same-lineage database was already refused; stamping ours is safe. A
 	// foreign import above our version was already stamped down before the import
 	// ran, so this is a no-op for it.
@@ -469,4 +489,15 @@ async fn migrate(services: &Services, foreign_lineage: bool) -> Result {
 	info!("Loaded RocksDB database with schema version {DATABASE_VERSION}");
 
 	Ok(())
+}
+
+/// Assembles a local user id from a localpart a foreign column records.
+///
+/// The id is formatted into an inline buffer and parsed from that slice, which
+/// keeps a short id in inline storage; parsing against a server name instead
+/// routes through an over-allocated `String` and spills to the heap.
+fn local_user_id(localpart: &str, server_name: &ServerName) -> Option<OwnedUserId> {
+	let user_id: UserIdBuf = format_small_string!("@{localpart}:{server_name}");
+
+	UserId::parse(user_id.as_str()).ok()
 }
