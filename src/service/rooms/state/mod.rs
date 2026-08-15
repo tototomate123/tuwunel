@@ -272,6 +272,8 @@ pub async fn set_event_state(
 ///
 /// This adds all current state events (not including the incoming event)
 /// to `stateid_pduid` and adds the incoming event to `eventid_statehash`.
+/// The event's short id is allocated here if absent, which is the only
+/// allocation of it on the local append path.
 #[implement(Service)]
 #[tracing::instrument(
 	name = "set",
