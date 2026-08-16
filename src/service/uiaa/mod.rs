@@ -17,11 +17,9 @@ use ruma::{
 };
 use tuwunel_core::{
 	Err, Result, err, error, extract, implement,
-	utils::{self, BoolExt, hash, string::EMPTY},
+	utils::{self, BoolExt, hash::verify_password, string::EMPTY},
 };
 use tuwunel_database::{Deserialized, Json, Map};
-
-use crate::users::PASSWORD_SENTINEL;
 
 pub struct Service {
 	userdevicesessionid_uiaarequest: RwLock<RequestMap>,
@@ -338,19 +336,18 @@ async fn verify_password(
 	}
 
 	let user_id = user_id_from_username;
-	let mut password_verified = false;
-	let mut password_sentinel = false;
-
 	// First try local password hash verification
-	if let Ok(hash) = self.services.users.password_hash(&user_id).await {
-		password_sentinel = hash == PASSWORD_SENTINEL;
-		password_verified = hash::verify_password(password, &hash).is_ok();
-	}
+	let password_verified = self
+		.services
+		.users
+		.password_hash(&user_id)
+		.await
+		.is_ok_and(|hash| verify_password(password, &hash).is_ok());
 
 	// Only LDAP-origin accounts fall back to LDAP; others would trigger a
 	// directory-wide search.
 	#[cfg(feature = "ldap")]
-	if !password_verified
+	let password_verified = if !password_verified
 		&& self.services.server.config.ldap.enable
 		&& self
 			.services
@@ -361,26 +358,14 @@ async fn verify_password(
 		&& let Ok(dns) = self.services.users.search_ldap(&user_id).await
 		&& let Some((user_dn, _is_admin)) = dns.first()
 	{
-		password_verified = self
-			.services
+		self.services
 			.users
 			.auth_ldap(user_dn, password)
 			.await
-			.is_ok();
-	}
-
-	// For SSO users that have never set a password, allow.
-	if !password_verified
-		&& password_sentinel
-		&& self
-			.services
-			.oauth
-			.sessions
-			.exists_for_user(&user_id)
-			.await
-	{
-		return Ok(ControlFlow::Break(true));
-	}
+			.is_ok()
+	} else {
+		password_verified
+	};
 
 	if !password_verified {
 		uiaainfo.auth_error = Some(Box::new(StandardErrorBody {
