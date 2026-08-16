@@ -507,22 +507,7 @@ pub async fn sign_key(
 		.deserialized()
 		.map_err(|e| err!(Database(debug_warn!("key in keyid_key is invalid: {e:?}"))))?;
 
-	let signatures = cross_signing_key
-		.get_mut("signatures")
-		.ok_or_else(|| err!(Database(debug_warn!("key in keyid_key has no signatures field"))))?
-		.as_object_mut()
-		.ok_or_else(|| {
-			err!(Database(debug_warn!("key in keyid_key has invalid signatures field.")))
-		})?
-		.entry(sender_id.to_string())
-		.or_insert_with(|| serde_json::Map::new().into());
-
-	signatures
-		.as_object_mut()
-		.ok_or_else(|| {
-			err!(Database(debug_warn!("signatures in keyid_key for a user is invalid.")))
-		})?
-		.insert(signature.0, signature.1.into());
+	insert_signatures(&mut cross_signing_key, sender_id, [signature])?;
 
 	let key = (target_id, key_id);
 	self.db
@@ -530,6 +515,41 @@ pub async fn sign_key(
 		.put(key, Json(cross_signing_key));
 
 	self.mark_device_key_update(target_id).await;
+
+	Ok(())
+}
+
+fn insert_signatures(
+	key: &mut serde_json::Value,
+	sender_id: &UserId,
+	additional: impl IntoIterator<Item = (String, String)>,
+) -> Result {
+	let signatures = key
+		.as_object_mut()
+		.ok_or_else(|| err!(Database(debug_warn!("key in keyid_key is not an object."))))?
+		.entry("signatures")
+		.or_insert_with(|| serde_json::Map::new().into())
+		.as_object_mut()
+		.ok_or_else(|| {
+			err!(Database(debug_warn!("key in keyid_key has invalid signatures field.")))
+		})?;
+
+	if !signatures.contains_key(sender_id.as_str()) {
+		signatures.insert(sender_id.to_string(), serde_json::Map::new().into());
+	}
+
+	let signatures = signatures
+		.get_mut(sender_id.as_str())
+		.and_then(serde_json::Value::as_object_mut)
+		.ok_or_else(|| {
+			err!(Database(debug_warn!("signatures in keyid_key for a user is invalid.")))
+		})?;
+
+	signatures.extend(
+		additional
+			.into_iter()
+			.map(|(key_id, signature)| (key_id, signature.into())),
+	);
 
 	Ok(())
 }
@@ -822,7 +842,46 @@ where
 
 #[cfg(test)]
 mod tests {
+	use ruma::user_id;
+
 	use super::*;
+
+	#[test]
+	fn insert_signatures_creates_missing_map() {
+		let sender_id = user_id!("@alice:example.com");
+		let mut key = serde_json::json!({
+			"user_id": sender_id,
+			"usage": ["master"],
+			"keys": { "ed25519:ALICE": "ALICE" },
+		});
+
+		insert_signatures(&mut key, sender_id, [(
+			"ed25519:ALICE".to_owned(),
+			"alice-signature".to_owned(),
+		)])
+		.expect("signature insertion should succeed");
+
+		assert_eq!(key["signatures"][sender_id.as_str()]["ed25519:ALICE"], "alice-signature");
+	}
+
+	#[test]
+	fn insert_signatures_preserves_existing_signers() {
+		let sender_id = user_id!("@alice:example.com");
+		let mut key = serde_json::json!({
+			"signatures": {
+				"@bob:example.com": { "ed25519:BOB": "bob-signature" },
+			},
+		});
+
+		insert_signatures(&mut key, sender_id, [(
+			"ed25519:ALICE".to_owned(),
+			"alice-signature".to_owned(),
+		)])
+		.expect("signature insertion should succeed");
+
+		assert_eq!(key["signatures"]["@bob:example.com"]["ed25519:BOB"], "bob-signature");
+		assert_eq!(key["signatures"][sender_id.as_str()]["ed25519:ALICE"], "alice-signature");
+	}
 
 	#[test]
 	fn empty_one_time_key_counts_include_signed_zero() {
