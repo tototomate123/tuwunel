@@ -216,8 +216,12 @@ fn is_loopback(url: &Url) -> bool {
 }
 
 fn is_reverse_dns(scheme: &str, base: Option<&str>) -> bool {
+	if !scheme.contains('.') {
+		return false;
+	}
+
 	let Some(host) = base else {
-		return scheme.contains('.');
+		return true;
 	};
 
 	let mut scheme_labels = scheme.split('.');
@@ -317,6 +321,19 @@ mod tests {
 
 		let private = native(request(Some("https://example.com"), &["com.example.app:/cb"]));
 		validate_client_metadata(&private, true).unwrap();
+
+		for (client_uri, redirect_uri) in [
+			("https://javascript", "javascript:alert(1)"),
+			("https://data", "data:text/html,dangerous"),
+			("https://vbscript", "vbscript:msgbox(1)"),
+			("https://myapp", "myapp:/cb"),
+		] {
+			let dotless = native(request(Some(client_uri), &[redirect_uri]));
+			assert!(matches!(
+				validate_client_metadata(&dotless, true),
+				Err(DcrError::RedirectUri(_))
+			));
+		}
 
 		let bad_private = native(request(Some("https://example.com"), &["com.evil.app:/cb"]));
 		assert!(matches!(
