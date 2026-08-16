@@ -103,7 +103,7 @@ static BASE: Descriptor = Descriptor {
 	compression_level: SENTINEL_COMPRESSION_LEVEL,
 	bottommost_level: Some(SENTINEL_COMPRESSION_LEVEL),
 	block_index_hashing: None,
-	cache_shards: 64,
+	cache_shards: 32,
 	write_to_cache: false,
 	auto_readahead_thresh: 0,
 	auto_readahead_init: 1024 * 16,
@@ -123,7 +123,7 @@ pub(crate) static DROPPED: Descriptor = Descriptor { dropped: true, ..IGNORED };
 pub(crate) static RANDOM: Descriptor = Descriptor {
 	compaction_pri: CompactionPri::OldestSmallestSeqFirst,
 	write_size: 1024 * 1024 * 32,
-	cache_shards: 128,
+	cache_shards: 64,
 	compression_level: -3,
 	bottommost_level: Some(2),
 	compressed_index: true,
@@ -137,7 +137,7 @@ pub(crate) static SEQUENTIAL: Descriptor = Descriptor {
 	write_size: 1024 * 1024 * 64,
 	level_size: 1024 * 1024 * 32,
 	file_size: 1024 * 1024 * 2,
-	cache_shards: 128,
+	cache_size: 1024 * 1024 * 8,
 	compression_level: -2,
 	bottommost_level: Some(2),
 	compression_shape: [0, 0, 1, 1, 1, 1, 1],
@@ -154,7 +154,6 @@ pub(crate) static RANDOM_SMALL: Descriptor = Descriptor {
 	file_shape: 3,
 	index_size: 512,
 	block_size: 512,
-	cache_shards: 64,
 	compression_level: -4,
 	bottommost_level: Some(-1),
 	compression_shape: [0, 0, 0, 0, 0, 1, 1],
@@ -171,7 +170,6 @@ pub(crate) static SEQUENTIAL_SMALL: Descriptor = Descriptor {
 	file_size: 1024 * 512,
 	file_shape: 3,
 	block_size: 512,
-	cache_shards: 64,
 	block_index_hashing: Some(false),
 	compression_level: -4,
 	bottommost_level: Some(-2),
@@ -185,7 +183,6 @@ pub(crate) static SEQUENTIAL_SMALL: Descriptor = Descriptor {
 /// is reached.
 pub(crate) static RANDOM_CACHE: Descriptor = Descriptor {
 	compaction: CompactionStyle::Fifo,
-	cache_disp: CacheDisp::Unique,
 	limit_size: 1024 * 1024 * 1024 * 2,
 	ttl: 60 * 60 * 24 * 180,
 	..RANDOM
@@ -207,7 +204,6 @@ pub(crate) static SEQUENTIAL_CACHE: Descriptor = Descriptor {
 /// is reached.
 pub(crate) static RANDOM_SMALL_CACHE: Descriptor = Descriptor {
 	compaction: CompactionStyle::Fifo,
-	cache_disp: CacheDisp::Unique,
 	compression: CompressionType::None,
 	limit_size: 1024 * 1024 * 64,
 	ttl: 60 * 60 * 24 * 180,

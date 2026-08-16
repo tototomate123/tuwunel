@@ -58,10 +58,12 @@ impl Context {
 		let config = &server.config;
 		let cache_capacity_bytes = config.db_cache_capacity_mb * 1024.0 * 1024.0;
 
-		let col_shard_bits = 7;
+		let col_cache_shards: i32 = 128;
+		let col_shard_bits = col_cache_shards.ilog2().try_into()?;
 		let col_cache_capacity_bytes = usize_from_f64(cache_capacity_bytes * 0.50)?;
 
-		let row_shard_bits = 7;
+		let row_cache_shards: i32 = 128;
+		let row_shard_bits = row_cache_shards.ilog2().try_into()?;
 		let row_cache_capacity_bytes = usize_from_f64(cache_capacity_bytes * 0.50)?;
 
 		let mut row_cache_opts = LruCacheOptions::default();
