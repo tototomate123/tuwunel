@@ -147,17 +147,20 @@ for its process model.
 
 Tuwunel implements all twelve routes used by MAS's modern homeserver client:
 
-- User lifecycle: `GET /_synapse/mas/is_localpart_available`,
-  `POST /_synapse/mas/provision_user`, `GET /_synapse/mas/query_user`,
-  `POST /_synapse/mas/delete_user`, and
-  `POST /_synapse/mas/reactivate_user`.
-- Profiles: `POST /_synapse/mas/set_displayname` and
-  `POST /_synapse/mas/unset_displayname`.
-- Devices: `POST /_synapse/mas/upsert_device`,
-  `POST /_synapse/mas/delete_device`,
-  `POST /_synapse/mas/update_device_display_name`, and
-  `POST /_synapse/mas/sync_devices`.
-- Cross-signing: `POST /_synapse/mas/allow_cross_signing_reset`.
+| Area | Method | Endpoint | Operation |
+| --- | --- | --- | --- |
+| User lifecycle | `GET` | `/_synapse/mas/is_localpart_available` | Check whether a localpart can be assigned. |
+| User lifecycle | `GET` | `/_synapse/mas/query_user` | Return the Matrix user ID, profile, and account state. |
+| User lifecycle | `POST` | `/_synapse/mas/provision_user` | Create or update an account, including its display name, avatar, email bindings, and lock state. |
+| User lifecycle | `POST` | `/_synapse/mas/delete_user` | Deactivate an account and optionally erase its data. |
+| User lifecycle | `POST` | `/_synapse/mas/reactivate_user` | Reactivate a deactivated account. |
+| Profiles | `POST` | `/_synapse/mas/set_displayname` | Set an account's display name. |
+| Profiles | `POST` | `/_synapse/mas/unset_displayname` | Remove an account's display name. |
+| Devices | `POST` | `/_synapse/mas/upsert_device` | Create a device, or update its display name when supplied. |
+| Devices | `POST` | `/_synapse/mas/update_device_display_name` | Replace an existing device's display name. |
+| Devices | `POST` | `/_synapse/mas/delete_device` | Remove a device from the account. |
+| Devices | `POST` | `/_synapse/mas/sync_devices` | Reconcile the local device inventory to the set supplied by MAS. |
+| Cross-signing | `POST` | `/_synapse/mas/allow_cross_signing_reset` | Grant bounded authorization for cross-signing key replacement. |
 
 These are unversioned implementation endpoints intended only for MAS. Setting
 `mas_secret` also removes selected Synapse-compatible account administration
