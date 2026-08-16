@@ -9,7 +9,8 @@ use ruma::api::{
 	path_builder::PathBuilder,
 };
 use tuwunel_core::{
-	Err, Result, debug_warn, err, implement, trace, utils::string_from_bytes, warn,
+	Err, Result, debug_warn, err, error::error_chain, implement, trace, utils::string_from_bytes,
+	warn,
 };
 
 use crate::client::read_response_capped;
@@ -103,6 +104,6 @@ where
 }
 
 fn handler_err<R>(dest: &str, error: ReqwestError) -> Result<R> {
-	warn!(%dest, %error, "Could not send request to pusher");
+	warn!(%dest, chain = %error_chain(&error), "Could not send request to pusher");
 	Err(error.into())
 }
