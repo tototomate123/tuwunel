@@ -10,6 +10,7 @@ pub mod ip_source;
 pub mod manager;
 mod net;
 pub mod proxy;
+mod regenerate;
 pub mod room_version;
 pub mod sources;
 #[cfg(test)]
@@ -25,8 +26,11 @@ use std::{
 use bytesize::ByteSize;
 use derive_more::Debug;
 use either::{Either, Either::Left};
-use figment::providers::{Data, Env, Format, Toml};
 pub use figment::{Figment, value::Value as FigmentValue};
+use figment::{
+	Profile, Provider,
+	providers::{Env, Format, Toml},
+};
 use ipnet::IpNet;
 use itertools::Itertools;
 use regex::RegexSet;
@@ -38,15 +42,27 @@ use serde::{Deserialize, de::IgnoredAny};
 use tuwunel_macros::config_example_generator;
 use url::Url;
 
-pub use self::{check::check, ip_source::IpSource, manager::Manager, sources::Sources};
+pub use self::{
+	check::check,
+	ip_source::IpSource,
+	manager::Manager,
+	regenerate::{
+		Overwrite, RegenerateOptions, RegenerationSummary, example_config, regenerate_config,
+		write_example_config,
+	},
+	sources::Sources,
+};
 use self::{
 	net::{ListeningAddr, ListeningPort},
 	proxy::ProxyConfig,
 };
 use crate::{
-	Err, Result, err, redacted_debug,
+	Err, Result, err, implement, redacted_debug,
 	utils::{self, bytes::deserialize_bytesize_usize, sys},
 };
+
+// Later prefixes override earlier ones.
+pub(crate) const ENV_PREFIXES: [&str; 3] = ["CONDUIT_", "CONDUWUIT_", "TUWUNEL_"];
 
 /// All the config options for tuwunel.
 #[expect(rustdoc::broken_intra_doc_links, rustdoc::bare_urls)]
@@ -72,9 +88,10 @@ use crate::{
 ### For more information, see:
 ### https://tuwunel.chat/configuration.html
 "#,
-	ignore = "catchall well_known tls allow_invalid_tls_certificates ldap jwt appservice \
-	          identity_provider storage_provider registration_terms smtp \
-	          database_restore_backup force_migration"
+	ignore = "catchall well_known tls ldap jwt appservice identity_provider storage_provider \
+	          registration_terms smtp",
+	hidden = "allow_invalid_tls_certificates",
+	forbidden = "database_restore_backup force_migration"
 )]
 pub struct Config {
 	/// The server_name is the pretty name of this server. It is used as a
@@ -3731,8 +3748,8 @@ pub struct TlsConfig {
 #[config_example_generator(
 	filename = "tuwunel-example.toml",
 	section = "global.well_known",
-	ignore = "support_contact support_role support_email support_mxid support_page \
-	          support_pgp_key support_policy"
+	ignore = "support_contact support_policy",
+	hidden = "support_role support_email support_mxid support_page support_pgp_key"
 )]
 pub struct WellKnownConfig {
 	/// The server URL that the client well-known file will serve.
@@ -4659,7 +4676,8 @@ pub struct StorageProviderLocal {
 #[derive(Clone, Debug, Default, Deserialize)]
 #[config_example_generator(
 	filename = "tuwunel-example.toml",
-	section = "global.storage_provider.<ID>.s3"
+	section = "global.storage_provider.<ID>.s3",
+	section_aliases = "S3"
 )]
 pub struct StorageProviderS3 {
 	/// Supply an s3 URL e.g. "s3://bucket/path". These URLs may contain one
@@ -4783,7 +4801,8 @@ pub struct StorageProviderS3 {
 #[config_example_generator(
 	filename = "tuwunel-example.toml",
 	section = "global.appservice.<ID>",
-	ignore = "id users aliases rooms"
+	ignore = "users aliases rooms",
+	hidden = "id"
 )]
 pub struct AppService {
 	/// Identifies the application service registration.
@@ -4928,9 +4947,10 @@ impl From<AppServiceNamespace> for ruma::api::appservice::Namespace {
 static KNOWN_KEYS: &[&str; 2] = &["^config$", "^runtime_[a-z0-9_]+$"];
 
 /// Items listed here generate a deprecation warning when configured.
-static DEPRECATED_KEYS: &[&str; 9] = &[
+static DEPRECATED_KEYS: &[&str; 10] = &[
 	"cache_capacity",
 	"conduit_cache_capacity_modifier",
+	"ldap.name_attribute",
 	"max_concurrent_requests",
 	"well_known_client",
 	"well_known_server",
@@ -4941,49 +4961,104 @@ static DEPRECATED_KEYS: &[&str; 9] = &[
 ];
 
 impl Config {
-	/// Pre-initialize config
+	/// Loads raw configuration from ordered file and environment sources.
+	///
+	/// Explicit paths follow config files selected through the supported
+	/// environment variables, and later files override earlier files. Config
+	/// values from the three environment namespaces take precedence over files.
 	pub fn load<'a, I>(paths: I) -> Result<Figment>
 	where
 		I: Iterator<Item = &'a Path>,
 	{
-		let envs = [
-			Env::var("CONDUIT_CONFIG"),
-			Env::var("CONDUWUIT_CONFIG"),
-			Env::var("TUWUNEL_CONFIG"),
-		];
+		let paths = Self::file_paths(paths);
+		let config = Self::load_files(paths)?;
 
-		let toml_files = envs
-			.iter()
-			.flatten()
-			.map(PathBuf::from)
-			.chain(paths.map(Path::to_path_buf))
-			.collect_vec();
+		Ok(Self::merge_environment(config))
+	}
+}
 
-		let invalid_toml_files = toml_files
-			.iter()
-			.filter(|path| !path.exists())
-			.map(|path| path.clone().into_os_string())
-			.collect_vec();
+#[implement(Config)]
+pub(crate) fn file_paths<'a, I>(paths: I) -> impl Iterator<Item = PathBuf>
+where
+	I: Iterator<Item = &'a Path>,
+{
+	[
+		Env::var("CONDUIT_CONFIG"),
+		Env::var("CONDUWUIT_CONFIG"),
+		Env::var("TUWUNEL_CONFIG"),
+	]
+	.into_iter()
+	.flatten()
+	.map(PathBuf::from)
+	.chain(paths.map(Path::to_path_buf))
+}
 
-		if !invalid_toml_files.is_empty() {
-			return Err!(
-				"The following config files do not exist or have broken symlinks: \
-				 {invalid_toml_files:?}"
-			);
-		}
+#[implement(Config)]
+pub(crate) fn load_files<I, P>(paths: I) -> Result<Figment>
+where
+	I: Iterator<Item = P>,
+	P: Into<PathBuf>,
+{
+	let toml_files = paths.map(Into::into).collect_vec();
 
-		let config = toml_files
-			.iter()
-			.map(Toml::file)
-			.map(Data::nested)
-			.fold(Figment::new(), Figment::merge)
-			.merge(Env::prefixed("CONDUIT_").global().split("__"))
-			.merge(Env::prefixed("CONDUWUIT_").global().split("__"))
-			.merge(Env::prefixed("TUWUNEL_").global().split("__"));
+	let invalid_toml_files = toml_files
+		.iter()
+		.filter(|path| !path.exists())
+		.map(|path| path.as_os_str())
+		.collect_vec();
 
-		Ok(config)
+	if !invalid_toml_files.is_empty() {
+		return Err!(
+			"The following config files do not exist or have broken symlinks: \
+			 {invalid_toml_files:?}"
+		);
 	}
 
+	toml_files
+		.iter()
+		.try_fold(Figment::new(), |config, path| {
+			Self::load_file(path).map(|file| config.merge(file))
+		})
+}
+
+#[implement(Config)]
+fn load_file(path: &Path) -> Result<Figment> {
+	let provider = Toml::file(path);
+	let profiles = Provider::data(&provider)?;
+	let values = profiles.get(&Profile::Default);
+	let headerless = values.is_some_and(|values| {
+		values
+			.values()
+			.any(|value| value.as_dict().is_none())
+	});
+
+	let has_global = values.is_some_and(|values| values.contains_key("global"));
+
+	if headerless && has_global {
+		return Err!(
+			"Configuration file mixes bare keys with a [global] profile: {}.",
+			path.display()
+		);
+	}
+
+	let provider = match headerless {
+		| true => provider.profile(Profile::Global),
+		| false => provider.nested(),
+	};
+
+	Ok(Figment::new().merge(provider))
+}
+
+#[implement(Config)]
+pub(crate) fn merge_environment(config: Figment) -> Figment {
+	ENV_PREFIXES
+		.into_iter()
+		.fold(config, |config, prefix| {
+			config.merge(Env::prefixed(prefix).global().split("__"))
+		})
+}
+
+impl Config {
 	/// Finalize config
 	pub fn new(raw_config: &Figment) -> Result<Self> {
 		let config = raw_config

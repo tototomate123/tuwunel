@@ -52,6 +52,12 @@ where
 }
 
 #[implement(Sources)]
+#[inline]
+pub(crate) fn file_paths(&self) -> impl Iterator<Item = PathBuf> + '_ {
+	Config::file_paths(self.paths.iter().map(PathBuf::as_path))
+}
+
+#[implement(Sources)]
 fn apply(&self, raw: Figment) -> Result<Figment> {
 	match &self.overrides {
 		| None => Ok(raw),

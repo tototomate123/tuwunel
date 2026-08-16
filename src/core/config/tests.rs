@@ -6,6 +6,7 @@ use std::{
 	sync::{Arc, Mutex, Once},
 };
 
+use figment::providers::Data;
 use tracing::{level_filters::LevelFilter, subscriber::set_global_default};
 use tracing_subscriber::fmt::{MakeWriter, fmt};
 

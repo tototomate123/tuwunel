@@ -2518,6 +2518,9 @@ name = "link-section"
 version = "0.19.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5ee1a0d6e252afe82e7bc2db42fba60e02ddf3b1accaf8cb21d96e34ba61f3d4"
+dependencies = [
+ "linktime-proc-macro",
+]
 
 [[package]]
 name = "linked-hash-map"
@@ -5097,6 +5100,7 @@ dependencies = [
  "serde_spanned 1.1.1",
  "toml_datetime 1.1.1+spec-1.1.0",
  "toml_parser",
+ "toml_writer",
  "winnow 1.0.4",
 ]
 
@@ -5514,6 +5518,7 @@ dependencies = [
  "jsonwebtoken",
  "libc",
  "libloading 0.9.0",
+ "link-section",
  "log",
  "maplit",
  "nix",
@@ -5539,6 +5544,7 @@ dependencies = [
  "tokio",
  "tokio-metrics",
  "toml 1.1.4+spec-1.1.0",
+ "toml_writer",
  "tracing",
  "tracing-core",
  "tracing-subscriber",

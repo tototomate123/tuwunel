@@ -9,18 +9,8 @@ use std::{
 use super::{Figment, Sources};
 use crate::Err;
 
-/// Not a real option, so an exported TUWUNEL_ variable cannot address it.
+// Not a real option, so an exported TUWUNEL_ variable cannot address it.
 const PROBE: &str = "reload_probe";
-
-fn probe(raw: &Figment) -> Option<String> { raw.find_value(PROBE).ok()?.into_string() }
-
-fn config_file(name: &str, value: &str) -> PathBuf {
-	// Uniquified so a concurrent run cannot unlink the file mid-load.
-	let path = temp_dir().join(format!("{name}.{}.toml", id()));
-	write(&path, format!("[global]\n{PROBE} = \"{value}\"\n")).expect("temp config written");
-
-	path
-}
 
 #[test]
 fn default_sources_apply_nothing() {
@@ -87,4 +77,56 @@ fn an_extra_path_layers_over_the_retained_ones() {
 
 	remove_file(&retained).expect("temp config removed");
 	remove_file(&extra).expect("temp config removed");
+}
+
+#[test]
+fn mixed_profile_styles_preserve_layer_order() {
+	let global = config_file("tuwunel_sources_profiled", "global.example");
+	let headerless = headerless_config_file("tuwunel_sources_headerless", "headerless.example");
+
+	let global_then_headerless = Sources {
+		paths: vec![global.clone(), headerless.clone()],
+		..Default::default()
+	};
+
+	let headerless_then_global = Sources {
+		paths: vec![headerless.clone(), global.clone()],
+		..Default::default()
+	};
+
+	let raw = global_then_headerless
+		.load(empty())
+		.expect("loads");
+
+	assert_eq!(probe(&raw).as_deref(), Some("headerless.example"));
+
+	let raw = headerless_then_global
+		.load(empty())
+		.expect("loads");
+
+	assert_eq!(probe(&raw).as_deref(), Some("global.example"));
+
+	remove_file(&global).expect("temp config removed");
+	remove_file(&headerless).expect("temp config removed");
+}
+
+fn probe(raw: &Figment) -> Option<String> { raw.find_value(PROBE).ok()?.into_string() }
+
+fn config_file(name: &str, value: &str) -> PathBuf {
+	write_config_file(name, value, "[global]\n")
+}
+
+fn headerless_config_file(name: &str, value: &str) -> PathBuf {
+	write_config_file(name, value, "")
+}
+
+fn write_config_file(name: &str, value: &str, prefix: &str) -> PathBuf {
+	// Uniquified so a concurrent run cannot unlink the file mid-load.
+	let filename = format!("{name}.{}.toml", id());
+	let path = temp_dir().join(filename);
+	let document = format!("{prefix}{PROBE} = \"{value}\"\n");
+
+	write(&path, document).expect("temp config written");
+
+	path
 }

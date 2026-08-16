@@ -1,4 +1,5 @@
 pub mod args;
+pub mod config;
 pub mod health;
 pub mod logging;
 pub mod mods;

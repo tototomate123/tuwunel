@@ -5,6 +5,7 @@ mod delete_backups;
 mod list_backups;
 mod list_features;
 mod memory_usage;
+mod regenerate_config;
 mod reload_config;
 mod reload_mods;
 #[cfg(unix)]
@@ -35,6 +36,30 @@ pub(super) enum ServerCommand {
 	///   ones the server started with
 	ReloadConfig {
 		path: Option<PathBuf>,
+	},
+
+	#[command(about = "Regenerate configuration into a server-local file.")]
+	RegenerateConfig {
+		#[arg(help = "Absolute destination path on this server.")]
+		path: PathBuf,
+
+		#[arg(
+			long,
+			help = "Replace an existing destination after saving a backup."
+		)]
+		force: bool,
+
+		#[arg(
+			long,
+			help = "Materialize values currently supplied by the environment."
+		)]
+		include_env: bool,
+
+		#[arg(
+			long,
+			help = "Comment out keys that are not recognized by this binary."
+		)]
+		strip_unknown: bool,
 	},
 
 	/// - List the features built into the server

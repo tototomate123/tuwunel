@@ -3,7 +3,7 @@ use std::sync::atomic::Ordering;
 
 #[cfg(unix)]
 use tuwunel::restart;
-use tuwunel::{Server, args, health::check, runtime::Runtime};
+use tuwunel::{Server, args, config::run, health::check, runtime::Runtime};
 use tuwunel_core::{Result, debug_info};
 
 // Bionic rejects an under-aligned PT_TLS segment on arm64.
@@ -21,6 +21,11 @@ core::arch::global_asm!(
 
 fn main() -> Result {
 	let args = args::parse();
+
+	if run(&args)? {
+		return Ok(());
+	}
+
 	if args.health_check {
 		return check(&args);
 	}

@@ -46,8 +46,50 @@ pub struct Args {
 
 	/// Probe a running server for liveness and exit; the running server must
 	/// share this configuration.
-	#[arg(long)]
+	#[arg(long, conflicts_with = "config_command")]
 	pub health_check: bool,
+
+	/// Write a pristine example configuration and exit.
+	///
+	/// With no path, the document is written to standard output.
+	#[arg(
+		long,
+		num_args = 0..=1,
+		require_equals = true,
+		group = "config_command",
+	)]
+	pub generate_config: Option<Option<PathBuf>>,
+
+	/// Rewrite the configured files in the current example-file shape and exit.
+	///
+	/// With no path, a single input writes beside itself with a `.new` suffix.
+	/// Multiple inputs require an explicit destination because their layers are
+	/// collapsed into one document.
+	#[arg(
+		long,
+		num_args = 0..=1,
+		require_equals = true,
+		group = "config_command",
+	)]
+	pub regenerate_config: Option<Option<PathBuf>>,
+
+	/// Replace an existing generated configuration file.
+	///
+	/// The previous contents are retained in a backup file.
+	#[arg(long, requires = "config_command")]
+	pub force: bool,
+
+	/// Include configuration values supplied through the environment.
+	///
+	/// By default, regeneration retains only values supplied by files.
+	#[arg(long, requires = "regenerate_config")]
+	pub include_env: bool,
+
+	/// Comment out deprecated and unknown keys in regenerated output.
+	///
+	/// By default, these values stay active to preserve existing behavior.
+	#[arg(long, requires = "regenerate_config")]
+	pub strip_unknown: bool,
 
 	/// Restore an online database backup on startup, before the database is
 	/// opened, then continue starting up normally. The optional value is a
@@ -58,6 +100,7 @@ pub struct Args {
 		num_args = 0..=1,
 		require_equals(false),
 		default_missing_value = "0",
+		conflicts_with = "config_command",
 	)]
 	pub restore_backup: Option<u32>,
 
@@ -259,10 +302,13 @@ impl Args {
 	#[must_use]
 	pub fn default_test(name: &[&str]) -> Self {
 		let mut args = Self::default();
+
 		args.test
 			.extend(name.iter().copied().map(ToOwned::to_owned));
+
 		args.option
 			.push("server_name=\"localhost\"".into());
+
 		args
 	}
 }
@@ -350,18 +396,9 @@ pub fn update(mut config: Figment, args: &Args) -> Result<Figment> {
 
 #[cfg(test)]
 mod tests {
+	use std::ffi::OsString;
+
 	use super::{Args, Figment, Parser, RESTORE_KEY, Result, update};
-
-	fn updated(argv: &[&str], raw: Figment) -> Result<Figment> {
-		update(raw, &Args::parse_from(argv))
-	}
-
-	fn refusal(argv: &[&str], raw: Figment) -> String {
-		updated(argv, raw)
-			.map(drop)
-			.expect_err("refused")
-			.to_string()
-	}
 
 	#[test]
 	fn the_restore_argument_sets_the_key() {
@@ -372,6 +409,10 @@ mod tests {
 			.expect("the argument sets it");
 	}
 
+	fn updated(argv: &[&str], raw: Figment) -> Result<Figment> {
+		update(raw, &Args::parse_from(argv))
+	}
+
 	#[test]
 	fn an_option_may_not_set_the_restore_key() {
 		let argv = ["tuwunel", "-O", "database_restore_backup=5"];
@@ -379,6 +420,13 @@ mod tests {
 
 		assert!(refusal.contains(RESTORE_KEY));
 		assert!(refusal.contains("--restore-backup"));
+	}
+
+	fn refusal(argv: &[&str], raw: Figment) -> String {
+		updated(argv, raw)
+			.map(drop)
+			.expect_err("refused")
+			.to_string()
 	}
 
 	/// The exact comparison in the guard rests on figment matching keys
@@ -413,5 +461,107 @@ mod tests {
 				.as_deref(),
 			Some("pinned.example"),
 		);
+	}
+
+	#[test]
+	fn config_commands_accept_an_optional_equals_path() {
+		let generate = Args::parse_from(["tuwunel".into(), long("generate-config")]);
+		let generate_to =
+			Args::parse_from(["tuwunel".into(), long("generate-config=fresh.toml")]);
+
+		let regenerate = Args::parse_from(["tuwunel".into(), long("regenerate-config")]);
+		let regenerate_to =
+			Args::parse_from(["tuwunel".into(), long("regenerate-config=renewed.toml")]);
+
+		assert_eq!(generate.generate_config, Some(None));
+		assert_eq!(generate_to.generate_config, Some(Some("fresh.toml".into())));
+		assert_eq!(regenerate.regenerate_config, Some(None));
+		assert_eq!(regenerate_to.regenerate_config, Some(Some("renewed.toml".into())));
+	}
+
+	fn long(name: &str) -> OsString {
+		let mut argument = OsString::with_capacity(name.len().saturating_add(2));
+
+		argument.push("-");
+		argument.push("-");
+		argument.push(name);
+
+		argument
+	}
+
+	#[test]
+	fn config_command_paths_require_equals() {
+		Args::try_parse_from(["tuwunel".into(), long("generate-config"), "fresh.toml".into()])
+			.expect_err("generation path without equals sign rejected");
+
+		Args::try_parse_from([
+			"tuwunel".into(),
+			long("regenerate-config"),
+			"renewed.toml".into(),
+		])
+		.expect_err("regeneration path without equals sign rejected");
+	}
+
+	#[test]
+	fn config_commands_are_mutually_exclusive() {
+		Args::try_parse_from([
+			"tuwunel".into(),
+			long("generate-config"),
+			long("regenerate-config"),
+		])
+		.expect_err("config commands are mutually exclusive");
+	}
+
+	#[test]
+	fn config_commands_conflict_with_health_check() {
+		for command in ["generate-config", "regenerate-config"] {
+			Args::try_parse_from(["tuwunel".into(), long(command), long("health-check")])
+				.expect_err("config command and health check are mutually exclusive");
+		}
+	}
+
+	#[test]
+	fn config_commands_conflict_with_restore_backup() {
+		for command in ["generate-config", "regenerate-config"] {
+			Args::try_parse_from(["tuwunel".into(), long(command), long("restore-backup")])
+				.expect_err("config command and backup restore are mutually exclusive");
+		}
+	}
+
+	#[test]
+	fn config_command_controls_parse() {
+		let generate = Args::parse_from([
+			"tuwunel".into(),
+			long("generate-config=fresh.toml"),
+			long("force"),
+		]);
+
+		let regenerate = Args::parse_from([
+			"tuwunel".into(),
+			long("regenerate-config"),
+			long("force"),
+			long("include-env"),
+			long("strip-unknown"),
+		]);
+
+		assert!(generate.force);
+		assert!(regenerate.force);
+		assert!(regenerate.include_env);
+		assert!(regenerate.strip_unknown);
+	}
+
+	#[test]
+	fn force_requires_a_config_command() {
+		Args::try_parse_from(["tuwunel".into(), long("force")])
+			.expect_err("force without a config command rejected");
+	}
+
+	#[test]
+	fn regeneration_controls_require_the_command() {
+		Args::try_parse_from(["tuwunel".into(), long("include-env")])
+			.expect_err("environment inclusion without regeneration rejected");
+
+		Args::try_parse_from(["tuwunel".into(), long("strip-unknown")])
+			.expect_err("residue stripping without regeneration rejected");
 	}
 }
