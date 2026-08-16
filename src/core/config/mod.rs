@@ -2807,7 +2807,12 @@ pub struct Config {
 	/// firewall with zones as doing this on the application layer may have
 	/// bypasses.
 	///
-	/// Currently this does not account for proxies in use like Synapse does.
+	/// Proxy endpoints selected by configuration or environment variables are
+	/// exempt so a private forward proxy can be reached. Destination addresses
+	/// remain filtered for direct requests and for locally resolving `socks4`
+	/// and `socks5` proxies. HTTP(S) forward proxies and `socks4a` or
+	/// `socks5h` resolve the destination remotely, so their egress policy must
+	/// enforce the destination network boundary instead.
 	///
 	/// To disable, set this to be an empty vector (`[]`).
 	///

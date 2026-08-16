@@ -2,7 +2,7 @@ use std::task::{Context, Waker};
 
 use crate::{
 	Error,
-	utils::{self, MutexMap, math::usize_from_f64},
+	utils::{self, MutexMap, math::usize_from_f64, url::hostname_matches_domain},
 };
 
 #[test]
@@ -374,4 +374,25 @@ fn page_size() {
 	println!("{val:?}");
 
 	assert!(val != 0, "page size was zero");
+}
+
+#[test]
+fn hostname_domain_matching_is_case_insensitive_and_label_bounded() {
+	for (hostname, domain, expected) in [
+		("example.com", "example.com", true),
+		("EXAMPLE.COM", ".example.com", true),
+		("sub.example.com", "example.com", true),
+		("sub.example.com", ".EXAMPLE.COM", true),
+		("notexample.com", "example.com", false),
+		("example.org", "example.com", false),
+		("example.com.", ".", true),
+		("example.com", ".", false),
+		("example.com", "", false),
+	] {
+		assert_eq!(
+			hostname_matches_domain(hostname, domain),
+			expected,
+			"hostname {hostname}, domain {domain}",
+		);
+	}
 }

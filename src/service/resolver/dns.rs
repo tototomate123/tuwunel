@@ -16,7 +16,7 @@ use hickory_resolver::{
 };
 use ipaddress::IPAddress;
 use reqwest::dns::{Addrs, Name, Resolve, Resolving};
-use tuwunel_core::{Result, Server, err, trace};
+use tuwunel_core::{Result, Server, config::proxy::ProxyHosts, err, trace};
 
 use super::cache::{Cache, CachedOverride};
 use crate::client::ipaddress_from_std;
@@ -28,11 +28,14 @@ pub struct Resolver {
 	server: Arc<Server>,
 }
 
-/// Inner resolver wrapper that drops addresses matching the configured CIDR
-/// denylist before reqwest opens a connection.
-pub struct Validating<R> {
+/// Filters destination DNS answers through the configured CIDR denylist.
+///
+/// Proxy endpoint names are exempt because their addresses describe the
+/// transport hop rather than the request destination.
+pub(crate) struct Validating<R> {
 	inner: Arc<R>,
 	denylist: Arc<[IPAddress]>,
+	proxy_hosts: ProxyHosts,
 }
 
 pub(crate) struct Hooked {
@@ -203,13 +206,25 @@ impl Resolver {
 }
 
 impl<R: Resolve + 'static> Validating<R> {
-	pub fn new(inner: Arc<R>, denylist: Arc<[IPAddress]>) -> Arc<Self> {
-		Arc::new(Self { inner, denylist })
+	pub(crate) fn new(
+		inner: Arc<R>,
+		denylist: Arc<[IPAddress]>,
+		proxy_hosts: ProxyHosts,
+	) -> Arc<Self> {
+		Arc::new(Self { inner, denylist, proxy_hosts })
 	}
 }
 
 impl<R: Resolve + 'static> Resolve for Validating<R> {
 	fn resolve(&self, name: Name) -> Resolving {
+		if self
+			.proxy_hosts
+			.iter()
+			.any(|host| host.eq_ignore_ascii_case(name.as_str()))
+		{
+			return self.inner.resolve(name);
+		}
+
 		validate_addrs(self.inner.clone(), self.denylist.clone(), name).boxed()
 	}
 }
@@ -219,9 +234,9 @@ async fn validate_addrs<R: Resolve + 'static>(
 	denylist: Arc<[IPAddress]>,
 	name: Name,
 ) -> ResolvingResult {
-	let mut filtered = inner
-		.resolve(name)
-		.await?
+	let addrs = inner.resolve(name).await?;
+
+	let mut filtered = addrs
 		.filter(move |sa| {
 			let ip = ipaddress_from_std(sa.ip());
 			!denylist.iter().any(|cidr| cidr.includes(&ip))

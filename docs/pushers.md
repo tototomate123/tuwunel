@@ -24,6 +24,14 @@ A self-hosted gateway on a LAN address, for example an ntfy server on
 is a forbidden remote address". Narrow `ip_range_denylist` to admit your
 gateway's range. Plain `http://` gateway URLs are accepted.
 
+When a forward proxy carries the request, its endpoint is exempt from
+`ip_range_denylist`. HTTP(S) forward proxies and `socks4a` or `socks5h`
+resolve destination names remotely, so they must enforce the destination
+network boundary themselves because Tuwunel cannot inspect that address.
+Destination addresses remain subject to the denylist for direct requests and
+for locally resolving `socks4` or `socks5` proxies, so the LAN guidance above
+still applies.
+
 Every push notification is sent to the gateway's Matrix spec path
 `/_matrix/push/v1/notify`; this path is not configurable. The
 `notification_push_path` option only controls a substring stripped from

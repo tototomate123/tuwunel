@@ -2,7 +2,6 @@ use std::{fmt::Debug, mem::swap};
 
 use bytes::BytesMut;
 use http::Response as HttpResponse;
-use ipaddress::IPAddress;
 use reqwest::{Error as ReqwestError, Response};
 use ruma::api::{
 	IncomingResponse, OutgoingRequest, OutgoingRequestExt, auth_scheme::AuthScheme,
@@ -36,13 +35,25 @@ where
 		.map(BytesMut::freeze);
 
 	let reqwest_request = reqwest::Request::try_from(http_request)?;
-	if let Some(url_host) = reqwest_request.url().host_str() {
-		trace!("Checking request URL for IP");
-		if let Ok(ip) = IPAddress::parse(url_host)
-			&& !self.services.client.valid_cidr_range(&ip)
-		{
-			return Err!(BadServerResponse("Not allowed to send requests to this IP"));
-		}
+
+	if self
+		.services
+		.client
+		.proxy
+		.resolver_alias(reqwest_request.url())
+	{
+		return Err!(BadServerResponse(
+			"Not allowed to request a locally resolved proxy endpoint"
+		));
+	}
+
+	trace!("Checking request URL for IP");
+	if !self
+		.services
+		.client
+		.valid_cidr_range_url(reqwest_request.url())
+	{
+		return Err!(BadServerResponse("Not allowed to send requests to this IP"));
 	}
 
 	match self
@@ -64,8 +75,11 @@ where
 {
 	trace!("Checking response destination's IP");
 	if let Some(remote_addr) = response.remote_addr()
-		&& let Ok(ip) = IPAddress::parse(remote_addr.ip().to_string())
-		&& !self.services.client.valid_cidr_range(&ip)
+		&& !self
+			.services
+			.client
+			.valid_cidr_range_ip(remote_addr.ip())
+		&& !self.services.client.proxied(response.url())
 	{
 		return Err!(BadServerResponse("Not allowed to send requests to this IP"));
 	}

@@ -12,7 +12,8 @@ use async_trait::async_trait;
 use ruma::OwnedServerName;
 use tuwunel_core::{Result, smallstr::SmallString, utils::MutexMap};
 
-pub use self::dns::{Resolver, Validating};
+pub use self::dns::Resolver;
+pub(crate) use self::dns::Validating;
 use self::{cache::Cache, fed::FedDest};
 
 pub struct Service {

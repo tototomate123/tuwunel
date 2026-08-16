@@ -294,8 +294,7 @@ pub(super) async fn location_request(
 
 	let response = request.send().await?;
 
-	// a completed response without a peer address is not a real reqwest
-	// outcome; fail closed rather than skip the screen
+	// a missing peer address cannot be screened, so fail closed
 	let Some(remote_addr) = response.remote_addr() else {
 		return Err!(Request(Forbidden("Media response has no peer address")));
 	};
@@ -303,7 +302,7 @@ pub(super) async fn location_request(
 	if !self
 		.services
 		.client
-		.valid_cidr_range_ip(remote_addr.ip())
+		.valid_cidr_range_remote_addr(response.url(), remote_addr)
 	{
 		return Err!(Request(Forbidden("Requesting from this address is forbidden")));
 	}

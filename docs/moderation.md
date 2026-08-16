@@ -230,8 +230,12 @@ IP egress:
   outbound requests to. Defaults to RFC1918, loopback, multicast, link-local,
   and the documentation/testnet ranges. This is application-layer enforcement
   and not a substitute for a host firewall, but it closes the obvious SSRF
-  vectors out of the box. Set to `[]` only if a firewall is enforcing the
-  same constraints upstream.
+  vectors out of the box. Forward proxy endpoints are exempt. Destination
+  addresses remain filtered for direct requests and for locally resolving
+  `socks4` or `socks5` proxies. HTTP(S) forward proxies and `socks4a` or
+  `socks5h` resolve destinations remotely, so they must enforce their own
+  egress policy. Set to `[]` only if a firewall is enforcing the same
+  constraints upstream.
 
 ## Redaction retention and forensics
 

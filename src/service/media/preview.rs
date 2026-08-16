@@ -361,8 +361,7 @@ fn is_youtube(url: &Url) -> bool {
 
 /// Screen a preview response's peer address against the CIDR denylist.
 ///
-/// A completed response carrying no peer address is not a real reqwest
-/// outcome, so it fails closed rather than skipping the screen.
+/// A missing peer address cannot be screened, so it fails closed.
 #[implement(Service)]
 fn check_remote_addr(&self, response: &reqwest::Response) -> Result {
 	let Some(remote_addr) = response.remote_addr() else {
@@ -373,7 +372,7 @@ fn check_remote_addr(&self, response: &reqwest::Response) -> Result {
 
 	self.services
 		.client
-		.valid_cidr_range_ip(remote_addr.ip())
+		.valid_cidr_range_remote_addr(response.url(), remote_addr)
 		.then_some(())
 		.ok_or_else(|| err!(Request(Forbidden("Requesting from this address is forbidden"))))
 }
@@ -977,6 +976,12 @@ fn declares_media_type(obj: &OpengraphObject, class: &str) -> bool {
 
 #[implement(Service)]
 pub(super) fn check_url_host(&self, url: &Url) -> Result {
+	if self.services.client.proxy.resolver_alias(url) {
+		return Err!(Request(Forbidden(
+			"Requesting a locally resolved proxy endpoint is forbidden"
+		)));
+	}
+
 	let host = url
 		.host()
 		.ok_or_else(|| err!(Request(Unknown("URL has no host"))))?;

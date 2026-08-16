@@ -29,6 +29,7 @@ mod tests;
 pub mod time;
 pub mod two_phase_counter;
 pub mod unhandled;
+pub mod url;
 
 pub use ::ctor::ctor;
 pub use ::dtor::dtor;

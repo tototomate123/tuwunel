@@ -13,7 +13,6 @@ use std::{
 };
 
 use futures::{Stream, StreamExt, TryFutureExt, future::join};
-use ipaddress::IPAddress;
 use ruma::{
 	DeviceId, OwnedDeviceId, OwnedEventId, OwnedRoomId, OwnedUserId, RoomId, UserId,
 	api::client::push::{Pusher, PusherKind, set_pusher::v3::PusherAction},
@@ -175,22 +174,7 @@ fn set_pusher_post(
 			err!(Request(InvalidParam(warn!(%url, "HTTP pusher URL is not a valid URL: {e}"))))
 		})?;
 
-		if ["http", "https"]
-			.iter()
-			.all(|&scheme| !scheme.eq_ignore_ascii_case(url.scheme()))
-		{
-			return Err!(Request(InvalidParam(
-				warn!(%url, "HTTP pusher URL is not a valid HTTP/HTTPS URL")
-			)));
-		}
-
-		if let Ok(ip) = IPAddress::parse(url.host_str().expect("URL previously validated"))
-			&& !self.services.client.valid_cidr_range(&ip)
-		{
-			return Err!(Request(InvalidParam(
-				warn!(%url, "HTTP pusher URL is a forbidden remote address")
-			)));
-		}
+		self.check_http_pusher_url(&url)?;
 	}
 
 	let key = (sender, pushkey);
@@ -200,6 +184,32 @@ fn set_pusher_post(
 		.insert(pushkey, sender_device);
 
 	self.forget_sent_badge(sender, pushkey);
+
+	Ok(())
+}
+
+#[implement(Service)]
+fn check_http_pusher_url(&self, url: &Url) -> Result {
+	if ["http", "https"]
+		.iter()
+		.all(|&scheme| !scheme.eq_ignore_ascii_case(url.scheme()))
+	{
+		return Err!(Request(InvalidParam(
+			warn!(%url, "HTTP pusher URL is not a valid HTTP/HTTPS URL")
+		)));
+	}
+
+	if self.services.client.proxy.resolver_alias(url) {
+		return Err!(Request(InvalidParam(
+			warn!(%url, "HTTP pusher URL is a forbidden proxy endpoint")
+		)));
+	}
+
+	if !self.services.client.valid_cidr_range_url(url) {
+		return Err!(Request(InvalidParam(
+			warn!(%url, "HTTP pusher URL is a forbidden remote address")
+		)));
+	}
 
 	Ok(())
 }

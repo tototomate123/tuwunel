@@ -1,5 +1,5 @@
 use std::{
-	net::IpAddr,
+	net::{IpAddr, SocketAddr},
 	ops::Deref,
 	sync::{Arc, LazyLock},
 	time::Duration,
@@ -7,12 +7,17 @@ use std::{
 
 use bytes::{Bytes, BytesMut};
 use ipaddress::{IPAddress, ipv4::from_u32 as ipv4_from_u32};
-use reqwest::{Client, ClientBuilder, dns::Resolve, header::HeaderValue, redirect};
+use reqwest::{Client, ClientBuilder, Url, dns::Resolve, header::HeaderValue, redirect::Policy};
 use tuwunel_core::{
-	Config, Err, Result, debug, either::Either, err, error::error_chain, implement, trace,
+	Config, Err, Result, config::proxy::ProxySnapshot, debug, either::Either, err,
+	error::error_chain, implement, trace,
 };
+use url::Host;
 
 use crate::{Services, resolver::Validating, service};
+
+#[cfg(test)]
+mod tests;
 
 type DisableEncoding = fn(ClientBuilder) -> ClientBuilder;
 
@@ -32,6 +37,11 @@ pub struct Clients {
 pub struct Service {
 	pub clients: LazyLock<Clients, Box<dyn FnOnce() -> Clients + Send>>,
 
+	/// Effective proxy policy for this generation of clients.
+	///
+	/// The snapshot keeps client routing, DNS exemptions, and response checks
+	/// aligned even if configuration or environment values later change.
+	pub proxy: Arc<ProxySnapshot>,
 	pub cidr_range_denylist: Arc<[IPAddress]>,
 }
 
@@ -44,8 +54,9 @@ impl Deref for Service {
 impl crate::Service for Service {
 	fn build(args: &crate::Args<'_>) -> Result<Arc<Self>> {
 		let config = &args.server.config;
+		let proxy = Arc::new(ProxySnapshot::new(&config.proxy)?);
 
-		probe_tls(config)?;
+		probe_tls(config, &proxy)?;
 
 		Ok(Arc::new(Self {
 			clients: LazyLock::new(Box::new({
@@ -54,6 +65,7 @@ impl crate::Service for Service {
 				move || make_clients(&services).expect("failed to construct clients")
 			})),
 
+			proxy,
 			cidr_range_denylist: config
 				.ip_range_denylist
 				.iter()
@@ -73,8 +85,8 @@ impl crate::Service for Service {
 /// The clients are built lazily on first use, so a platform trust store that
 /// yields no roots surfaces as a panic inside whichever worker reaches for a
 /// client first. Probing once at startup turns that into a legible boot error.
-fn probe_tls(config: &Config) -> Result {
-	base(config, None)?
+fn probe_tls(config: &Config, proxy: &ProxySnapshot) -> Result {
+	base(config, proxy, None)?
 		.build()
 		.map(drop)
 		.map_err(|e| {
@@ -90,11 +102,13 @@ fn probe_tls(config: &Config) -> Result {
 fn make_clients(services: &Services) -> Result<Clients> {
 	macro_rules! with {
 		($builder:ident => $make:expr) => {{
-			let $builder = base(&services.config, None)?;
+			let $builder = base(&services.config, &services.client.proxy, None)?;
+
 			$make.build()?
 		}};
 		($name:literal, $builder:ident => $make:expr) => {{
-			let $builder = base(&services.config, Some($name))?;
+			let $builder = base(&services.config, &services.client.proxy, Some($name))?;
+
 			$make.build()?
 		}};
 	}
@@ -108,8 +122,9 @@ fn make_clients(services: &Services) -> Result<Clients> {
 			.dns_resolver(Validating::new(
 				Arc::clone(&services.resolver.resolver),
 				Arc::clone(&services.client.cidr_range_denylist),
+				services.client.proxy.shared_hosts(),
 			))
-			.redirect(redirect::Policy::limited(3))),
+			.redirect(guarded_redirect(services, 3))),
 
 		well_known: with!(cb => cb
 			.dns_resolver(Arc::clone(&services.resolver.resolver))
@@ -119,7 +134,7 @@ fn make_clients(services: &Services) -> Result<Clients> {
 			.read_timeout(Duration::from_secs(services.config.well_known_timeout))
 			.timeout(Duration::from_secs(services.config.well_known_timeout))
 			.pool_max_idle_per_host(0)
-			.redirect(redirect::Policy::limited(4))),
+			.redirect(Policy::limited(4))),
 
 		federation: with!(cb => cb
 			.dns_resolver(Arc::clone(&services.resolver.resolver.hooked))
@@ -128,13 +143,13 @@ fn make_clients(services: &Services) -> Result<Clients> {
 			.pool_idle_timeout(Duration::from_secs(
 				services.config.federation_idle_timeout,
 			))
-			.redirect(redirect::Policy::limited(3))),
+			.redirect(Policy::limited(3))),
 
 		synapse: with!(cb => cb
 			.dns_resolver(Arc::clone(&services.resolver.resolver.hooked))
 			.read_timeout(Duration::from_secs(305))
 			.pool_max_idle_per_host(0)
-			.redirect(redirect::Policy::limited(3))),
+			.redirect(Policy::limited(3))),
 
 		sender: with!(cb => cb
 			.dns_resolver(Arc::clone(&services.resolver.resolver.hooked))
@@ -144,7 +159,7 @@ fn make_clients(services: &Services) -> Result<Clients> {
 			.pool_idle_timeout(Duration::from_secs(
 				services.config.sender_idle_timeout,
 			))
-			.redirect(redirect::Policy::limited(2))),
+			.redirect(Policy::limited(2))),
 
 		appservice: with!(cb => cb
 			.dns_resolver(appservice_resolver(services))
@@ -155,22 +170,23 @@ fn make_clients(services: &Services) -> Result<Clients> {
 			.pool_idle_timeout(Duration::from_secs(
 				services.config.appservice_idle_timeout,
 			))
-			.redirect(redirect::Policy::limited(2))),
+			.redirect(Policy::limited(2))),
 
 		pusher: with!(cb => cb
 			.dns_resolver(Validating::new(
 				Arc::clone(&services.resolver.resolver),
 				Arc::clone(&services.client.cidr_range_denylist),
+				services.client.proxy.shared_hosts(),
 			))
 			.pool_max_idle_per_host(1)
 			.pool_idle_timeout(Duration::from_secs(
 				services.config.pusher_idle_timeout,
 			))
-			.redirect(redirect::Policy::limited(2))),
+			.redirect(guarded_redirect(services, 2))),
 
 		oauth: with!(cb => cb
 			.dns_resolver(Arc::clone(&services.resolver.resolver))
-			.redirect(redirect::Policy::limited(0))
+			.redirect(Policy::limited(0))
 			.pool_max_idle_per_host(1)),
 	})
 }
@@ -189,15 +205,43 @@ fn preview_builder(services: &Services, builder: ClientBuilder) -> Result<Client
 	let resolver = Validating::new(
 		Arc::clone(&services.resolver.resolver),
 		Arc::clone(&services.client.cidr_range_denylist),
+		services.client.proxy.shared_hosts(),
 	);
 
 	Ok(builder_interface(builder, bind_iface.as_deref())?
 		.local_address(bind_addr)
 		.dns_resolver(resolver)
-		.redirect(redirect::Policy::limited(3)))
+		.redirect(guarded_redirect(services, 3)))
 }
 
-fn base(config: &Config, name: Option<&str>) -> Result<ClientBuilder> {
+fn guarded_redirect(services: &Services, max: usize) -> Policy {
+	let proxy = Arc::clone(&services.client.proxy);
+	let denylist = Arc::clone(&services.client.cidr_range_denylist);
+	let limited = Policy::limited(max);
+
+	Policy::custom(move |attempt| {
+		if proxy.resolver_alias(attempt.url()) || !valid_cidr_range_url(&denylist, attempt.url())
+		{
+			attempt.error("redirect destination is not allowed")
+		} else {
+			limited.redirect(attempt)
+		}
+	})
+}
+
+fn valid_cidr_range_url(denylist: &[IPAddress], url: &Url) -> bool {
+	let ip = match url.host() {
+		| Some(Host::Ipv4(ip)) => IpAddr::V4(ip),
+		| Some(Host::Ipv6(ip)) => IpAddr::V6(ip),
+		| Some(Host::Domain(_)) | None => return true,
+	};
+
+	let ip = ipaddress_from_std(ip);
+
+	denylist.iter().all(|cidr| !cidr.includes(&ip))
+}
+
+fn base(config: &Config, proxy: &ProxySnapshot, name: Option<&str>) -> Result<ClientBuilder> {
 	let user_agent = tuwunel_core::version::user_agent();
 	let user_agent: HeaderValue = name
 		.map(|name| format!("{user_agent} {name}").try_into())
@@ -210,7 +254,7 @@ fn base(config: &Config, name: Option<&str>) -> Result<ClientBuilder> {
 		.pool_idle_timeout(Duration::from_secs(config.request_idle_timeout))
 		.pool_max_idle_per_host(config.request_idle_per_host.into())
 		.user_agent(user_agent)
-		.redirect(redirect::Policy::limited(6))
+		.redirect(Policy::limited(6))
 		.danger_accept_invalid_certs(config.allow_invalid_tls_certificates)
 		.connection_verbose(cfg!(debug_assertions))
 		// Check if env var is set to avoid locking the keyfile mutex on every connection open
@@ -227,10 +271,7 @@ fn base(config: &Config, name: Option<&str>) -> Result<ClientBuilder> {
 		.filter(|(enabled, _)| !enabled)
 		.fold(builder, |builder, (_, disable)| disable(builder));
 
-	match config.proxy.to_proxy()? {
-		| Some(proxy) => Ok(builder.proxy(proxy)),
-		| _ => Ok(builder),
-	}
+	Ok(proxy.configure(builder))
 }
 
 /// Prevents a remote peer from forcing unbounded response-body allocation.
@@ -304,6 +345,17 @@ fn appservice_resolver(services: &Services) -> Arc<dyn Resolve> {
 	}
 }
 
+/// Checks a response peer against the CIDR policy used by guarded clients.
+///
+/// A proxied response is screened at the proxy route instead; direct responses
+/// remain subject to the destination denylist.
+#[implement(Service)]
+#[inline]
+#[must_use]
+pub fn valid_cidr_range_remote_addr(&self, url: &Url, remote_addr: SocketAddr) -> bool {
+	self.valid_cidr_range_ip(remote_addr.ip()) || self.proxied(url)
+}
+
 #[inline]
 #[must_use]
 #[implement(Service)]
@@ -322,6 +374,26 @@ pub fn valid_cidr_range_ip(&self, ip: IpAddr) -> bool {
 		.iter()
 		.all(|cidr| !cidr.includes(&addr))
 }
+
+/// Checks an HTTP URL against the CIDR denylist when its host is an IP literal.
+///
+/// Domain names pass here because the validating resolver screens their
+/// addresses later, immediately before connection.
+#[implement(Service)]
+#[inline]
+#[must_use]
+pub fn valid_cidr_range_url(&self, url: &Url) -> bool {
+	valid_cidr_range_url(&self.cidr_range_denylist, url)
+}
+
+/// Reports whether this client generation proxies a request URL.
+///
+/// The result uses the same snapshotted configured or environment route that
+/// was applied when the clients were built.
+#[implement(Service)]
+#[inline]
+#[must_use]
+pub fn proxied(&self, url: &Url) -> bool { self.proxy.intercepts(url) }
 
 #[must_use]
 pub(crate) fn ipaddress_from_std(ip: IpAddr) -> IPAddress {

@@ -2,7 +2,6 @@ use futures::{
 	FutureExt,
 	future::{join, join4},
 };
-use ipaddress::IPAddress;
 use ruma::{
 	UInt, UserId,
 	api::{
@@ -216,23 +215,7 @@ fn prepare_http_pusher(&self, pusher: &Pusher, http: &HttpPusherData) -> Result<
 		)))
 	})?;
 
-	if ["http", "https"]
-		.iter()
-		.all(|&scheme| !scheme.eq_ignore_ascii_case(url.scheme()))
-	{
-		return Err!(Request(InvalidParam(
-			warn!(%url, "HTTP pusher URL is not a valid HTTP/HTTPS URL")
-		)));
-	}
-
-	let host = url.host_str().expect("URL previously validated");
-	if let Ok(ip) = IPAddress::parse(host)
-		&& !self.services.client.valid_cidr_range(&ip)
-	{
-		return Err!(Request(InvalidParam(
-			warn!(%url, "HTTP pusher URL is a forbidden remote address")
-		)));
-	}
+	self.check_http_pusher_url(&url)?;
 
 	let mut device = Device::new(pusher.ids.app_id.clone(), pusher.ids.pushkey.clone());
 	device.data.data.clone_from(&http.data);

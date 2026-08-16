@@ -11,7 +11,10 @@ use tracing::{level_filters::LevelFilter, subscriber::set_global_default};
 use tracing_subscriber::fmt::{MakeWriter, fmt};
 
 use super::*;
-use crate::utils::BoolExt;
+use crate::{
+	config::proxy::{ProxySnapshot, parse_environment_proxy_url},
+	utils::BoolExt,
+};
 
 thread_local! {
 	static CAPTURE: RefCell<Option<Arc<Mutex<Vec<u8>>>>> = const { RefCell::new(None) };
@@ -378,6 +381,383 @@ default_power_level_content_override = false
 		.expect_err("a non-table default_power_level_content_override must be rejected")
 		.to_string();
 	assert!(err.contains("default_power_level_content_override"), "{err}");
+}
+
+#[test]
+fn proxy_none_has_no_configured_surface() {
+	let config = config_from_toml("[global]\nproxy = \"none\"\n").expect("proxy config parses");
+	let url = Url::parse("https://example.com/").expect("test URL parses");
+
+	assert_eq!(config.proxy.hosts().count(), 0);
+	assert!(!config.proxy.intercepts(&url));
+}
+
+#[test]
+fn global_proxy_exposes_its_host_and_intercepts_http_urls() {
+	let config = config_from_toml(
+		"[global.proxy]\nglobal = { url = \"socks5h://proxy.internal:1080\" }\n",
+	)
+	.expect("proxy config parses");
+
+	let http = Url::parse("http://example.com/").expect("test URL parses");
+	let https = Url::parse("https://example.com/").expect("test URL parses");
+	let ftp = Url::parse("ftp://example.com/").expect("test URL parses");
+
+	assert_eq!(config.proxy.hosts().collect::<Vec<_>>(), ["proxy.internal"]);
+	assert!(config.proxy.intercepts(&http));
+	assert!(config.proxy.intercepts(&https));
+	assert!(!config.proxy.intercepts(&ftp));
+}
+
+#[test]
+fn domain_proxy_uses_the_configured_rule_for_both_surfaces() {
+	let config = config_from_toml(
+		"[global.proxy]\n[[global.proxy.by_domain]]\nurl = \
+		 \"socks5h://proxy.internal:1080\"\ninclude = [\"*.example.com\"]\nexclude = \
+		 [\"private.example.com\"]\n",
+	)
+	.expect("proxy config parses");
+
+	let included = Url::parse("https://public.example.com/").expect("test URL parses");
+	let excluded = Url::parse("https://private.example.com/").expect("test URL parses");
+	let unrelated = Url::parse("https://example.org/").expect("test URL parses");
+
+	assert_eq!(config.proxy.hosts().collect::<Vec<_>>(), ["proxy.internal"]);
+	assert!(config.proxy.intercepts(&included));
+	assert!(!config.proxy.intercepts(&excluded));
+	assert!(!config.proxy.intercepts(&unrelated));
+}
+
+#[test]
+fn environment_proxy_snapshot_preserves_scheme_and_no_proxy_rules() {
+	let proxy = proxy_snapshot(&ProxyConfig::None, false, &[
+		("HTTP_PROXY", "http://proxy.internal:8080"),
+		("NO_PROXY", "EXAMPLE.COM,10.0.0.0/8,192.0.2.1,2001:db8::1,."),
+	]);
+
+	let http = Url::parse("http://matrix.org/").expect("test URL parses");
+	let https = Url::parse("https://matrix.org/").expect("test URL parses");
+	let domain_bypass = Url::parse("http://sub.example.com/").expect("test URL parses");
+	let cidr_bypass = Url::parse("http://10.1.2.3/").expect("test URL parses");
+	let ipv4_bypass = Url::parse("http://192.0.2.1/").expect("test URL parses");
+	let ipv6_bypass = Url::parse("http://[2001:db8::1]/").expect("test URL parses");
+	let trailing_dot_bypass = Url::parse("http://matrix.org./").expect("test URL parses");
+
+	assert_eq!(proxy.hosts().collect::<Vec<_>>(), ["proxy.internal"]);
+	assert!(proxy.intercepts(&http));
+	assert!(!proxy.intercepts(&https));
+	assert!(!proxy.intercepts(&domain_bypass));
+	assert!(!proxy.intercepts(&cidr_bypass));
+	assert!(!proxy.intercepts(&ipv4_bypass));
+	assert!(!proxy.intercepts(&ipv6_bypass));
+	assert!(!proxy.intercepts(&trailing_dot_bypass));
+}
+
+fn proxy_snapshot(config: &ProxyConfig, is_cgi: bool, vars: &[(&str, &str)]) -> ProxySnapshot {
+	ProxySnapshot::with_vars(config, is_cgi, |name| {
+		vars.iter()
+			.find_map(|(key, value)| (*key == name).then(|| (*value).to_owned()))
+	})
+	.expect("proxy snapshot builds")
+}
+
+#[test]
+fn environment_proxy_precedence_and_fallback_match_the_http_client() {
+	let proxy = proxy_snapshot(&ProxyConfig::None, false, &[
+		("HTTP_PROXY", "socks4://upper.internal:1080"),
+		("http_proxy", "socks5h://lower.internal:1080"),
+		("HTTPS_PROXY", "ftp://invalid.internal:21"),
+		("https_proxy", "https://ignored.internal:8443"),
+		("ALL_PROXY", "socks4a://fallback.internal:1080"),
+		("all_proxy", "socks5://ignored-all.internal:1080"),
+		("NO_PROXY", ".EXAMPLE.COM"),
+		("no_proxy", "matrix.org"),
+	]);
+
+	let http = Url::parse("http://matrix.org/").expect("test URL parses");
+	let https = Url::parse("https://matrix.org/").expect("test URL parses");
+	let bypass = Url::parse("https://sub.example.com/").expect("test URL parses");
+	let local_alias = Url::parse("http://upper.internal/").expect("test URL parses");
+	let remote_alias = Url::parse("https://fallback.internal/").expect("test URL parses");
+
+	assert_eq!(proxy.hosts().collect::<Vec<_>>(), ["upper.internal", "fallback.internal"]);
+	assert!(proxy.intercepts(&http));
+	assert!(proxy.intercepts(&https));
+	assert!(!proxy.intercepts(&bypass));
+	assert!(proxy.resolver_alias(&local_alias));
+	assert!(!proxy.resolver_alias(&remote_alias));
+}
+
+#[test]
+fn environment_proxy_uri_metadata_matches_the_http_client_parser() {
+	let is_cgi = false;
+
+	for (proxy_url, proxy_host, endpoint, resolver_alias) in [
+		(
+			"socks5://no-port.internal",
+			"no-port.internal",
+			"https://no-port.internal/",
+			true,
+		),
+		(
+			"http://odd-port.internal:notaport",
+			"odd-port.internal",
+			"https://odd-port.internal/",
+			false,
+		),
+		("http://[v1.proxy]", "v1.proxy", "https://v1.proxy/", false),
+	] {
+		let proxy = proxy_snapshot(&ProxyConfig::None, is_cgi, &[("ALL_PROXY", proxy_url)]);
+		let request = Url::parse("https://matrix.org/").expect("test URL parses");
+		let endpoint = Url::parse(endpoint).expect("test URL parses");
+
+		assert_eq!(proxy.hosts().collect::<Vec<_>>(), [proxy_host]);
+		assert!(proxy.intercepts(&request));
+		assert_eq!(proxy.resolver_alias(&endpoint), resolver_alias);
+		assert_eq!(
+			parse_environment_proxy_url(proxy_url).and_then(|url| url.port_or_known_default()),
+			Some(80),
+		);
+	}
+}
+
+#[test]
+fn environment_proxy_credentials_preserve_empty_passwords() {
+	for proxy_url in ["http://Aladdin@proxy.internal", "socks5://Aladdin:@proxy.internal"] {
+		let proxy =
+			parse_environment_proxy_url(proxy_url).expect("credentialed proxy URL parses");
+
+		assert_eq!(proxy.username(), "Aladdin");
+		assert_eq!(proxy.password(), None);
+	}
+
+	let proxy = parse_environment_proxy_url("http://user:password@proxy.internal")
+		.expect("credentialed proxy URL parses");
+
+	assert_eq!(proxy.username(), "user");
+	assert_eq!(proxy.password(), Some("password"));
+}
+
+#[test]
+fn environment_proxy_ip_endpoints_do_not_enter_dns_exemptions() {
+	let is_cgi = false;
+
+	for proxy_url in ["http://192.0.2.1:8080", "http://[2001:db8::1]:8080"] {
+		let proxy = proxy_snapshot(&ProxyConfig::None, is_cgi, &[("ALL_PROXY", proxy_url)]);
+		let request = Url::parse("https://matrix.org/").expect("test URL parses");
+
+		assert_eq!(proxy.hosts().count(), 0);
+		assert!(proxy.intercepts(&request));
+	}
+}
+
+#[test]
+fn lowercase_environment_proxy_variables_are_supported() {
+	let proxy = proxy_snapshot(&ProxyConfig::None, false, &[
+		("http_proxy", "socks5://http.internal:1080"),
+		("https_proxy", "socks5h://https.internal:1080"),
+		("no_proxy", "example.com"),
+	]);
+	let fallback = proxy_snapshot(&ProxyConfig::None, false, &[(
+		"all_proxy",
+		"socks4a://all.internal:1080",
+	)]);
+
+	let http = Url::parse("http://matrix.org/").expect("test URL parses");
+	let https = Url::parse("https://matrix.org/").expect("test URL parses");
+	let bypass = Url::parse("https://sub.example.com/").expect("test URL parses");
+
+	assert_eq!(proxy.hosts().collect::<Vec<_>>(), ["http.internal", "https.internal"]);
+	assert!(proxy.intercepts(&http));
+	assert!(proxy.intercepts(&https));
+	assert!(!proxy.intercepts(&bypass));
+	assert_eq!(fallback.hosts().collect::<Vec<_>>(), ["all.internal"]);
+	assert!(fallback.intercepts(&http));
+	assert!(fallback.intercepts(&https));
+}
+
+#[test]
+fn environment_all_proxy_deduplicates_the_endpoint_host() {
+	let proxy =
+		proxy_snapshot(&ProxyConfig::None, false, &[("ALL_PROXY", "proxy.internal:8080")]);
+
+	let http = Url::parse("http://matrix.org/").expect("test URL parses");
+	let https = Url::parse("https://matrix.org/").expect("test URL parses");
+
+	assert_eq!(proxy.hosts().collect::<Vec<_>>(), ["proxy.internal"]);
+	assert!(proxy.intercepts(&http));
+	assert!(proxy.intercepts(&https));
+}
+
+#[test]
+fn environment_proxy_snapshot_is_disabled_for_cgi() {
+	let proxy = proxy_snapshot(&ProxyConfig::None, true, &[(
+		"ALL_PROXY",
+		"socks5h://proxy.internal:1080",
+	)]);
+
+	let url = Url::parse("https://example.com/").expect("test URL parses");
+
+	assert_eq!(proxy.hosts().count(), 0);
+	assert!(!proxy.intercepts(&url));
+}
+
+#[test]
+fn resolver_alias_recognizes_direct_endpoint_destinations() {
+	let config = config_from_toml(
+		"[global.proxy]\n[[global.proxy.by_domain]]\nurl = \
+		 \"socks5h://proxy.internal:1080\"\ninclude = [\"*.example.com\"]\n",
+	)
+	.expect("proxy config parses");
+
+	let proxy = proxy_snapshot(&config.proxy, false, &[]);
+	let alias = Url::parse("https://proxy.internal/").expect("test URL parses");
+	let proxied = Url::parse("https://public.example.com/").expect("test URL parses");
+	let unrelated = Url::parse("https://example.org/").expect("test URL parses");
+
+	assert!(proxy.resolver_alias(&alias));
+	assert!(!proxy.resolver_alias(&proxied));
+	assert!(!proxy.resolver_alias(&unrelated));
+}
+
+#[test]
+fn resolver_alias_tracks_the_selected_dns_mode() {
+	let alias = Url::parse("https://proxy.internal/").expect("test URL parses");
+
+	for (scheme, expected) in [
+		("socks4", true),
+		("socks5", true),
+		("socks4a", false),
+		("socks5h", false),
+		("http", false),
+		("https", false),
+	] {
+		let toml =
+			format!("[global.proxy]\nglobal = {{ url = \"{scheme}://proxy.internal:1080\" }}\n");
+
+		let config = config_from_toml(&toml).expect("proxy config parses");
+		let proxy = proxy_snapshot(&config.proxy, false, &[]);
+
+		assert_eq!(proxy.resolver_alias(&alias), expected, "proxy scheme {scheme}");
+	}
+}
+
+#[test]
+fn resolver_alias_uses_the_first_matching_domain_proxy() {
+	let local_first = config_from_toml(
+		"[global.proxy]\n[[global.proxy.by_domain]]\nurl = \
+		 \"socks5://proxy.internal:1080\"\n[[global.proxy.by_domain]]\nurl = \
+		 \"socks5h://proxy.internal:1080\"\n",
+	)
+	.expect("proxy config parses");
+
+	let remote_first = config_from_toml(
+		"[global.proxy]\n[[global.proxy.by_domain]]\nurl = \
+		 \"socks5h://proxy.internal:1080\"\n[[global.proxy.by_domain]]\nurl = \
+		 \"socks5://proxy.internal:1080\"\n",
+	)
+	.expect("proxy config parses");
+
+	let alias = Url::parse("https://proxy.internal/").expect("test URL parses");
+
+	let local = proxy_snapshot(&local_first.proxy, false, &[]);
+	let remote = proxy_snapshot(&remote_first.proxy, false, &[]);
+
+	assert!(local.resolver_alias(&alias));
+	assert!(!remote.resolver_alias(&alias));
+}
+
+#[test]
+fn explicit_proxy_suppresses_environment_proxy_rules() {
+	let config = config_from_toml(
+		"[global.proxy]\n[[global.proxy.by_domain]]\nurl = \
+		 \"socks5h://configured.internal:1080\"\ninclude = [\"*.example.com\"]\n",
+	)
+	.expect("proxy config parses");
+
+	let proxy = proxy_snapshot(&config.proxy, false, &[(
+		"ALL_PROXY",
+		"http://environment.internal:8080",
+	)]);
+
+	let unrelated = Url::parse("https://example.org/").expect("test URL parses");
+
+	assert_eq!(proxy.hosts().collect::<Vec<_>>(), ["configured.internal"]);
+	assert!(!proxy.intercepts(&unrelated));
+}
+
+#[test]
+fn environment_no_proxy_star_bypasses_domains_but_not_ip_addresses() {
+	let proxy = proxy_snapshot(&ProxyConfig::None, false, &[
+		("ALL_PROXY", "http://proxy.internal:8080"),
+		("NO_PROXY", "*"),
+	]);
+
+	let domain = Url::parse("https://example.com/").expect("test URL parses");
+	let ip = Url::parse("https://127.0.0.1/").expect("test URL parses");
+
+	assert_eq!(proxy.hosts().collect::<Vec<_>>(), ["proxy.internal"]);
+	assert!(!proxy.intercepts(&domain));
+	assert!(proxy.intercepts(&ip));
+}
+
+#[test]
+fn environment_no_proxy_endpoint_is_a_resolver_alias() {
+	let proxy = proxy_snapshot(&ProxyConfig::None, false, &[
+		("HTTP_PROXY", "http://proxy.internal:8080"),
+		("NO_PROXY", "proxy.internal"),
+	]);
+
+	let url = Url::parse("http://proxy.internal/").expect("test URL parses");
+
+	assert!(proxy.resolver_alias(&url));
+}
+
+#[test]
+fn unsupported_configured_proxy_scheme_is_rejected() {
+	for toml in [
+		"[global.proxy]\nglobal = { url = \"ftp://proxy.internal:21\" }\n",
+		"[global.proxy]\n[[global.proxy.by_domain]]\nurl = \"ftp://proxy.internal:21\"\ninclude \
+		 = [\"*\"]\n",
+	] {
+		let config = config_from_toml(toml).expect("proxy config parses");
+		let url = Url::parse("https://example.com/").expect("test URL parses");
+
+		assert!(!config.proxy.intercepts(&url));
+		config
+			.proxy
+			.to_proxy()
+			.expect_err("unsupported proxy scheme must fail");
+		assert!(ProxySnapshot::with_vars(&config.proxy, false, |_| None).is_err());
+	}
+}
+
+#[test]
+fn proxy_snapshots_own_their_configured_and_environment_generations() {
+	let original_url = Url::parse("socks5://configured.internal:1080").expect("test URL parses");
+	let mut configured = ProxyConfig::Global { url: original_url };
+	let configured_snapshot = proxy_snapshot(&configured, false, &[]);
+
+	configured = ProxyConfig::None;
+	assert!(matches!(configured, ProxyConfig::None));
+
+	let configured_url = Url::parse("https://configured.internal/").expect("test URL parses");
+	assert_eq!(configured_snapshot.hosts().collect::<Vec<_>>(), ["configured.internal"]);
+	assert!(configured_snapshot.intercepts(&configured_url));
+	assert!(configured_snapshot.resolver_alias(&configured_url));
+
+	let environment_url = RefCell::new("socks5://environment.internal:1080");
+	let environment_snapshot = ProxySnapshot::with_vars(&ProxyConfig::None, false, |name| {
+		(name == "ALL_PROXY").then(|| environment_url.borrow().to_string())
+	})
+	.expect("proxy snapshot builds");
+
+	*environment_url.borrow_mut() = "http://changed.internal:8080";
+
+	let environment_url = Url::parse("https://environment.internal/").expect("test URL parses");
+	assert_eq!(environment_snapshot.hosts().collect::<Vec<_>>(), ["environment.internal"]);
+	assert!(environment_snapshot.intercepts(&environment_url));
+	assert!(environment_snapshot.resolver_alias(&environment_url));
 }
 
 /// A documented default is published to operators through the generated
