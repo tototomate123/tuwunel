@@ -8,6 +8,7 @@
 - [Deployment](deploying.md)
   - [Configuration](configuration.md)
     - [Examples](configuration/examples.md)
+    - [Regeneration](configuration/regeneration.md)
   - [Generic](deploying/generic.md)
     - [Systemd Socket Activation](deploying/socket-activation.md)
     - [Reloading Configuration](deploying/configuration-reload.md)
