@@ -82,9 +82,9 @@ cargo build --release -p tuwunel --no-default-features \
     --features brotli_compression,element_hacks,gzip_compression,jemalloc,jemalloc_conf,media_thumbnail,release_max_log_level,url_preview,zstd_compression
 ```
 
-No source changes or compiler flag workarounds are needed. Unlike FreeBSD on the
-same architecture, RocksDB's `crc32c_arm64.cc` compiles cleanly here, because
-none of its platform specific branches apply to NetBSD.
+No source changes or compiler flag workarounds are needed. The pinned RocksDB
+code probes NetBSD's exported CPU ID at run time and uses the arm64 CRC32C and
+PMULL paths when the CPU reports those extensions.
 
 On `amd64` the build is equally clean, but it is worth raising the target CPU
 before running it in anger; see [RocksDB on amd64](#rocksdb-on-amd64) below.
@@ -148,11 +148,10 @@ This is the axis the `x86_64-v1` through `x86_64-v4` release packages sit on. A
 build with no `-Ctarget-cpu` is the `v1` one, and nothing selects a higher level
 for you here.
 
-So CRC32C ends up in software on both of NetBSD's architectures, for unrelated
-reasons. Here the cause is the target the compiler was given and the flag above
-fixes it. On `evbarm-aarch64` it is a missing detection path in RocksDB itself,
-described under [Differences from the shipped
-platforms](#differences-from-the-shipped-platforms), and there is nothing to set.
+CRC32C ends up in software by default on `amd64` because of the compiler target,
+and the flag above fixes it. On `evbarm-aarch64`, RocksDB instead probes
+NetBSD's exported CPU ID at run time and uses the hardware CRC32C and PMULL paths
+when available.
 
 
 ## Running
@@ -244,15 +243,13 @@ sink is a terminal, so the log otherwise accumulates ANSI escapes.
 
 ## Differences from the shipped platforms
 
-**CRC32C runs in software on arm64.** RocksDB decides at run time whether the
-CPU has the CRC32 and PMULL extensions. `crc32c_arm64.cc` can answer that
-question through `getauxval` on Linux, `elf_aux_info` on FreeBSD, `sysctlbyname`
-on Apple platforms, and `sysctl` on OpenBSD. NetBSD matches none of those, so
-the check falls through to `return 0` and the accelerated paths are never
-selected, even on hardware that supports them. Every write-ahead log record is
-checksummed this way, so expect it to cost write throughput relative to a
-platform where detection works; table blocks use XXH3 and are unaffected.
-Teaching that file to query NetBSD would be a worthwhile contribution upstream.
+**CRC32C and PMULL are detected at run time on arm64.** RocksDB reads
+`machdep.cpu0.cpu_id` through `sysctlbyname` and inspects the exported
+`ID_AA64ISAR0_EL1` value. It selects hardware CRC32C when CPU 0 reports the
+CRC32 extension, and enables the PMULL path when CPU 0 also reports PMULL. If
+the CRC32 probe fails or the extension is unavailable, checksums use the
+software fallback. A failed PMULL probe disables only that path. Table blocks
+use XXH3 and are unaffected.
 
 **No `io_uring`.** The feature is Linux only, so RocksDB uses the POSIX I/O
 backend. This is the same code path every non-Linux build takes.
