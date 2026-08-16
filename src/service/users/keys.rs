@@ -22,6 +22,7 @@ use tuwunel_core::{
 use tuwunel_database::{Deserialized, Ignore, Interfix, Json, KeyBuf, Txn, serialize_key};
 
 type Servers = SmallVec<[OwnedServerName; 1]>;
+type Signatures = SmallVec<[(String, String); 1]>;
 
 /// MSC2732: row stored under `(user, device, algorithm)` in
 /// `userdeviceidalgorithm_fallback`. Fallback keys are not deleted on
@@ -493,7 +494,7 @@ pub async fn sign_key(
 	&self,
 	target_id: &UserId,
 	key_id: &str,
-	signature: (String, String),
+	signatures: Signatures,
 	sender_id: &UserId,
 ) -> Result {
 	let key = (target_id, key_id);
@@ -503,11 +504,15 @@ pub async fn sign_key(
 		.keyid_key
 		.qry(&key)
 		.await
-		.map_err(|_| err!(Request(InvalidParam("Tried to sign nonexistent key"))))?
+		.map_err(|_| err!(Request(NotFound("Tried to sign nonexistent key"))))?
 		.deserialized()
 		.map_err(|e| err!(Database(debug_warn!("key in keyid_key is invalid: {e:?}"))))?;
 
-	insert_signatures(&mut cross_signing_key, sender_id, [signature])?;
+	let changed = insert_signatures(&mut cross_signing_key, sender_id, signatures)?;
+
+	if !changed {
+		return Ok(());
+	}
 
 	let key = (target_id, key_id);
 	self.db
@@ -523,7 +528,7 @@ fn insert_signatures(
 	key: &mut serde_json::Value,
 	sender_id: &UserId,
 	additional: impl IntoIterator<Item = (String, String)>,
-) -> Result {
+) -> Result<bool> {
 	let signatures = key
 		.as_object_mut()
 		.ok_or_else(|| err!(Database(debug_warn!("key in keyid_key is not an object."))))?
@@ -545,13 +550,19 @@ fn insert_signatures(
 			err!(Database(debug_warn!("signatures in keyid_key for a user is invalid.")))
 		})?;
 
-	signatures.extend(
-		additional
-			.into_iter()
-			.map(|(key_id, signature)| (key_id, signature.into())),
-	);
+	let changed = additional
+		.into_iter()
+		.fold(false, |changed, (key_id, signature)| {
+			let entry_changed = signatures
+				.get(&key_id)
+				.and_then(serde_json::Value::as_str)
+				!= Some(&signature);
 
-	Ok(())
+			signatures.insert(key_id, signature.into());
+			changed | entry_changed
+		});
+
+	Ok(changed)
 }
 
 #[implement(super::Service)]
@@ -851,15 +862,20 @@ mod tests {
 		let sender_id = user_id!("@alice:example.com");
 		let mut key = serde_json::json!({
 			"user_id": sender_id,
-			"usage": ["master"],
 			"keys": { "ed25519:ALICE": "ALICE" },
 		});
+		let signatures = [("ed25519:ALICE".to_owned(), "alice-signature".to_owned())];
 
-		insert_signatures(&mut key, sender_id, [(
-			"ed25519:ALICE".to_owned(),
-			"alice-signature".to_owned(),
-		)])
-		.expect("signature insertion should succeed");
+		let changed = insert_signatures(&mut key, sender_id, signatures)
+			.expect("signature insertion should succeed");
+
+		assert!(changed);
+
+		let signatures = [("ed25519:ALICE".to_owned(), "alice-signature".to_owned())];
+		let changed = insert_signatures(&mut key, sender_id, signatures)
+			.expect("idempotent signature insertion should succeed");
+
+		assert!(!changed);
 
 		assert_eq!(key["signatures"][sender_id.as_str()]["ed25519:ALICE"], "alice-signature");
 	}
@@ -868,19 +884,37 @@ mod tests {
 	fn insert_signatures_preserves_existing_signers() {
 		let sender_id = user_id!("@alice:example.com");
 		let mut key = serde_json::json!({
+			"user_id": sender_id,
+			"keys": { "ed25519:ROOT": "root-public-key" },
 			"signatures": {
+				"@alice:example.com": { "ed25519:OLD": "old-signature" },
+				"@bob:example.com": { "ed25519:BOB": "bob-signature" },
+			},
+		});
+		let signatures = [
+			("ed25519:ALICE1".to_owned(), "alice-signature-1".to_owned()),
+			("ed25519:ALICE2".to_owned(), "alice-signature-2".to_owned()),
+		];
+
+		let changed = insert_signatures(&mut key, sender_id, signatures)
+			.expect("signature insertion should succeed");
+
+		assert!(changed);
+
+		let expected = serde_json::json!({
+			"user_id": sender_id,
+			"keys": { "ed25519:ROOT": "root-public-key" },
+			"signatures": {
+				"@alice:example.com": {
+					"ed25519:OLD": "old-signature",
+					"ed25519:ALICE1": "alice-signature-1",
+					"ed25519:ALICE2": "alice-signature-2",
+				},
 				"@bob:example.com": { "ed25519:BOB": "bob-signature" },
 			},
 		});
 
-		insert_signatures(&mut key, sender_id, [(
-			"ed25519:ALICE".to_owned(),
-			"alice-signature".to_owned(),
-		)])
-		.expect("signature insertion should succeed");
-
-		assert_eq!(key["signatures"]["@bob:example.com"]["ed25519:BOB"], "bob-signature");
-		assert_eq!(key["signatures"][sender_id.as_str()]["ed25519:ALICE"], "alice-signature");
+		assert_eq!(key, expected);
 	}
 
 	#[test]
