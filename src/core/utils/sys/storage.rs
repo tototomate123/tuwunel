@@ -3,19 +3,29 @@
 //! The helpers inspect filesystem metadata and system block-device information.
 //! Discovery covers backing device names, software RAID, and multi-queue
 //! properties.
+//!
+//! Discovery reads sysfs under `/sys/dev/block/` and stats the device through
+//! `MetadataExt`, neither of which exists outside the unix family. On
+//! non-unix targets these functions report no raid or return an unsupported
+//! error, so callers need no condition of their own.
 
+use std::path::Path;
+#[cfg(unix)]
 use std::{
 	ffi::OsStr,
 	fs,
 	fs::{FileType, read_to_string},
-	path::{Path, PathBuf},
+	path::PathBuf,
 };
 
+#[cfg(unix)]
 use itertools::Itertools;
+#[cfg(unix)]
 use libc::dev_t;
 
+use crate::Result;
+#[cfg(unix)]
 use crate::{
-	Result,
 	result::FlatOk,
 	utils::{result::LogDebugErr, string::SplitInfallible},
 };
@@ -57,6 +67,7 @@ pub struct Queue {
 }
 
 /// Get properties of a MultiDevice (md) storage system
+#[cfg(unix)]
 #[must_use]
 pub fn md_discover(path: &Path) -> MultiDevice {
 	let dev_id = dev_from_path(path)
@@ -101,7 +112,16 @@ pub fn md_discover(path: &Path) -> MultiDevice {
 	}
 }
 
+/// Get properties of a MultiDevice (md) storage system.
+///
+/// Reports no raid, since discovery needs sysfs, which this platform does
+/// not have.
+#[cfg(not(unix))]
+#[must_use]
+pub fn md_discover(_path: &Path) -> MultiDevice { MultiDevice::default() }
+
 /// Get properties of a MultiQueue within a MultiDevice.
+#[cfg(unix)]
 #[must_use]
 fn mq_discover(path: &Path) -> MultiQueue {
 	let mq_path = path.join("mq/");
@@ -133,6 +153,7 @@ fn mq_discover(path: &Path) -> MultiQueue {
 }
 
 /// Get properties of a Queue within a MultiQueue.
+#[cfg(unix)]
 fn queue_discover(dir: &Path) -> Queue {
 	let queue_id = dir.file_name();
 
@@ -165,6 +186,7 @@ fn queue_discover(dir: &Path) -> Queue {
 }
 
 /// Get the name of the block device on which Path is mounted.
+#[cfg(unix)]
 pub fn name_from_path(path: &Path) -> Result<String> {
 	use std::io::{Error, ErrorKind::NotFound};
 
@@ -181,9 +203,20 @@ pub fn name_from_path(path: &Path) -> Result<String> {
 		.map(Into::into)
 }
 
+/// Get the name of the block device on which Path is mounted.
+///
+/// Naming the device requires sysfs, so this always returns an unsupported
+/// error.
+#[cfg(not(unix))]
+pub fn name_from_path(_path: &Path) -> Result<String> {
+	use std::io::{Error, ErrorKind::Unsupported};
+
+	Err(Error::new(Unsupported, "Block device discovery requires sysfs.").into())
+}
+
 /// Get the (major, minor) of the block device on which Path is mounted.
+#[cfg(unix)]
 fn dev_from_path(path: &Path) -> Result<(dev_t, dev_t)> {
-	#[cfg(target_family = "unix")]
 	use std::os::unix::fs::MetadataExt;
 
 	let stat = fs::metadata(path)?;
@@ -214,6 +247,7 @@ fn dev_from_path(path: &Path) -> Result<(dev_t, dev_t)> {
 	Ok((major, minor))
 }
 
+#[cfg(unix)]
 fn block_path((major, minor): (dev_t, dev_t)) -> PathBuf {
 	format!("/sys/dev/block/{major}:{minor}/").into()
 }
