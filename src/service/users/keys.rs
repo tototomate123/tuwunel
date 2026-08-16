@@ -1,6 +1,6 @@
-use std::{collections::BTreeMap, mem, ops::Deref};
+use std::{collections::BTreeMap, mem, ops::Deref, sync::Arc};
 
-use futures::{Stream, StreamExt, TryFutureExt, pin_mut};
+use futures::{Stream, StreamExt, TryFutureExt, future::join4, pin_mut};
 use ruma::{
 	AnyKeyName, DeviceId, KeyId, OneTimeKeyAlgorithm, OneTimeKeyId, OneTimeKeyName, OwnedKeyId,
 	OwnedOneTimeKeyId, OwnedRoomId, OwnedServerName, RoomId, SigningKeyId, UInt, UserId,
@@ -23,10 +23,31 @@ use tuwunel_core::{
 		to_canonical_object,
 	},
 };
-use tuwunel_database::{Deserialized, Ignore, Interfix, Json, KeyBuf, Txn, serialize_key};
+use tuwunel_database::{Deserialized, Ignore, Interfix, Json, KeyBuf, Map, Txn, serialize_key};
 
 type Servers = SmallVec<[OwnedServerName; 1]>;
 type Signatures = SmallVec<[(String, String); 1]>;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum KeyRole {
+	Device,
+	CrossSigningRoot,
+	SelfSigning,
+	UserSigning,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum SignatureWrite {
+	Merge,
+	ReplaceSender,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum SignatureAction {
+	Ignore,
+	Reject,
+	Write(KeyRole, SignatureWrite),
+}
 
 /// MSC2732: row stored under `(user, device, algorithm)` in
 /// `userdeviceidalgorithm_fallback`. Fallback keys are not deleted on
@@ -503,29 +524,79 @@ pub async fn sign_key(
 ) -> Result {
 	let key = (target_id, key_id);
 
-	let mut cross_signing_key: serde_json::Value = self
+	let mut target_key: serde_json::Value = self
 		.db
 		.keyid_key
 		.qry(&key)
 		.await
-		.map_err(|error| {
-			if error.is_not_found() {
-				err!(Request(NotFound("Tried to sign nonexistent key")))
-			} else {
-				error
-			}
+		.map_err(|error| match error {
+			| error if error.is_not_found() =>
+				err!(Request(NotFound("Tried to sign nonexistent key"))),
+			| error => error,
 		})?
 		.deserialized()
 		.map_err(|e| err!(Database(debug_warn!("key in keyid_key is invalid: {e:?}"))))?;
 
-	let canonical = canonical_key(&cross_signing_key)?;
+	let target_role = self
+		.uploaded_key_role(target_id, key_id)
+		.await?
+		.ok_or_else(|| err!(Request(NotFound("Unknown device"))))?;
+
+	if !key_matches_role(&target_key, target_id, key_id, target_role) {
+		return Err!(Request(NotFound("Unknown device")));
+	}
+
+	let same_user = sender_id == target_id;
+	let mut canonical = None;
+	let mut accepted = false;
 	let mut changed = false;
 
-	for (key_id, signature) in signatures {
-		self.verify_key_signature(sender_id, &key_id, &signature, canonical.as_bytes())
+	for (signature_id, signature) in signatures {
+		let signature_key_id = <&SigningKeyId<AnyKeyName>>::try_from(signature_id.as_str())
+			.map_err(|source| VerificationError::ParseIdentifier {
+				identifier_type: "signing key ID",
+				source,
+			})?;
+
+		let signer_role = self
+			.uploaded_key_role(sender_id, signature_key_id.key_name().as_str())
 			.await?;
 
-		changed |= insert_signatures(&mut cross_signing_key, sender_id, [(key_id, signature)])?;
+		let (signer_role, write) = match signature_action(same_user, target_role, signer_role) {
+			| SignatureAction::Ignore => continue,
+			| SignatureAction::Reject => return Err!(Request(NotFound("Unknown device"))),
+			| SignatureAction::Write(signer_role, write) => (signer_role, write),
+		};
+
+		if canonical.is_none() {
+			canonical = Some(canonical_key(&target_key)?);
+		}
+
+		let canonical = canonical
+			.as_deref()
+			.ok_or_else(|| err!(Database("canonical key was not initialized")))?;
+
+		self.verify_key_signature(
+			sender_id,
+			signature_key_id,
+			signer_role,
+			&signature,
+			canonical.as_bytes(),
+		)
+		.await?;
+
+		changed |= match write {
+			| SignatureWrite::Merge =>
+				insert_signatures(&mut target_key, sender_id, [(signature_id, signature)])?,
+			| SignatureWrite::ReplaceSender =>
+				replace_signatures(&mut target_key, sender_id, (signature_id, signature))?,
+		};
+
+		accepted = true;
+	}
+
+	if !accepted {
+		return Err!(Request(NotFound("Unknown device")));
 	}
 
 	if !changed {
@@ -533,13 +604,102 @@ pub async fn sign_key(
 	}
 
 	let key = (target_id, key_id);
-	self.db
-		.keyid_key
-		.put(key, Json(cross_signing_key));
+	self.db.keyid_key.put(key, Json(target_key));
 
 	self.mark_device_key_update(target_id).await;
 
 	Ok(())
+}
+
+#[implement(super::Service)]
+async fn uploaded_key_role(&self, user_id: &UserId, key_id: &str) -> Result<Option<KeyRole>> {
+	let row_key = serialize_key((user_id, key_id))?;
+	let device_id: &DeviceId = key_id.into();
+
+	let (device, root, self_signing, user_signing) = join4(
+		self.device_exists(user_id, device_id),
+		pointer_matches(&self.db.userid_masterkeyid, user_id, row_key.as_slice()),
+		pointer_matches(&self.db.userid_selfsigningkeyid, user_id, row_key.as_slice()),
+		pointer_matches(&self.db.userid_usersigningkeyid, user_id, row_key.as_slice()),
+	)
+	.await;
+
+	Ok(key_role([device, root?, self_signing?, user_signing?]))
+}
+
+#[tracing::instrument(
+	level = "trace",
+	skip_all,
+	fields(
+		user = %user_id,
+	)
+)]
+async fn pointer_matches(map: &Arc<Map>, user_id: &UserId, row_key: &[u8]) -> Result<bool> {
+	match map.get(user_id).await {
+		| Ok(pointer) => Ok(&*pointer == row_key),
+		| Err(error) if error.is_not_found() => Ok(false),
+		| Err(error) => Err(error),
+	}
+}
+
+fn key_role([device, root, self_signing, user_signing]: [bool; 4]) -> Option<KeyRole> {
+	match (device, root, self_signing, user_signing) {
+		| (true, false, false, false) => Some(KeyRole::Device),
+		| (false, true, false, false) => Some(KeyRole::CrossSigningRoot),
+		| (false, false, true, false) => Some(KeyRole::SelfSigning),
+		| (false, false, false, true) => Some(KeyRole::UserSigning),
+		| _ => None,
+	}
+}
+
+fn key_matches_role(
+	key: &serde_json::Value,
+	user_id: &UserId,
+	key_id: &str,
+	role: KeyRole,
+) -> bool {
+	if key
+		.get("user_id")
+		.and_then(serde_json::Value::as_str)
+		!= Some(user_id.as_str())
+	{
+		return false;
+	}
+
+	match role {
+		| KeyRole::Device =>
+			key.get("device_id")
+				.and_then(serde_json::Value::as_str)
+				== Some(key_id),
+		| KeyRole::CrossSigningRoot | KeyRole::SelfSigning | KeyRole::UserSigning =>
+			key.get("device_id").is_none()
+				&& key
+					.get("keys")
+					.and_then(serde_json::Value::as_object)
+					.is_some_and(|keys| {
+						keys.len() == 1
+							&& keys
+								.values()
+								.any(|value| value.as_str() == Some(key_id))
+					}),
+	}
+}
+
+fn signature_action(
+	same_user: bool,
+	target: KeyRole,
+	signer: Option<KeyRole>,
+) -> SignatureAction {
+	match (same_user, target, signer) {
+		| (true, KeyRole::CrossSigningRoot, Some(KeyRole::Device)) =>
+			SignatureAction::Write(KeyRole::Device, SignatureWrite::Merge),
+		| (true, KeyRole::CrossSigningRoot, _) => SignatureAction::Reject,
+		| (true, KeyRole::Device, Some(KeyRole::SelfSigning)) =>
+			SignatureAction::Write(KeyRole::SelfSigning, SignatureWrite::Merge),
+		| (false, KeyRole::CrossSigningRoot, Some(KeyRole::UserSigning)) =>
+			SignatureAction::Write(KeyRole::UserSigning, SignatureWrite::ReplaceSender),
+		| _ => SignatureAction::Ignore,
+	}
 }
 
 fn canonical_key(key: &serde_json::Value) -> Result<String> {
@@ -555,36 +715,33 @@ fn canonical_key(key: &serde_json::Value) -> Result<String> {
 	fields(
 		sender = %sender_id,
 		signing_key_id = %key_id,
+		?role,
 	)
 )]
 async fn verify_key_signature(
 	&self,
 	sender_id: &UserId,
-	key_id: &str,
+	key_id: &SigningKeyId<AnyKeyName>,
+	role: KeyRole,
 	signature: &str,
 	canonical: &[u8],
 ) -> Result {
-	let key_id = <&SigningKeyId<AnyKeyName>>::try_from(key_id).map_err(|source| {
-		VerificationError::ParseIdentifier {
-			identifier_type: "signing key ID",
-			source,
-		}
-	})?;
-
 	let signing_key: serde_json::Value = self
 		.db
 		.keyid_key
 		.qry(&(sender_id, key_id.key_name().as_str()))
-		.map_err(|error| {
-			if error.is_not_found() {
-				VerificationError::NoPublicKeysForEntity(sender_id.to_string()).into()
-			} else {
-				error
-			}
+		.map_err(|error| match error {
+			| error if error.is_not_found() =>
+				VerificationError::NoPublicKeysForEntity(sender_id.to_string()).into(),
+			| error => error,
 		})
 		.await?
 		.deserialized()
 		.map_err(|e| err!(Database(debug_warn!("key in keyid_key is invalid: {e:?}"))))?;
+
+	if !key_matches_role(&signing_key, sender_id, key_id.key_name().as_str(), role) {
+		return Err(VerificationError::NoPublicKeysForEntity(sender_id.to_string()).into());
+	}
 
 	let public_key = signing_key
 		.get("keys")
@@ -606,6 +763,7 @@ fn verify_signature(
 ) -> Result {
 	let public_key = Base64::<Standard>::parse(public_key)
 		.map_err(|_| VerificationError::NoPublicKeysForEntity(sender_id.to_string()))?;
+
 	let signature = Base64::<Standard>::parse(signature).map_err(|source| {
 		VerificationError::InvalidBase64Signature {
 			path: format!("signatures.{sender_id}.{key_id}"),
@@ -628,25 +786,14 @@ fn insert_signatures(
 	sender_id: &UserId,
 	additional: impl IntoIterator<Item = (String, String)>,
 ) -> Result<bool> {
-	let signatures = key
-		.as_object_mut()
-		.ok_or_else(|| err!(Database(debug_warn!("key in keyid_key is not an object."))))?
-		.entry("signatures")
+	let signatures = signatures_map(key)?;
+
+	let signatures = signatures
+		.entry(sender_id.to_string())
 		.or_insert_with(|| serde_json::Map::new().into())
 		.as_object_mut()
 		.ok_or_else(|| {
-			err!(Database(debug_warn!("key in keyid_key has invalid signatures field.")))
-		})?;
-
-	if !signatures.contains_key(sender_id.as_str()) {
-		signatures.insert(sender_id.to_string(), serde_json::Map::new().into());
-	}
-
-	let signatures = signatures
-		.get_mut(sender_id.as_str())
-		.and_then(serde_json::Value::as_object_mut)
-		.ok_or_else(|| {
-			err!(Database(debug_warn!("signatures in keyid_key for a user is invalid.")))
+			err!(Database(debug_warn!("signature data in keyid_key for a user is invalid.")))
 		})?;
 
 	let changed = additional
@@ -657,11 +804,52 @@ fn insert_signatures(
 				.and_then(serde_json::Value::as_str)
 				!= Some(&signature);
 
-			signatures.insert(key_id, signature.into());
+			if entry_changed {
+				signatures.insert(key_id, signature.into());
+			}
+
 			changed | entry_changed
 		});
 
 	Ok(changed)
+}
+
+fn signatures_map(
+	key: &mut serde_json::Value,
+) -> Result<&mut serde_json::Map<String, serde_json::Value>> {
+	let key = key
+		.as_object_mut()
+		.ok_or_else(|| err!(Database(debug_warn!("key in keyid_key is not an object."))))?;
+
+	key.entry("signatures")
+		.or_insert_with(|| serde_json::Map::new().into())
+		.as_object_mut()
+		.ok_or_else(|| {
+			err!(Database(debug_warn!("key in keyid_key has invalid signatures field.")))
+		})
+}
+
+fn replace_signatures(
+	key: &mut serde_json::Value,
+	sender_id: &UserId,
+	(key_id, signature): (String, String),
+) -> Result<bool> {
+	let signatures = signatures_map(key)?;
+	let replacement = serde_json::Map::from_iter([(key_id, signature.into())]);
+
+	match signatures.get_mut(sender_id.as_str()) {
+		| Some(signatures)
+			if signatures
+				.as_object()
+				.is_some_and(|signatures| signatures == &replacement) =>
+			return Ok(false),
+		| Some(signatures) => *signatures = replacement.into(),
+		| None => {
+			signatures.insert(sender_id.to_string(), replacement.into());
+		},
+	}
+
+	Ok(true)
 }
 
 #[implement(super::Service)]
@@ -969,9 +1157,11 @@ mod tests {
 			"device_id": "DEVICE",
 			"keys": { "ed25519:DEVICE": "public-key" },
 		});
+
 		let canonical = canonical_key(&key)
 			.expect("signing JSON should serialize")
 			.into_bytes();
+
 		let signature = keypair.sign(&canonical).base64();
 		let public_key = Base64::<Standard, _>::new(keypair.public_key()).encode();
 
@@ -995,6 +1185,7 @@ mod tests {
 		let sender_id = user_id!("@alice:example.com");
 		let key_id = <&SigningKeyId<AnyKeyName>>::try_from("ed25519:DEVICE")
 			.expect("signature key ID should parse");
+
 		let der = Ed25519KeyPair::generate();
 		let keypair = Ed25519KeyPair::from_der(&der, "DEVICE".to_owned())
 			.expect("key pair should be generated");
@@ -1004,6 +1195,7 @@ mod tests {
 			"device_id": "DEVICE",
 			"keys": { "ed25519:DEVICE": "public-key" },
 		});
+
 		let canonical = canonical_key(&stored_key).expect("stored key should canonicalize");
 		let signature = keypair.sign(canonical.as_bytes()).base64();
 		let public_key = Base64::<Standard, _>::new(keypair.public_key()).encode();
@@ -1011,6 +1203,7 @@ mod tests {
 		stored_key["signatures"] = serde_json::json!({
 			"@bob:example.com": { "ed25519:BOB": "bob-signature" },
 		});
+
 		stored_key["unsigned"] = serde_json::json!({ "server_data": "ignored" });
 		let canonical_with_metadata =
 			canonical_key(&stored_key).expect("stored key with metadata should canonicalize");
@@ -1055,6 +1248,149 @@ mod tests {
 			error,
 			Error::Signatures(VerificationError::InvalidBase64Signature { .. })
 		));
+	}
+
+	#[test]
+	fn classifies_only_unambiguous_key_roles() {
+		for mask in 0_u8..16 {
+			let matches = [mask & 1 != 0, mask & 2 != 0, mask & 4 != 0, mask & 8 != 0];
+			let expected = match mask {
+				| 1 => Some(KeyRole::Device),
+				| 2 => Some(KeyRole::CrossSigningRoot),
+				| 4 => Some(KeyRole::SelfSigning),
+				| 8 => Some(KeyRole::UserSigning),
+				| _ => None,
+			};
+
+			assert_eq!(key_role(matches), expected, "role mask {mask:04b}");
+		}
+	}
+
+	#[test]
+	fn binds_key_roles_to_owner_and_row_shape() {
+		let user_id = user_id!("@alice:example.com");
+		let device = serde_json::json!({
+			"user_id": user_id,
+			"device_id": "DEVICE",
+			"keys": { "ed25519:DEVICE": "device-public-key" },
+		});
+
+		let cross_signing = serde_json::json!({
+			"user_id": user_id,
+			"usage": ["untrusted-value"],
+			"keys": { "ed25519:ROOT": "root-public-key" },
+		});
+
+		let multiple_keys = serde_json::json!({
+			"user_id": user_id,
+			"keys": {
+				"ed25519:ROOT": "root-public-key",
+				"ed25519:OTHER": "other-public-key",
+			},
+		});
+
+		assert!(key_matches_role(&device, user_id, "DEVICE", KeyRole::Device));
+		assert!(!key_matches_role(&device, user_id, "DEVICE", KeyRole::CrossSigningRoot));
+		assert!(key_matches_role(
+			&cross_signing,
+			user_id,
+			"root-public-key",
+			KeyRole::CrossSigningRoot
+		));
+		assert!(!key_matches_role(
+			&multiple_keys,
+			user_id,
+			"root-public-key",
+			KeyRole::CrossSigningRoot
+		));
+		assert!(!key_matches_role(
+			&cross_signing,
+			user_id,
+			"different-public-key",
+			KeyRole::CrossSigningRoot
+		));
+
+		assert!(!key_matches_role(
+			&cross_signing,
+			user_id!("@bob:example.com"),
+			"root-public-key",
+			KeyRole::CrossSigningRoot
+		));
+	}
+
+	#[test]
+	fn accepts_only_supported_signature_scopes() {
+		let roles = [
+			KeyRole::Device,
+			KeyRole::CrossSigningRoot,
+			KeyRole::SelfSigning,
+			KeyRole::UserSigning,
+		];
+		let cases = [false, true].into_iter().flat_map(|same_user| {
+			roles.into_iter().flat_map(move |target| {
+				roles
+					.into_iter()
+					.map(Some)
+					.chain([None])
+					.map(move |signer| (same_user, target, signer))
+			})
+		});
+
+		for (same_user, target, signer) in cases {
+			let expected = match (same_user, target, signer) {
+				| (true, KeyRole::CrossSigningRoot, Some(KeyRole::Device)) =>
+					SignatureAction::Write(KeyRole::Device, SignatureWrite::Merge),
+				| (true, KeyRole::CrossSigningRoot, _) => SignatureAction::Reject,
+				| (true, KeyRole::Device, Some(KeyRole::SelfSigning)) =>
+					SignatureAction::Write(KeyRole::SelfSigning, SignatureWrite::Merge),
+				| (false, KeyRole::CrossSigningRoot, Some(KeyRole::UserSigning)) =>
+					SignatureAction::Write(KeyRole::UserSigning, SignatureWrite::ReplaceSender),
+				| _ => SignatureAction::Ignore,
+			};
+
+			assert_eq!(
+				signature_action(same_user, target, signer),
+				expected,
+				"same_user={same_user}, target={target:?}, signer={signer:?}"
+			);
+		}
+	}
+
+	#[test]
+	fn replacing_signatures_bounds_key_rotation_history() {
+		let sender_id = user_id!("@alice:example.com");
+		let mut key = serde_json::json!({
+			"signatures": {
+				"@alice:example.com": { "ed25519:OLD": "old-signature" },
+				"@bob:example.com": { "ed25519:BOB": "bob-signature" },
+			},
+		});
+
+		let changed = replace_signatures(
+			&mut key,
+			sender_id,
+			("ed25519:NEW".to_owned(), "new-signature".to_owned()),
+		)
+		.expect("signature replacement should succeed");
+
+		assert!(changed);
+
+		let changed = replace_signatures(
+			&mut key,
+			sender_id,
+			("ed25519:NEW".to_owned(), "new-signature".to_owned()),
+		)
+		.expect("idempotent signature replacement should succeed");
+
+		assert!(!changed);
+
+		let sender_signatures = key["signatures"][sender_id.as_str()]
+			.as_object()
+			.expect("sender signatures should remain an object");
+
+		assert_eq!(sender_signatures.len(), 1);
+		assert_eq!(sender_signatures["ed25519:NEW"], "new-signature");
+		assert_eq!(key["signatures"]["@bob:example.com"]["ed25519:BOB"], "bob-signature");
 	}
 
 	#[test]
