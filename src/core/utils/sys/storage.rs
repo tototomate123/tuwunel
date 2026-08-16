@@ -5,9 +5,9 @@
 //! properties.
 //!
 //! Discovery reads sysfs under `/sys/dev/block/` and stats the device through
-//! `MetadataExt`, neither of which exists outside the unix family. Non-unix
-//! targets get arms that report nothing found, so callers need no condition of
-//! their own.
+//! `MetadataExt`, neither of which exists outside the unix family. On
+//! non-unix targets these functions report no raid or return an unsupported
+//! error, so callers need no condition of their own.
 
 use std::path::Path;
 #[cfg(unix)]
@@ -114,8 +114,8 @@ pub fn md_discover(path: &Path) -> MultiDevice {
 
 /// Get properties of a MultiDevice (md) storage system.
 ///
-/// Reports no raid on a target without sysfs, which is what the unix arm also
-/// returns for a path that is not on one.
+/// Reports no raid, since discovery needs sysfs, which this platform does
+/// not have.
 #[cfg(not(unix))]
 #[must_use]
 pub fn md_discover(_path: &Path) -> MultiDevice { MultiDevice::default() }
@@ -205,8 +205,8 @@ pub fn name_from_path(path: &Path) -> Result<String> {
 
 /// Get the name of the block device on which Path is mounted.
 ///
-/// Naming the device requires sysfs, so this reports the target cannot do it.
-/// The unix arm already returns an error when the name is not there to be read.
+/// Naming the device requires sysfs, so this always returns an unsupported
+/// error.
 #[cfg(not(unix))]
 pub fn name_from_path(_path: &Path) -> Result<String> {
 	use std::io::{Error, ErrorKind::Unsupported};
