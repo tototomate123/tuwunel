@@ -1,6 +1,6 @@
 use futures::StreamExt;
 use ruma::{MilliSecondsSinceUnixEpoch, ServerName, thirdparty::Medium};
-use tuwunel_core::{Result, debug_warn, err, info, utils::stream::TryIgnore, warn};
+use tuwunel_core::{Result, debug_warn, err, info, warn};
 
 use super::local_user_id;
 use crate::{Services, threepid::canonicalize_email};
@@ -27,11 +27,14 @@ pub(super) async fn migrate_email_bindings(services: &Services) -> Result {
 
 	let (adopted, skipped, unreadable) = localpart_email
 		.stream()
-		.ignore_err()
-		.fold((0_usize, 0_usize, 0_usize), async |acc, (localpart, address): (&str, &str)| {
-			let adopted = adopt_one(services, server_name, bound_at, localpart, address);
+		.fold((0_usize, 0_usize, 0_usize), async |acc, binding: Result<(&str, &str)>| {
+			let adopted = match binding {
+				| Err(e) => Err(e),
+				| Ok((localpart, address)) =>
+					adopt_one(services, server_name, bound_at, localpart, address).await,
+			};
 
-			tally_adoption(acc, adopted.await)
+			tally_adoption(acc, adopted)
 		})
 		.await;
 

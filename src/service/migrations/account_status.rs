@@ -1,14 +1,10 @@
 use std::sync::Arc;
 
-use futures::StreamExt;
+use futures::TryStreamExt;
 use ruma::{OwnedUserId, UserId};
 use tuwunel_core::{
 	Result, err, info,
-	utils::{
-		ReadyExt,
-		option::OptionExt,
-		stream::{BroadbandExt, TryIgnore},
-	},
+	utils::{ReadyExt, option::OptionExt, stream::BroadbandExt},
 	warn,
 };
 use tuwunel_database::Map;
@@ -56,9 +52,13 @@ async fn adopt_deactivations(services: &Services, deactivated: &Arc<Map>) -> Res
 
 	let (adopted, unreadable) = deactivated
 		.keys::<&UserId>()
-		.ignore_err()
-		.map(ToOwned::to_owned)
-		.broad_filter_map(async |user_id: OwnedUserId| {
+		.map_ok(ToOwned::to_owned)
+		.broad_filter_map(async |account: Result<OwnedUserId>| {
+			let user_id = match account {
+				| Ok(user_id) => user_id,
+				| Err(e) => return Some(Err(e)),
+			};
+
 			match hash_empty(userid_password, &user_id).await {
 				| Ok(Some(false)) => Some(Ok(user_id)),
 				| Ok(_) => None,
@@ -104,9 +104,16 @@ async fn adopt_passwordless(
 
 	let (adopted, unreadable) = subjects
 		.stream()
-		.ignore_err()
-		.ready_filter_map(|(_, localpart): (&str, &str)| local_user_id(localpart, server_name))
-		.broad_filter_map(async |user_id: OwnedUserId| {
+		.ready_filter_map(|subject: Result<(&str, &str)>| match subject {
+			| Ok((_, localpart)) => local_user_id(localpart, server_name).map(Ok),
+			| Err(e) => Some(Err(e)),
+		})
+		.broad_filter_map(async |account: Result<OwnedUserId>| {
+			let user_id = match account {
+				| Ok(user_id) => user_id,
+				| Err(e) => return Some(Err(e)),
+			};
+
 			match restorable(services, deactivated, &user_id).await {
 				| Ok(false) => None,
 				| Ok(true) => Some(Ok(user_id)),
