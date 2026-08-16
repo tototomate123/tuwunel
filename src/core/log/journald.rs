@@ -3,13 +3,14 @@
 //! The module routes formatted messages to the journal socket and records
 //! structured tracing fields for journal queries.
 
+#[cfg(unix)]
+use std::os::unix::net::UnixDatagram;
 use std::{
 	cell::RefCell,
 	env::args_os,
 	ffi::OsStr,
 	fmt::Debug,
 	io::{self, Write, stderr},
-	os::unix::net::UnixDatagram,
 	path::Path,
 };
 
@@ -25,6 +26,8 @@ use tracing_subscriber::{
 	registry::LookupSpan,
 };
 
+#[cfg(not(unix))]
+use self::unsupported::UnixDatagram;
 use super::is_systemd_mode;
 use crate::{
 	Config, Result,
@@ -40,6 +43,30 @@ use crate::{
 
 #[cfg(test)]
 mod tests;
+
+/// Stand-in for the journald socket on targets outside the unix family.
+///
+/// Nothing constructs it, since `enabled()` is always false without systemd.
+#[cfg(not(unix))]
+mod unsupported {
+	use std::io;
+
+	use super::implement;
+
+	pub(super) struct UnixDatagram;
+
+	#[implement(UnixDatagram)]
+	pub(super) fn unbound() -> io::Result<Self> { Err(unavailable()) }
+
+	#[implement(UnixDatagram)]
+	pub(super) fn send_to(&self, _payload: &[u8], _path: &str) -> io::Result<usize> {
+		Err(unavailable())
+	}
+
+	fn unavailable() -> io::Error {
+		io::Error::new(io::ErrorKind::Unsupported, "journald requires unix datagram sockets")
+	}
+}
 
 /// Encoded journal fields; a longer run spills to the heap.
 type Buffer = SmallVec<[u8; 128]>;
