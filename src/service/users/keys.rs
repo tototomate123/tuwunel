@@ -2,14 +2,17 @@ use std::{collections::BTreeMap, mem, ops::Deref};
 
 use futures::{Stream, StreamExt, TryFutureExt, pin_mut};
 use ruma::{
-	DeviceId, KeyId, OneTimeKeyAlgorithm, OneTimeKeyId, OneTimeKeyName, OwnedKeyId,
-	OwnedOneTimeKeyId, OwnedRoomId, OwnedServerName, RoomId, UInt, UserId,
+	AnyKeyName, DeviceId, KeyId, OneTimeKeyAlgorithm, OneTimeKeyId, OneTimeKeyName, OwnedKeyId,
+	OwnedOneTimeKeyId, OwnedRoomId, OwnedServerName, RoomId, SigningKeyId, UInt, UserId,
 	encryption::{CrossSigningKey, DeviceKeys, OneTimeKey},
-	serde::Raw,
+	serde::{Base64, Raw, base64::Standard},
+	signatures::{
+		VerificationError, to_canonical_json_string_for_signing, verify_canonical_json_bytes,
+	},
 };
 use serde::{Deserialize, Serialize};
 use tuwunel_core::{
-	Err, Result,
+	Err, Error, Result,
 	debug::INFO_SPAN_LEVEL,
 	debug_error, err, implement,
 	smallvec::SmallVec,
@@ -17,6 +20,7 @@ use tuwunel_core::{
 		BoolExt, IterStream, ReadyExt,
 		result::LogErr,
 		stream::{BroadbandExt, TryIgnore},
+		to_canonical_object,
 	},
 };
 use tuwunel_database::{Deserialized, Ignore, Interfix, Json, KeyBuf, Txn, serialize_key};
@@ -504,11 +508,25 @@ pub async fn sign_key(
 		.keyid_key
 		.qry(&key)
 		.await
-		.map_err(|_| err!(Request(NotFound("Tried to sign nonexistent key"))))?
+		.map_err(|error| {
+			if error.is_not_found() {
+				err!(Request(NotFound("Tried to sign nonexistent key")))
+			} else {
+				error
+			}
+		})?
 		.deserialized()
 		.map_err(|e| err!(Database(debug_warn!("key in keyid_key is invalid: {e:?}"))))?;
 
-	let changed = insert_signatures(&mut cross_signing_key, sender_id, signatures)?;
+	let canonical = canonical_key(&cross_signing_key)?;
+	let mut changed = false;
+
+	for (key_id, signature) in signatures {
+		self.verify_key_signature(sender_id, &key_id, &signature, canonical.as_bytes())
+			.await?;
+
+		changed |= insert_signatures(&mut cross_signing_key, sender_id, [(key_id, signature)])?;
+	}
 
 	if !changed {
 		return Ok(());
@@ -520,6 +538,87 @@ pub async fn sign_key(
 		.put(key, Json(cross_signing_key));
 
 	self.mark_device_key_update(target_id).await;
+
+	Ok(())
+}
+
+fn canonical_key(key: &serde_json::Value) -> Result<String> {
+	let key = to_canonical_object(key)?;
+
+	Ok(to_canonical_json_string_for_signing(&key)?)
+}
+
+#[implement(super::Service)]
+#[tracing::instrument(
+	level = "trace",
+	skip_all,
+	fields(
+		sender = %sender_id,
+		signing_key_id = %key_id,
+	)
+)]
+async fn verify_key_signature(
+	&self,
+	sender_id: &UserId,
+	key_id: &str,
+	signature: &str,
+	canonical: &[u8],
+) -> Result {
+	let key_id = <&SigningKeyId<AnyKeyName>>::try_from(key_id).map_err(|source| {
+		VerificationError::ParseIdentifier {
+			identifier_type: "signing key ID",
+			source,
+		}
+	})?;
+
+	let signing_key: serde_json::Value = self
+		.db
+		.keyid_key
+		.qry(&(sender_id, key_id.key_name().as_str()))
+		.map_err(|error| {
+			if error.is_not_found() {
+				VerificationError::NoPublicKeysForEntity(sender_id.to_string()).into()
+			} else {
+				error
+			}
+		})
+		.await?
+		.deserialized()
+		.map_err(|e| err!(Database(debug_warn!("key in keyid_key is invalid: {e:?}"))))?;
+
+	let public_key = signing_key
+		.get("keys")
+		.and_then(|keys| keys.get(key_id.as_str()))
+		.and_then(serde_json::Value::as_str)
+		.ok_or_else(|| {
+			Error::from(VerificationError::NoPublicKeysForEntity(sender_id.to_string()))
+		})?;
+
+	verify_signature(sender_id, key_id, public_key, signature, canonical)
+}
+
+fn verify_signature(
+	sender_id: &UserId,
+	key_id: &SigningKeyId<AnyKeyName>,
+	public_key: &str,
+	signature: &str,
+	canonical: &[u8],
+) -> Result {
+	let public_key = Base64::<Standard>::parse(public_key)
+		.map_err(|_| VerificationError::NoPublicKeysForEntity(sender_id.to_string()))?;
+	let signature = Base64::<Standard>::parse(signature).map_err(|source| {
+		VerificationError::InvalidBase64Signature {
+			path: format!("signatures.{sender_id}.{key_id}"),
+			source,
+		}
+	})?;
+
+	verify_canonical_json_bytes(
+		&key_id.algorithm(),
+		public_key.as_bytes(),
+		signature.as_bytes(),
+		canonical,
+	)?;
 
 	Ok(())
 }
@@ -853,9 +952,110 @@ where
 
 #[cfg(test)]
 mod tests {
-	use ruma::user_id;
+	use ruma::{
+		signatures::{Ed25519KeyPair, KeyPair},
+		user_id,
+	};
 
 	use super::*;
+
+	fn signature_fixture() -> (String, String, Vec<u8>) {
+		let der = Ed25519KeyPair::generate();
+		let keypair = Ed25519KeyPair::from_der(&der, "DEVICE".to_owned())
+			.expect("key pair should be generated");
+
+		let key = serde_json::json!({
+			"user_id": "@alice:example.com",
+			"device_id": "DEVICE",
+			"keys": { "ed25519:DEVICE": "public-key" },
+		});
+		let canonical = canonical_key(&key)
+			.expect("signing JSON should serialize")
+			.into_bytes();
+		let signature = keypair.sign(&canonical).base64();
+		let public_key = Base64::<Standard, _>::new(keypair.public_key()).encode();
+
+		(public_key, signature, canonical)
+	}
+
+	#[test]
+	fn verifies_canonical_signature_bytes() {
+		let sender_id = user_id!("@alice:example.com");
+		let key_id = <&SigningKeyId<AnyKeyName>>::try_from("ed25519:DEVICE")
+			.expect("signature key ID should parse");
+
+		let (public_key, signature, canonical) = signature_fixture();
+
+		verify_signature(sender_id, key_id, &public_key, &signature, &canonical)
+			.expect("signature should verify");
+	}
+
+	#[test]
+	fn canonicalizes_stored_key_for_verification() {
+		let sender_id = user_id!("@alice:example.com");
+		let key_id = <&SigningKeyId<AnyKeyName>>::try_from("ed25519:DEVICE")
+			.expect("signature key ID should parse");
+		let der = Ed25519KeyPair::generate();
+		let keypair = Ed25519KeyPair::from_der(&der, "DEVICE".to_owned())
+			.expect("key pair should be generated");
+
+		let mut stored_key = serde_json::json!({
+			"user_id": sender_id,
+			"device_id": "DEVICE",
+			"keys": { "ed25519:DEVICE": "public-key" },
+		});
+		let canonical = canonical_key(&stored_key).expect("stored key should canonicalize");
+		let signature = keypair.sign(canonical.as_bytes()).base64();
+		let public_key = Base64::<Standard, _>::new(keypair.public_key()).encode();
+
+		stored_key["signatures"] = serde_json::json!({
+			"@bob:example.com": { "ed25519:BOB": "bob-signature" },
+		});
+		stored_key["unsigned"] = serde_json::json!({ "server_data": "ignored" });
+		let canonical_with_metadata =
+			canonical_key(&stored_key).expect("stored key with metadata should canonicalize");
+
+		assert_eq!(canonical_with_metadata, canonical);
+		verify_signature(
+			sender_id,
+			key_id,
+			&public_key,
+			&signature,
+			canonical_with_metadata.as_bytes(),
+		)
+		.expect("signature over the stored key should verify");
+	}
+
+	#[test]
+	fn rejects_signature_over_different_key() {
+		let sender_id = user_id!("@alice:example.com");
+		let key_id = <&SigningKeyId<AnyKeyName>>::try_from("ed25519:DEVICE")
+			.expect("signature key ID should parse");
+
+		let (public_key, signature, _) = signature_fixture();
+
+		let error = verify_signature(sender_id, key_id, &public_key, &signature, b"{}")
+			.expect_err("signature over another object should fail");
+
+		assert!(matches!(error, Error::Signatures(_)));
+	}
+
+	#[test]
+	fn rejects_malformed_signature_base64() {
+		let sender_id = user_id!("@alice:example.com");
+		let key_id = <&SigningKeyId<AnyKeyName>>::try_from("ed25519:DEVICE")
+			.expect("signature key ID should parse");
+
+		let (public_key, _, canonical) = signature_fixture();
+
+		let error = verify_signature(sender_id, key_id, &public_key, "not base64?", &canonical)
+			.expect_err("malformed signature base64 should fail");
+
+		assert!(matches!(
+			error,
+			Error::Signatures(VerificationError::InvalidBase64Signature { .. })
+		));
+	}
 
 	#[test]
 	fn insert_signatures_creates_missing_map() {

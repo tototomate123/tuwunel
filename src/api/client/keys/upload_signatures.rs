@@ -93,12 +93,18 @@ async fn sign_key(
 		.users
 		.sign_key(user_id, key_id, signatures, sender_user)
 		.await
-		.map_err(|error| {
-			if !matches!(&error, Error::Request(..)) {
-				warn!(?error, "Failed to upload key signature");
-			}
+		.map_err(|error| match error {
+			| Error::Signatures(_) => (
+				FailureErrorCode::InvalidSignature,
+				"Signature does not verify against the stored key.".to_owned(),
+			),
+			| error => {
+				if !matches!(&error, Error::Request(..)) {
+					warn!(?error, "Failed to upload key signature");
+				}
 
-			(FailureErrorCode::from(error.kind().to_string()), error.sanitized_message())
+				(FailureErrorCode::from(error.kind().to_string()), error.sanitized_message())
+			},
 		})
 }
 
