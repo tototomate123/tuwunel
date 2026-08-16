@@ -199,7 +199,7 @@ async fn symlink_file(target: impl AsRef<Path>, link: impl AsRef<Path>) -> io::R
 
 	#[cfg(not(any(unix, windows)))]
 	{
-		let _ = (target, link);
+		_ = (target, link);
 
 		Err(io::Error::new(
 			io::ErrorKind::Unsupported,
