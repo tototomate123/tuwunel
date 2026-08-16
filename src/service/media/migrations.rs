@@ -2,7 +2,8 @@ use std::{
 	collections::HashSet,
 	ffi::{OsStr, OsString},
 	fs::{self},
-	path::PathBuf,
+	io,
+	path::{Path, PathBuf},
 	sync::Arc,
 	time::Instant,
 };
@@ -52,7 +53,7 @@ pub(crate) async fn migrate_sha256_media(services: &Services) -> Result {
 		if old_path.exists() {
 			tokio::fs::rename(&old_path, &path).await?;
 			if config.media_compat_file_link {
-				tokio::fs::symlink(&path, &old_path).await?;
+				symlink_file(&path, &old_path).await?;
 			}
 		}
 	}
@@ -144,7 +145,7 @@ async fn handle_media_check(
 			"Media found but missing legacy link. Fixing..."
 		);
 
-		tokio::fs::symlink(&new_path, &old_path).await?;
+		symlink_file(&new_path, &old_path).await?;
 	}
 
 	if config.media_compat_file_link && !new_exists && old_exists {
@@ -159,7 +160,7 @@ async fn handle_media_check(
 		);
 
 		tokio::fs::rename(&old_path, &new_path).await?;
-		tokio::fs::symlink(&new_path, &old_path).await?;
+		symlink_file(&new_path, &old_path).await?;
 	}
 
 	if !config.media_compat_file_link && old_exists && old_is_symlink().await {
@@ -177,4 +178,32 @@ async fn handle_media_check(
 	}
 
 	Ok(())
+}
+
+/// Links `link` to the file at `target`.
+///
+/// `tokio::fs::symlink` is unix-only. Windows distinguishes a link to a file
+/// from a link to a directory and offers `symlink_file` for the former, which
+/// is what every caller here wants. Elsewhere there is no portable equivalent
+/// to call.
+async fn symlink_file(target: impl AsRef<Path>, link: impl AsRef<Path>) -> io::Result<()> {
+	#[cfg(unix)]
+	{
+		tokio::fs::symlink(target, link).await
+	}
+
+	#[cfg(windows)]
+	{
+		tokio::fs::symlink_file(target, link).await
+	}
+
+	#[cfg(not(any(unix, windows)))]
+	{
+		_ = (target, link);
+
+		Err(io::Error::new(
+			io::ErrorKind::Unsupported,
+			"Symlinks are not supported on this platform.",
+		))
+	}
 }
