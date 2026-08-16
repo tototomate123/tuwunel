@@ -44,31 +44,27 @@ use crate::{
 #[cfg(test)]
 mod tests;
 
-/// The journald submission socket is a unix datagram socket, which targets
-/// outside the unix family do not have. This module is compiled everywhere, so
-/// rather than a `#[cfg]` on each of the six items that mention a socket, those
-/// targets get one that cannot be opened.
+/// Stand-in for the journald socket on targets outside the unix family.
 ///
-/// Nothing constructs it: `enabled()` requires `is_systemd_mode()`, which tests
-/// `SYSTEMD_EXEC_PID` and `JOURNAL_STREAM`, so it is false wherever systemd is
-/// absent. These exist to keep the type checker honest, and they report failure
-/// rather than pretend to succeed.
+/// Nothing constructs it, since `enabled()` is always false without systemd.
 #[cfg(not(unix))]
 mod unsupported {
-	use std::io::{Error, ErrorKind::Unsupported, Result};
+	use std::io;
+
+	use super::implement;
 
 	pub(super) struct UnixDatagram;
 
-	impl UnixDatagram {
-		pub(super) fn unbound() -> Result<Self> { Err(unavailable()) }
+	#[implement(UnixDatagram)]
+	pub(super) fn unbound() -> io::Result<Self> { Err(unavailable()) }
 
-		pub(super) fn send_to(&self, _payload: &[u8], _path: &str) -> Result<usize> {
-			Err(unavailable())
-		}
+	#[implement(UnixDatagram)]
+	pub(super) fn send_to(&self, _payload: &[u8], _path: &str) -> io::Result<usize> {
+		Err(unavailable())
 	}
 
-	fn unavailable() -> Error {
-		Error::new(Unsupported, "journald requires unix datagram sockets")
+	fn unavailable() -> io::Error {
+		io::Error::new(io::ErrorKind::Unsupported, "journald requires unix datagram sockets")
 	}
 }
 
