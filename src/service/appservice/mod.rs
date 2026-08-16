@@ -16,14 +16,15 @@ use std::{
 use async_trait::async_trait;
 use futures::{FutureExt, Stream, TryStreamExt};
 use ruma::{RoomAliasId, RoomId, UserId, api::appservice::Registration};
-use tokio::sync::{RwLock, RwLockReadGuard};
-use tuwunel_core::{Err, Result, err, utils::stream::IterStream};
+use tokio::sync::{RwLock, RwLockReadGuard, SetOnce};
+use tuwunel_core::{Err, Result, defer, err, utils::stream::IterStream};
 use tuwunel_database::Map;
 
 pub use self::{namespace_regex::NamespaceRegex, registration_info::RegistrationInfo};
 
 pub struct Service {
 	registration_info: RwLock<Registrations>,
+	loaded: SetOnce<()>,
 	services: Arc<crate::services::OnceServices>,
 	db: Data,
 }
@@ -39,6 +40,7 @@ impl crate::Service for Service {
 	fn build(args: &crate::Args<'_>) -> Result<Arc<Self>> {
 		Ok(Arc::new(Self {
 			registration_info: RwLock::new(BTreeMap::new()),
+			loaded: SetOnce::new(),
 			services: args.services.clone(),
 			db: Data {
 				id_appserviceregistrations: args.db["id_appserviceregistrations"].clone(),
@@ -47,6 +49,22 @@ impl crate::Service for Service {
 	}
 
 	async fn worker(self: Arc<Self>) -> Result {
+		defer! {{
+			self.loaded.set(()).ok();
+		}}
+
+		self.load().await
+	}
+
+	fn name(&self) -> &str { crate::service::make_name(std::module_path!()) }
+}
+
+impl Service {
+	/// Loads every registration source into the runtime registry.
+	///
+	/// The configured `appservice` table is read first, then any YAML under
+	/// `appservice_dir`, then the registrations persisted by the admin command.
+	async fn load(&self) -> Result {
 		for (id, mut appservice) in self.services.config.appservice.clone() {
 			if appservice.id.is_empty() {
 				appservice.id = id.clone();
@@ -94,10 +112,6 @@ impl crate::Service for Service {
 		Ok(())
 	}
 
-	fn name(&self) -> &str { crate::service::make_name(std::module_path!()) }
-}
-
-impl Service {
 	pub async fn load_appservice(&self, registration: Registration) -> Result {
 		//TODO: Check for collisions between exclusive appservice namespaces
 
@@ -137,6 +151,8 @@ impl Service {
 	}
 
 	pub async fn register_appservice(&self, registration: Registration) -> Result {
+		self.loaded().await;
+
 		let id = registration.id.clone();
 
 		let appservice_yaml = serde_yaml::to_string(&registration)?;
@@ -151,6 +167,8 @@ impl Service {
 	}
 
 	pub async fn unregister_appservice(&self, appservice_id: &str) -> Result {
+		self.loaded().await;
+
 		let mut registrations = self.registration_info.write().await;
 
 		if !registrations.contains_key(appservice_id) {
@@ -274,4 +292,12 @@ impl Service {
 	pub fn read(&self) -> impl Future<Output = RwLockReadGuard<'_, Registrations>> + Send {
 		self.registration_info.read()
 	}
+
+	/// Waits for the boot-time registration load to finish.
+	///
+	/// The latch is released on every exit from the worker, a failed or
+	/// panicking load included, so a waiter is never stranded on a load that
+	/// will not complete.
+	#[inline]
+	pub async fn loaded(&self) { self.loaded.wait().await; }
 }
