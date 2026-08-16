@@ -9,8 +9,9 @@ use std::{
 	hash::{DefaultHasher, Hash, Hasher},
 	io::Write,
 	iter::{once, repeat_with},
+	mem::take,
 	pin::pin,
-	sync::Arc,
+	sync::{Arc, Mutex as StdMutex},
 };
 
 use async_trait::async_trait;
@@ -18,7 +19,10 @@ use futures::{FutureExt, Stream, StreamExt};
 use loole::unbounded;
 use ruma::{DeviceId, OwnedRoomId, RoomId, ServerName, UserId};
 use serde::Serialize;
-use tokio::{task, task::JoinSet};
+use tokio::{
+	task,
+	task::{JoinError, JoinSet},
+};
 use tuwunel_core::{
 	Result, Server, debug, debug_warn, err, error,
 	smallvec::SmallVec,
@@ -41,6 +45,9 @@ pub struct Service {
 	server: Arc<Server>,
 	services: Arc<crate::services::OnceServices>,
 	channels: Vec<(loole::Sender<Msg>, loole::Receiver<Msg>)>,
+
+	// Aborted and joined when the service stops.
+	flushes: StdMutex<JoinSet<()>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -114,6 +121,7 @@ impl crate::Service for Service {
 			server: args.server.clone(),
 			services: args.services.clone(),
 			channels: repeat_with(unbounded).take(num_senders).collect(),
+			flushes: JoinSet::new().into(),
 		}))
 	}
 
@@ -147,10 +155,19 @@ impl crate::Service for Service {
 			}
 		}
 
+		let mut flushes = take(&mut *self.flushes.lock().expect("locked"));
+
+		flushes.abort_all();
+		while let Some(result) = flushes.join_next().await {
+			log_flush(result);
+		}
+
 		Ok(())
 	}
 
 	async fn interrupt(&self) {
+		self.flushes.lock().expect("locked").abort_all();
+
 		for (sender, _) in &self.channels {
 			if !sender.is_closed() {
 				sender.close();
@@ -669,4 +686,20 @@ fn num_senders(args: &crate::Args<'_>) -> usize {
 		.config
 		.sender_workers
 		.clamp(MIN_SENDERS, max_senders)
+}
+
+fn reap_flushes(flushes: &mut JoinSet<()>) {
+	while let Some(result) = flushes.try_join_next() {
+		log_flush(result);
+	}
+}
+
+// A flush that panicked is reported here or nowhere; a cancelled one is the
+// shutdown path.
+fn log_flush(result: Result<(), JoinError>) {
+	if let Err(error) = result
+		&& error.is_panic()
+	{
+		error!(?error, "Suppressed push flush panicked");
+	}
 }

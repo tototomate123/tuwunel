@@ -61,6 +61,7 @@ use tuwunel_core::{
 
 use super::{
 	Destination, EduBuf, EduVec, Msg, SendingEvent, Service, TAG_PREFIX_LEN, data::QueueItem,
+	reap_flushes,
 };
 use crate::{federation::ShouldAttempt, rooms::timeline::RawPduId};
 
@@ -1416,6 +1417,10 @@ impl Service {
 		Ok(Destination::Push(user_id, pushkey))
 	}
 
+	/// Schedule a flush of the pushes suppressed for one pushkey.
+	///
+	/// The flush runs as a task this service owns, so the caller never waits on
+	/// the push gateway.
 	pub fn schedule_flush_suppressed_for_pushkey(
 		&self,
 		user_id: OwnedUserId,
@@ -1423,22 +1428,41 @@ impl Service {
 		reason: &'static str,
 	) {
 		let sending = self.services.sending.clone();
-		let runtime = self.server.runtime();
-		runtime.spawn(async move {
+
+		self.spawn_flush(async move {
 			sending
 				.flush_suppressed_for_pushkey(user_id, pushkey, reason)
 				.await;
 		});
 	}
 
+	/// Schedule a flush of the pushes suppressed for every pushkey a user owns.
+	///
+	/// The flush runs as a task this service owns, so the caller never waits on
+	/// the push gateway.
 	pub fn schedule_flush_suppressed_for_user(&self, user_id: OwnedUserId, reason: &'static str) {
 		let sending = self.services.sending.clone();
-		let runtime = self.server.runtime();
-		runtime.spawn(async move {
+
+		self.spawn_flush(async move {
 			sending
 				.flush_suppressed_for_user(user_id, reason)
 				.await;
 		});
+	}
+
+	fn spawn_flush<F>(&self, flush: F)
+	where
+		F: Future<Output = ()> + Send + 'static,
+	{
+		// A flush scheduled during shutdown is dropped, not spawned.
+		if !self.server.is_running() {
+			return;
+		}
+
+		let mut flushes = self.flushes.lock().expect("locked");
+
+		reap_flushes(&mut flushes);
+		let _abort = flushes.spawn_on(flush, self.server.runtime());
 	}
 
 	async fn enqueue_suppressed_push_events(
