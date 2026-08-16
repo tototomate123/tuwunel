@@ -71,7 +71,7 @@ please refer to the section on [environment variables](#configuring-via-environm
 | Field | Default | Description |
 |---|---|---|
 | `userid_claims` | all | Claims used to compute the Matrix localpart for new registrations. When empty, Tuwunel avoids generated IDs where possible. The special value `"unique"` forces generated IDs exclusively. The claim `"sub"` takes precedence over all others when listed. |
-| `trusted` | `false` | Inverts user matching: instead of registering a new account when claims conflict with existing users, Tuwunel finds the first matching user and grants access to it. **Only set this for providers you self-host and fully control. Never use with public providers (GitHub, GitLab, Google, etc.) — it enables account takeover.** |
+| `trusted` | `false` | Inverts user matching: instead of registering a new account when claims conflict with existing users, Tuwunel finds the first matching user and grants access to it. **Only set this for providers you self-host and fully control. Never use with public providers (GitHub, GitLab, Google, etc.); it enables account takeover.** For migrated databases, prefer durable bulk adoption or individual association to temporarily enabling this option. |
 | `unique_id_fallbacks` | `true` | When no claim maps cleanly to an available username, generate a unique random localpart as a fallback. Set to `false` on private servers where random usernames are undesirable — a misconfiguration will produce an error instead. |
 | `registration` | `true` | Whether this provider can create new Matrix accounts. Set to `false` to restrict the provider to existing users only. |
 
@@ -259,6 +259,12 @@ unique per user.
 must complete their login before the server is restarted, or the command must
 be run again.
 
+`query oauth adopt <provider>` creates durable subject associations in bulk
+for a database migrated from a Conduit-family fork. The configured provider
+must use the same issuer and subject space as the source database. If the
+source ever changed providers, do not use the bulk command; associate each
+user individually.
+
 ### How Tuwunel derives Matrix user IDs from claims
 
 When a user authenticates through a provider for the first time and no
@@ -381,6 +387,7 @@ These admin room commands help manage OAuth state:
 | `!admin query oauth show-provider <provider_id>` | Show the active configuration for a provider. |
 | `!admin query oauth show-user @user:example.com` | Show OAuth sessions for a user. |
 | `!admin query oauth associate <provider_id> @user:example.com --claim key=value` | Associate an existing Matrix account with future OAuth claims from a provider. Useful for onboarding existing users to SSO. |
+| `!admin query oauth adopt <provider_id>` | Adopt provider subjects from a migrated database. |
 | `!admin query oauth revoke <session_id\|@user:example.com>` | Revoke tokens for a session or all sessions of a user. |
 | `!admin query oauth delete <session_id\|@user:example.com>` | Remove OAuth state entirely (destructive). |
 

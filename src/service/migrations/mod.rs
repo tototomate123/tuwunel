@@ -497,7 +497,7 @@ async fn migrate(services: &Services, foreign_lineage: bool) -> Result {
 /// The id is formatted into an inline buffer and parsed from that slice, which
 /// keeps a short id in inline storage; parsing against a server name instead
 /// routes through an over-allocated `String` and spills to the heap.
-fn local_user_id(localpart: &str, server_name: &ServerName) -> Option<OwnedUserId> {
+pub(crate) fn local_user_id(localpart: &str, server_name: &ServerName) -> Option<OwnedUserId> {
 	let user_id: UserIdBuf = format_small_string!("@{localpart}:{server_name}");
 
 	UserId::parse(user_id.as_str()).ok()

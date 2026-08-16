@@ -1,3 +1,4 @@
+mod adopt;
 pub mod association;
 
 use std::{
@@ -11,17 +12,28 @@ use ruma::{OwnedUserId, UserId};
 use serde::{Deserialize, Serialize};
 use tuwunel_core::{
 	Err, Result, at, implement,
-	utils::stream::{IterStream, ReadyExt, TryExpect},
+	utils::{
+		MutexMap,
+		stream::{IterStream, ReadyExt, TryExpect},
+	},
 };
 use tuwunel_database::{Cbor, Database, Deserialized, Ignore, Map};
 use url::Url;
 
-use super::{Provider, Providers, UserInfo, unique_id};
+pub use self::adopt::Counts;
+use super::{Provider, Providers, UserInfo, unique_id as session_unique_id};
 use crate::SelfServices;
 
 pub struct Sessions {
-	_services: SelfServices,
+	services: SelfServices,
 	association_pending: Mutex<association::Pending>,
+
+	/// Serializes probes and writes for each unique identity.
+	///
+	/// Transaction batches cannot conditionally claim an index key. Each
+	/// identity therefore has an independent critical section.
+	write_locks: MutexMap<String, ()>,
+
 	providers: Arc<Providers>,
 	db: Data,
 }
@@ -109,8 +121,9 @@ pub const SESSION_ID_LENGTH: usize = 32;
 #[implement(Sessions)]
 pub(super) fn build(args: &crate::Args<'_>, providers: Arc<Providers>) -> Self {
 	Self {
-		_services: args.services.clone(),
+		services: args.services.clone(),
 		association_pending: Default::default(),
+		write_locks: MutexMap::new(),
 		providers,
 		db: Data {
 			oauthid_session: args.db["oauthid_session"].clone(),
@@ -128,17 +141,49 @@ pub(super) fn build(args: &crate::Args<'_>, providers: Arc<Providers>) -> Self {
 #[implement(Sessions)]
 #[tracing::instrument(level = "debug", skip(self))]
 pub async fn delete(&self, sess_id: &str) {
-	let Ok(session) = self.get(sess_id).await else {
-		return;
+	let (session, unique_id, _write_guard) = loop {
+		let Ok(snapshot) = self.get(sess_id).await else {
+			return;
+		};
+
+		let provider = async {
+			let idp_id = snapshot.idp_id.as_deref()?;
+
+			self.providers.get(idp_id).map(Result::ok).await
+		}
+		.await;
+
+		let unique_id = provider
+			.as_ref()
+			.and_then(|provider| session_unique_id((provider, &snapshot)).ok());
+
+		let write_guard = match unique_id.as_deref() {
+			| Some(unique_id) => Some(self.write_locks.lock(unique_id).await),
+			| None => None,
+		};
+
+		let Ok(session) = self.get(sess_id).await else {
+			return;
+		};
+
+		if session.idp_id.as_deref() != snapshot.idp_id.as_deref() {
+			continue;
+		}
+
+		let current_unique_id = provider
+			.as_ref()
+			.and_then(|provider| session_unique_id((provider, &session)).ok());
+
+		if current_unique_id == unique_id {
+			break (session, unique_id, write_guard);
+		}
 	};
 
 	// Preserve a unique identity association updated to a newer session.
 	let unique_id = async {
-		let idp_id = session.idp_id.as_ref()?;
-		let provider = self.providers.get(idp_id).map(Result::ok).await?;
-		let unique_id = unique_id((&provider, &session)).ok()?;
+		let unique_id = unique_id.as_deref()?;
 		let assoc_id = self
-			.get_sess_id_by_unique_id(&unique_id)
+			.get_sess_id_by_unique_id(unique_id)
 			.map(Result::ok)
 			.await?;
 
@@ -169,7 +214,7 @@ pub async fn delete(&self, sess_id: &str) {
 		}
 	}
 
-	if let Some(unique_id) = unique_id.as_deref() {
+	if let Some(unique_id) = unique_id {
 		txn.del_raw(&self.db.oauthuniqid_oauthid, unique_id);
 	}
 
@@ -184,18 +229,65 @@ pub async fn delete(&self, sess_id: &str) {
 #[implement(Sessions)]
 #[tracing::instrument(level = "info", skip(self))]
 pub async fn put(&self, session: &Session) {
-	let sess_id = session
-		.sess_id
-		.as_deref()
-		.expect("Missing session.sess_id required for sessions.put()");
-
 	let unique_id = async {
 		let idp_id = session.idp_id.as_ref()?;
 		let provider = self.providers.get(idp_id).map(Result::ok).await?;
 
-		unique_id((&provider, session)).ok()
+		session_unique_id((&provider, session)).ok()
 	}
 	.await;
+
+	let _write_guard = match unique_id.as_deref() {
+		| Some(unique_id) => Some(self.write_locks.lock(unique_id).await),
+		| None => None,
+	};
+
+	self.put_locked(session, unique_id.as_deref())
+		.await;
+}
+
+/// Build and commit a session while exclusively claiming its identity key.
+///
+/// The callback's identity lookup and user selection remain ordered with bulk
+/// adoption until the canonical session and indexes have committed.
+#[implement(Sessions)]
+#[tracing::instrument(level = "debug", skip_all)]
+pub async fn commit_identity_session<T, F, Fut>(
+	&self,
+	unique_id: &str,
+	build: F,
+) -> Result<(Session, T, Option<SessionId>)>
+where
+	T: Send,
+	F: FnOnce(Option<OwnedUserId>) -> Fut + Send,
+	Fut: Future<Output = Result<(Session, T)>> + Send,
+{
+	let write_guard = self.write_locks.lock(unique_id).await;
+	let existing = match self.get_by_unique_id(unique_id).await {
+		| Ok(session) => Some(session),
+		| Err(e) if e.is_not_found() => None,
+		| Err(e) => return Err(e),
+	};
+
+	let old_sess_id = existing
+		.as_ref()
+		.and_then(|session| session.sess_id.clone());
+
+	let old_user_id = existing.and_then(|session| session.user_id);
+	let (session, value) = build(old_user_id).await?;
+
+	self.put_locked(&session, Some(unique_id)).await;
+	drop(write_guard);
+
+	Ok((session, value, old_sess_id))
+}
+
+#[implement(Sessions)]
+async fn put_locked(&self, session: &Session, unique_id: Option<&str>) {
+	let sess_id = session
+		.sess_id
+		.as_deref()
+		.expect("Missing session.sess_id required for sessions.put()");
 
 	let user_sessions = async {
 		let user_id = session.user_id.as_deref()?;
@@ -219,7 +311,7 @@ pub async fn put(&self, session: &Session) {
 
 	txn.raw_put(&self.db.oauthid_session, sess_id, Cbor(session));
 
-	if let Some(unique_id) = unique_id.as_deref() {
+	if let Some(unique_id) = unique_id {
 		txn.insert_raw(&self.db.oauthuniqid_oauthid, unique_id, sess_id);
 	}
 

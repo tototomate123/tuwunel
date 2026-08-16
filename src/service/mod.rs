@@ -1,7 +1,7 @@
 #![expect(refining_impl_trait)]
 
 mod manager;
-mod migrations;
+pub(crate) mod migrations;
 mod once_services;
 mod service;
 pub mod services;

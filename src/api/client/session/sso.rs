@@ -431,36 +431,44 @@ pub(crate) async fn sso_callback_route(
 
 	let unique_id = unique_id_sub((&provider, &userinfo.sub))?;
 
-	let (old_user_id, old_sess_id) = existing_identity_session(&services, &unique_id).await?;
-
-	let session = Session {
-		user_info: Some(userinfo.clone()),
-		..session
-	};
-
-	let user_id = match (session.user_id, old_user_id) {
-		| (Some(user_id), ..) | (None, Some(user_id)) => user_id,
-		| (None, None) => decide_user_id(&services, &provider, &userinfo, &unique_id).await?,
-	};
-
-	let session = Session {
-		user_id: Some(user_id.clone()),
-		..session
-	};
-
-	if !services.users.exists(&user_id).await {
-		let origin = match provider.registration {
-			| true => "sso",
-			// Present in LDAP is an existing user to provision, not a new registration.
-			| false if ldap_user_exists(&services, &user_id).await => "ldap",
-			| false =>
-				return Err!(Request(Forbidden("Registration from this provider is disabled"))),
+	let complete_identity = async |old_user_id: Option<OwnedUserId>| {
+		let session = Session {
+			user_info: Some(userinfo.clone()),
+			..session
 		};
 
-		register_user(&services, &provider, &session, &userinfo, &user_id, origin).await?;
-	}
+		let user_id = match (session.user_id, old_user_id) {
+			| (Some(user_id), ..) | (None, Some(user_id)) => user_id,
+			| (None, None) => decide_user_id(&services, &provider, &userinfo, &unique_id).await?,
+		};
 
-	services.oauth.sessions.put(&session).await;
+		let session = Session {
+			user_id: Some(user_id.clone()),
+			..session
+		};
+
+		if !services.users.exists(&user_id).await {
+			let origin = match provider.registration {
+				| true => "sso",
+				// Present in LDAP is an existing user to provision, not a new registration.
+				| false if ldap_user_exists(&services, &user_id).await => "ldap",
+				| false =>
+					return Err!(Request(Forbidden(
+						"Registration from this provider is disabled"
+					))),
+			};
+
+			register_user(&services, &provider, &session, &userinfo, &user_id, origin).await?;
+		}
+
+		Ok((session, user_id))
+	};
+
+	let (session, user_id, old_sess_id) = services
+		.oauth
+		.sessions
+		.commit_identity_session(&unique_id, complete_identity)
+		.await?;
 
 	if let Some(old_sess_id) = old_sess_id
 		.as_deref()
@@ -547,24 +555,6 @@ fn apply_token_response(session: Session, token: TokenResponse) -> Result<Sessio
 		refresh_token_expires_at,
 		..session
 	})
-}
-
-/// Locate any prior session bound to the same upstream identity, to preserve
-/// one session and its `user_id` association per identity.
-async fn existing_identity_session(
-	services: &Services,
-	unique_id: &str,
-) -> Result<(Option<OwnedUserId>, Option<String>)> {
-	match services
-		.oauth
-		.sessions
-		.get_by_unique_id(unique_id)
-		.await
-	{
-		| Ok(session) => Ok((session.user_id, session.sess_id)),
-		| Err(error) if !error.is_not_found() => Err(error),
-		| Err(_) => Ok((None, None)),
-	}
 }
 
 fn chain_next_idp_url(

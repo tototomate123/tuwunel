@@ -1,3 +1,4 @@
+mod adopt;
 mod associate;
 mod delete;
 mod list_providers;
@@ -23,6 +24,17 @@ use crate::admin_command_dispatch;
 #[derive(Debug, Subcommand)]
 /// Query OAuth service state
 pub(crate) enum OauthCommand {
+	/// Adopt provider subjects from a migrated database.
+	///
+	/// The provider must use the same issuer and subject space as the source.
+	/// If the source changed providers, associate each user individually.
+	Adopt {
+		/// ID of the configured provider that issued the subjects.
+		///
+		/// The provider must represent the issuer for every stored subject.
+		provider: String,
+	},
+
 	/// Associate existing user with future authorization claims.
 	Associate {
 		/// ID of configured provider to listen on.
