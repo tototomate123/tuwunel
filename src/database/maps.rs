@@ -77,6 +77,7 @@ pub(super) static MAPS: &[Descriptor] = &[
 	},
 	Descriptor {
 		name: "authchainkey_authchain",
+		cache_disp: CacheDisp::Unique, // fork-resolve bursts would evict the shared pool
 		compression: CompressionType::None,
 		cache_shards: 32,
 		index_size: 1024,
@@ -112,6 +113,9 @@ pub(super) static MAPS: &[Descriptor] = &[
 	},
 	Descriptor {
 		name: "eventid_backoff",
+		cache_disp: CacheDisp::Unique, // hot on every redelivery
+		key_size_hint: Some(64),
+		val_size_hint: Some(16),
 		ttl: 60 * 60 * 24 * 3, // dead after the max fetch-backoff window (24h)
 		..descriptor::RANDOM_SMALL_CACHE
 	},
@@ -195,6 +199,7 @@ pub(super) static MAPS: &[Descriptor] = &[
 	},
 	Descriptor {
 		name: "mediaid_lazycontent",
+		cache_disp: CacheDisp::Unique, // 256 KiB rows would evict the shared pool
 		key_size_hint: Some(64),
 		val_size_hint: Some(1024 * 256),
 		file_size: 1024 * 1024 * 64,
@@ -425,6 +430,9 @@ pub(super) static MAPS: &[Descriptor] = &[
 	},
 	Descriptor {
 		name: "servername_destination",
+		cache_disp: CacheDisp::SharedWith("servername_override"), // one resolve writes both
+		key_size_hint: Some(48),
+		val_size_hint: Some(128),
 		ttl: 60 * 60 * 24 * 7, // dead after CachedDest::default_expire (<=36h)
 		..descriptor::RANDOM_SMALL_CACHE
 	},
@@ -434,11 +442,17 @@ pub(super) static MAPS: &[Descriptor] = &[
 	},
 	Descriptor {
 		name: "servername_override",
+		cache_disp: CacheDisp::SharedWith("servername_destination"),
+		key_size_hint: Some(48),
+		val_size_hint: Some(128),
 		ttl: 60 * 60 * 24 * 7, // dead after CachedOverride::default_expire (<=12h)
 		..descriptor::RANDOM_SMALL_CACHE
 	},
 	Descriptor {
 		name: "servername_status",
+		cache_disp: CacheDisp::Unique, // read on every outbound attempt
+		key_size_hint: Some(48),
+		val_size_hint: Some(16),
 		ttl: 60 * 60 * 24 * 3, // dead after peer MAX_BACKOFF (24h)
 		..descriptor::RANDOM_SMALL_CACHE
 	},

@@ -213,6 +213,16 @@
 #eventid_pdu_cache_capacity = varies by system
 
 # Maximum number of entries in the RocksDB block cache for the
+# `eventid_backoff` column family: the recent fetch, auth, and upgrade
+# outcomes an event is rate-gated against, keyed by federation step,
+# event ID, and time bucket.
+#
+# Same entry-count semantics as `pdu_cache_capacity`. A server working
+# through a large missing-ancestry gap reads this column heavily.
+#
+#eventid_backoff_cache_capacity = varies by system
+
+# Maximum number of entries in the RocksDB block cache for the
 # `shortstatekey_statekey` column family: a state event's full state
 # key, looked up from its short state key.
 #
@@ -237,6 +247,35 @@
 # Same entry-count semantics as `pdu_cache_capacity`.
 #
 #servernameevent_data_cache_capacity = varies by system
+
+# Maximum number of entries in the RocksDB block cache for the
+# `mediaid_lazycontent` column family: preview images staged by the URL
+# preview fetcher, keyed by media ID, until a download promotes the row.
+#
+# Same entry-count semantics as `pdu_cache_capacity`, against a modal
+# 256 KiB entry. Staged rows are read once and deleted at promotion, so
+# this mostly holds index blocks, and a single outsized preview can
+# exceed the whole pool.
+#
+#mediaid_lazycontent_cache_capacity = 128
+
+# Maximum number of entries in the RocksDB block cache pool shared by the
+# `servername_destination` and `servername_override` column families: a
+# remote server's resolved federation destination, keyed by server name,
+# and the address override for a resolved hostname.
+#
+# Same entry-count semantics as `pdu_cache_capacity`, counted across the
+# pool rather than per column.
+#
+#resolver_cache_capacity = varies by system
+
+# Maximum number of entries in the RocksDB block cache for the
+# `servername_status` column family: a remote server's recent
+# reachability outcome, keyed by server name and time bucket.
+#
+# Same entry-count semantics as `pdu_cache_capacity`.
+#
+#servername_status_cache_capacity = varies by system
 
 # Maximum number of entries in the in-memory LRU cache of decompressed
 # room state (a list of short state-info entries per state hash), used

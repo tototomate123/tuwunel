@@ -204,16 +204,21 @@ fn get_cache(ctx: &Context, desc: &Descriptor) -> Option<Cache> {
 		return None;
 	}
 
-	// Some cache capacities are overridden by server config in a strange but
-	// legacy-compat way
+	// Capacity is configured in entries, converted to bytes against the
+	// descriptor's size hints; the lookup by column name is legacy-compat.
 	let config = &ctx.server.config;
 	let cap = match desc.name {
 		| "eventid_pduid" => Some(config.eventid_pdu_cache_capacity),
 		| "eventid_shorteventid" => Some(config.eventidshort_cache_capacity),
+		| "eventid_backoff" => Some(config.eventid_backoff_cache_capacity),
 		| "shorteventid_eventid" => Some(config.shorteventid_cache_capacity),
 		| "shortstatekey_statekey" => Some(config.shortstatekey_cache_capacity),
 		| "statekey_shortstatekey" => Some(config.statekeyshort_cache_capacity),
 		| "servernameevent_data" => Some(config.servernameevent_data_cache_capacity),
+		| "servername_destination" | "servername_override" =>
+			Some(config.resolver_cache_capacity),
+		| "servername_status" => Some(config.servername_status_cache_capacity),
+		| "mediaid_lazycontent" => Some(config.mediaid_lazycontent_cache_capacity),
 		| "pduid_pdu" | "eventid_outlierpdu" => Some(config.pdu_cache_capacity),
 		| "authchainkey_authchain" => Some(config.auth_chain_cache_capacity),
 		| _ => None,

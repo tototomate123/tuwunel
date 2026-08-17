@@ -333,6 +333,18 @@ pub struct Config {
 	pub eventid_pdu_cache_capacity: u32,
 
 	/// Maximum number of entries in the RocksDB block cache for the
+	/// `eventid_backoff` column family: the recent fetch, auth, and upgrade
+	/// outcomes an event is rate-gated against, keyed by federation step,
+	/// event ID, and time bucket.
+	///
+	/// Same entry-count semantics as `pdu_cache_capacity`. A server working
+	/// through a large missing-ancestry gap reads this column heavily.
+	///
+	/// default: varies by system
+	#[serde(default = "default_eventid_backoff_cache_capacity")]
+	pub eventid_backoff_cache_capacity: u32,
+
+	/// Maximum number of entries in the RocksDB block cache for the
 	/// `shortstatekey_statekey` column family: a state event's full state
 	/// key, looked up from its short state key.
 	///
@@ -363,6 +375,41 @@ pub struct Config {
 	/// default: varies by system
 	#[serde(default = "default_servernameevent_data_cache_capacity")]
 	pub servernameevent_data_cache_capacity: u32,
+
+	/// Maximum number of entries in the RocksDB block cache for the
+	/// `mediaid_lazycontent` column family: preview images staged by the URL
+	/// preview fetcher, keyed by media ID, until a download promotes the row.
+	///
+	/// Same entry-count semantics as `pdu_cache_capacity`, against a modal
+	/// 256 KiB entry. Staged rows are read once and deleted at promotion, so
+	/// this mostly holds index blocks, and a single outsized preview can
+	/// exceed the whole pool.
+	///
+	/// default: 128
+	#[serde(default = "default_mediaid_lazycontent_cache_capacity")]
+	pub mediaid_lazycontent_cache_capacity: u32,
+
+	/// Maximum number of entries in the RocksDB block cache pool shared by the
+	/// `servername_destination` and `servername_override` column families: a
+	/// remote server's resolved federation destination, keyed by server name,
+	/// and the address override for a resolved hostname.
+	///
+	/// Same entry-count semantics as `pdu_cache_capacity`, counted across the
+	/// pool rather than per column.
+	///
+	/// default: varies by system
+	#[serde(default = "default_resolver_cache_capacity")]
+	pub resolver_cache_capacity: u32,
+
+	/// Maximum number of entries in the RocksDB block cache for the
+	/// `servername_status` column family: a remote server's recent
+	/// reachability outcome, keyed by server name and time bucket.
+	///
+	/// Same entry-count semantics as `pdu_cache_capacity`.
+	///
+	/// default: varies by system
+	#[serde(default = "default_servername_status_cache_capacity")]
+	pub servername_status_cache_capacity: u32,
 
 	/// Maximum number of entries in the in-memory LRU cache of decompressed
 	/// room state (a list of short state-info entries per state hash), used
@@ -5156,6 +5203,10 @@ fn default_eventid_pdu_cache_capacity() -> u32 {
 	parallelism_scaled_u32(100_000).saturating_add(400_000)
 }
 
+fn default_eventid_backoff_cache_capacity() -> u32 {
+	parallelism_scaled_u32(4_000).saturating_add(256_000)
+}
+
 fn default_shortstatekey_cache_capacity() -> u32 {
 	parallelism_scaled_u32(4_000).saturating_add(97_000)
 }
@@ -5166,6 +5217,16 @@ fn default_statekeyshort_cache_capacity() -> u32 {
 
 fn default_servernameevent_data_cache_capacity() -> u32 {
 	parallelism_scaled_u32(60_000).saturating_add(470_000)
+}
+
+fn default_mediaid_lazycontent_cache_capacity() -> u32 { 128 }
+
+fn default_resolver_cache_capacity() -> u32 {
+	parallelism_scaled_u32(4_000).saturating_add(32_000)
+}
+
+fn default_servername_status_cache_capacity() -> u32 {
+	parallelism_scaled_u32(4_000).saturating_add(64_000)
 }
 
 fn default_stateinfo_cache_capacity() -> u32 { parallelism_scaled_u32(100) }
