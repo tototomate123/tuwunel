@@ -3201,6 +3201,19 @@ pub struct Config {
 	#[serde(default)]
 	pub url_preview_media_user_agent: Option<String>,
 
+	/// Accept-Language header sent when fetching URL preview pages and media.
+	/// For example, "en-US,en;q=0.9" requests English from sites that support
+	/// language negotiation. Sites that select a language solely by IP address
+	/// may ignore this header.
+	///
+	/// When unset, no Accept-Language header is sent. Changes affect new
+	/// requests; existing cached previews retain their language until expiry.
+	///
+	/// reloadable: yes
+	/// default:
+	#[serde(default)]
+	pub url_preview_accept_language: Option<String>,
+
 	/// List of forbidden room aliases and room IDs as strings of regex
 	/// patterns.
 	///

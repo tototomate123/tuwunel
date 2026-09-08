@@ -88,6 +88,50 @@ fn check_with_captured_logs(config: &Config) -> (Result, String) {
 }
 
 #[test]
+fn url_preview_accept_language_defaults_to_none() {
+	let config = config_from_toml("[global]\n").expect("default config should parse");
+
+	assert!(config.url_preview_accept_language.is_none());
+}
+
+#[test]
+fn url_preview_accept_language_can_be_reloaded_and_removed() {
+	let original = config_from_toml("[global]\n").expect("default config should parse");
+	let english = config_from_toml(
+		r#"[global]
+url_preview_accept_language = "en-US,en;q=0.9"
+"#,
+	)
+	.expect("language preference should parse");
+	let mut german = english.clone();
+	german.url_preview_accept_language = Some("de-DE,de;q=0.9,en;q=0.5".to_owned());
+
+	assert_eq!(english.url_preview_accept_language.as_deref(), Some("en-US,en;q=0.9"));
+	reload(&original, &english).expect("setting a language should reload");
+	reload(&english, &german).expect("changing the language should reload");
+	reload(&german, &original).expect("removing the language should reload");
+}
+
+#[test]
+fn url_preview_accept_language_rejects_invalid_headers() {
+	let original = config_from_toml("[global]\n").expect("default config should parse");
+
+	for value in ["en\r\nX-Injected: true", "en\n", "en\0"] {
+		let mut config = original.clone();
+		config.url_preview_accept_language = Some(value.to_owned());
+
+		let error = check(&config).expect_err("invalid header must fail at startup");
+		assert!(
+			error
+				.to_string()
+				.contains("url_preview_accept_language"),
+			"{error}"
+		);
+		reload(&original, &config).expect_err("invalid header must fail on reload");
+	}
+}
+
+#[test]
 fn ip_source_absent_parses_as_none() {
 	let config = config_from_toml("[global]\n").unwrap();
 

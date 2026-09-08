@@ -12,7 +12,7 @@ use std::{
 
 #[cfg(feature = "url_preview")]
 use reqwest::header::CONTENT_DISPOSITION;
-use reqwest::header::{CONTENT_TYPE, COOKIE, HeaderValue, USER_AGENT};
+use reqwest::header::{ACCEPT_LANGUAGE, CONTENT_TYPE, COOKIE, HeaderValue, USER_AGENT};
 #[cfg(feature = "url_preview")]
 use ruma::Mxc;
 use serde::{Deserialize, Serialize};
@@ -314,12 +314,12 @@ fn preview_get(&self, url: &Url, agent: Agent) -> reqwest::RequestBuilder {
 	self.preview_headers(request, url, agent)
 }
 
-/// Apply the configured User-Agent and any origin-specific headers to a
-/// preview request.
+/// Apply the configured User-Agent, Accept-Language, and any origin-specific
+/// headers to a preview request.
 ///
-/// Both are read per request rather than baked into the client, so a
+/// Headers are read per request rather than baked into the client, so a
 /// configuration reload takes effect without restarting the server. The
-/// configuration is bound once so the two agent options are read through a
+/// configuration is bound once so the header options are read through a
 /// single handle.
 #[implement(Service)]
 pub(super) fn preview_headers(
@@ -339,6 +339,10 @@ pub(super) fn preview_headers(
 
 	let request = match user_agent {
 		| Some(user_agent) => request.header(USER_AGENT, user_agent),
+		| None => request,
+	};
+	let request = match config.url_preview_accept_language.as_deref() {
+		| Some(accept_language) => request.header(ACCEPT_LANGUAGE, accept_language),
 		| None => request,
 	};
 

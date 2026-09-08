@@ -569,6 +569,12 @@ fn check_url_previews(config: &Config) -> Result {
 		return Err!(Config("url_preview_media_user_agent", "Not a valid HTTP header value."));
 	}
 
+	if let Some(accept_language) = config.url_preview_accept_language.as_deref()
+		&& HeaderValue::from_str(accept_language).is_err()
+	{
+		return Err!(Config("url_preview_accept_language", "Not a valid HTTP header value."));
+	}
+
 	timepoint_from_now(Duration::from_secs(config.url_preview_cache_ttl)).map_err(|_| {
 		err!(Config(
 			"url_preview_cache_ttl",
