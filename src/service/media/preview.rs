@@ -341,6 +341,7 @@ pub(super) fn preview_headers(
 		| Some(user_agent) => request.header(USER_AGENT, user_agent),
 		| None => request,
 	};
+
 	let request = match config.url_preview_accept_language.as_deref() {
 		| Some(accept_language) => request.header(ACCEPT_LANGUAGE, accept_language),
 		| None => request,
