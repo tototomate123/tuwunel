@@ -170,6 +170,22 @@ pub async fn bind_auth_request_to_local(&self, req_id: &str) -> Result {
 	Ok(())
 }
 
+/// Undo a local claim when registration rejects a token before consuming it
+/// or creating an account, so the user can correct the form or choose SSO.
+#[implement(super::Server)]
+pub async fn release_local_auth_request(&self, req_id: &str) -> Result {
+	let _lock = self.auth_request_locks.lock(req_id).await;
+	let mut request = self.peek_auth_request(req_id).await?;
+	if !request.local_auth_selected || request.idp_id.is_some() {
+		return Err!(Request(Forbidden("Authorization request is not bound to local sign-in")));
+	}
+
+	request.local_auth_selected = false;
+	self.store_auth_request(req_id, &request);
+
+	Ok(())
+}
+
 /// Claim a pending request exactly once, provided it has not changed since the
 /// caller validated it. Sharing the lock with provider selection prevents a
 /// password flow from claiming a request that was bound to SSO meanwhile.

@@ -37,6 +37,8 @@ fn native_completion_ends_form_navigation() -> Result {
 		.with_option(format!("port={port}"))
 		.with_option("listening=true")
 		.with_option("well_known.client=\"https://localhost\"")
+		.with_option("allow_registration=true")
+		.with_option("registration_token=\"oidc-registration-test\"")
 		.with_option("oidc_native_auth=true")
 		.with_option("identity_provider.first.client_id=\"first-idp\"")
 		.with_option("identity_provider.first.client_secret=\"test-secret\"")
@@ -100,6 +102,7 @@ async fn exercise(services: &Services, base: &str) -> Result {
 		.timeout(Duration::from_secs(10))
 		.build()?;
 	check_provider_choices(services, &client, base).await?;
+	check_registration_claim(services, &client, base).await?;
 	concurrent_completion_only_once(services, &client, base).await?;
 
 	for (redirect, native, waived, automatic) in [
@@ -495,6 +498,91 @@ async fn new_native_request(
 	assert_eq!(native.path(), "/_tuwunel/oidc/native");
 
 	Ok(parameter(&native, "oidc_req_id"))
+}
+
+async fn check_registration_claim(services: &Services, client: &Client, base: &str) -> Result {
+	let redirect = "https://trusted.example/registration";
+	let registration = services
+		.oauth
+		.get_server()?
+		.register_client(from_value(json!({ "redirect_uris": [redirect] }))?)
+		.await?;
+	let req_id = new_native_request(client, base, &registration.client_id, redirect).await?;
+	let user =
+		UserId::parse_with_server_name("oidcregistration", services.globals.server_name())?;
+	let submit = |token: &'static str| {
+		client
+			.post(format!("{base}/_tuwunel/oidc/native"))
+			.form(&[
+				("oidc_req_id", req_id.as_str()),
+				("mode", "register"),
+				("username", "oidcregistration"),
+				("password", PASSWORD),
+				("registration_token", token),
+			])
+			.send()
+	};
+	let rejected = submit("invalid-token").await?;
+	assert_eq!(rejected.status(), StatusCode::FORBIDDEN);
+	assert!(!services.users.exists(&user).await);
+	let pending = services
+		.oauth
+		.get_server()?
+		.peek_auth_request(&req_id)
+		.await?;
+	assert!(!pending.local_auth_selected);
+	assert!(pending.idp_id.is_none());
+
+	let registered = submit("oidc-registration-test").await?;
+	assert_eq!(registered.status(), StatusCode::SEE_OTHER);
+	assert!(services.users.exists(&user).await);
+	let claimed = services
+		.oauth
+		.get_server()?
+		.peek_auth_request(&req_id)
+		.await?;
+	assert!(claimed.local_auth_selected);
+	assert!(claimed.idp_id.is_none());
+	let provider_after_registration = client
+		.get(format!("{base}/_tuwunel/oidc/native"))
+		.query(&[("oidc_req_id", req_id.as_str()), ("idp_id", "first-idp")])
+		.send()
+		.await?;
+	assert!(
+		provider_after_registration
+			.status()
+			.is_client_error()
+	);
+
+	let race_req_id = new_native_request(client, base, &registration.client_id, redirect).await?;
+	let race_user =
+		UserId::parse_with_server_name("oidcregistrationrace", services.globals.server_name())?;
+	let (register, provider) = join(
+		client
+			.post(format!("{base}/_tuwunel/oidc/native"))
+			.form(&[
+				("oidc_req_id", race_req_id.as_str()),
+				("mode", "register"),
+				("username", "oidcregistrationrace"),
+				("password", PASSWORD),
+				("registration_token", "oidc-registration-test"),
+			])
+			.send(),
+		client
+			.get(format!("{base}/_tuwunel/oidc/native"))
+			.query(&[("oidc_req_id", race_req_id.as_str()), ("idp_id", "first-idp")])
+			.send(),
+	)
+	.await;
+	let (register, provider) = (register?, provider?);
+	assert_ne!(register.status().is_redirection(), provider.status().is_redirection());
+	assert_eq!(
+		services.users.exists(&race_user).await,
+		register.status() == StatusCode::SEE_OTHER,
+		"a rejected registration must not create an account",
+	);
+
+	Ok(())
 }
 
 async fn concurrent_completion_only_once(

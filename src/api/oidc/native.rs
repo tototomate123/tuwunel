@@ -242,16 +242,20 @@ async fn native_submit(
 	}
 
 	let user_id = match (context, body.mode.as_deref()) {
-		| (Flow::Authorization(_), Some("register")) => do_register(services, body).await?,
-		| _ => verify_credentials(services, &body.username, &body.password).await?,
+		| (Flow::Authorization(req_id), Some("register")) =>
+			do_register(services, req_id, body).await?,
+		| _ => {
+			let user_id = verify_credentials(services, &body.username, &body.password).await?;
+			if let Flow::Authorization(req_id) = context {
+				services
+					.oauth
+					.get_server()?
+					.bind_auth_request_to_local(req_id)
+					.await?;
+			}
+			user_id
+		},
 	};
-	if let Flow::Authorization(req_id) = context {
-		services
-			.oauth
-			.get_server()?
-			.bind_auth_request_to_local(req_id)
-			.await?;
-	}
 
 	let token = utils::random_string(LOGIN_TOKEN_LENGTH);
 	let _expires_in = services
@@ -316,7 +320,11 @@ async fn verify_credentials(
 	Ok(user_id)
 }
 
-async fn do_register(services: &Services, body: &NativeSubmit) -> Result<OwnedUserId> {
+async fn do_register(
+	services: &Services,
+	req_id: &str,
+	body: &NativeSubmit,
+) -> Result<OwnedUserId> {
 	if !services.config.allow_registration {
 		return Err!(Request(Forbidden("Registration is disabled on this server.")));
 	}
@@ -378,6 +386,9 @@ async fn do_register(services: &Services, body: &NativeSubmit) -> Result<OwnedUs
 	{
 		return Err!(Request(Forbidden("You must accept the terms to register.")));
 	}
+	// Claim this branch before consuming a token or creating the account.
+	let oidc = services.oauth.get_server()?;
+	oidc.bind_auth_request_to_local(req_id).await?;
 
 	if token_required {
 		let token = body
@@ -385,10 +396,14 @@ async fn do_register(services: &Services, body: &NativeSubmit) -> Result<OwnedUs
 			.as_deref()
 			.unwrap_or_default();
 
-		services
+		if let Err(e) = services
 			.registration_tokens
 			.try_consume(token)
-			.await?;
+			.await
+		{
+			oidc.release_local_auth_request(req_id).await?;
+			return Err(e);
+		}
 	}
 
 	services
