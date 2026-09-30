@@ -323,14 +323,14 @@ fn complete_continue_html(redirect_url: &str) -> String {
 		<html lang="en">
 			<head>
 				{ACCOUNT_HEAD}
-				<title>Continue</title>
+				<title>Finish signing in · Tuwunel</title>
 			</head>
-			<body>
-				<h1>Almost there</h1>
-				<p>Continue to return to your app and finish signing in.</p>
-				<div class="nav">
-					<a href="{href}">Continue</a>
-				</div>
+			<body class="auth-page">
+				<main class="auth-card auth-complete" aria-labelledby="auth-title">
+					<h1 id="auth-title">Finish signing in</h1>
+					<p class="auth-description">Continue to your app to complete sign-in.</p>
+					<a class="auth-continue-link" href="{href}">Continue</a>
+				</main>
 			</body>
 		</html>"#
 	)
@@ -411,6 +411,8 @@ mod tests {
 
 		assert!(html.contains(r#"href="io.element.android:"#));
 		assert!(html.contains("&amp;"));
+		assert!(html.contains("auth-card auth-complete"));
+		assert!(html.contains("Finish signing in"));
 		assert!(html.contains("Continue"));
 		assert!(!html.contains("http-equiv=\"refresh\""));
 	}

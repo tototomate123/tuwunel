@@ -18,10 +18,11 @@ use tuwunel_service::{Services, users::Register};
 use url::Url;
 
 use super::{
+	OIDC_REQ_ID_LENGTH,
 	account::{
 		ACCOUNT_HEAD, account_error_response, account_html_response, account_redirect_response,
 	},
-	url_encode,
+	sso_redirect_url, url_encode,
 };
 use crate::ClientIp;
 
@@ -33,6 +34,7 @@ const LOGIN_TOKEN_LENGTH: usize = 32;
 #[derive(Debug, Default, Deserialize)]
 struct NativeQuery {
 	oidc_req_id: Option<String>,
+	idp_id: Option<String>,
 	user_code: Option<String>,
 	action: Option<AccountAction>,
 	device_id: Option<DeviceId>,
@@ -73,6 +75,7 @@ enum Flow<'a> {
 /// authorization request.
 pub(crate) async fn native_get_route(
 	State(services): State<crate::State>,
+	ClientIp(client): ClientIp,
 	request: Request,
 ) -> Response {
 	if let Err(e) = require_native(&services) {
@@ -94,10 +97,80 @@ pub(crate) async fn native_get_route(
 		| Ok(context) => context,
 		| Err(e) => return account_error_response(&e),
 	};
+	if let Some(idp_id) = params.idp_id.as_deref() {
+		let Flow::Authorization(req_id) = context else {
+			return account_error_response(&err!(Request(InvalidParam(
+				"Provider selection requires an authorization request"
+			))));
+		};
+
+		return match native_provider_redirect(&services, client, req_id, idp_id).await {
+			| Ok(redirect) => account_redirect_response(redirect),
+			| Err(e) => account_error_response(&e),
+		};
+	}
+	if let Flow::Authorization(req_id) = context
+		&& let Err(e) = require_local_auth_request(&services, req_id).await
+	{
+		return account_error_response(&e);
+	}
 
 	let view = params.view.as_deref().unwrap_or("login");
 
 	account_html_response(StatusCode::OK, render_page(&services, view, context, None).await)
+}
+
+/// Fork the pending native request for a selected upstream provider. The
+/// original request remains bound to password login and cannot later tag a
+/// password-authenticated device as an SSO device.
+async fn native_provider_redirect(
+	services: &Services,
+	client: IpAddr,
+	req_id: &str,
+	idp_id: &str,
+) -> Result<Redirect> {
+	require_native(services)?;
+	services.oauth.check_rate_limit(client)?;
+	let provider = services
+		.oauth
+		.providers
+		.get_config(idp_id)
+		.map_err(|_| err!(Request(InvalidParam("Unrecognized identity provider"))))?;
+	let oidc = services.oauth.get_server()?;
+	let mut auth_req = oidc.peek_auth_request(req_id).await?;
+	if auth_req.idp_id.is_some() {
+		return Err!(Request(InvalidParam("Not a native authorization request")));
+	}
+
+	let provider_req_id = utils::random_string(OIDC_REQ_ID_LENGTH);
+	auth_req.idp_id = Some(provider.id().to_owned());
+	oidc.store_auth_request(&provider_req_id, &auth_req);
+
+	let issuer = oidc.issuer_url()?;
+	let base = issuer.trim_end_matches('/');
+	let callback = Url::parse_with_params(&format!("{base}/_tuwunel/oidc/_complete"), [(
+		"oidc_req_id",
+		provider_req_id.as_str(),
+	)])
+	.map_err(|_| err!(error!("Failed to build completion URL")))?;
+	let sso_url = sso_redirect_url(base, provider.id(), &callback)?;
+
+	Ok(Redirect::temporary(sso_url.as_str()))
+}
+
+async fn require_local_auth_request(services: &Services, req_id: &str) -> Result {
+	let auth_req = services
+		.oauth
+		.get_server()?
+		.peek_auth_request(req_id)
+		.await?;
+	if auth_req.idp_id.is_some() {
+		return Err!(Request(Forbidden(
+			"Authorization request is bound to an identity provider"
+		)));
+	}
+
+	Ok(())
 }
 
 fn parse_flow<'a>(
@@ -172,6 +245,9 @@ async fn native_submit(
 		body.action.as_deref(),
 		body.device_id.as_deref(),
 	)?;
+	if let Flow::Authorization(req_id) = context {
+		require_local_auth_request(services, req_id).await?;
+	}
 
 	let user_id = match (context, body.mode.as_deref()) {
 		| (Flow::Authorization(_), Some("register")) => do_register(services, body).await?,
@@ -406,11 +482,38 @@ async fn render_page(
 	match (context, view) {
 		| (Flow::Authorization(req_id), "register") if registration_enabled =>
 			render_register(services, req_id, error).await,
-		| _ => render_login(context, error, registration_enabled),
+		| _ => {
+			let sso_options = match context {
+				| Flow::Authorization(req_id) => {
+					let providers = services
+						.config
+						.identity_provider
+						.values()
+						.map(|provider| {
+							(
+								provider.id().to_owned(),
+								provider
+									.name
+									.clone()
+									.unwrap_or_else(|| provider.brand.clone()),
+							)
+						})
+						.collect::<Vec<_>>();
+					render_sso_options(req_id, &providers)
+				},
+				| _ => String::new(),
+			};
+			render_login(context, error, registration_enabled, &sso_options)
+		},
 	}
 }
 
-fn render_login(context: Flow<'_>, error: Option<&str>, show_register: bool) -> String {
+fn render_login(
+	context: Flow<'_>,
+	error: Option<&str>,
+	show_register: bool,
+	sso_options: &str,
+) -> String {
 	let (context_fields, register_link) = match context {
 		| Flow::Device(user_code) => {
 			let context_fields = format!(
@@ -442,7 +545,7 @@ fn render_login(context: Flow<'_>, error: Option<&str>, show_register: bool) -> 
 			let register_link = show_register
 				.then(|| {
 					format!(
-						r#"<p class="nav">No account? <a href="/_tuwunel/oidc/native?oidc_req_id={}&amp;view=register">Create one</a>.</p>"#,
+						r#"<p class="auth-nav">New to this server? <a href="/_tuwunel/oidc/native?oidc_req_id={}&amp;view=register">Create an account</a></p>"#,
 						url_encode(req_id),
 					)
 				})
@@ -454,9 +557,32 @@ fn render_login(context: Flow<'_>, error: Option<&str>, show_register: bool) -> 
 
 	LOGIN_HTML
 		.replace("{register_link}", &register_link)
+		.replace("{sso_options}", sso_options)
 		.replace("{error}", &error_block(error))
 		// Fill caller-supplied fields last so they cannot smuggle a placeholder.
 		.replace("{context_fields}", &context_fields)
+}
+
+fn render_sso_options(req_id: &str, providers: &[(String, String)]) -> String {
+	if providers.is_empty() {
+		return String::new();
+	}
+
+	let mut options = String::from("<section class=\"sso-options\"><h2>Or sign in with</h2><ul>");
+	for (id, name) in providers {
+		write!(
+			options,
+			r#"<li><a href="/_tuwunel/oidc/native?oidc_req_id={}&amp;idp_id={}">{}</a></li>"#,
+			url_encode(req_id),
+			url_encode(id),
+			html_escape(name)
+				.replace('{', "&#123;")
+				.replace('}', "&#125;"),
+		)
+		.ok();
+	}
+	options.push_str("</ul></section>");
+	options
 }
 
 async fn render_register(services: &Services, req_id: &str, error: Option<&str>) -> String {
@@ -519,25 +645,25 @@ static LOGIN_HTML: &str = const_format!(
 <html lang="en">
 	<head>
 		{ACCOUNT_HEAD}
-		<title>Sign In</title>
+		<title>Sign in · Tuwunel</title>
 	</head>
-	<body>
-		<h1>Sign In</h1>
-		{{error}}
-		<form method="POST" action="/_tuwunel/oidc/native">
-			{{context_fields}}
-			<input type="hidden" name="mode" value="login">
-			<label>
-				Username
-				<input type="text" name="username" autocomplete="username" autofocus required>
-			</label>
-			<label>
-				Password
-				<input type="password" name="password" autocomplete="current-password" required>
-			</label>
-			<button type="submit">Sign in</button>
-		</form>
-		{{register_link}}
+	<body class="auth-page">
+		<main class="auth-card" aria-labelledby="auth-title">
+			<h1 id="auth-title">Sign in</h1>
+			<p class="auth-description">Sign in to your Tuwunel account.</p>
+			{{error}}
+			<form class="auth-form" method="POST" action="/_tuwunel/oidc/native">
+				{{context_fields}}
+				<input type="hidden" name="mode" value="login">
+				<label for="auth-username">Username</label>
+				<input id="auth-username" type="text" name="username" autocomplete="username" autofocus required>
+				<label for="auth-password">Password</label>
+				<input id="auth-password" type="password" name="password" autocomplete="current-password" required>
+				<button type="submit">Sign in</button>
+			</form>
+			{{sso_options}}
+			{{register_link}}
+		</main>
 	</body>
 </html>"#
 );
@@ -548,43 +674,40 @@ static REGISTER_HTML: &str = const_format!(
 <html lang="en">
 	<head>
 		{ACCOUNT_HEAD}
-		<title>Create Account</title>
+		<title>Create account · Tuwunel</title>
 	</head>
-	<body>
-		<h1>Create Account</h1>
-		{{error}}
-		<form method="POST" action="/_tuwunel/oidc/native">
-			<input type="hidden" name="oidc_req_id" value="{{req_id}}">
-			<input type="hidden" name="mode" value="register">
-			<label>
-				Username
-				<input type="text" name="username" autocomplete="username" autofocus required>
-			</label>
-			<label>
-				Password
-				<input type="password" name="password" autocomplete="new-password" required>
-			</label>
-			{{token_field}}
-			{{terms}}
-			<button type="submit">Create account</button>
-		</form>
-		<p class="nav">Have an account? <a href="/_tuwunel/oidc/native?oidc_req_id={{req_id_enc}}&amp;view=login">Sign in</a>.</p>
+	<body class="auth-page">
+		<main class="auth-card" aria-labelledby="auth-title">
+			<h1 id="auth-title">Create account</h1>
+			<p class="auth-description">Set up your account on this homeserver.</p>
+			{{error}}
+			<form class="auth-form" method="POST" action="/_tuwunel/oidc/native">
+				<input type="hidden" name="oidc_req_id" value="{{req_id}}">
+				<input type="hidden" name="mode" value="register">
+				<label for="auth-username">Username</label>
+				<input id="auth-username" type="text" name="username" autocomplete="username" autofocus required>
+				<label for="auth-password">Password</label>
+				<input id="auth-password" type="password" name="password" autocomplete="new-password" required>
+				{{token_field}}
+				{{terms}}
+				<button type="submit">Create account</button>
+			</form>
+			<p class="auth-nav">Already have an account? <a href="/_tuwunel/oidc/native?oidc_req_id={{req_id_enc}}&amp;view=login">Sign in</a></p>
+		</main>
 	</body>
 </html>"#
 );
 
-static TOKEN_FIELD: &str = r#"<label>
-				Registration token
-				<input type="text" name="registration_token" autocomplete="off" required>
-			</label>"#;
+static TOKEN_FIELD: &str = r#"<label for="auth-token">Registration token</label>
+				<input id="auth-token" type="text" name="registration_token" autocomplete="off" placeholder="Enter your token" required>"#;
 
 #[cfg(test)]
 mod tests {
-	use super::{Flow, error_block, parse_flow, render_login};
+	use super::{Flow, error_block, parse_flow, render_login, render_sso_options};
 
 	#[test]
 	fn login_page_has_form_and_hidden_req_id() {
-		let html = render_login(Flow::Authorization("REQ123"), None, false);
+		let html = render_login(Flow::Authorization("REQ123"), None, false, "");
 
 		assert!(html.contains(r#"action="/_tuwunel/oidc/native""#));
 		assert!(html.contains(r#"name="oidc_req_id" value="REQ123""#));
@@ -595,15 +718,34 @@ mod tests {
 
 	#[test]
 	fn login_page_links_to_register_when_enabled() {
-		let html = render_login(Flow::Authorization("REQ123"), None, true);
+		let html = render_login(Flow::Authorization("REQ123"), None, true, "");
 
 		assert!(html.contains("oidc_req_id=REQ123&amp;view=register"));
 	}
 
 	#[test]
+	fn login_page_offers_each_provider_with_a_bound_request() {
+		let options = render_sso_options("REQ123", &[
+			("first/provider".into(), "First provider".into()),
+			("second".into(), "Second {error} <provider>".into()),
+		]);
+		let html = render_login(Flow::Authorization("REQ123"), None, false, &options);
+
+		assert!(html.contains("oidc_req_id=REQ123&amp;idp_id=first%2Fprovider"));
+		assert!(html.contains("oidc_req_id=REQ123&amp;idp_id=second"));
+		assert!(html.contains("Second &#123;error&#125; &lt;provider&gt;"));
+		assert!(!html.contains("<provider>"));
+		assert!(html.contains(r#"name="password""#));
+	}
+
+	#[test]
 	fn login_page_escapes_error_and_req_id() {
-		let html =
-			render_login(Flow::Authorization("a<b>c"), Some("<script>alert(1)</script>"), false);
+		let html = render_login(
+			Flow::Authorization("a<b>c"),
+			Some("<script>alert(1)</script>"),
+			false,
+			"",
+		);
 
 		assert!(!html.contains("<script>"));
 		assert!(html.contains("&lt;script&gt;"));
@@ -614,7 +756,7 @@ mod tests {
 	#[test]
 	fn login_page_does_not_expand_smuggled_placeholder() {
 		// A req_id of "{error}" must not be re-expanded by the later error fill.
-		let html = render_login(Flow::Authorization("{error}"), Some("BOOM"), false);
+		let html = render_login(Flow::Authorization("{error}"), Some("BOOM"), false, "");
 
 		assert_eq!(html.matches("BOOM").count(), 1);
 		assert!(html.contains(r#"value="{error}""#));
@@ -622,7 +764,7 @@ mod tests {
 
 	#[test]
 	fn device_login_page_has_only_hidden_user_code() {
-		let html = render_login(Flow::Device("BCDF-GHJK"), None, true);
+		let html = render_login(Flow::Device("BCDF-GHJK"), None, true, "");
 
 		assert!(html.contains(r#"name="user_code" value="BCDF-GHJK""#));
 		assert!(!html.contains(r#"name="oidc_req_id""#));
@@ -631,7 +773,7 @@ mod tests {
 
 	#[test]
 	fn device_login_page_escapes_and_does_not_expand_context() {
-		let html = render_login(Flow::Device("a<{error}>"), Some("BOOM"), true);
+		let html = render_login(Flow::Device("a<{error}>"), Some("BOOM"), true, "");
 
 		assert_eq!(html.matches("BOOM").count(), 1);
 		assert!(!html.contains("a<{error}>"));
@@ -645,7 +787,7 @@ mod tests {
 			device_id: "",
 		};
 
-		let html = render_login(context, None, true);
+		let html = render_login(context, None, true, "");
 
 		assert!(html.contains(r#"name="action" value="org.matrix.sessions_list""#));
 		assert!(html.contains(r#"name="device_id" value="""#));
@@ -661,7 +803,7 @@ mod tests {
 			device_id: "b<{error}>",
 		};
 
-		let html = render_login(context, Some("BOOM"), true);
+		let html = render_login(context, Some("BOOM"), true, "");
 
 		assert_eq!(html.matches("BOOM").count(), 1);
 		assert!(!html.contains("a<{error}>"));

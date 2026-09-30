@@ -38,6 +38,16 @@ fn native_completion_ends_form_navigation() -> Result {
 		.with_option("listening=true")
 		.with_option("well_known.client=\"https://localhost\"")
 		.with_option("oidc_native_auth=true")
+		.with_option("identity_provider.first.client_id=\"first-idp\"")
+		.with_option("identity_provider.first.client_secret=\"test-secret\"")
+		.with_option("identity_provider.first.brand=\"first\"")
+		.with_option("identity_provider.first.name=\"First SSO\"")
+		.with_option("identity_provider.first.issuer_url=\"https://first.invalid\"")
+		.with_option("identity_provider.second.client_id=\"second-idp\"")
+		.with_option("identity_provider.second.client_secret=\"test-secret\"")
+		.with_option("identity_provider.second.brand=\"second\"")
+		.with_option("identity_provider.second.name=\"Second SSO\"")
+		.with_option("identity_provider.second.issuer_url=\"https://second.invalid\"")
 		.with_option("oidc_require_pkce=false")
 		.with_option("oidc_require_client_approval=true")
 		.with_option("oidc_rc_per_second=0")
@@ -89,6 +99,7 @@ async fn exercise(services: &Services, base: &str) -> Result {
 		.redirect(Policy::none())
 		.timeout(Duration::from_secs(10))
 		.build()?;
+	check_provider_choices(services, &client, base).await?;
 
 	for (redirect, native, waived, automatic) in [
 		("https://trusted.example/callback?existing=a%26b", false, true, true),
@@ -258,6 +269,9 @@ async fn complete(
 	if automatic {
 		assert!(html.contains(&format!("content=\"0; URL={destination}\"")));
 		assert!(!html.contains("stylesheet"));
+	} else {
+		assert!(html.contains("auth-card auth-complete"));
+		assert!(html.contains("Finish signing in"));
 	}
 
 	let destination = Url::parse(&destination.replace("&amp;", "&"))?;
@@ -322,6 +336,88 @@ async fn complete(
 		.find_from_login_token(&parameter(&completion, "loginToken"))
 		.await
 		.expect_err("completed login token was consumed");
+
+	Ok(())
+}
+
+async fn check_provider_choices(services: &Services, client: &Client, base: &str) -> Result {
+	let redirect = "https://trusted.example/callback";
+	let registration = services
+		.oauth
+		.get_server()?
+		.register_client(from_value(json!({ "redirect_uris": [redirect] }))?)
+		.await?;
+	let response = client
+		.get(format!("{base}/_tuwunel/oidc/authorize"))
+		.query(&[
+			("client_id", registration.client_id.as_str()),
+			("redirect_uri", redirect),
+			("response_type", "code"),
+			("scope", "openid"),
+		])
+		.send()
+		.await?
+		.error_for_status()?;
+	let native = Url::parse(
+		response.headers()["location"]
+			.to_str()
+			.expect("native location"),
+	)?;
+	assert_eq!(native.path(), "/_tuwunel/oidc/native");
+	let req_id = parameter(&native, "oidc_req_id");
+
+	let html = client
+		.get(format!("{base}/_tuwunel/oidc/native"))
+		.query(&[("oidc_req_id", req_id.as_str())])
+		.send()
+		.await?
+		.error_for_status()?
+		.text()
+		.await?;
+	assert!(html.contains("First SSO"));
+	assert!(html.contains("Second SSO"));
+	assert!(html.contains(r#"name="password""#));
+
+	for provider in ["first-idp", "second-idp"] {
+		let response = client
+			.get(format!("{base}/_tuwunel/oidc/native"))
+			.query(&[("oidc_req_id", req_id.as_str()), ("idp_id", provider)])
+			.send()
+			.await?
+			.error_for_status()?;
+		let sso_url = Url::parse(
+			response.headers()["location"]
+				.to_str()
+				.expect("SSO location"),
+		)?;
+		assert!(sso_url.path().ends_with(provider));
+		let callback = Url::parse(&parameter(&sso_url, "redirectUrl"))?;
+		let selected_req_id = parameter(&callback, "oidc_req_id");
+		assert_ne!(selected_req_id, req_id);
+		let selected = services
+			.oauth
+			.get_server()?
+			.peek_auth_request(&selected_req_id)
+			.await?;
+		assert_eq!(selected.idp_id.as_deref(), Some(provider));
+		assert_eq!(selected.redirect_uri, redirect);
+		let password_attempt = client
+			.post(format!("{base}/_tuwunel/oidc/native"))
+			.form(&[
+				("oidc_req_id", selected_req_id.as_str()),
+				("username", "oidccompletion"),
+				("password", PASSWORD),
+			])
+			.send()
+			.await?;
+		assert_eq!(password_attempt.status(), StatusCode::FORBIDDEN);
+	}
+	let original = services
+		.oauth
+		.get_server()?
+		.peek_auth_request(&req_id)
+		.await?;
+	assert_eq!(original.idp_id, None);
 
 	Ok(())
 }

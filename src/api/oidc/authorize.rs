@@ -87,14 +87,9 @@ pub(crate) async fn authorize_route(
 		| None => services.oauth.providers.get_default_id(),
 	};
 
-	// Native page when native auth is on and no external provider applies, or the
-	// client explicitly requested account creation (prompt=create).
-	let serve_native = params.idp_id.is_none()
-		&& should_serve_native(
-			services.config.oidc_native_auth,
-			resolved_idp.is_some(),
-			params.prompt.as_deref() == Some("create"),
-		);
+	// When native auth is enabled, let the user choose between local credentials
+	// and every configured provider. An explicit idp_id still skips the chooser.
+	let serve_native = params.idp_id.is_none() && services.config.oidc_native_auth;
 
 	let idp_id = match (serve_native, resolved_idp) {
 		| (true, _) => None,
@@ -157,9 +152,8 @@ pub(crate) async fn authorize_route(
 }
 
 /// Decide whether a request with no explicitly-selected provider is served the
-/// native login/register page rather than an upstream-IdP SSO redirect. Native
-/// applies when enabled and either no default IdP is configured or the client
-/// asked to create an account.
+/// native login/register page rather than an upstream-IdP SSO redirect. Used
+/// by the account and device flows, which do not have a provider chooser.
 pub(super) fn should_serve_native(
 	native_enabled: bool,
 	has_default_idp: bool,
@@ -215,10 +209,8 @@ mod tests {
 		// Native-only (no default provider): native.
 		assert!(should_serve_native(true, false, false));
 
-		// An external default is configured, ordinary login: SSO to the default.
+		// Account and device flows still follow the configured default.
 		assert!(!should_serve_native(true, true, false));
-
-		// An external default is configured, prompt=create: native registration.
 		assert!(should_serve_native(true, true, true));
 	}
 }
