@@ -249,11 +249,13 @@ async fn release_code(
 			.as_deref()
 			== Some("native");
 
-	oidc.remove_auth_request(&params.oidc_req_id);
+	let auth_req = oidc
+		.take_auth_request(&params.oidc_req_id, auth_req)
+		.await?;
 
 	let user_id = consume_login_token(services, Some(&params.login_token)).await?;
-	let code = oidc.create_auth_code(auth_req, user_id);
-	let redirect_url = code_redirect(redirect_url, auth_req, &code);
+	let code = oidc.create_auth_code(&auth_req, user_id);
+	let redirect_url = code_redirect(redirect_url, &auth_req, &code);
 	let html = if needs_interstitial(&redirect_url, native) {
 		complete_continue_html(redirect_url.as_str())
 	} else {
@@ -291,13 +293,14 @@ fn with_fragment(mut url: Url, fragment: &str) -> Url {
 /// Discard a refused authorization.
 ///
 /// Both single-use credentials are burned, so a refusal cannot be resumed by
-/// replaying the form. The request is removed without being read, since nothing
-/// here needs its contents.
+/// replaying the form.
 async fn refuse_code(services: &Services, params: &CompleteParams) -> Result<Response> {
-	services
-		.oauth
-		.get_server()?
-		.remove_auth_request(&params.oidc_req_id);
+	let oidc = services.oauth.get_server()?;
+	let auth_req = oidc
+		.peek_auth_request(&params.oidc_req_id)
+		.await?;
+	oidc.take_auth_request(&params.oidc_req_id, &auth_req)
+		.await?;
 
 	consume_login_token(services, Some(&params.login_token))
 		.await

@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use tuwunel_core::{Err, Result, err, implement, utils, utils::hash::sha256};
 use tuwunel_database::{Cbor, Deserialized};
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AuthRequest {
 	pub client_id: String,
 
@@ -26,6 +26,11 @@ pub struct AuthRequest {
 	/// authorization request. Stored so it can be propagated to the device
 	/// at token exchange time and used for UIAA SSO provider binding.
 	pub idp_id: Option<String>,
+
+	/// Set after a successful local login or registration. Provider selection
+	/// and local authentication claim the same request under one lock.
+	#[serde(default)]
+	pub local_auth_selected: bool,
 
 	pub response_mode: Option<String>,
 
@@ -123,6 +128,63 @@ pub async fn peek_auth_request(&self, req_id: &str) -> Result<AuthRequest> {
 
 		return Err!(Request(NotFound("Authorization request has expired")));
 	}
+
+	Ok(request)
+}
+
+/// Bind a native authorization request to one selected upstream provider.
+/// Only the first selection succeeds; a password submission can no longer use
+/// this request once it is bound.
+#[implement(super::Server)]
+pub async fn bind_auth_request_to_provider(&self, req_id: &str, provider_id: &str) -> Result {
+	let _lock = self.auth_request_locks.lock(req_id).await;
+	let mut request = self.peek_auth_request(req_id).await?;
+	if request.idp_id.is_some() || request.local_auth_selected {
+		return Err!(Request(InvalidParam(
+			"Authorization request already selected a sign-in method"
+		)));
+	}
+
+	request.idp_id = Some(provider_id.to_owned());
+	self.store_auth_request(req_id, &request);
+
+	Ok(())
+}
+
+/// Claim the local-password branch after credentials have succeeded. A
+/// concurrent provider selection can win instead, in which case this login
+/// cannot issue a token for the provider-bound request.
+#[implement(super::Server)]
+pub async fn bind_auth_request_to_local(&self, req_id: &str) -> Result {
+	let _lock = self.auth_request_locks.lock(req_id).await;
+	let mut request = self.peek_auth_request(req_id).await?;
+	if request.idp_id.is_some() || request.local_auth_selected {
+		return Err!(Request(Forbidden(
+			"Authorization request already selected a sign-in method"
+		)));
+	}
+
+	request.local_auth_selected = true;
+	self.store_auth_request(req_id, &request);
+
+	Ok(())
+}
+
+/// Claim a pending request exactly once, provided it has not changed since the
+/// caller validated it. Sharing the lock with provider selection prevents a
+/// password flow from claiming a request that was bound to SSO meanwhile.
+#[implement(super::Server)]
+pub async fn take_auth_request(
+	&self,
+	req_id: &str,
+	expected: &AuthRequest,
+) -> Result<AuthRequest> {
+	let _lock = self.auth_request_locks.lock(req_id).await;
+	let request = self.peek_auth_request(req_id).await?;
+	if &request != expected {
+		return Err!(Request(Forbidden("Authorization request changed during sign-in")));
+	}
+	self.remove_auth_request(req_id);
 
 	Ok(request)
 }

@@ -109,6 +109,7 @@ pub(crate) async fn authorize_route(
 		// The IdP that authenticated the user, tagged on the device at token
 		// exchange; absent in native mode (the account is local).
 		idp_id: idp_id.clone(),
+		local_auth_selected: false,
 		response_mode: params.response_mode,
 		created_at: now,
 		expires_at: now

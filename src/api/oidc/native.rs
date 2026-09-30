@@ -18,7 +18,6 @@ use tuwunel_service::{Services, users::Register};
 use url::Url;
 
 use super::{
-	OIDC_REQ_ID_LENGTH,
 	account::{
 		ACCOUNT_HEAD, account_error_response, account_html_response, account_redirect_response,
 	},
@@ -120,9 +119,9 @@ pub(crate) async fn native_get_route(
 	account_html_response(StatusCode::OK, render_page(&services, view, context, None).await)
 }
 
-/// Fork the pending native request for a selected upstream provider. The
-/// original request remains bound to password login and cannot later tag a
-/// password-authenticated device as an SSO device.
+/// Bind the pending native request to the selected upstream provider so the
+/// same authorization request cannot also complete with a local password or
+/// another provider.
 async fn native_provider_redirect(
 	services: &Services,
 	client: IpAddr,
@@ -137,23 +136,16 @@ async fn native_provider_redirect(
 		.get_config(idp_id)
 		.map_err(|_| err!(Request(InvalidParam("Unrecognized identity provider"))))?;
 	let oidc = services.oauth.get_server()?;
-	let mut auth_req = oidc.peek_auth_request(req_id).await?;
-	if auth_req.idp_id.is_some() {
-		return Err!(Request(InvalidParam("Not a native authorization request")));
-	}
-
-	let provider_req_id = utils::random_string(OIDC_REQ_ID_LENGTH);
-	auth_req.idp_id = Some(provider.id().to_owned());
-	oidc.store_auth_request(&provider_req_id, &auth_req);
-
 	let issuer = oidc.issuer_url()?;
 	let base = issuer.trim_end_matches('/');
 	let callback = Url::parse_with_params(&format!("{base}/_tuwunel/oidc/_complete"), [(
 		"oidc_req_id",
-		provider_req_id.as_str(),
+		req_id,
 	)])
 	.map_err(|_| err!(error!("Failed to build completion URL")))?;
 	let sso_url = sso_redirect_url(base, provider.id(), &callback)?;
+	oidc.bind_auth_request_to_provider(req_id, provider.id())
+		.await?;
 
 	Ok(Redirect::temporary(sso_url.as_str()))
 }
@@ -164,9 +156,9 @@ async fn require_local_auth_request(services: &Services, req_id: &str) -> Result
 		.get_server()?
 		.peek_auth_request(req_id)
 		.await?;
-	if auth_req.idp_id.is_some() {
+	if auth_req.idp_id.is_some() || auth_req.local_auth_selected {
 		return Err!(Request(Forbidden(
-			"Authorization request is bound to an identity provider"
+			"Authorization request already selected a sign-in method"
 		)));
 	}
 
@@ -253,6 +245,13 @@ async fn native_submit(
 		| (Flow::Authorization(_), Some("register")) => do_register(services, body).await?,
 		| _ => verify_credentials(services, &body.username, &body.password).await?,
 	};
+	if let Flow::Authorization(req_id) = context {
+		services
+			.oauth
+			.get_server()?
+			.bind_auth_request_to_local(req_id)
+			.await?;
+	}
 
 	let token = utils::random_string(LOGIN_TOKEN_LENGTH);
 	let _expires_in = services
